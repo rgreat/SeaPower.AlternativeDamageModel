@@ -1,1 +1,0 @@
-D:/Sea Power/BepInEx/AlternativeDamageModel.trace.txt
