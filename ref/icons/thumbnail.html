@@ -1,0 +1,85 @@
+<html><body style="margin:0;background:#000">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" font-family="DejaVu Sans, Segoe UI, Arial">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#162a40"/><stop offset="1" stop-color="#0c1726"/></linearGradient>
+ <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#21405e" stroke-width="1" opacity=".55"/></pattern>
+ <clipPath id="hull"><path d="M44 262 L452 262 L470 250 L452 300 L70 300 Z"/></clipPath>
+ <g id="crew">
+   <rect x="-6" y="2" width="12" height="13" rx="3" fill="#2a3f66"/>
+   <circle cx="0" cy="-2" r="5" fill="#d9b48a"/>
+   <path d="M-6 -3 A6 6 0 0 1 6 -3 Z" fill="#d23b33"/><rect x="-6" y="-4" width="12" height="2" fill="#f2c94c"/>
+ </g>
+</defs>
+<rect width="512" height="512" fill="url(#bg)"/><rect width="512" height="512" fill="url(#grid)"/>
+
+<!-- panel -->
+<rect x="36" y="34" width="440" height="138" rx="10" fill="#14263b" stroke="#5fc6dc" stroke-width="2.5"/>
+<text x="52" y="58" fill="#e6edf3" font-size="14" font-weight="bold">Damage Control</text>
+<g fill="#e6edf3"><circle cx="430" cy="52" r="4.5"/><circle cx="444" cy="52" r="4.5"/><circle cx="458" cy="52" r="4.5"/></g>
+<!-- teams -->
+<text x="52" y="86" fill="#9fb3c6" font-size="11" font-weight="bold">TEAMS</text>
+<use href="#crew" x="62" y="108"/><use href="#crew" x="86" y="108"/><use href="#crew" x="110" y="108"/>
+<g opacity=".45"><use href="#crew" x="134" y="108"/></g>
+<text x="124" y="136" fill="#ecd46e" font-size="10">0:40</text>
+<g transform="translate(158 108)"><use href="#crew" opacity=".45"/><circle cx="6" cy="8" r="5" fill="#fff"/><path d="M6 5 V11 M3 8 H9" stroke="#d23b33" stroke-width="2"/></g>
+<text x="52" y="158" fill="#9fb3c6" font-size="10">DC1 · DC2 · DC3 · walking · hurt</text>
+<!-- dials -->
+<g transform="translate(250 136)">
+ <path d="M-34 0 A34 34 0 0 1 34 0 Z" fill="#232a33"/>
+ <path d="M-30 0 A30 30 0 0 1 -21.2 -21.2" stroke="#c83e36" stroke-width="6" fill="none"/>
+ <path d="M-21.2 -21.2 A30 30 0 0 1 21.2 -21.2" stroke="#a0a6ae" stroke-width="6" fill="none"/>
+ <path d="M21.2 -21.2 A30 30 0 0 1 30 0" stroke="#c83e36" stroke-width="6" fill="none"/>
+ <path d="M0 0 L-9 -24" stroke="#fff" stroke-width="2.5"/><circle r="3.5" fill="#fff"/>
+ <text y="-44" fill="#9fb3c6" font-size="11" font-weight="bold" text-anchor="middle">LIST</text>
+</g>
+<g transform="translate(340 136)">
+ <path d="M-34 0 A34 34 0 0 1 34 0 Z" fill="#232a33"/>
+ <path d="M-30 0 A30 30 0 0 1 -21.2 -21.2" stroke="#c83e36" stroke-width="6" fill="none"/>
+ <path d="M-21.2 -21.2 A30 30 0 0 1 21.2 -21.2" stroke="#a0a6ae" stroke-width="6" fill="none"/>
+ <path d="M21.2 -21.2 A30 30 0 0 1 30 0" stroke="#c83e36" stroke-width="6" fill="none"/>
+ <path d="M0 0 L20 -17" stroke="#fff" stroke-width="2.5"/><circle r="3.5" fill="#fff"/>
+ <text y="-44" fill="#9fb3c6" font-size="11" font-weight="bold" text-anchor="middle">TRIM</text>
+</g>
+<g transform="translate(410 82)">
+ <text x="12" y="0" fill="#9fb3c6" font-size="11" font-weight="bold" text-anchor="middle">LEVEL</text>
+ <rect x="3" y="8" width="18" height="56" fill="#232a33" stroke="#9fb3c6" stroke-width="1.5"/>
+ <rect x="4" y="38" width="16" height="25" fill="#4a96e2"/>
+ <rect x="4" y="9" width="3" height="11" fill="#c83e36"/><rect x="17" y="9" width="3" height="11" fill="#c83e36"/>
+</g>
+
+<!-- sea behind the ship -->
+<path d="M0 290 Q 32 282 64 290 T 128 290 T 192 290 T 256 290 T 320 290 T 384 290 T 448 290 T 512 290 V512 H0Z" fill="#0f2238" opacity=".9"/>
+<path d="M0 312 Q 40 304 80 312 T 160 312 T 240 312 T 320 312 T 400 312 T 480 312 T 560 312" fill="none" stroke="#2f5f93" stroke-width="2"/>
+<!-- ship, bow down a little -->
+<g transform="rotate(2.2 256 280)">
+ <rect x="206" y="214" width="12" height="16" fill="#8fa3b6"/>
+ <path d="M212 184 V214 M204 194 H220" stroke="#c9d3dc" stroke-width="2.5"/>
+ <path d="M170 262 L176 230 L250 230 L256 244 L290 244 L290 262 Z" fill="#7d93a8"/>
+ <rect x="320" y="246" width="40" height="16" fill="#7d93a8"/>
+ <path d="M90 258 H120 M80 252 L104 252" stroke="#7d93a8" stroke-width="5"/>
+ <path d="M396 252 L428 252" stroke="#7d93a8" stroke-width="5"/>
+ <path d="M44 262 L452 262 L470 250 L452 300 L70 300 Z" fill="#3e5367"/>
+ <g clip-path="url(#hull)">
+  <!-- compartments: water levels, bow (right) flooding -->
+  <rect x="48" y="294" width="80" height="6" fill="#4a96e2"/>
+  <rect x="210" y="286" width="80" height="14" fill="#4a96e2"/>
+  <rect x="292" y="280" width="80" height="20" fill="#4a96e2"/>
+  <rect x="374" y="266" width="96" height="34" fill="#2e68c4"/>
+  <path d="M128 262 V300 M210 262 V300 M292 262 V300 M374 262 V300" stroke="#0c1726" stroke-width="3"/>
+ </g>
+ <path d="M44 262 L452 262 L470 250 L452 300 L70 300 Z" fill="none" stroke="#c9d3dc" stroke-width="2"/>
+ <!-- fire + team -->
+ <path d="M168 288 C162 280 166 272 172 266 C172 274 178 276 180 270 C186 278 184 290 176 292 Z" fill="#f07832"/>
+ <path d="M172 290 C169 286 171 281 174 278 C176 283 179 284 178 288 Z" fill="#ffce5a"/>
+ <use href="#crew" x="150" y="280"/>
+ <use href="#crew" x="330" y="268"/>
+ <!-- arrows -->
+ <path d="M412 252 l6 -10 l6 10 Z M424 252 l6 -10 l6 10 Z" fill="#e8483c" transform="translate(-14 -6)"/>
+</g>
+<!-- waterline in front, thin -->
+<path d="M0 296 Q 32 289 64 296 T 128 296 T 192 296 T 256 296 T 320 296 T 384 296 T 448 296 T 512 296" fill="none" stroke="#3d7fc4" stroke-width="2" opacity=".8"/>
+<text x="34" y="390" fill="#9fc4e6" font-size="27" font-weight="bold" letter-spacing="1">ALTERNATIVE</text>
+<text x="32" y="436" fill="#eef3f8" font-size="44" font-weight="bold" letter-spacing="1">DAMAGE MODEL</text>
+<text x="34" y="468" fill="#c9d6e2" font-size="14">stronger hulls • DC teams that walk • smart Auto DC</text>
+<text x="34" y="490" fill="#7f97ae" font-size="14">no instant sinking • profiles • Anchor Chain mod</text>
+</svg></body></html>

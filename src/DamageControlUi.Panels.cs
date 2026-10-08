@@ -1,0 +1,539 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Reflection;
+using Noesis;
+
+namespace AlternativeDamageModel
+{
+    /// <summary>
+    /// Damage Control tab, extra panels:
+    ///  - the "Hull Damage / Flooding" card gets a third row "Fires:" - the worst fire stage on board and how many sections burn;
+    ///  - a "List / Trim" card under "Damage Control Teams" / "Teams Knocked Out": two dials (list: port / starboard, trim:
+    ///    bow / stern) and a water level bar (flooding of the whole ship). The angles are the ones the game shows in its F10 debug
+    ///    panel (Damage: "Listing" = the hull's local roll, transform.localEulerAngles.z; trim = .x), smoothed over a few seconds so
+    ///    that the dial shows the list rather than the rolling in the waves.
+    /// </summary>
+    static partial class DamageControlUi
+    {
+        sealed class Extras
+        {
+            public Grid HullInner; public RowDefinition FireRowDef; public Grid FireRow; public TextBlock FireValue;
+            public Panel ListHost; public Border ListCard;
+            public RotateTransform ListRot, TrimRot; public TextBlock ListVal, TrimVal;
+            public Border LevelFill; public float LevelHeight; public TextBlock LevelVal;
+            public FrameworkElement Res;                // where the game's brushes are looked up
+            public double T = -1; public float List, Trim;
+            public string FireSig;
+            // "Damage Control Teams" / "Teams Knocked Out": the game's value (and the first card's "Available / Total") hidden, ours shown
+            public List<UIElement> Hidden = new List<UIElement>();
+            public List<KeyValuePair<Panel, UIElement>> Added = new List<KeyValuePair<Panel, UIElement>>();
+            public WrapPanel FreeIcons, MovingIcons;
+            public TextBlock FreeLabel;
+            public string TeamsSig;
+            public List<KeyValuePair<object, TextBlock>> Clocks = new List<KeyValuePair<object, TextBlock>>();   // time under an icon, updated in place
+            public object Comp;                         // the unit shown: another one -> values at once, no smoothing across units
+            public Schematic Schem;                     // the card's tooltip: the sections and their water (DamageControlUi.Schematic.cs)
+        }
+
+        // dials: half a circle, the needle at the top for 0
+        const float DialW = 104f, DialH = 56f, DialCx = 52f, DialCy = 52f, DialR = 46f;
+        // full scale = the point where the mod lets the game switch to faster flooding (Limits); red: the last 25% of each scale
+        static float ListRange { get { return Limits.ListFull; } }
+        static float TrimRange { get { return Limits.TrimFull; } }
+        static float LevelFull { get { return Limits.LevelFull; } }
+        static float ListDanger { get { return 0.75f * Limits.ListFull; } }
+        static float TrimDanger { get { return 0.75f * Limits.TrimFull; } }
+        static float LevelDanger { get { return 0.8f * Limits.LevelFull; } }   // the bar's red band: top 20%
+
+        static PropertyInfo _compFloodPct, _scFireStateProp;
+        static float _shownList; static WeakReference _shownListComp = new WeakReference(null);   // the list on the dial (smoothed): for the tooltips
+        static FieldInfo _compBaseObj;
+
+        static string N(float v) { return v.ToString("0.##", CultureInfo.InvariantCulture); }
+
+        static string P(float r, float phiDeg)
+        {
+            double a = phiDeg * Math.PI / 180.0;
+            return N(DialCx + r * (float)Math.Sin(a)) + "," + N(DialCy - r * (float)Math.Cos(a));
+        }
+
+        /// <summary>A ring segment between radii r0..r1 from dial angle a0 to a1 (degrees from straight up, clockwise).</summary>
+        static string Band(float r0, float r1, float a0, float a1)
+        {
+            string large = Math.Abs(a1 - a0) > 180f ? "1" : "0";
+            return "M" + P(r1, a0) + " A" + N(r1) + "," + N(r1) + " 0 " + large + " 1 " + P(r1, a1) +
+                   " L" + P(r0, a1) + " A" + N(r0) + "," + N(r0) + " 0 " + large + " 0 " + P(r0, a0) + " Z";
+        }
+
+        static Brush Res(FrameworkElement where, string key, Color fallback)
+        {
+            try { var b = where == null ? null : where.TryFindResource(key) as Brush; if (b != null) return b; } catch { }
+            return new SolidColorBrush(fallback);
+        }
+
+        static Brush StageBrush(FrameworkElement where, int stage)
+        {
+            switch (stage)
+            {
+                case 1: return Res(where, "Brush.TextBox.ForegroundFocus", Color.FromRgb(214, 218, 222));
+                case 2: return Res(where, "Brush.TextBox.ForegroundEmphasis", COrange);
+                case 3: return Res(where, "Brush.TextBox.ForegroundStrongEmphasis", CRed);
+                case 4: return Res(where, "Brush.TextBox.ForegroundReallyStrongEmphasis", CRed);
+                default: return Res(where, "Brush.TextBox.Foreground", CWhite);
+            }
+        }
+
+        static ColumnDefinition ColDef(float w, GridUnitType t) { return new ColumnDefinition { Width = new GridLength(w, t) }; }
+
+        // ------------------------------------------------------------ building
+
+        static Extras AddExtras(FrameworkElement view, Grid summary, Grid host, Border styleCard, List<DependencyObject> all)
+        {
+            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            if (_compFloodPct == null)
+            {
+                var asm = _vmType.Assembly;
+                var tComp = asm.GetType("SeaPower.Compartments");
+                _compFloodPct = tComp.GetProperty("FloodingPercentage", inst);
+                _compBaseObj = tComp.GetField("_baseObject", inst);
+                _scFireStateProp = asm.GetType("SeaPower.SystemCompartment").GetProperty("FireState", inst);
+            }
+            var x = new Extras { Res = view };
+
+            // ---- "Fires:" under "Hull Damage:" / "Flooding:" (the card in the last column of the summary grid)
+            Border hullCard = null;
+            int n = VisualTreeHelper.GetChildrenCount(summary);
+            for (int k = 0; k < n; k++)
+            {
+                var b = VisualTreeHelper.GetChild(summary, k) as Border;
+                if (b != null && Grid.GetColumn(b) == 4) { hullCard = b; break; }
+            }
+            var inner = hullCard == null ? null : hullCard.Child as Grid;
+            if (inner != null && inner.RowDefinitions.Count == 2)
+            {
+                Grid tmpl = null;
+                int m = VisualTreeHelper.GetChildrenCount(inner);
+                for (int k = 0; k < m; k++) { var g = VisualTreeHelper.GetChild(inner, k) as Grid; if (g != null && Grid.GetRow(g) == 1) tmpl = g; }
+                TextBlock tLabel = null, tValue = null;
+                if (tmpl != null)
+                {
+                    int c = VisualTreeHelper.GetChildrenCount(tmpl);
+                    for (int k = 0; k < c; k++)
+                    {
+                        var t = VisualTreeHelper.GetChild(tmpl, k) as TextBlock;
+                        if (t == null) continue;
+                        if (Grid.GetColumn(t) == 0) tLabel = t; else if (Grid.GetColumn(t) == 2) tValue = t;
+                    }
+                }
+                x.FireRowDef = new RowDefinition { Height = new GridLength(1f, GridUnitType.Star) };
+                inner.RowDefinitions.Add(x.FireRowDef);
+                var row = new Grid { Margin = tmpl != null ? tmpl.Margin : new Thickness(0f, 4f, 0f, 0f) };
+                row.ColumnDefinitions.Add(ColDef(0f, GridUnitType.Auto));
+                row.ColumnDefinitions.Add(ColDef(10f, GridUnitType.Pixel));
+                row.ColumnDefinitions.Add(ColDef(1f, GridUnitType.Star));
+                Grid.SetRow(row, 2);
+                var label = new TextBlock { Text = "Fires:", VerticalAlignment = VerticalAlignment.Center };
+                if (tLabel != null) { label.FontSize = tLabel.FontSize; }
+                var value = new TextBlock { Text = "None", VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
+                if (tValue != null) { value.Padding = tValue.Padding; value.Background = tValue.Background; value.FontSize = tValue.FontSize; }
+                Grid.SetColumn(value, 2);
+                row.Children.Add(label);
+                row.Children.Add(value);
+                inner.Children.Add(row);
+                x.HullInner = inner; x.FireRow = row; x.FireValue = value;
+            }
+            else Trace("extras: Hull Damage card not found");
+
+            // ---- team cards: free teams and knocked-out teams as icons (each team is shown once on the tab:
+            //      free ones here, the others in their sections)
+            try { AddTeamCards(summary, x); } catch (Exception e) { Trace("team cards: " + e.Message); }
+
+            // ---- list / trim card: right of the ship's profile picture (under "Hull Damage / Flooding / Fires")
+            if (host != null)
+            {
+                var card = SideCard(styleCard);
+                card.HorizontalAlignment = HorizontalAlignment.Right;   // its own width
+                Grid.SetColumn(card, 2);
+                var rowp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                rowp.Children.Add(Dial("LIST", "PORT", "STBD", ListRange, ListDanger, out x.ListRot, out x.ListVal));
+                rowp.Children.Add(new Border { Width = 6f });
+                var trimDial = Dial("TRIM", "STERN", "BOW", TrimRange, TrimDanger, out x.TrimRot, out x.TrimVal);
+                // its own tooltip (over the card's flooding plan): this ship's limits and where they come from
+                trimDial.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
+                LiveTip(trimDial, () => { float L = x.Comp == null ? 0f : DcTeams.ShipLength(x.Comp); return "Trim limit " + Limits.Trim(L).ToString("0.0", CultureInfo.InvariantCulture) + "°" + (L > 0f ? " (" + L.ToString("0", CultureInfo.InvariantCulture) + " m)" : ""); });
+                rowp.Children.Add(trimDial);
+                rowp.Children.Add(new Border { Width = 8f });
+                rowp.Children.Add(LevelBar(x));
+                card.Child = rowp;
+                // its tooltip: the flooding schematic (RenderSchematic)
+                host.Children.Add(card);
+                x.ListHost = host; x.ListCard = card;
+            }
+            else Trace("extras: profile picture grid not found");
+            return x;
+        }
+
+        /// <summary>
+        /// The first two summary cards. "Damage Control Teams": the game's value and "Available / Total" hidden; ours - the free teams
+        /// and the dead ones. "Teams Knocked Out" becomes "In Transfer": the teams on the move and the recovering ones,
+        /// each with its time left (its title and the "Available In" line replaced, the value hidden).
+        /// </summary>
+        static void AddTeamCards(Grid summary, Extras x)
+        {
+            int n = VisualTreeHelper.GetChildrenCount(summary);
+            for (int k = 0; k < n; k++)
+            {
+                var b = VisualTreeHelper.GetChild(summary, k) as Border;
+                if (b == null) continue;
+                int col = Grid.GetColumn(b);
+                if (col != 0 && col != 1) continue;
+                var inner = b.Child as Grid;
+                if (inner == null) continue;
+                TextBlock title = null, value = null, label = null;
+                int m = VisualTreeHelper.GetChildrenCount(inner);
+                for (int j = 0; j < m; j++)
+                {
+                    var t = VisualTreeHelper.GetChild(inner, j) as TextBlock;
+                    if (t == null) continue;
+                    int r = Grid.GetRow(t);
+                    if (r == 0) title = t; else if (r == 1) value = t; else if (r == 2) label = t;
+                }
+                if (value == null) continue;
+                var icons = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = value.Margin, MinHeight = 24f };
+                Grid.SetRow(icons, 1);
+                Hide(x, value);
+                Add(x, inner, icons);
+                if (col == 0)
+                {
+                    x.FreeIcons = icons;
+                    if (label != null)
+                    {
+                        Hide(x, label);
+                        x.FreeLabel = Copy(label, "", 2);
+                        Add(x, inner, x.FreeLabel);
+                    }
+                }
+                else
+                {
+                    x.MovingIcons = icons;
+                    if (title != null) { Hide(x, title); Add(x, inner, Copy(title, "In Transfer", 0)); }
+                    if (label != null) Hide(x, label);
+                }
+            }
+        }
+
+        static void Hide(Extras x, UIElement e) { e.Visibility = Visibility.Collapsed; x.Hidden.Add(e); }
+        static void Add(Extras x, Panel p, UIElement e) { p.Children.Add(e); x.Added.Add(new KeyValuePair<Panel, UIElement>(p, e)); }
+
+        /// <summary>A text block in the place and look of a game's one.</summary>
+        static TextBlock Copy(TextBlock like, string text, int row)
+        {
+            var t = new TextBlock { Text = text, HorizontalAlignment = like.HorizontalAlignment, TextAlignment = like.TextAlignment, Margin = like.Margin,
+                                    FontSize = like.FontSize, Foreground = like.Foreground };
+            Grid.SetRow(t, row);
+            return t;
+        }
+
+        static FrameworkElement BigIcon(int task, string tip, string under) { TextBlock t; return BigIcon(task, tip, under, out t); }
+
+        static FrameworkElement BigIcon(int task, string tip, string under, out TextBlock time)
+        {
+            var vb = new Viewbox { Width = 22f, Height = 22f, Child = Icon(task) };
+            FrameworkElement e = vb;
+            time = null;
+            if (under != null)
+            {
+                var st = new StackPanel { Orientation = Orientation.Vertical };
+                st.Children.Add(vb);
+                time = new TextBlock { Text = under, FontSize = 10f, Foreground = new SolidColorBrush(CDim), HorizontalAlignment = HorizontalAlignment.Center };
+                st.Children.Add(time);
+                e = st;
+            }
+            e.Margin = new Thickness(2f, 0f, 2f, 0f);
+            if (tip != null) try { ToolTipService.SetToolTip(e, tip); } catch { }
+            return e;
+        }
+
+        static readonly Color CPastMuster = Color.FromRgb(236, 212, 110);   // the team is walking already: cancelling takes time
+
+        static string Clock(float sec)
+        {
+            int s = (int)Math.Ceiling(sec);
+            return (s / 60) + ":" + (s % 60).ToString("00", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// The two team cards. Rebuilt only when the teams change (not every second: an open menu would close with its icon);
+        /// the times under the icons are updated in place - yellowish in "In Transfer" once the muster time is over (a cancel then
+        /// takes time).
+        /// </summary>
+        static void RenderTeamCards(object comp, object vm, Extras x, string[] sectionNames)
+        {
+            if (x.FreeIcons == null && x.MovingIcons == null) return;
+            var teams = DcTeams.Snapshot(comp);
+            int[] counts = _compTeams.GetValue(comp, null) as int[];
+            int free = counts != null && counts.Length > 5 ? counts[5] : 0;
+            bool manual = !DcControl.AutoDc(comp);
+            var sb = new System.Text.StringBuilder();
+            foreach (var t in teams) sb.Append(t.State).Append(':').Append(t.Section).Append(':').Append(t.Ref.GetHashCode()).Append(' ');
+            sb.Append('|').Append(free).Append(manual ? 'm' : 'a');
+            string sig = sb.ToString();
+
+            if (sig != x.TeamsSig && !(_menusOpen > 0 && x.TeamsSig != null))
+            {
+                x.TeamsSig = sig;
+                x.Clocks.Clear();
+                Func<int, string> name = i => i < 0 ? "the reserve" : (sectionNames != null && i < sectionNames.Length && !string.IsNullOrEmpty(sectionNames[i]) ? sectionNames[i] : "section " + (i + 1));
+
+                // reserve: free teams, dead ones, and the ones on their way back here (recovering ones: In Transfer, with their time)
+                if (x.FreeIcons != null)
+                {
+                    var ch = x.FreeIcons.Children;
+                    ch.Clear();
+                    int alive = 0, all = teams.Count;
+                    var pool = teams.FindAll(t => t.State == (int)DcTeams.St.Pool);
+                    for (int k = 0; k < free; k++)
+                    {
+                        var e = BigIcon(TaskIdle, null, null);
+                        if (k < pool.Count) { var r = pool[k].Ref; LiveTip(e, () => RefTip(comp, r, sectionNames)); }
+                        else try { ToolTipService.SetToolTip(e, "A free damage control team, waiting in the reserve"); } catch { }
+                        ch.Add(e);
+                    }
+                    foreach (var t in teams)
+                    {
+                        if (t.State == (int)DcTeams.St.Dead) { var r = t.Ref; var e = BigIcon(IconDead, null, null); LiveTip(e, () => RefTip(comp, r, sectionNames)); ch.Add(e); }
+                        if (t.State != (int)DcTeams.St.Dead) alive++;
+                    }
+                    foreach (var t in teams)
+                    {
+                        if (t.State != (int)DcTeams.St.Moving || t.Section >= 0) continue;
+                        var e = BigIcon(IconTransit, null, null);
+                        var frame = new Border { Child = e, CornerRadius = new CornerRadius(2f), Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)) };
+                        var r = t.Ref;
+                        LiveTip(frame, () => RefTip(comp, r, sectionNames));
+                        Clickable(frame, manual ? (Func<ContextMenu>)(() => CancelMenu(comp, r)) : null, r);
+                        ch.Add(frame);
+                    }
+                    if (x.FreeLabel != null) x.FreeLabel.Text = all > 0 ? "Active " + alive + " of " + all + " teams" : "";
+                }
+
+                // on the move and recovering, with the time left
+                if (x.MovingIcons != null)
+                {
+                    var ch = x.MovingIcons.Children;
+                    ch.Clear();
+                    foreach (var t in teams)
+                    {
+                        if (t.State != (int)DcTeams.St.Moving) continue;
+                        TextBlock clock;
+                        var e = BigIcon(IconTransit, null, Clock(t.Left), out clock);
+                        var frame = new Border { Child = e, CornerRadius = new CornerRadius(2f), Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)) };
+                        var r = t.Ref;
+                        LiveTip(frame, () => RefTip(comp, r, sectionNames));
+                        Clickable(frame, manual ? (Func<ContextMenu>)(() => CancelMenu(comp, r)) : null, r);
+                        ch.Add(frame);
+                        x.Clocks.Add(new KeyValuePair<object, TextBlock>(t.Ref, clock));
+                    }
+                    foreach (var t in teams)
+                    {
+                        if (t.State != (int)DcTeams.St.Injured) continue;
+                        TextBlock clock;
+                        var e = BigIcon(IconInjured, null, Clock(t.Left), out clock);
+                        var r = t.Ref;
+                        LiveTip(e, () => RefTip(comp, r, sectionNames));
+                        ch.Add(e);
+                        x.Clocks.Add(new KeyValuePair<object, TextBlock>(t.Ref, clock));
+                    }
+                }
+            }
+
+            // times, in place
+            foreach (var kv in x.Clocks)
+            {
+                foreach (var t in teams)
+                {
+                    if (!ReferenceEquals(t.Ref, kv.Key)) continue;
+                    string text = Clock(t.Left);
+                    if (kv.Value.Text != text) kv.Value.Text = text;
+                    bool walking = t.State == (int)DcTeams.St.Moving && t.Total - t.Left > DcTeams.Muster;
+                    kv.Value.Foreground = new SolidColorBrush(walking ? CPastMuster : CDim);
+                    break;
+                }
+            }
+        }
+
+        static readonly Color CDial = Color.FromRgb(36, 40, 46), CScale = Color.FromRgb(214, 218, 222), CDanger = Color.FromRgb(200, 62, 54),
+                              CNeedle = Color.FromRgb(250, 250, 250), CDim = Color.FromRgb(150, 156, 162);
+
+        static StackPanel Dial(string title, string left, string right, float range, float danger, out RotateTransform rot, out TextBlock val)
+        {
+            var stack = new StackPanel { Orientation = Orientation.Vertical };
+            stack.Children.Add(new TextBlock { Text = title, FontSize = 11f, Foreground = new SolidColorBrush(CDim), HorizontalAlignment = HorizontalAlignment.Center });
+            var cv = new Canvas { Width = DialW, Height = DialH };
+            var ch = cv.Children;
+            float dz = danger / range * 90f;
+            ch.Add(Shape("M" + P(DialR, -90f) + " A" + N(DialR) + "," + N(DialR) + " 0 0 1 " + P(DialR, 90f) + " Z", CDial));   // dial face
+            ch.Add(Shape(Band(DialR - 9f, DialR - 2f, -90f, -dz), CDanger));
+            ch.Add(Shape(Band(DialR - 9f, DialR - 2f, -dz, dz), CBand));   // a bit darker than the needle
+            ch.Add(Shape(Band(DialR - 9f, DialR - 2f, dz, 90f), CDanger));
+            // ticks evenly spaced, one on each end of the red bands (red ones there): step = half the red band (11.25° for 75%)
+            float step = (90f - dz) / 2f;
+            if (step < 5f) step = (90f - dz);
+            if (step < 5f) step = 11.25f;
+            int nt = (int)Math.Round(90f / step);
+            var greyTicks = new System.Text.StringBuilder(); var redTicks = new System.Text.StringBuilder();
+            for (int k = -nt; k <= nt; k++)
+            {
+                float a = Math.Max(-90f, Math.Min(90f, k * step));
+                bool red = Math.Abs(a) >= dz - 0.01f;
+                bool major = k % 2 == 0;
+                (red ? redTicks : greyTicks).Append("M" + P(DialR - (major ? 15f : 13f), a) + " L" + P(DialR - 9f, a) + " ");
+            }
+            if (greyTicks.Length > 0) ch.Add(new Path { Data = new StreamGeometry(greyTicks.ToString()), Stroke = new SolidColorBrush(CScale), StrokeThickness = 1.2f });
+            if (redTicks.Length > 0) ch.Add(new Path { Data = new StreamGeometry(redTicks.ToString()), Stroke = new SolidColorBrush(CDanger), StrokeThickness = 1.2f });
+            var needle = new Path { Data = new StreamGeometry("M" + N(DialCx) + "," + N(DialCy) + " L" + P(DialR - 4f, 0f)), Stroke = new SolidColorBrush(CNeedle), StrokeThickness = 2f };
+            rot = new RotateTransform(0f) { CenterX = DialCx, CenterY = DialCy };
+            needle.RenderTransform = rot;
+            ch.Add(needle);
+            // the axis: two half circles (an almost-closed single arc put its centre 2.5 px off)
+            ch.Add(Shape("M" + N(DialCx - 3.5f) + "," + N(DialCy) + " A3.5,3.5 0 1 1 " + N(DialCx + 3.5f) + "," + N(DialCy) +
+                         " A3.5,3.5 0 1 1 " + N(DialCx - 3.5f) + "," + N(DialCy) + " Z", CNeedle));
+            stack.Children.Add(cv);
+
+            var row = new Grid { Margin = new Thickness(0f, 2f, 0f, 0f) };
+            row.ColumnDefinitions.Add(ColDef(1f, GridUnitType.Star));
+            row.ColumnDefinitions.Add(ColDef(0f, GridUnitType.Auto));
+            row.ColumnDefinitions.Add(ColDef(1f, GridUnitType.Star));
+            var l = new TextBlock { Text = left, FontSize = 10f, Foreground = new SolidColorBrush(CDim), VerticalAlignment = VerticalAlignment.Center };
+            var r = new TextBlock { Text = right, FontSize = 10f, Foreground = new SolidColorBrush(CDim), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
+            val = new TextBlock { Text = "0°", FontSize = 12f, MinWidth = 30f, TextAlignment = TextAlignment.Center };
+            var box = new Border { Child = val, Background = new SolidColorBrush(CDial), Padding = new Thickness(4f, 0f, 4f, 0f), Margin = new Thickness(4f, 0f, 4f, 0f) };
+            Grid.SetColumn(box, 1); Grid.SetColumn(r, 2);
+            row.Children.Add(l); row.Children.Add(box); row.Children.Add(r);
+            stack.Children.Add(row);
+            return stack;
+        }
+
+        /// <summary>
+        /// Water in the whole ship: a 16 x 56 bar. Layers, back to front: dark background, the water (blue, from the bottom),
+        /// scale marks on both sides every 1/8 of the height (red bands in the top 20%), the frame.
+        /// </summary>
+        static FrameworkElement LevelBar(Extras x)
+        {
+            const float w = 16f, h = 56f, inner = h - 2f;
+            var stack = new StackPanel { Orientation = Orientation.Vertical };
+            stack.Children.Add(new TextBlock { Text = "LEVEL", FontSize = 11f, Foreground = new SolidColorBrush(CDim), HorizontalAlignment = HorizontalAlignment.Center });
+            var bar = new Grid { Width = w, Height = h, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0f, 2f, 0f, 0f) };  // 2 px lower top edge
+            bar.Children.Add(new Border { Background = new SolidColorBrush(CDial) });
+            x.LevelHeight = inner;
+            x.LevelFill = new Border { Height = 0f, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(1f), Background = new SolidColorBrush(CBlueWater) };
+            bar.Children.Add(x.LevelFill);
+
+            var marks = new Canvas { Width = w, Height = h };
+            float red = 1f + inner * 0.2f;   // the top 20% (y grows downwards)
+            var grey = new System.Text.StringBuilder();
+            for (int k = 1; k < 8; k++)
+            {
+                float y = 1f + inner * k / 8f;
+                if (y <= red) continue;     // inside the red band
+                grey.Append("M1," + N(y) + " L3.5," + N(y) + " M12.5," + N(y) + " L15," + N(y) + " ");
+            }
+            marks.Children.Add(new Path { Data = new StreamGeometry(grey.ToString()), Stroke = new SolidColorBrush(CScale), StrokeThickness = 1f });
+            marks.Children.Add(Shape("M1,1 L4,1 L4," + N(red) + " L1," + N(red) + " Z M12,1 L15,1 L15," + N(red) + " L12," + N(red) + " Z", CDanger));
+            bar.Children.Add(marks);
+
+            bar.Children.Add(new Border { BorderBrush = new SolidColorBrush(CDim), BorderThickness = new Thickness(1f) });   // frame on top
+            stack.Children.Add(bar);
+            x.LevelVal = new TextBlock { Text = "0%", FontSize = 10f, Foreground = new SolidColorBrush(CDim), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0f, 2f, 0f, 0f) };
+            stack.Children.Add(x.LevelVal);
+            return stack;
+        }
+
+        // ------------------------------------------------------------ updating
+
+        static float Angle(float a) { a %= 360f; if (a > 180f) a -= 360f; else if (a < -180f) a += 360f; return a; }
+
+        static void RenderExtras(object comp, object vm, Extras x, string[] sectionNames)
+        {
+            try { RenderTeamCards(comp, vm, x, sectionNames); } catch (Exception e) { Trace("RenderTeamCards: " + e.Message); }
+            // Fires: the worst stage on board, and how many sections burn
+            if (x.FireValue != null)
+            {
+                var sys = _compSys.GetValue(comp) as Array;
+                int count = (int)_compCount.GetValue(comp), worst = 0, burning = 0;
+                for (int i = 0; sys != null && i < count && i < sys.Length; i++)
+                {
+                    int st = 0;
+                    try { st = Convert.ToInt32(_scFireStateProp.GetValue(sys.GetValue(i), null)); } catch { }
+                    if (st > 0) burning++;
+                    if (st > worst) worst = st;
+                }
+                string text = worst == 0 ? "None" : (worst == 1 ? "Minor" : worst == 2 ? "Moderate" : "Severe") + (burning > 1 ? " (" + burning + ")" : "");
+                string sig = text + worst;
+                if (sig != x.FireSig)
+                {
+                    x.FireValue.Text = text;
+                    x.FireValue.Foreground = StageBrush(x.Res, worst == 0 ? 0 : worst == 1 ? 1 : worst == 2 ? 2 : 3);
+                    x.FireSig = sig;
+                }
+            }
+
+            // list / trim from the hull's attitude, smoothed (game time; a paused game keeps them)
+            if (x.ListRot != null)
+            {
+                var bo = _compBaseObj == null ? null : _compBaseObj.GetValue(comp) as UnityEngine.Component;
+                if (bo != null)
+                {
+                    var e = bo.transform.localEulerAngles;
+                    float roll = Angle(e.z), pitch = Angle(e.x);
+                    double t = 0;
+                    try { t = Convert.ToDouble(_gameTime.GetValue(null, null), CultureInfo.InvariantCulture); } catch { }
+                    if (!ReferenceEquals(x.Comp, comp)) { x.Comp = comp; x.T = -1; x.FireSig = null; }   // another unit: at once
+                    if (x.T < 0) { x.List = roll; x.Trim = pitch; }
+                    else if (t > x.T)
+                    {
+                        float k = 1f - (float)Math.Exp(-(t - x.T) / 0.5);   // settles within 1-2 s: takes out the rolling, not the list
+                        x.List += (roll - x.List) * k; x.Trim += (pitch - x.Trim) * k;
+                    }
+                    if (t != x.T) x.T = t;
+                    _shownList = x.List; _shownListComp = new WeakReference(comp);
+                    // +z = port side down (needle to the left); trim: +x turns the needle to the right (checked in game)
+                    x.ListRot.Angle = -Math.Max(-1f, Math.Min(1f, x.List / ListRange)) * 90f;
+                    float trimRange = Limits.Trim(DcTeams.ShipLength(comp));   // this ship's limit (by its length)
+                    x.TrimRot.Angle = Math.Max(-1f, Math.Min(1f, x.Trim / trimRange)) * 90f;
+                    x.ListVal.Text = Math.Abs(x.List).ToString(Math.Abs(x.List) < 10f ? "0.0" : "0", CultureInfo.InvariantCulture) + "°";
+                    x.TrimVal.Text = Math.Abs(x.Trim).ToString("0.0", CultureInfo.InvariantCulture) + "°";
+                    x.ListVal.Foreground = Math.Abs(x.List) >= ListDanger ? new SolidColorBrush(CDanger) : StageBrush(x.Res, 0);
+                    x.TrimVal.Foreground = Math.Abs(x.Trim) >= 0.75f * trimRange ? new SolidColorBrush(CDanger) : StageBrush(x.Res, 0);
+                }
+            }
+
+            try { RenderSchematic(comp, x, sectionNames); } catch (Exception e) { Trace("RenderSchematic: " + e.Message); }
+
+            // water in the whole ship
+            if (x.LevelFill != null)
+            {
+                float fp = 0f;
+                try { fp = Convert.ToSingle(_compFloodPct.GetValue(comp, null), CultureInfo.InvariantCulture); } catch { }
+                x.LevelFill.Height = Math.Max(0f, Math.Min(1f, fp / LevelFull)) * x.LevelHeight;
+                x.LevelVal.Text = Pct(Math.Min(100f, 100f * fp / LevelFull));   // 0..100% of the scale: 100% = the top, where the ship starts to sink
+                x.LevelVal.Foreground = fp >= LevelDanger ? new SolidColorBrush(CDanger) : new SolidColorBrush(CDim);
+            }
+        }
+
+        static readonly Color CBand = Color.FromRgb(160, 166, 174);   // dial scale band: grey, so the white needle stands out
+        static readonly Color CBlueWater = Color.FromRgb(74, 150, 226);
+
+        static void RemoveExtras(Extras x)
+        {
+            if (x == null) return;
+            try { if (x.HullInner != null && x.FireRow != null) x.HullInner.Children.Remove(x.FireRow); } catch { }
+            try { if (x.HullInner != null && x.FireRowDef != null) x.HullInner.RowDefinitions.Remove(x.FireRowDef); } catch { }
+            try { if (x.ListHost != null && x.ListCard != null) x.ListHost.Children.Remove(x.ListCard); } catch { }
+            foreach (var kv in x.Added) try { kv.Key.Children.Remove(kv.Value); } catch { }
+            foreach (var h in x.Hidden) try { h.Visibility = Visibility.Visible; } catch { }
+            x.Added.Clear(); x.Hidden.Clear();
+        }
+    }
+}

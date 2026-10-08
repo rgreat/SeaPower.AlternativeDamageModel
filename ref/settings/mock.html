@@ -1,0 +1,156 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+:root{--bg:#1e2126;--panel:#262a30;--card:#2d3239;--line:#464c56;--text:#e6e8eb;--dim:#969ca2;--acc:#4a96e2;--warn:#ecd46e;--red:#c83e36;}
+*{box-sizing:border-box}
+body{margin:0;background:#0f1114;font-family:"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);font-size:13px}
+.stage{padding:18px;display:inline-block}
+.win{width:640px;background:var(--bg);border:1px solid var(--line);border-radius:4px;box-shadow:0 8px 30px #000a;position:relative}
+.title{display:flex;align-items:center;padding:7px 10px;background:#2b3038;border-bottom:1px solid var(--line);font-size:14px}
+.title .x{margin-left:auto;color:var(--dim);font-size:16px}
+.prof{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+.prof .lbl{color:var(--dim);margin-right:2px}
+.combo{position:relative;width:190px;height:26px;background:#15181c;border:1px solid var(--line);border-radius:3px;display:flex;align-items:center;padding:0 8px}
+.combo .arr{margin-left:auto;color:var(--dim);font-size:10px}
+.tag{font-size:10px;padding:1px 5px;border-radius:2px;margin-left:6px}
+.tag.lock{background:#3a4048;color:var(--dim)}
+.tag.cust{background:#4d4524;color:var(--warn)}
+.btn{height:26px;padding:0 10px;background:#353b44;border:1px solid var(--line);border-radius:3px;display:inline-flex;align-items:center;color:var(--text)}
+.btn.dis{color:#5d636b}
+.btn.pri{background:#2f5d8c;border-color:#4a7fb4}
+.tabs{display:flex;gap:2px;padding:8px 12px 0;background:var(--bg)}
+.tab{padding:6px 12px;background:#2a2e35;border:1px solid var(--line);border-bottom:none;border-radius:3px 3px 0 0;color:var(--dim)}
+.tab.on{background:var(--card);color:var(--text)}
+.tab .dot{display:inline-block;width:6px;height:6px;border-radius:3px;background:var(--warn);margin-left:5px;vertical-align:middle}
+.body{margin:0 12px;background:var(--card);border:1px solid var(--line);padding:6px 0;min-height:300px}
+.row{display:grid;grid-template-columns:200px 1fr 80px 22px;align-items:center;padding:5px 12px;gap:8px}
+.row.hl{background:#343a42}
+.row .name{color:var(--text)}
+.row .name.mod::before{content:"";display:inline-block;width:6px;height:6px;border-radius:3px;background:var(--warn);margin-right:6px;vertical-align:middle}
+.row .game{color:var(--dim);font-size:11px;text-align:right}
+.row .rst{color:var(--dim);text-align:center}
+.num{display:inline-flex;align-items:center;height:24px;border:1px solid var(--line);border-radius:3px;background:#15181c}
+.num span{padding:0 7px;color:var(--dim)}
+.num b{font-weight:normal;min-width:58px;text-align:center;border-left:1px solid var(--line);border-right:1px solid var(--line);line-height:22px}
+.num.mod b{color:var(--warn)}
+.unit{color:var(--dim);margin-left:6px;font-size:12px}
+.sect{color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:8px 12px 2px}
+.tbl{display:inline-grid;grid-auto-flow:column;grid-template-rows:22px 22px;border:1px solid var(--line);border-radius:3px;background:#15181c;font-size:12px}
+.tbl div{padding:0 7px;line-height:22px;text-align:center;border-left:1px solid #30353c}
+.tbl div:nth-child(-n+2){border-left:none;color:var(--dim);text-align:left}
+.tbl div:nth-child(even){border-top:1px solid #30353c}
+.tbl .add{color:var(--dim)}
+.help{margin:8px 12px 0;padding:8px 10px;background:#22262c;border:1px solid var(--line);border-radius:3px;color:#c2c7cc;min-height:52px;font-size:12px;line-height:1.45}
+.help b{color:var(--text)}
+.foot{display:flex;gap:6px;padding:10px 12px}
+.foot .sp{flex:1}
+.note{color:var(--dim);font-size:11px;align-self:center}
+.toggle{width:34px;height:18px;border-radius:9px;background:#2f5d8c;position:relative;border:1px solid #4a7fb4}
+.toggle::after{content:"";position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:6px;background:#e6e8eb}
+.toggle.off{background:#3a4048;border-color:var(--line)}
+.toggle.off::after{left:2px;right:auto}
+/* dropdown */
+.drop{position:absolute;left:84px;top:83px;width:250px;background:#15181c;border:1px solid #5b626d;border-radius:3px;box-shadow:0 6px 20px #000c;z-index:5;padding:3px 0}
+.drop .it{padding:6px 10px;display:flex;align-items:center}
+.drop .it.on{background:#2f5d8c}
+.drop .it .r{margin-left:auto;color:var(--dim);font-size:11px}
+.drop .sep{border-top:1px solid #30353c;margin:3px 0}
+/* modal */
+.shade{position:absolute;inset:0;background:#0009;z-index:8;border-radius:4px}
+.modal{position:absolute;left:150px;top:150px;width:340px;background:var(--bg);border:1px solid #5b626d;border-radius:4px;z-index:9;box-shadow:0 8px 30px #000}
+.modal .t{padding:7px 10px;background:#2b3038;border-bottom:1px solid var(--line)}
+.modal .c{padding:12px}
+.edit{height:26px;border:1px solid var(--acc);background:#15181c;border-radius:3px;padding:0 8px;line-height:24px}
+.edit i{display:inline-block;width:1px;height:14px;background:var(--text);vertical-align:middle;margin-left:1px}
+/* header inset */
+.hdr{display:inline-flex;align-items:center;gap:8px;background:#2d3239;border:1px solid var(--line);border-radius:3px 3px 0 0;padding:6px 12px;font-size:13px}
+.ico{width:18px;height:18px;border-radius:9px;border:1.5px solid #c2c7cc;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:#c2c7cc}
+.gear{width:18px;height:18px;display:inline-block}
+.cap{color:var(--dim);font-size:11px;margin:4px 0 10px}
+</style></head><body>
+
+<!-- 1: tab header with the new gear button + window on the DC Teams tab after an edit -->
+<div class="stage" id="s1">
+ <div class="cap">Unit Status → tab header: (i) legend and the new ⚙ settings button</div>
+ <div class="hdr">Damage Control <span class="ico">i</span>
+  <svg class="gear" viewBox="0 0 24 24"><path fill="#c2c7cc" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a6 6 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" transform="translate(0 1)"/></svg>
+ </div>
+ <div style="height:14px"></div>
+ <div class="win">
+  <div class="title">Alternative Damage Model — Settings<span class="x">✕</span></div>
+  <div class="prof"><span class="lbl">Profile</span>
+   <div class="combo">Custom<span class="tag cust">edited</span><span class="arr">▼</span></div>
+   <span class="btn">Save as…</span><span class="btn">Rename…</span><span class="btn">Delete</span>
+   <span class="note" style="margin-left:auto">based on Advanced</span>
+  </div>
+  <div class="tabs">
+   <span class="tab">Hull</span><span class="tab">Fire &amp; Flooding</span><span class="tab on">DC Teams<span class="dot"></span></span><span class="tab">Sinking</span><span class="tab">Display</span>
+  </div>
+  <div class="body">
+   <div class="sect">Number of teams — from tons → teams</div>
+   <div class="row"><span class="name">Warships</span><span><span class="tbl"><div>tons</div><div>teams</div><div>0</div><div>1</div><div>500</div><div>2</div><div>1500</div><div>3</div><div>5000</div><div>4</div><div>20000</div><div>5</div><div class="add">+</div><div class="add">−</div></span></span><span class="game">game: 1/2/3<br>7000/24000 t</span><span class="rst">↺</span></div>
+   <div class="row"><span class="name">Submarines</span><span><span class="tbl"><div>tons</div><div>teams</div><div>0</div><div>1</div><div>1000</div><div>2</div><div>5000</div><div>3</div><div>8000</div><div>4</div><div class="add">+</div><div class="add">−</div></span></span><span class="game">game: 1/2<br>5000 t</span><span class="rst">↺</span></div>
+   <div class="row"><span class="name">Civilian ships</span><span><span class="tbl"><div>tons</div><div>teams</div><div>0</div><div>1</div><div>20000</div><div>2</div><div class="add">+</div><div class="add">−</div></span></span><span class="game">game: 1</span><span class="rst">↺</span></div>
+   <div class="sect">Work and movement</div>
+   <div class="row"><span class="name">Team effectiveness</span><span><span class="num"><span>−</span><b>0.5</b><span>+</span></span><span class="unit">× game</span></span><span class="game">game: 1.0</span><span class="rst">↺</span></div>
+   <div class="row hl"><span class="name mod">Transfer speed</span><span><span class="num mod"><span>−</span><b>40</b><span>+</span></span><span class="unit">m/min · 0 = instant</span></span><span class="game">game: 0</span><span class="rst">↺</span></div>
+   <div class="row"><span class="name">Muster time</span><span><span class="num"><span>−</span><b>60</b><span>+</span></span><span class="unit">s</span></span><span class="game">game: 0</span><span class="rst">↺</span></div>
+   <div class="row"><span class="name">Recovery time</span><span><span class="num"><span>−</span><b>90</b><span>+</span></span><span class="unit">s + walk back</span></span><span class="game">game: 60–120</span><span class="rst">↺</span></div>
+   <div class="row"><span class="name">Knock-outs to death</span><span><span class="num"><span>−</span><b>2</b><span>+</span></span><span class="unit">0 = never</span></span><span class="game">game: never</span><span class="rst">↺</span></div>
+  </div>
+  <div class="help"><b>Transfer speed</b> — how fast a team moves through the ship. A transfer takes the muster time plus the walk between sections at this speed (rounded to 10 s); a team on the move takes no orders. 0 together with muster time 0 = teams move at once, as in the game.</div>
+  <div class="foot"><span class="btn">Reset to profile</span><span class="sp"></span><span class="note"><span style="color:var(--warn)">●</span> = differs from Advanced · ↺ = back to it</span><span class="btn">Cancel</span><span class="btn">Apply</span><span class="btn pri">OK</span></div>
+ </div>
+</div>
+
+<!-- 2: profile list open -->
+<div class="stage" id="s2">
+ <div class="win">
+  <div class="title">Alternative Damage Model — Settings<span class="x">✕</span></div>
+  <div class="prof"><span class="lbl">Profile</span>
+   <div class="combo">Advanced<span class="tag lock">built-in</span><span class="arr">▲</span></div>
+   <span class="btn">Save as…</span><span class="btn dis">Rename…</span><span class="btn dis">Delete</span>
+  </div>
+  <div class="drop">
+   <div class="it">Base Game<span class="r">built-in · as the game</span></div>
+   <div class="it on">Advanced<span class="r">built-in · recommended</span></div>
+   <div class="sep"></div>
+   <div class="it">Custom<span class="r">yours</span></div>
+   <div class="it">Hard Iowa<span class="r">yours</span></div>
+  </div>
+  <div class="tabs">
+   <span class="tab on">Hull</span><span class="tab">Fire &amp; Flooding</span><span class="tab">DC Teams</span><span class="tab">Sinking</span><span class="tab">Display</span>
+  </div>
+  <div class="body">
+   <div class="sect">Hull integrity — × game</div>
+   <div class="row"><span class="name">Warships</span><span><span class="num"><span>−</span><b>2.0</b><span>+</span></span></span><span class="game">game: 1.0</span><span class="rst">↺</span></div>
+   <div class="row"><span class="name">Civilian ships</span><span><span class="num"><span>−</span><b>2.0</b><span>+</span></span></span><span class="game">game: 1.0</span><span class="rst">↺</span></div>
+   <div class="row"><span class="name">Submarines</span><span><span class="num"><span>−</span><b>1.0</b><span>+</span></span></span><span class="game">game: 1.0</span><span class="rst">↺</span></div>
+   <div class="sect">Vulnerability of the stronger hull</div>
+   <div class="row"><span class="name">Gun shells</span><span><span class="num"><span>−</span><b>1.0</b><span>+</span></span></span><span class="game">game: 1.0</span><span class="rst">↺</span></div>
+   <div class="row"><span class="name">Fires</span><span><span class="num"><span>−</span><b>1.0</b><span>+</span></span></span><span class="game">game: 1.0</span><span class="rst">↺</span></div>
+   <div class="row"><span class="name">Flooding</span><span><span class="num"><span>−</span><b>1.0</b><span>+</span></span></span><span class="game">game: 1.0</span><span class="rst">↺</span></div>
+   <div class="sect">Single ships — × game, instead of the class value</div>
+   <div class="row"><span class="name" style="color:var(--dim)">usn_bb_iowa</span><span><span class="num"><span>−</span><b>3.0</b><span>+</span></span></span><span class="game"></span><span class="rst">✕</span></div>
+   <div class="row"><span class="name"><span class="btn" style="height:22px">+ Add ship…</span></span><span></span><span></span><span></span></div>
+  </div>
+  <div class="help">Base Game and Advanced cannot be changed: editing either one switches to <b>Custom</b>, which keeps your values. Save as… keeps a copy under its own name.</div>
+  <div class="foot"><span class="btn dis">Reset to profile</span><span class="sp"></span><span class="btn">Cancel</span><span class="btn">Apply</span><span class="btn pri">OK</span></div>
+ </div>
+</div>
+
+<!-- 3: save as -->
+<div class="stage" id="s3">
+ <div class="win" style="height:330px">
+  <div class="title">Alternative Damage Model — Settings<span class="x">✕</span></div>
+  <div class="prof"><span class="lbl">Profile</span><div class="combo">Custom<span class="tag cust">edited</span><span class="arr">▼</span></div>
+   <span class="btn">Save as…</span><span class="btn">Rename…</span><span class="btn">Delete</span></div>
+  <div class="shade"></div>
+  <div class="modal"><div class="t">Save profile as</div>
+   <div class="c"><div class="edit">Long transfers<i></i></div>
+    <div class="cap" style="margin:6px 0 12px">Saved to BepInEx\config\AlternativeDamageModel\Profiles\Long transfers.cfg</div>
+    <div style="display:flex;gap:6px;justify-content:flex-end"><span class="btn">Cancel</span><span class="btn pri">Save</span></div></div>
+  </div>
+ </div>
+</div>
+</body></html>
