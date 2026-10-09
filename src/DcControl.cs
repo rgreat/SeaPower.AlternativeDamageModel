@@ -10,7 +10,10 @@ namespace AlternativeDamageModel
     ///  - a ship-wide priority mode: Auto (the game's order), Fire first, Flooding first. It changes the order of tasks in a
     ///    compartment (Compartments.CheckDamageControl) and where Auto DC sends a free team (Compartments.CheckDCTeamsAllocation);
     ///  - per team, while Auto DC is off: a task given by hand to one team in one compartment, kept while the team stays there.
-    ///    The game itself has no teams, only a count per compartment; the mod keeps one slot per team (task or 0 = by priority).
+    ///    The game itself has no teams, only a count per compartment; the task is kept on the mod's team object (DcTeams.Team.Task),
+    ///    so it stays with that team when others arrive or leave, and is gone when the team leaves the section.
+    /// Priority and hand-given tasks need the detailed view (IsEnabled); the optimised Auto DC and idle teams staying where they are
+    /// need only the damage model (AutoOn) - the replaced CheckDamageControl then runs with mode Auto and no tasks by hand.
     /// CheckDamageControl is replaced while the mod is on; with mode Auto and no hand-given tasks it does exactly what the game does:
     /// the first task in the order that has work is done by all teams of the compartment, none -> with Auto DC the team returns.
     /// The game's Repair* methods take their strength from DamageControlTeamsNumbers[i]; for a group of teams the count is set to
@@ -28,7 +31,8 @@ namespace AlternativeDamageModel
             new[] { TaskLeak, TaskPump, TaskFire, TaskHull, TaskSystems },   // flooding first
         };
 
-        public static Func<bool> IsEnabled = () => false;
+        public static Func<bool> IsEnabled = () => false;   // DC Priority, tasks by hand (the detailed view)
+        public static Func<bool> AutoOn = () => false;      // the optimised Auto DC (the damage model)
         /// <summary>Optimised Auto DC: a team with nothing to do waits where it is (no walk back to the reserve).</summary>
         public static Func<object, bool> StayWhenIdle = c => false;
         public static Action<string> Trace = s => { };
@@ -36,8 +40,7 @@ namespace AlternativeDamageModel
         sealed class Ship
         {
             public int Mode;
-            public readonly List<int>[] Forced = new List<int>[8];  // per compartment: per team, the task given by hand (0 = by priority)
-            public readonly int[][] Actual = new int[8][];           // per compartment: per team, what it did last tick
+            public readonly List<int>[] Pending = new List<int>[8];  // per compartment: tasks from a saved game, put on the teams there
         }
         static readonly ConditionalWeakTable<object, Ship> Ships = new ConditionalWeakTable<object, Ship>();
 
@@ -110,53 +113,54 @@ namespace AlternativeDamageModel
             Trace("DC priority -> " + (mode == ModeFire ? "fire" : mode == ModeFlooding ? "flooding" : "auto"));
         }
 
-        /// <summary>Per team in compartment i: the task given by hand (0 = by priority) and what it did last tick.</summary>
+        /// <summary>Per team in compartment i (slot k = k-th team there): the task given by hand (0 = by priority), what it did
+        /// last tick, and the team object itself.</summary>
         public static void GetTeams(object comp, int i, int n, out int[] forced, out int[] actual)
+        {
+            object[] refs;
+            GetTeams(comp, i, n, out forced, out actual, out refs);
+        }
+
+        public static void GetTeams(object comp, int i, int n, out int[] forced, out int[] actual, out object[] refs)
         {
             forced = new int[Math.Max(0, n)];
             actual = new int[Math.Max(0, n)];
-            Ship s;
-            if (comp == null || i < 0 || i >= 8 || !Ships.TryGetValue(comp, out s)) return;
-            var f = s.Forced[i];
-            var a = s.Actual[i];
-            for (int k = 0; k < n; k++)
-            {
-                if (f != null && k < f.Count) forced[k] = f[k];
-                if (a != null && k < a.Length) actual[k] = a[k];
-            }
+            refs = new object[Math.Max(0, n)];
+            if (comp == null || i < 0 || i > 4) return;
+            var list = DcTeams.SectionTeams(comp, i);
+            if (list == null) return;
+            for (int k = 0; k < n && k < list.Count; k++) { forced[k] = list[k].Task; actual[k] = list[k].Doing; refs[k] = list[k]; }
         }
 
-        /// <summary>Gives team k of compartment i a task by hand (0 = back to the priority order). Only while Auto DC is off.</summary>
-        public static void SetForced(object comp, int i, int k, int task)
+        /// <summary>Gives a team a task by hand (0 = back to the priority order). Only while Auto DC is off.</summary>
+        public static void SetForced(object comp, object teamRef, int task)
         {
-            if (comp == null || i < 0 || i >= 8 || k < 0) return;
-            if (AutoDc(comp)) return;
-            var s = Ships.GetOrCreateValue(comp);
-            var f = s.Forced[i] ?? (s.Forced[i] = new List<int>());
-            while (f.Count <= k) f.Add(TaskNone);
-            f[k] = task;
-            Trace("DC team " + k + " in compartment " + i + " -> task " + task);
+            var t = teamRef as DcTeams.Team;
+            if (comp == null || t == null || t.State != DcTeams.St.InSection || AutoDc(comp)) return;
+            t.Task = task;
+            Trace("DC team in compartment " + t.Section + " -> task " + task);
         }
 
         // ------------------------------------------------------------ saved games
 
         /// <summary>
-        /// "mode:t,t|t||..." - the priority mode and, per compartment, the tasks given by hand (0 = by priority).
-        /// Null when there is nothing to keep (Auto and no tasks by hand).
+        /// "mode:t,t|t||..." - the priority mode and, per compartment, the tasks given by hand of its teams in order (0 = by
+        /// priority). Null when there is nothing to keep (Auto and no tasks by hand).
         /// </summary>
         public static string Save(object comp)
         {
+            if (comp == null) return null;
             Ship s;
-            if (comp == null || !Ships.TryGetValue(comp, out s)) return null;
+            int mode = Ships.TryGetValue(comp, out s) ? s.Mode : ModeAuto;
             var sb = new System.Text.StringBuilder();
-            sb.Append(s.Mode).Append(':');   // not ';' - the game's ini reader takes ';' for a comment
-            bool any = s.Mode != ModeAuto;
+            sb.Append(mode).Append(':');   // not ';' - the game's ini reader takes ';' for a comment
+            bool any = mode != ModeAuto;
             for (int i = 0; i < 5; i++)
             {
                 if (i > 0) sb.Append('|');
-                var f = s.Forced[i];
-                if (f == null) continue;
-                for (int k = 0; k < f.Count; k++) { if (k > 0) sb.Append(','); sb.Append(f[k]); if (f[k] != TaskNone) any = true; }
+                var list = DcTeams.SectionTeams(comp, i);
+                if (list == null) continue;
+                for (int k = 0; k < list.Count; k++) { if (k > 0) sb.Append(','); sb.Append(list[k].Task); if (list[k].Task != TaskNone) any = true; }
             }
             return any ? sb.ToString() : null;
         }
@@ -173,7 +177,7 @@ namespace AlternativeDamageModel
                 if (parts.Length > 1)
                 {
                     var cs = parts[1].Split('|');
-                    for (int i = 0; i < cs.Length && i < 8; i++)
+                    for (int i = 0; i < cs.Length && i < 5; i++)
                     {
                         var list = new List<int>();
                         foreach (var t in cs[i].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
@@ -181,21 +185,12 @@ namespace AlternativeDamageModel
                             int v;
                             list.Add(int.TryParse(t, out v) && v >= TaskNone && v <= TaskSystems && v != TaskIdle ? v : TaskNone);
                         }
-                        s.Forced[i] = list;
+                        s.Pending[i] = list;   // put on the teams at the first check (they are made from the game's counts then)
                     }
                 }
                 Trace("DC state loaded: " + text);
             }
             catch (Exception e) { Trace("DcControl.Load: " + e.Message); }
-        }
-
-        /// <summary>Team k leaves compartment i (moved elsewhere by hand): its own slot goes, the others keep their tasks.</summary>
-        public static void RemoveSlot(object comp, int i, int k)
-        {
-            Ship s;
-            if (comp == null || i < 0 || i >= 8 || !Ships.TryGetValue(comp, out s)) return;
-            var f = s.Forced[i];
-            if (f != null && k >= 0 && k < f.Count) f.RemoveAt(k);
         }
 
         public static bool AutoDc(object comp)
@@ -208,59 +203,65 @@ namespace AlternativeDamageModel
         /// <summary>Prefix of Compartments.CheckDamageControl(int i): false = done here.</summary>
         public static bool CheckPrefix(object comp, int i)
         {
-            if (!_ok || comp == null || !IsEnabled() || i < 0 || i >= 8) return true;
+            if (!_ok || comp == null || i < 0 || i > 4) return true;
+            bool ui = IsEnabled();
+            if (!ui && !AutoOn()) return true;
             var teams = _teams.GetValue(comp, null) as int[];
             if (teams == null || i >= teams.Length) return true;
             int n = teams[i];
-            var s = Ships.GetOrCreateValue(comp);
-
-            // one slot per team in the compartment: a team leaving takes a "by priority" slot first, then the last given task
-            var f = s.Forced[i] ?? (s.Forced[i] = new List<int>());
-            while (f.Count < n) f.Add(TaskNone);
-            while (f.Count > Math.Max(0, n))
+            var objs = _objs;
+            if (!DcTeams.SectionTeams(comp, i, objs)) return true;
+            Ship s;
+            Ships.TryGetValue(comp, out s);
+            if (s != null && s.Pending[i] != null)
             {
-                int idx = f.LastIndexOf(TaskNone);
-                f.RemoveAt(idx >= 0 ? idx : f.Count - 1);
+                for (int k = 0; k < s.Pending[i].Count && k < objs.Count; k++) objs[k].Task = s.Pending[i][k];
+                s.Pending[i] = null;
             }
             bool autoDc = AutoDc(comp);
-            if (autoDc) for (int k = 0; k < f.Count; k++) f[k] = TaskNone;   // hand-given tasks are for manual control only
-            var actual = s.Actual[i];
-            if (actual == null || actual.Length != n) actual = s.Actual[i] = new int[Math.Max(0, n)];
+            if (autoDc) foreach (var t in objs) t.Task = TaskNone;   // hand-given tasks are for manual control only
             if (n <= 0) return false;   // the game does nothing either
+            int mode = ui && s != null ? Math.Max(0, Math.Min(2, s.Mode)) : ModeAuto;
 
+            if (_free == null || _free.Length < n) { _free = new int[Math.Max(8, n)]; _done = new bool[Math.Max(8, n)]; _did = new int[Math.Max(8, n)]; }
             bool returnTeam = false;
             try
             {
                 // teams with a task given by hand, grouped by task
-                var free = new List<int>();
-                var done = new bool[n];
+                int nFree = 0;
+                for (int k = 0; k < n; k++) { _done[k] = false; _did[k] = TaskIdle; }
                 for (int k = 0; k < n; k++)
                 {
-                    int t = f[k];
-                    if (t == TaskNone || done[k]) continue;
-                    var group = new List<int>();
-                    for (int m = k; m < n; m++) if (f[m] == t && !done[m]) { group.Add(m); done[m] = true; }
-                    teams[i] = group.Count;
+                    int t = ui && k < objs.Count ? objs[k].Task : TaskNone;
+                    if (t == TaskNone || _done[k]) continue;
+                    int size = 0;
+                    for (int m = k; m < n; m++) if (m < objs.Count && objs[m].Task == t && !_done[m]) { _done[m] = true; size++; }
+                    teams[i] = size;
                     bool worked = Repairs[t] != null && Repairs[t](comp, i);
-                    foreach (var m in group) { if (worked) actual[m] = t; else free.Add(m); }  // nothing to do: by priority
+                    for (int m = k; m < n; m++)
+                        if (m < objs.Count && objs[m].Task == t) { if (worked) _did[m] = t; else _free[nFree++] = m; }   // nothing to do: by priority
                 }
-                for (int k = 0; k < n; k++) if (f[k] == TaskNone) free.Add(k);
+                for (int k = 0; k < n; k++) if (!_done[k]) _free[nFree++] = k;
 
                 // the rest: the first task in the order that has work
-                if (free.Count > 0)
+                if (nFree > 0)
                 {
-                    teams[i] = free.Count;
+                    teams[i] = nFree;
                     int did = TaskIdle;
-                    foreach (var t in Orders[Math.Max(0, Math.Min(2, s.Mode))])
+                    foreach (var t in Orders[mode])
                         if (Repairs[t](comp, i)) { did = t; break; }
-                    foreach (var m in free) actual[m] = did;
-                    returnTeam = did == TaskIdle && free.Count == n && autoDc && !StayWhenIdle(comp);   // as the game: nothing to do -> back to the pool
+                    for (int m = 0; m < nFree; m++) _did[_free[m]] = did;
+                    returnTeam = did == TaskIdle && nFree == n && autoDc && !StayWhenIdle(comp);   // as the game: nothing to do -> back to the pool
                 }
             }
             finally { teams[i] = n; }   // our temporary counts never stay
+            for (int k = 0; k < n && k < objs.Count; k++) objs[k].Doing = _did[k];
             if (returnTeam) _returnTeam.Invoke(comp, new object[] { i });
             return false;
         }
+        static int[] _free, _did;   // reused buffers (main thread only)
+        static readonly List<DcTeams.Team> _objs = new List<DcTeams.Team>();
+        static bool[] _done;
 
         /// <summary>
         /// Prefix of Compartments.CheckDCTeamsAllocation: with Fire / Flooding first, Auto DC sends a free team to the worst fire /
@@ -268,8 +269,9 @@ namespace AlternativeDamageModel
         /// </summary>
         public static bool AllocPrefix(object comp)
         {
-            if (!_ok || comp == null || !IsEnabled()) return true;
-            if (!DcAuto.Allocate(comp)) return false;   // the optimised Auto DC did it
+            if (!_ok || comp == null) return true;
+            if (AutoOn() && !DcAuto.Allocate(comp)) return false;   // the optimised Auto DC did it
+            if (!IsEnabled()) return true;
             Ship s;
             if (!Ships.TryGetValue(comp, out s) || s.Mode == ModeAuto) return true;
             try

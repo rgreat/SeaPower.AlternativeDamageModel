@@ -34,7 +34,32 @@ namespace AlternativeDamageModel
             public bool Global;
         }
 
-        static readonly string[] Tabs = { "Hull", "Fire & Flooding", "DC Teams", "Sinking", "Display" };
+        const string TUi = "User Interface", TGen = "Damage Model";
+        const string TFx = "Effects";
+        static readonly string[] Tabs = { TUi, TFx, TGen, "Hull", "Systems", "Fire & Flooding", "DC Teams", "Sinking" };
+        const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
+        /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
+        static bool LiveKey(string key) { return key == AdmKey || key == UiKey; }
+        const string UnattendedKey = "FireAndFlooding/UnattendedFireGrowth", SmokeKey = "Effects/ExtraSmokeEmitters", DensityKey = "Effects/SmokeBySeverity";
+        /// <summary>Rows shown only while a switch of the same tab is on: the switch's key, or null.</summary>
+        static string ShownWhen(Field f)
+        {
+            if (f.Group == ArrowsGroup) return UiKey;
+            if (f.Key == "FireAndFlooding/UnattendedFireTime" || f.Key == "FireAndFlooding/UnattendedFireGrowthRate" || f.Key == "FireAndFlooding/UnattendedFireMaxGrowth") return UnattendedKey;
+            if (f.Key == "Effects/ExtraSmokeMinLength") return SmokeKey;
+            if (f.Key == "Effects/SmokeStartOpacity" || f.Key == "Effects/SmokeEndOpacity" ||f.Key == "Effects/SmokeModerateFrom" || f.Key == "Effects/SmokeSevereFrom") return DensityKey;
+            return null;
+        }
+        static bool IsOn(string key)
+        {
+            string v;
+            if (key == UiKey) return UiOn();
+            if (_globals.TryGetValue(key, out v)) return v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
+            if (_work == null || !_work.Values.TryGetValue(key, out v)) return false;
+            return v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        /// <summary>Tabs of the damage model: hidden while Alternative Damage Control is off.</summary>
+        static bool ModelTab(string tab) { return tab != TUi && tab != TGen && tab != TFx; }
 
         static readonly List<Field> Fields = new List<Field>();
 
@@ -45,7 +70,27 @@ namespace AlternativeDamageModel
 
         static SettingsWindow()
         {
-            const string H = "Hull", FF = "Fire & Flooding", DC = "DC Teams", S = "Sinking", D = "Display";
+            const string H = "Hull", FF = "Fire & Flooding", DC = "DC Teams", S = "Sinking", D = TUi, G = TGen;
+            Add(D, "Damage Control tab", UiKey, "Detailed view", "applies at once", Kind.Bool, 0, 0, 0, true);
+            Add(D, ArrowsGroup, "UI/FloodingOneArrowAt", "Water: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
+            Add(D, ArrowsGroup, "UI/FloodingTwoArrowsAt", "Water: two arrows from", "% a second", Kind.Number, 0.05f, 0f, 10f, true);
+            Add(D, ArrowsGroup, "UI/FireOneArrowAt", "Fire: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
+            Add(D, ArrowsGroup, "UI/FireTwoArrowsUpAt", "Fire: two arrows up from", "% a second", Kind.Number, 0.1f, 0f, 20f, true);
+            Add(D, ArrowsGroup, "UI/FireTwoArrowsDownAt", "Fire: two arrows down from", "% a second", Kind.Number, 0.05f, 0f, 20f, true);
+
+            Add(TFx, "Fire smoke", SmokeKey, "Extra smoke points", "5 instead of 3, one per section", Kind.Bool, 0, 0, 0, true);
+            Add(TFx, "Fire smoke", "Effects/ExtraSmokeMinLength", "On ships from", "m long", Kind.Number, 10f, 0f, 500f, true);
+            Add(TFx, "Fire smoke", DensityKey, "Tune visuals", "instead of the game's stages", Kind.Bool, 0, 0, 0, true);
+            Add(TFx, "Fire smoke", "Effects/SmokeStartOpacity", "Small fire: opacity at start", "% of the game's, fire at 0%", Kind.Number, 5f, 0f, 100f, true);
+            Add(TFx, "Fire smoke", "Effects/SmokeEndOpacity", "Small fire: opacity at end", "% of the game's, at moderate", Kind.Number, 5f, 0f, 100f, true);
+            Add(TFx, "Fire smoke", "Effects/SmokeModerateFrom", "Moderate fire look from", "% of max fire (game 25)", Kind.Number, 5f, 1f, 100f, true);
+            Add(TFx, "Fire smoke", "Effects/SmokeSevereFrom", "Severe fire look from", "% of max fire (game 50)", Kind.Number, 5f, 1f, 100f, true);
+
+            Add(G, "Damage model", AdmKey, "Alternative Damage Control", "applies at once", Kind.Bool, 0, 0, 0, true);
+            Add(G, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
+            Add(G, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
+            Add(G, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
+
             Add(H, "Hull integrity", "HullIntegrity/Warships", "Warships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/CivilianShips", "Civilian ships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/Submarines", "Submarines", "× game", Kind.Number, 0.5f, 0.1f, 20f);
@@ -53,36 +98,32 @@ namespace AlternativeDamageModel
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFireVulnerability", "Fires", "", Kind.Number, 0.1f, 0.1f, 10f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFloodingVulnerability", "Flooding", "", Kind.Number, 0.1f, 0.1f, 10f);
 
+            Add("Systems", "Systems", "Systems/Integrity", "Integrity", "× game", Kind.Number, 0.1f, 0.1f, 20f);
             Add(FF, "Fire", "FireAndFlooding/FlameUpSpeed", "Fire growth", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireHullDamageSpeed", "Fire damage to the hull", "× game", Kind.Number, 0.1f, 0f, 10f);
-            Add(FF, "Fire", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(FF, "Fire", "FireAndFlooding/FireSpreadPercent", "Fire spread chance", "% per fire check (10 s)", Kind.Number, 0.005f, 0f, 100f);
+            Add(FF, "Unattended fire", UnattendedKey, "Grows when nobody fights it", "", Kind.Bool, 0, 0, 0);
+            Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireTime", "Unattended after", "s without a team", Kind.Number, 10f, 0f, 1200f);
+            Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireGrowthRate", "Growth added", "% of max growth per fire check (10 s)", Kind.Number, 0.05f, 0f, 100f);
+            Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireMaxGrowth", "Maximum growth rate", "% of max fire a second", Kind.Number, 0.1f, 0f, 100f);
             Add(FF, "Flooding", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
-            Add(FF, "Flooding", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
 
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/WarshipTeams", "Warships", "", Kind.Table, 0, 0, 0);
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/SubmarineTeams", "Submarines", "", Kind.Table, 0, 0, 0);
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/CivilianTeams", "Civilian ships", "", Kind.Table, 0, 0, 0);
             Add(DC, "Work and movement", "DamageControlTeams/DCTeamEffectiveness", "Team effectiveness", "× game", Kind.Number, 0.1f, 0.05f, 5f);
+            Add(DC, "Work and movement", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Work and movement", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Work and movement", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
             Add(DC, "Work and movement", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Knock-outs", "DamageControlTeams/HealTime", "Recovery time", "s + transfer back", Kind.Number, 10f, 0f, 1200f);
             Add(DC, "Knock-outs", "DamageControlTeams/HealTimeSpread", "Recovery spread", "± s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Knock-outs", "DamageControlTeams/KnockoutsToDeath", "Knock-outs to death", "0 = never", Kind.Integer, 1f, 0f, 9f);
 
-            Add(S, "Faster flooding from", "Sinking/ListLimit", "List", "° (water over the deck edge)", Kind.Number, 0.5f, 5f, 69f);
-            Add(S, "Faster flooding from", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
-            Add(S, "Faster flooding from", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
+            Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/ListLimit", "List", "° · water over the deck edge from 75%", Kind.Number, 0.5f, 5f, 69f);
+            Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
+            Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
             Add(S, "Sinking from", "Sinking/FloodLimit", "Water in the ship", "% of the hull", Kind.Number, 1f, 5f, 100f);
-
-            Add(D, "Damage Control tab", "UI/DetailedDamageControl", "Detailed view", "", Kind.Bool, 0, 0, 0, true);
-            Add(D, "Damage Control tab", "UI/FloodingOneArrowAt", "Water: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
-            Add(D, "Damage Control tab", "UI/FloodingTwoArrowsAt", "Water: two arrows from", "% a second", Kind.Number, 0.05f, 0f, 10f, true);
-            Add(D, "Damage Control tab", "UI/FireOneArrowAt", "Fire: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
-            Add(D, "Damage Control tab", "UI/FireTwoArrowsUpAt", "Fire: two arrows up from", "% a second", Kind.Number, 0.1f, 0f, 20f, true);
-            Add(D, "Damage Control tab", "UI/FireTwoArrowsDownAt", "Fire: two arrows down from", "% a second", Kind.Number, 0.05f, 0f, 20f, true);
-            Add(D, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
-            Add(D, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
-            Add(D, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
         }
 
         // ------------------------------------------------------------ colours (the game's dark panels)
@@ -93,6 +134,14 @@ namespace AlternativeDamageModel
 
         static SolidColorBrush B(Color c) { return new SolidColorBrush(c); }
 
+        /// <summary>The game's value next to a list row: as the other rows' (grey, 11 px); a type the game scales with tonnage in light blue.</summary>
+        static readonly Color CGame = Color.FromRgb(132, 186, 238);
+        static TextBlock GameLabel(string text, bool accent)
+        {
+            return new TextBlock { Text = text, Foreground = B(accent ? CGame : CDim), FontSize = 11f, TextAlignment = TextAlignment.Right,
+                                   VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+        }
+
         // ------------------------------------------------------------ state
         static Popup _popup;
         static UIElement _top;             // the screen the window is centred on (mouse positions for dragging)
@@ -101,7 +150,7 @@ namespace AlternativeDamageModel
         static ComboBox _combo;
         static TextBlock _note, _help, _tag, _status;
         static Button _rename, _delete, _reset;
-        static StackPanel _body;
+        static StackPanel _body, _profRow;
         static readonly List<Border> _tabButtons = new List<Border>();
         static readonly List<Ellipse> _tabDots = new List<Ellipse>();
         static int _tab;
@@ -140,12 +189,22 @@ namespace AlternativeDamageModel
         /// panel of that screen, above everything (a Popup created in code alone did not show); a Popup only when there is no
         /// such panel.
         /// </summary>
-        public static void Open(UIElement anchor)
+        public static void Open(UIElement anchor) { Open(anchor, null); }
+
+        /// <summary>Opens the window on the screen of 'anchor' (the gear clicked); 'other' when the gear's own screen has no panel for it.</summary>
+        public static void Open(UIElement anchor, UIElement other)
         {
+            if (anchor == null) { anchor = other; other = null; }
             if (P == null || anchor == null) { Warn("Settings window: not ready."); return; }
             try
             {
-                if (IsOpen) return;
+                if (IsOpen)
+                {
+                    bool shown = false;
+                    try { shown = _root != null && _root.IsVisible; } catch { }
+                    if (shown) return;   // open already
+                    Trace("settings window: left over from an earlier screen, opened again");
+                }
                 Close();
                 // the screen's root, and the topmost panel on the way up to it
                 DependencyObject top = anchor; Panel panel = null;
@@ -157,6 +216,15 @@ namespace AlternativeDamageModel
                     try { itemsHost = pn != null && pn.IsItemsHost; } catch { }
                     if (pn != null && !itemsHost && (pn is Grid || pn is Canvas)) panel = pn;
                 }
+                if (panel == null && other != null)
+                    for (DependencyObject p = other; p != null; p = SafeParent(p))
+                    {
+                        top = p;
+                        var pn = p as Panel;
+                        bool itemsHost = false;
+                        try { itemsHost = pn != null && pn.IsItemsHost; } catch { }
+                        if (pn != null && !itemsHost && (pn is Grid || pn is Canvas)) panel = pn;
+                    }
                 _top = top as UIElement ?? anchor;
                 LoadFrom(P.ActiveProfileName);
                 BuildWindow();
@@ -208,6 +276,7 @@ namespace AlternativeDamageModel
         {
             Typing(false);
             try { if (_host != null && _root != null) _host.Children.Remove(_root); } catch { }
+            try { var pp = _root == null ? null : SafeParent(_root) as Panel; if (pp != null) pp.Children.Remove(_root); } catch { }   // wherever it is now
             try { if (_popup != null) { _popup.IsOpen = false; _popup.Child = null; } } catch { }
             _host = null; _popup = null;
         }
@@ -321,8 +390,8 @@ namespace AlternativeDamageModel
             main.Children.Add(title);
 
             // profile row
-            var prof = new StackPanel { Orientation = Orientation.Horizontal, Background = B(CPanel), Margin = new Thickness(0f, 1f, 0f, 0f) };
-            var pin = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 8f, 12f, 8f) };
+            var prof = _profRow = new StackPanel { Orientation = Orientation.Horizontal, Background = B(CPanel), Margin = new Thickness(0f, 1f, 0f, 0f) };
+            var pin = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 6f, 12f, 6f) };
             prof.Children.Add(pin);
             var pl = Text("Profile", CDim); pl.Margin = new Thickness(0f, 0f, 8f, 0f);
             pin.Children.Add(pl);
@@ -338,10 +407,10 @@ namespace AlternativeDamageModel
             pin.Children.Add(_delete);
             _note = Text("", CDim, 11f);
             pin.Children.Add(_note);
-            main.Children.Add(prof);
+            // the profile row is shown on the General tab (ShowTab), not above the tabs
 
             // tabs
-            var tabs = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 8f, 12f, 0f) };
+            var tabs = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 10f, 12f, 0f) };
             _tabButtons.Clear(); _tabDots.Clear();
             for (int i = 0; i < Tabs.Length; i++)
             {
@@ -361,7 +430,8 @@ namespace AlternativeDamageModel
 
             _body = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 6f, 0f, 6f) };
             var scroll = _scroll = new ScrollViewer { Content = _body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
-            main.Children.Add(new Border { Child = scroll, Background = B(CCard), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 0f) });
+            var settingsArea = new Border { Child = scroll, Background = B(CCard), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 0f) };
+            main.Children.Add(settingsArea);
 
             _help = new TextBlock { Foreground = B(Color.FromRgb(194, 199, 204)), FontSize = 12f, TextWrapping = TextWrapping.Wrap, Text = "Point at a setting to see what it does." };
             main.Children.Add(new Border { Child = _help, Background = B(Color.FromRgb(34, 38, 44)), BorderBrush = B(CLine), BorderThickness = new Thickness(1f),
@@ -391,7 +461,7 @@ namespace AlternativeDamageModel
             main.Children.Clear();
             for (int r = 0; r < parts.Count; r++)
             {
-                layout.RowDefinitions.Add(new RowDefinition { Height = r == 3 ? new GridLength(1f, GridUnitType.Star) : GridLength.Auto });
+                layout.RowDefinitions.Add(new RowDefinition { Height = ReferenceEquals(parts[r], settingsArea) ? new GridLength(1f, GridUnitType.Star) : GridLength.Auto });
                 Grid.SetRow(parts[r], r);
                 layout.Children.Add(parts[r]);
             }
@@ -427,7 +497,7 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ placing on the screen
         // The window lives in the panel of the Unit Status window (its own UI root), and the game scales its UI: sizes are set in
-        // screen pixels (960 x 990 by default, at most the screen less 40) and the window is centred on the screen, not in that panel.
+        // screen pixels (1040 x 990 by default, at most the screen less 40) and the window is centred on the screen, not in that panel.
         static int _place;
         static bool _sizedOnce;
 
@@ -443,7 +513,7 @@ namespace AlternativeDamageModel
                 float sw = UnityEngine.Screen.width, sh = UnityEngine.Screen.height;
                 if (_place == 0)
                 {
-                    if (!_sizedOnce) { _winW = PixW / k; _winH = PixH / k; _sizedOnce = true; }   // the first time: 960 x 990 screen pixels
+                    if (!_sizedOnce) { _winW = PixW / k; _winH = PixH / k; _sizedOnce = true; }   // the first time: 1040 x 990 screen pixels
                     _root.Width = Math.Min(_winW, (sw - 40f) / k);
                     _root.Height = Math.Min(_winH, (sh - 40f) / k);
                     _place = 1;
@@ -460,10 +530,10 @@ namespace AlternativeDamageModel
             catch (Exception ex) { _place = 2; Trace("settings window placing: " + ex.Message); }
         }
 
-        const float PixW = 960f, PixH = 990f;
+        const float PixW = 1040f, PixH = 990f;   // +80: the Effects tab
 
         // ------------------------------------------------------------ size (kept while the game runs)
-        static float _winW = 960f, _winH = 990f;   // UI units; set from 960 x 990 screen pixels at the first opening
+        static float _winW = 1040f, _winH = 990f;   // UI units; set from 960 x 990 screen pixels at the first opening
         static ScrollViewer _scroll;
 
         /// <summary>The bottom right corner: drag to resize (560..1600 x 420..1400; the settings area takes the change).</summary>
@@ -554,7 +624,8 @@ namespace AlternativeDamageModel
             {
                 bool any = false;
                 foreach (var f in Fields) if (f.Tab == Tabs[t] && Differs(f)) { any = true; break; }
-                if (Tabs[t] == "Hull" && _work != null && !ShipsSame()) any = true;
+                if (Tabs[t] == "Hull" && _work != null && !MapSame(p => p.Ships)) any = true;
+                if (Tabs[t] == "Systems" && _work != null && !MapSame(p => p.Modules)) any = true;
                 _tabDots[t].Visibility = any ? Visibility.Visible : Visibility.Collapsed;
             }
         }
@@ -575,13 +646,26 @@ namespace AlternativeDamageModel
             return _from != null && _from.Values.TryGetValue(f.Key, out v) ? v : "";
         }
 
+        static bool AdmOn()
+        {
+            string v;
+            return !_globals.TryGetValue(AdmKey, out v) || !v.Trim().Equals("false", StringComparison.OrdinalIgnoreCase);
+        }
+
+        static bool UiOn()
+        {
+            string v;
+            return !_globals.TryGetValue(UiKey, out v) || !v.Trim().Equals("false", StringComparison.OrdinalIgnoreCase);
+        }
+
         static bool Differs(Field f) { return !AdmPlugin.SameValue(Get(f), FromValue(f)); }
 
-        static bool ShipsSame()
+        static bool MapSame(Func<Profile, SortedDictionary<string, string>> mapOf)
         {
             if (_from == null || _work == null) return true;
-            if (_from.Ships.Count != _work.Ships.Count) return false;
-            foreach (var kv in _work.Ships) { string v; if (!_from.Ships.TryGetValue(kv.Key, out v) || !AdmPlugin.SameValue(v, kv.Value)) return false; }
+            var a = mapOf(_from); var b = mapOf(_work);
+            if (a.Count != b.Count) return false;
+            foreach (var kv in b) { string v; if (!a.TryGetValue(kv.Key, out v) || !AdmPlugin.SameValue(v, kv.Value)) return false; }
             return true;
         }
 
@@ -611,6 +695,11 @@ namespace AlternativeDamageModel
             return new Factor(v).ToString();
         }
 
+        static bool TryNum(string s, out float v)
+        {
+            return float.TryParse((s ?? "").Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out v) && !float.IsNaN(v) && !float.IsInfinity(v);
+        }
+
         static float Num(string s)
         {
             float v;
@@ -624,8 +713,14 @@ namespace AlternativeDamageModel
                 var e = Entry(f.Key);
                 return e == null ? "" : "default: " + TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType).Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off");
             }
+            if (f.Key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal))
+            {   // not in the game: the mod's own default
+                var ue = Entry(f.Key);
+                return ue == null ? "" : "default: " + TomlTypeConverter.ConvertToString(ue.DefaultValue, ue.SettingType).Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off");
+            }
             string v;
             if (_game == null || !_game.Values.TryGetValue(f.Key, out v)) return "";
+            if (f.Kind == Kind.Bool) return "game: " + (v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase) ? "on" : "off");
             if (f.Kind == Kind.Table)
             {
                 var t = DcTeams.Parse(v);
@@ -646,8 +741,16 @@ namespace AlternativeDamageModel
         static void ShowTab(int t)
         {
             _tab = Math.Max(0, Math.Min(Tabs.Length - 1, t));
+            bool adm = AdmOn();
+            if (!adm && ModelTab(Tabs[_tab])) _tab = Array.IndexOf(Tabs, TGen);
+            if (_profRow != null)
+            {
+                var host = _profRow.Parent as Panel;   // taken out of the previous tab's body
+                if (host != null) host.Children.Remove(_profRow);
+            }
             for (int i = 0; i < _tabButtons.Count; i++)
             {
+                _tabButtons[i].Visibility = !adm && ModelTab(Tabs[i]) ? Visibility.Collapsed : Visibility.Visible;
                 bool on = i == _tab;
                 _tabButtons[i].Background = B(on ? CCard : CPanel);
                 var row = _tabButtons[i].Child as StackPanel;
@@ -656,19 +759,26 @@ namespace AlternativeDamageModel
             if (_body == null) return;
             _body.Children.Clear();
             string group = null;
-            if (Tabs[_tab] == "Display")
-            {
-                var n = new TextBlock { Text = "Not part of a profile: these stay the same whatever profile is chosen.", Foreground = B(CDim), FontSize = 11f,
-                                        Margin = new Thickness(12f, 4f, 12f, 2f), TextWrapping = TextWrapping.Wrap };
-                _body.Children.Add(n);
-            }
+            bool ui = UiOn();
             foreach (var f in Fields)
             {
                 if (f.Tab != Tabs[_tab]) continue;
-                if (f.Group != group) { group = f.Group; _body.Children.Add(GroupTitle(group)); }
+                string when = ShownWhen(f);
+                if (when != null && !IsOn(when)) continue;   // only while its switch is on
+                if (f.Group != group)
+                {
+                    // General: the settings profile (of the damage model, hidden while it is off) between the switch and Logging
+                    if (Tabs[_tab] == TGen && group == "Damage model" && adm && _profRow != null)
+                    {
+                        _body.Children.Add(GroupTitle("Settings profile"));
+                        _body.Children.Add(_profRow);
+                    }
+                    group = f.Group; _body.Children.Add(GroupTitle(group));
+                }
                 _body.Children.Add(Row(f));
             }
             if (Tabs[_tab] == "Hull") ShipRows();
+            if (Tabs[_tab] == "Systems") ModuleRows();
             UpdateHeader();
         }
 
@@ -682,7 +792,7 @@ namespace AlternativeDamageModel
             var g = new Grid { Margin = new Thickness(0f), Background = B(Color.FromArgb(0, 0, 0, 0)) };
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200f) });
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96f) });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(124f) });   // "game: 2 by tonnage" on one line
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30f) });
             return g;
         }
@@ -726,18 +836,20 @@ namespace AlternativeDamageModel
             return outer;
         }
 
-        static void Hover(Border row, string label, string key)
+        static void Hover(Border row, string label, string key, string extra = null)
         {
             row.MouseEnter += (o, e) =>
             {
                 row.Background = B(CHl);
-                var en = key == null ? null : Entry(key);
+                var en = key == null || key.StartsWith("#") ? null : Entry(key);
                 string d = en != null && en.Description != null ? en.Description.Description : "";
-                if (key == null) d = "Ships with their own hull multiplier, by ini file name (Sea Power_Data/StreamingAssets/original/vessels): how many times stronger than in the game; replaces the class value, is not multiplied by it.";
+                if (key == null || key == "#ships") d = "Ships with their own hull multiplier, chosen from the game's ships (or by ini file name): how many times stronger than in the game; replaces the class value, is not multiplied by it.";
+                else if (key == "#modules") d = "Module types (modules.ini) with their own Integrity, set explicitly in place of modules.ini's (the game's value is put in when a type is picked); the Integrity multiplier above does not apply to them. The game's own adjustments keep their proportion: types marked \"× tonnage\" (amber) grow with the ship's displacement - point at one for its final values -, and a ship's own value for a system is changed in the same ratio.";
                 _help.Inlines.Clear();
                 var r = new Run(label); r.FontWeight = FontWeight.Bold; r.Foreground = B(CText);
                 _help.Inlines.Add(r);
                 _help.Inlines.Add(new Run(" - " + d));
+                if (!string.IsNullOrEmpty(extra)) { var x = new Run("  " + extra); x.Foreground = B(CWarn); _help.Inlines.Add(x); }
             };
             row.MouseLeave += (o, e) => row.Background = B(Color.FromArgb(0, 0, 0, 0));
         }
@@ -758,8 +870,10 @@ namespace AlternativeDamageModel
             var plus = new Button { Content = "+", Width = 24f, Height = 24f, Padding = new Thickness(0f) };
             minus.Click += (o, e) => put((float)Math.Round((Num(box.Text) - f.Step) / f.Step) * f.Step);
             plus.Click += (o, e) => put((float)Math.Round((Num(box.Text) + f.Step) / f.Step) * f.Step);
-            box.LostFocus += (o, e) => put(Num(box.Text));
-            box.KeyDown += (o, e) => { if (e.Key == Key.Return) { put(Num(box.Text)); e.Handled = true; } };
+            // typed in: a number is taken (within the limits); anything else puts the value back as it was
+            Action typed = () => { float v; if (TryNum(box.Text, out v)) put(v); else box.Text = Get(f); };
+            box.LostFocus += (o, e) => typed();
+            box.KeyDown += (o, e) => { if (e.Key == Key.Return) { typed(); e.Handled = true; } };
             sp.Children.Add(minus); sp.Children.Add(box); sp.Children.Add(plus);
             if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(f.Unit, CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
             refresh = () => box.Text = Get(f);
@@ -769,7 +883,21 @@ namespace AlternativeDamageModel
         static FrameworkElement BoolEditor(Field f, Action mark, out Action refresh)
         {
             var cb = new CheckBox { IsChecked = Get(f).Trim().Equals("true", StringComparison.OrdinalIgnoreCase), VerticalAlignment = VerticalAlignment.Center };
-            cb.Click += (o, e) => { Set(f, cb.IsChecked == true ? "true" : "false"); mark(); };
+            cb.Click += (o, e) =>
+            {
+                string v = cb.IsChecked == true ? "true" : "false";
+                if (LiveKey(f.Key))
+                {
+                    // applies at once, not on Apply: ships at sea / the Damage Control tab follow, tabs and groups of the window show / hide
+                    try { var en = Entry(f.Key); if (en != null) en.SetSerializedValue(v); } catch (Exception ex) { Trace(f.Key + ": " + ex.Message); }
+                    _globals[f.Key] = v; _globalsFrom[f.Key] = v;
+                    DamageControlUi.RefreshNow();
+                    ShowTab(_tab);
+                    return;
+                }
+                Set(f, v); mark();
+                foreach (var other in Fields) if (ShownWhen(other) == f.Key) { ShowTab(_tab); break; }   // rows that show / hide with it
+            };
             refresh = () => cb.IsChecked = Get(f).Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
             return cb;
         }
@@ -848,65 +976,198 @@ namespace AlternativeDamageModel
 
         static void ShipRows()
         {
-            _body.Children.Add(GroupTitle("Single ships - × game, instead of the class value"));
-            foreach (var kv in new List<KeyValuePair<string, string>>(_work.Ships))
+            MapRows("Single ships - × game, instead of the class value", p => p.Ships, ShipNames.Display, ShipNames.Filter, ShipNames.ToIni,
+                    "+ Add ship", "a ship from the list, or its ini file name", "Remove: the ship takes the class value again", "#ships",
+                    n => "", n => 2f, 0.5f, 0.1f, 20f);
+        }
+
+        static void ModuleRows()
+        {
+            MapRows("Single system types - Integrity, instead of the multiplier above", p => p.Modules, n => n, ModuleNames.Filter, ModuleNames.ToKey,
+                    "+ Add type", "a module type from the list (modules.ini)", "Remove: the type takes the multiplier above again", "#modules",
+                    ModuleGame, n => ModuleNames.GameIntegrity(n), 5f, 0.1f, 10000f, ModuleTip, ModuleNames.ScalesWithDisplacement, ModuleHelp);
+        }
+
+        static string ModuleGame(string n)
+        {
+            float gi = ModuleNames.GameIntegrity(n);
+            if (gi <= 0f) return "unknown type";
+            // a type the game scales with the ship's displacement has no one value: the examples are in the tooltip
+            string v = gi.ToString("0.##", CultureInfo.InvariantCulture);
+            return ModuleNames.ScalesWithDisplacement(n) ? "game: " + v + "\ntonnage dependent" : "game: " + v;
+        }
+
+        /// <summary>
+        /// The final Integrity of a type the game scales with the ship's displacement (modules.ini ScalesWithDisplacement):
+        /// value × displacement^0.25 (civilian ships: half of that, at least × 1), at least 10 - the game's LoadModuleParameters.
+        /// </summary>
+        public static float ScaledIntegrity(float v, float tons, bool civilian)
+        {
+            float k = tons > 1f ? (float)Math.Pow(tons, 0.25) : 1f;
+            if (civilian) k /= 2f;
+            if (k < 1f) k = 1f;
+            return Math.Max(10f, v * k);
+        }
+
+        static readonly float[] ExampleTons = { 500f, 1000f, 3000f, 5000f, 10000f, 20000f };
+
+        /// <summary>
+        /// Tooltip of a type the game scales with displacement: a small table of the final Integrity of warships of 500 ... 20 000 t -
+        /// the game's and, when it differs, the one this value gives. Null for a type that is not scaled.
+        /// </summary>
+        static FrameworkElement ModuleTip(string n, float v)
+        {
+            if (!ModuleNames.ScalesWithDisplacement(n)) return null;
+            float gi = ModuleNames.GameIntegrity(n);
+            bool own = Math.Abs(v - gi) > 0.001f;
+            var g = new Grid { Margin = new Thickness(2f) };
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80f) });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(56f) });
+            if (own) g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(56f) });
+            Action<int, int, string, Color, bool> cell = (r, c, text, col, bold) =>
+            {
+                var t = new TextBlock { Text = text, Foreground = B(col), TextAlignment = c == 0 ? TextAlignment.Left : TextAlignment.Right };
+                if (bold) t.FontWeight = FontWeight.Bold;
+                Grid.SetRow(t, r); Grid.SetColumn(t, c); g.Children.Add(t);
+            };
+            g.RowDefinitions.Add(new RowDefinition());
+            cell(0, 0, n, CText, true); cell(0, 1, "game", CDim, false); if (own) cell(0, 2, "yours", CDim, false);
+            for (int i = 0; i < ExampleTons.Length; i++)
+            {
+                float t = ExampleTons[i];
+                g.RowDefinitions.Add(new RowDefinition());
+                cell(i + 1, 0, t.ToString("#,0", CultureInfo.InvariantCulture).Replace(',', ' ') + " t", CText, false);
+                cell(i + 1, 1, ScaledIntegrity(gi, t, false).ToString("0", CultureInfo.InvariantCulture), CText, false);
+                if (own) cell(i + 1, 2, ScaledIntegrity(v, t, false).ToString("0", CultureInfo.InvariantCulture), CWarn, false);
+            }
+            return g;
+        }
+
+        /// <summary>The help pane's one line for such a type.</summary>
+        static string ModuleHelp(string n, float v)
+        {
+            if (!ModuleNames.ScalesWithDisplacement(n)) return null;
+            var parts = new List<string>();
+            foreach (var t in ExampleTons)
+                parts.Add(t.ToString("#,0", CultureInfo.InvariantCulture).Replace(',', ' ') + " t: " + ScaledIntegrity(v, t, false).ToString("0", CultureInfo.InvariantCulture));
+            return "Integrity on a warship of " + string.Join(" · ", parts.ToArray()) + ".";
+        }
+
+        /// <summary>
+        /// Rows "name = value" of a profile's list (single ships: multiplier / single module types: integrity) and a row to add one.
+        /// gameOf: the game's value for the right-hand column; defaultOf: the value put in when a name is picked.
+        /// </summary>
+        static void MapRows(string title, Func<Profile, SortedDictionary<string, string>> mapOf, Func<string, string> display, Func<string, int, List<string>> filter,
+                            Func<string, string> toKey, string addLabel, string errText, string removeTip, string helpKey,
+                            Func<string, string> gameOf, Func<string, float> defaultOf, float step, float min, float max,
+                            Func<string, float, FrameworkElement> detailOf = null, Func<string, bool> accentOf = null, Func<string, float, string> helpOf = null)
+        {
+            _body.Children.Add(GroupTitle(title));
+            foreach (var kv in new List<KeyValuePair<string, string>>(mapOf(_work)))
             {
                 string name = kv.Key;
                 var g = RowGrid();
                 var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f) };
-                bool changed = _from == null || !_from.Ships.ContainsKey(name) || !AdmPlugin.SameValue(_from.Ships[name], kv.Value);
+                bool changed = _from == null || !mapOf(_from).ContainsKey(name) || !AdmPlugin.SameValue(mapOf(_from)[name], kv.Value);
                 var lab = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
                 lab.Children.Add(new Ellipse { Width = 6f, Height = 6f, Fill = B(CWarn), Margin = new Thickness(0f, 0f, 6f, 0f), VerticalAlignment = VerticalAlignment.Center,
                                                Visibility = changed ? Visibility.Visible : Visibility.Hidden });
-                lab.Children.Add(Text(name, CText));
+                var nm = Text(display(name), CText);
+                try { ToolTipService.SetToolTip(nm, name); } catch { }
+                lab.Children.Add(nm);
                 g.Children.Add(lab);
                 var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
                 var box = Edit(kv.Value, 66f);
                 Action<float> put = v =>
                 {
-                    v = Math.Max(0.1f, Math.Min(20f, v));
+                    v = Math.Max(min, Math.Min(max, v));
                     string s = new Factor(v).ToString();
                     box.Text = s;
-                    if (AdmPlugin.SameValue(_work.Ships[name], s)) return;
-                    _work.Ships[name] = s; BecomeOwn(); ShowTab(_tab);
+                    if (AdmPlugin.SameValue(mapOf(_work)[name], s)) return;
+                    mapOf(_work)[name] = s; BecomeOwn(); ShowTab(_tab);
                 };
                 var minus = new Button { Content = "−", Width = 24f, Height = 24f, Padding = new Thickness(0f) };
                 var plus = new Button { Content = "+", Width = 24f, Height = 24f, Padding = new Thickness(0f) };
-                minus.Click += (o, e) => put(Num(box.Text) - 0.5f);
-                plus.Click += (o, e) => put(Num(box.Text) + 0.5f);
-                box.LostFocus += (o, e) => put(Num(box.Text));
-                box.KeyDown += (o, e) => { if (e.Key == Key.Return) { put(Num(box.Text)); e.Handled = true; } };
+                minus.Click += (o, e) => put(Num(box.Text) - step);
+                plus.Click += (o, e) => put(Num(box.Text) + step);
+                string was = kv.Value;
+                Action typed = () => { float v; if (TryNum(box.Text, out v)) put(v); else box.Text = was; };
+                box.LostFocus += (o, e) => typed();
+                box.KeyDown += (o, e) => { if (e.Key == Key.Return) { typed(); e.Handled = true; } };
                 sp.Children.Add(minus); sp.Children.Add(box); sp.Children.Add(plus);
                 Grid.SetColumn(sp, 1); g.Children.Add(sp);
+                var gt = GameLabel(gameOf(name), accentOf != null && accentOf(name));
+                var detail = detailOf == null ? null : detailOf(name, Num(kv.Value));
+                if (detail != null) try { ToolTipService.SetToolTip(gt, detail); } catch { }
+                Grid.SetColumn(gt, 2); g.Children.Add(gt);
                 var rm = new Button { Content = "✕", Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right };
-                try { ToolTipService.SetToolTip(rm, "Remove: the ship takes the class value again"); } catch { }
-                rm.Click += (o, e) => { _work.Ships.Remove(name); BecomeOwn(); ShowTab(_tab); };
+                try { ToolTipService.SetToolTip(rm, removeTip); } catch { }
+                rm.Click += (o, e) => { mapOf(_work).Remove(name); BecomeOwn(); ShowTab(_tab); };
                 Grid.SetColumn(rm, 3); g.Children.Add(rm);
-                Hover(outer, name, null);
+                Hover(outer, display(name), helpKey, helpOf == null ? null : helpOf(name, Num(kv.Value)));
                 _body.Children.Add(outer);
             }
             // add a ship
             var ag = RowGrid();
             var aouter = new Border { Child = ag, Padding = new Thickness(12f, 4f, 6f, 8f) };
-            var nameBox = Edit("", 190f); nameBox.TextAlignment = TextAlignment.Left; nameBox.HorizontalAlignment = HorizontalAlignment.Left;
+            // the ship: a drop-down of the game's ships by their (localised) names; typing filters it, any ini name can be typed too
+            var nameBox = new ComboBox { IsEditable = true, Width = 190f, MinHeight = 24f, HorizontalAlignment = HorizontalAlignment.Left, StaysOpenOnEdit = true };
+            Action<string> fill = f =>
+            {
+                var items = filter(f, 300);
+                nameBox.Items.Clear();
+                foreach (var it in items) nameBox.Items.Add(it);
+            };
+            fill("");
+            string lastFilter = "";
+            nameBox.KeyUp += (o, e) =>
+            {
+                if (e.Key == Key.Return || e.Key == Key.Up || e.Key == Key.Down) return;
+                string t = nameBox.Text ?? "";
+                if (t == lastFilter) return;
+                lastFilter = t;
+                fill(t);
+                nameBox.Text = t;
+                try { var tb = nameBox.Template.FindName("PART_EditableTextBox", nameBox) as TextBox; if (tb != null) tb.CaretIndex = t.Length; } catch { }
+                nameBox.IsDropDownOpen = nameBox.Items.Count > 0 && t.Length > 0;
+            };
+            nameBox.GotFocus += (o, e) => Typing(true);
+            nameBox.LostFocus += (o, e) => Typing(false);
             ag.Children.Add(nameBox);
             var asp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            var val = Edit("2.0", 66f);
+            var val = Edit(new Factor(defaultOf("")).ToString(), 66f);
+            var agame = GameLabel("", false);
+            Grid.SetColumn(agame, 2); ag.Children.Add(agame);
+            // a name picked (or typed): its game value is put in
+            Action picked = () =>
+            {
+                string n = toKey((nameBox.SelectedItem as string ?? nameBox.Text ?? "").Trim());
+                agame.Text = n.Length > 0 ? gameOf(n) : "";
+                agame.Foreground = B(accentOf != null && n.Length > 0 && accentOf(n) ? CGame : CDim);
+                var det = detailOf == null || n.Length == 0 ? null : detailOf(n, defaultOf(n));
+                try { ToolTipService.SetToolTip(agame, det); } catch { }
+                float d = n.Length > 0 ? defaultOf(n) : 0f;
+                if (d > 0f) val.Text = new Factor(d).ToString();
+            };
+            nameBox.SelectionChanged += (o, e) => picked();
+            nameBox.LostFocus += (o, e) => picked();
             var err = Text("", CErr, 11f); err.Margin = new Thickness(8f, 0f, 0f, 0f);
-            var addB = new Button { Content = "+ Add ship", Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(8f, 0f, 0f, 0f), MinHeight = 24f };
+            var addB = new Button { Content = addLabel, Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(8f, 0f, 0f, 0f), MinHeight = 24f };
             addB.Click += (o, e) =>
             {
-                string n = (nameBox.Text ?? "").Trim();
+                string n = toKey((nameBox.Text ?? "").Trim());
                 if (n.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) n = n.Substring(0, n.Length - 4);
                 Factor fv;
-                if (n.Length == 0 || n.IndexOf('=') >= 0 || n.IndexOf('[') >= 0) { err.Text = "ini file name, e.g. usn_bb_iowa"; return; }
-                if (!Factor.TryParse(val.Text, out fv) || fv.V <= 0f) { err.Text = "a number, e.g. 3.0"; return; }
-                _work.Ships[n] = new Factor(Math.Min(20f, fv.V)).ToString();
+                if (n.Length == 0) { err.Text = errText; return; }
+                string bad = AdmPlugin.BadKey(n);
+                if (bad != null) { err.Text = bad; return; }
+                if (!Factor.TryParse(val.Text, out fv) || fv.V <= 0f) { err.Text = "a positive number"; return; }
+                mapOf(_work)[n] = new Factor(Math.Max(min, Math.Min(max, fv.V))).ToString();
                 BecomeOwn(); ShowTab(_tab);
             };
             asp.Children.Add(val); asp.Children.Add(addB); asp.Children.Add(err);
             Grid.SetColumn(asp, 1); ag.Children.Add(asp);
-            Hover(aouter, "Add a ship", null);
+            Hover(aouter, addLabel.TrimStart('+', ' '), helpKey);
             _body.Children.Add(aouter);
         }
 

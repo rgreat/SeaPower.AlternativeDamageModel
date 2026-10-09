@@ -33,7 +33,9 @@ namespace AlternativeDamageModel
             public string TeamsSig;
             public List<KeyValuePair<object, TextBlock>> Clocks = new List<KeyValuePair<object, TextBlock>>();   // time under an icon, updated in place
             public object Comp;                         // the unit shown: another one -> values at once, no smoothing across units
-            public Schematic Schem;                     // the card's tooltip: the sections and their water (DamageControlUi.Schematic.cs)
+            public Schematic Schem;
+            public UIElement[] GameCard2, OurCard2;     // "Teams Knocked Out" (the game's) / "In Transfer" (ours)
+            public int Card2Mode = -1;                     // the card's tooltip: the sections and their water (DamageControlUi.Schematic.cs)
         }
 
         // dials: half a circle, the needle at the top for 0
@@ -45,6 +47,37 @@ namespace AlternativeDamageModel
         static float ListDanger { get { return 0.75f * Limits.ListFull; } }
         static float TrimDanger { get { return 0.75f * Limits.TrimFull; } }
         static float LevelDanger { get { return 0.8f * Limits.LevelFull; } }   // the bar's red band: top 20%
+
+        // ---- the scales that apply to this unit now
+        // the mod's (Limits) with Alternative Damage Control on, the game's otherwise: list - water over the deck at 45°, trim - a
+        // flooded ship sinks at 8°: as the mod's dials, those points are where the red zone starts (75% of the scale);
+        // submarines: list and trim flood nothing (the game's rules are for surface ships only), they sink at 50% water - always
+        static Type _tSub; static FieldInfo _compBase2;
+        static SolidColorBrush _bDanger, _bDim;   // made on first use (static colours of the other part files may not be set up yet)
+        static SolidColorBrush BDanger { get { return _bDanger ?? (_bDanger = new SolidColorBrush(CDanger)); } }
+        static SolidColorBrush BDimText { get { return _bDim ?? (_bDim = new SolidColorBrush(CDim)); } }
+        static SolidColorBrush _bWhite, _bPastMuster;
+        static SolidColorBrush BPastMuster { get { return _bPastMuster ?? (_bPastMuster = new SolidColorBrush(CPastMuster)); } }
+        static SolidColorBrush BWhite { get { return _bWhite ?? (_bWhite = new SolidColorBrush(CWhite)); } }
+
+        static bool IsSub(object comp)
+        {
+            try
+            {
+                if (_compBase2 == null) _compBase2 = comp.GetType().GetField("_baseObject", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var bo = _compBase2 == null ? null : _compBase2.GetValue(comp);
+                if (bo == null) return false;
+                if (_tSub == null) _tSub = bo.GetType().Assembly.GetType("SeaPower.Submarine");
+                return _tSub != null && _tSub.IsInstanceOfType(bo);
+            }
+            catch { return false; }
+        }
+
+        /// <summary>List: the dial's full scale; its red zone (faster flooding) from 75%.</summary>
+        static float ListScale(object comp) { return ModelOn() ? Limits.ListFull : 45f / Limits.FloodFrom; }
+        static float TrimScale(object comp) { return ModelOn() ? Limits.Trim(DcTeams.ShipLength(comp)) : 8f / Limits.FloodFrom; }
+        /// <summary>Water in the ship (% of the hull) at which it sinks.</summary>
+        public static float SinkAt(object comp) { return IsSub(comp) ? 50f : ModelOn() ? Limits.LevelFull : 40f; }
 
         static PropertyInfo _compFloodPct, _scFireStateProp;
         static float _shownList; static WeakReference _shownListComp = new WeakReference(null);   // the list on the dial (smoothed): for the tooltips
@@ -159,9 +192,7 @@ namespace AlternativeDamageModel
                 rowp.Children.Add(Dial("LIST", "PORT", "STBD", ListRange, ListDanger, out x.ListRot, out x.ListVal));
                 rowp.Children.Add(new Border { Width = 6f });
                 var trimDial = Dial("TRIM", "STERN", "BOW", TrimRange, TrimDanger, out x.TrimRot, out x.TrimVal);
-                // its own tooltip (over the card's flooding plan): this ship's limits and where they come from
-                trimDial.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
-                LiveTip(trimDial, () => { float L = x.Comp == null ? 0f : DcTeams.ShipLength(x.Comp); return "Trim limit " + Limits.Trim(L).ToString("0.0", CultureInfo.InvariantCulture) + "°" + (L > 0f ? " (" + L.ToString("0", CultureInfo.InvariantCulture) + " m)" : ""); });
+                // no tooltip of its own: the card's flooding plan shows over all three gauges (with the list / trim limits)
                 rowp.Children.Add(trimDial);
                 rowp.Children.Add(new Border { Width = 8f });
                 rowp.Children.Add(LevelBar(x));
@@ -217,8 +248,12 @@ namespace AlternativeDamageModel
                 else
                 {
                     x.MovingIcons = icons;
-                    if (title != null) { Hide(x, title); Add(x, inner, Copy(title, "In Transfer", 0)); }
+                    TextBlock ours = null;
+                    if (title != null) { Hide(x, title); ours = Copy(title, "In Transfer", 0); Add(x, inner, ours); }
                     if (label != null) Hide(x, label);
+                    // with Alternative Damage Control off the card is the game's own again ("Teams Knocked Out")
+                    x.GameCard2 = new UIElement[] { title, value, label };
+                    x.OurCard2 = new UIElement[] { ours, icons };
                 }
             }
         }
@@ -274,13 +309,13 @@ namespace AlternativeDamageModel
             var teams = DcTeams.Snapshot(comp);
             int[] counts = _compTeams.GetValue(comp, null) as int[];
             int free = counts != null && counts.Length > 5 ? counts[5] : 0;
-            bool manual = !DcControl.AutoDc(comp);
+            bool manual = Manual(comp);
             var sb = new System.Text.StringBuilder();
             foreach (var t in teams) sb.Append(t.State).Append(':').Append(t.Section).Append(':').Append(t.Ref.GetHashCode()).Append(' ');
             sb.Append('|').Append(free).Append(manual ? 'm' : 'a');
             string sig = sb.ToString();
 
-            if (sig != x.TeamsSig && !(_menusOpen > 0 && x.TeamsSig != null))
+            if (sig != x.TeamsSig && !(x.TeamsSig != null && MenusOpen()))
             {
                 x.TeamsSig = sig;
                 x.Clocks.Clear();
@@ -315,7 +350,7 @@ namespace AlternativeDamageModel
                         Clickable(frame, manual ? (Func<ContextMenu>)(() => CancelMenu(comp, r)) : null, r);
                         ch.Add(frame);
                     }
-                    if (x.FreeLabel != null) x.FreeLabel.Text = all > 0 ? "Active " + alive + " of " + all + " teams" : "";
+                    if (x.FreeLabel != null) x.FreeLabel.Text = "In reserve";
                 }
 
                 // on the move and recovering, with the time left
@@ -356,8 +391,8 @@ namespace AlternativeDamageModel
                     if (!ReferenceEquals(t.Ref, kv.Key)) continue;
                     string text = Clock(t.Left);
                     if (kv.Value.Text != text) kv.Value.Text = text;
-                    bool walking = t.State == (int)DcTeams.St.Moving && t.Total - t.Left > DcTeams.Muster;
-                    kv.Value.Foreground = new SolidColorBrush(walking ? CPastMuster : CDim);
+                    bool walking = t.State == (int)DcTeams.St.Moving && (t.Back || t.Total - t.Left > DcTeams.Muster);
+                    SetBrush(kv.Value, walking ? BPastMuster : BDimText);
                     break;
                 }
             }
@@ -457,6 +492,13 @@ namespace AlternativeDamageModel
         static void RenderExtras(object comp, object vm, Extras x, string[] sectionNames)
         {
             try { RenderTeamCards(comp, vm, x, sectionNames); } catch (Exception e) { Trace("RenderTeamCards: " + e.Message); }
+            int mode = ModelOn() ? 1 : 0;
+            if (mode != x.Card2Mode && x.GameCard2 != null)
+            {
+                x.Card2Mode = mode;
+                foreach (var e in x.GameCard2) if (e != null) e.Visibility = mode == 0 ? Visibility.Visible : Visibility.Collapsed;
+                foreach (var e in x.OurCard2) if (e != null) e.Visibility = mode == 1 ? Visibility.Visible : Visibility.Collapsed;
+            }
             // Fires: the worst stage on board, and how many sections burn
             if (x.FireValue != null)
             {
@@ -499,13 +541,14 @@ namespace AlternativeDamageModel
                     if (t != x.T) x.T = t;
                     _shownList = x.List; _shownListComp = new WeakReference(comp);
                     // +z = port side down (needle to the left); trim: +x turns the needle to the right (checked in game)
-                    x.ListRot.Angle = -Math.Max(-1f, Math.Min(1f, x.List / ListRange)) * 90f;
-                    float trimRange = Limits.Trim(DcTeams.ShipLength(comp));   // this ship's limit (by its length)
+                    float listRange = ListScale(comp), trimRange = TrimScale(comp);   // trim: this ship's limit (by its length)
+                    bool sub = IsSub(comp);                                            // nothing floods from list / trim
+                    x.ListRot.Angle = -Math.Max(-1f, Math.Min(1f, x.List / listRange)) * 90f;
                     x.TrimRot.Angle = Math.Max(-1f, Math.Min(1f, x.Trim / trimRange)) * 90f;
-                    x.ListVal.Text = Math.Abs(x.List).ToString(Math.Abs(x.List) < 10f ? "0.0" : "0", CultureInfo.InvariantCulture) + "°";
-                    x.TrimVal.Text = Math.Abs(x.Trim).ToString("0.0", CultureInfo.InvariantCulture) + "°";
-                    x.ListVal.Foreground = Math.Abs(x.List) >= ListDanger ? new SolidColorBrush(CDanger) : StageBrush(x.Res, 0);
-                    x.TrimVal.Foreground = Math.Abs(x.Trim) >= 0.75f * trimRange ? new SolidColorBrush(CDanger) : StageBrush(x.Res, 0);
+                    SetText(x.ListVal, Math.Abs(x.List).ToString(Math.Abs(x.List) < 10f ? "0.0" : "0", CultureInfo.InvariantCulture) + "°");
+                    SetText(x.TrimVal, Math.Abs(x.Trim).ToString("0.0", CultureInfo.InvariantCulture) + "°");
+                    SetBrush(x.ListVal, !sub && Math.Abs(x.List) >= Limits.FloodFrom * listRange ? BDanger : StageBrush(x.Res, 0));
+                    SetBrush(x.TrimVal, !sub && Math.Abs(x.Trim) >= Limits.FloodFrom * trimRange ? BDanger : StageBrush(x.Res, 0));
                 }
             }
 
@@ -516,11 +559,16 @@ namespace AlternativeDamageModel
             {
                 float fp = 0f;
                 try { fp = Convert.ToSingle(_compFloodPct.GetValue(comp, null), CultureInfo.InvariantCulture); } catch { }
-                x.LevelFill.Height = Math.Max(0f, Math.Min(1f, fp / LevelFull)) * x.LevelHeight;
-                x.LevelVal.Text = Pct(Math.Min(100f, 100f * fp / LevelFull));   // 0..100% of the scale: 100% = the top, where the ship starts to sink
-                x.LevelVal.Foreground = fp >= LevelDanger ? new SolidColorBrush(CDanger) : new SolidColorBrush(CDim);
+                float sinkAt = SinkAt(comp);
+                x.LevelFill.Height = Math.Max(0f, Math.Min(1f, fp / sinkAt)) * x.LevelHeight;
+                SetText(x.LevelVal, Pct(Math.Min(100f, 100f * fp / sinkAt)));   // 0..100% of the scale: 100% = the top, where the ship starts to sink
+                SetBrush(x.LevelVal, fp >= 0.8f * sinkAt ? BDanger : BDimText);
             }
         }
+
+        /// <summary>Text and brush only when they change (no new brush and no re-render every tick).</summary>
+        static void SetText(TextBlock tb, string text) { if (tb != null && tb.Text != text) tb.Text = text; }
+        static void SetBrush(TextBlock tb, Brush b) { if (tb != null && !ReferenceEquals(tb.Foreground, b)) tb.Foreground = b; }
 
         static readonly Color CBand = Color.FromRgb(160, 166, 174);   // dial scale band: grey, so the white needle stands out
         static readonly Color CBlueWater = Color.FromRgb(74, 150, 226);

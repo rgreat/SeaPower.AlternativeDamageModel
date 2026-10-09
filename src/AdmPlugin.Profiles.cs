@@ -18,12 +18,14 @@ namespace AlternativeDamageModel
         public bool BuiltIn;
         public SortedDictionary<string, string> Values = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public SortedDictionary<string, string> Ships = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        public SortedDictionary<string, string> Modules = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // [SystemTypeIntegrity]: module type = its Integrity
 
         public Profile Copy(string name)
         {
             var p = new Profile { Name = name, BuiltIn = false };
             foreach (var kv in Values) p.Values[kv.Key] = kv.Value;
             foreach (var kv in Ships) p.Ships[kv.Key] = kv.Value;
+            foreach (var kv in Modules) p.Modules[kv.Key] = kv.Value;
             return p;
         }
 
@@ -37,11 +39,16 @@ namespace AlternativeDamageModel
                 if (!o.Values.TryGetValue(kv.Key, out v) || !AdmPlugin.SameValue(kv.Value, v)) return false;
             }
             foreach (var kv in o.Values) if (!Values.ContainsKey(kv.Key)) return false;
-            if (Ships.Count != o.Ships.Count) return false;
-            foreach (var kv in Ships)
+            return SameMap(Ships, o.Ships) && SameMap(Modules, o.Modules);
+        }
+
+        static bool SameMap(SortedDictionary<string, string> a, SortedDictionary<string, string> b)
+        {
+            if (a.Count != b.Count) return false;
+            foreach (var kv in a)
             {
                 string v;
-                if (!o.Ships.TryGetValue(kv.Key, out v) || !AdmPlugin.SameValue(kv.Value, v)) return false;
+                if (!b.TryGetValue(kv.Key, out v) || !AdmPlugin.SameValue(kv.Value, v)) return false;
             }
             return true;
         }
@@ -49,32 +56,19 @@ namespace AlternativeDamageModel
 
     /// <summary>
     /// Settings profiles. The .cfg holds the values in use and [General] Profile = the name of the profile they came from.
-    ///  - Base Game and Advanced: built in, read-only. Files Profiles/Base Game.cfg and Profiles/Advanced.cfg next to the dll (a value
-    ///    missing there comes from the code); without the files the code's values are used.
-    ///  - The player's own: BepInEx/config/AlternativeDamageModel/Profiles/name.cfg.
+    ///  - System (built-in, read-only): every Profiles/*.cfg next to the dll; Base Game and Advanced always exist. These files are
+    ///    the defaults (edit them for a release); the code's Bind defaults are only a fallback for a missing file or key. While a
+    ///    built-in profile is in use, the .cfg follows its file at every start (a new release with changed defaults is taken over).
+    ///  - The player's own: StreamingAssets/user/AdvancedDamageControl/Profiles/name.cfg.
     /// When the values in use no longer match a built-in profile (changed in the game's settings window, in the .cfg or by a
     /// configuration manager), they are kept as the profile "Custom"; a player's own profile is simply saved with them.
     /// </summary>
     public partial class AdmPlugin
     {
         public const string BaseGameName = "Base Game", AdvancedName = "Advanced", CustomName = "Custom";
-        static readonly string[] ProfileSections = { "HullIntegrity", "SideEffects", "FireAndFlooding", "DamageControlTeams", "Sinking" };
+        static readonly string[] ProfileSections = { "HullIntegrity", "SideEffects", "Systems", "FireAndFlooding", "DamageControlTeams", "Sinking" };
         readonly List<ConfigEntryBase> _profileEntries = new List<ConfigEntryBase>();
         readonly List<ConfigEntryBase> _globalEntries = new List<ConfigEntryBase>();
-
-        /// <summary>The values of Base Game; anything not listed is the same in both built-in profiles (1.0).</summary>
-        static readonly Dictionary<string, string> BaseGameValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            { "HullIntegrity/Warships", "1.0" }, { "HullIntegrity/CivilianShips", "1.0" }, { "HullIntegrity/Submarines", "1.0" },
-            { "SideEffects/HullShellVulnerability", "1.0" }, { "SideEffects/HullFireVulnerability", "1.0" }, { "SideEffects/HullFloodingVulnerability", "1.0" },
-            { "FireAndFlooding/FlameUpSpeed", "1.0" }, { "FireAndFlooding/FireHullDamageSpeed", "1.0" }, { "FireAndFlooding/ExtinguishSpeed", "1.0" },
-            { "FireAndFlooding/FloodingSpeed", "1.0" }, { "FireAndFlooding/PumpOutSpeed", "1.0" },
-            { "DamageControlTeams/WarshipTeams", "0=1, 7000=2, 24000=3" }, { "DamageControlTeams/SubmarineTeams", "0=1, 5000=2" },
-            { "DamageControlTeams/CivilianTeams", "0=1" }, { "DamageControlTeams/DCTeamEffectiveness", "1.0" },
-            { "DamageControlTeams/TransferSpeed", "0.0" }, { "DamageControlTeams/MusterTime", "0.0" },
-            { "DamageControlTeams/HealTime", "90.0" }, { "DamageControlTeams/HealTimeSpread", "30.0" }, { "DamageControlTeams/KnockoutsToDeath", "0" },
-            { "Sinking/ListLimit", "45.0" }, { "Sinking/TrimLimit", "8.0" }, { "Sinking/TrimReferenceLength", "0.0" }, { "Sinking/FloodLimit", "40.0" },
-        };
 
         static string Key(ConfigDefinition d) { return d.Section + "/" + d.Key; }
 
@@ -91,11 +85,8 @@ namespace AlternativeDamageModel
         void CollectEntries()
         {
             _profileEntries.Clear(); _globalEntries.Clear();
-            foreach (var kv in Config)
-            {
-                if (Array.IndexOf(ProfileSections, kv.Key.Section) >= 0) _profileEntries.Add(kv.Value);
-                else if (kv.Value != _profileEntry) _globalEntries.Add(kv.Value);
-            }
+            foreach (var kv in Pcfg) _profileEntries.Add(kv.Value);
+            foreach (var kv in Cfg) if (kv.Value != _profileEntry) _globalEntries.Add(kv.Value);
         }
 
         // ------------------------------------------------------------ files
@@ -109,12 +100,78 @@ namespace AlternativeDamageModel
             }
         }
 
-        static string UserProfilesDir { get { return Path.Combine(Path.Combine(Paths.ConfigPath, "AlternativeDamageModel"), "Profiles"); } }
+        static string UserProfilesDir { get { return Path.Combine(UserDir ?? Path.Combine(Paths.ConfigPath, "AlternativeDamageModel"), "Profiles"); } }
 
-        public static bool IsBuiltIn(string name)
+        /// <summary>Profiles of the player's own from the old place (BepInEx/config/AlternativeDamageModel/Profiles), moved once.</summary>
+        static void MoveOldProfiles()
         {
-            return string.Equals(name, BaseGameName, StringComparison.OrdinalIgnoreCase) || string.Equals(name, AdvancedName, StringComparison.OrdinalIgnoreCase);
+            try
+            {
+                string oldRoot = Path.Combine(Paths.ConfigPath, "AlternativeDamageModel"), old = Path.Combine(oldRoot, "Profiles");
+                if (!Directory.Exists(old) || string.Equals(Path.GetFullPath(old), Path.GetFullPath(UserProfilesDir), StringComparison.OrdinalIgnoreCase)) return;
+                Directory.CreateDirectory(UserProfilesDir);
+                foreach (var f in Directory.GetFiles(old, "*.cfg"))
+                {
+                    string to = Path.Combine(UserProfilesDir, Path.GetFileName(f));
+                    if (!File.Exists(to)) File.Move(f, to); else File.Delete(f);
+                }
+                try { Directory.Delete(old); Directory.Delete(oldRoot); } catch { }   // only when empty
+            }
+            catch (Exception e) { Trace("MoveOldProfiles: " + e.Message); }
         }
+
+        /// <summary>
+        /// The built-in (system) profiles: every Profiles/*.cfg next to the dll, plus Base Game and Advanced (from the code when
+        /// their files are missing). Alphabetical.
+        /// </summary>
+        public static List<string> SystemProfiles()
+        {
+            var list = new List<string>();
+            try
+            {
+                string dir = ModProfilesDir;
+                if (dir != null && Directory.Exists(dir))
+                    foreach (var f in Directory.GetFiles(dir, "*.cfg")) list.Add(Path.GetFileNameWithoutExtension(f));
+            }
+            catch (Exception e) { Trace("SystemProfiles: " + e.Message); }
+            foreach (var n in new[] { BaseGameName, AdvancedName })
+                if (!list.Exists(x => string.Equals(x, n, StringComparison.OrdinalIgnoreCase))) list.Add(n);
+            list.Sort(StringComparer.OrdinalIgnoreCase);
+            _system = list;
+            return new List<string>(list);   // a copy: callers add the player's own to it
+        }
+        static List<string> _system;
+
+        /// <summary>The name as the system profile spells it, or null when 'name' is not a system profile.</summary>
+        static string SystemName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            var list = _system ?? SystemProfiles();
+            foreach (var n in list) if (string.Equals(n, name.Trim(), StringComparison.OrdinalIgnoreCase)) return n;
+            return null;
+        }
+
+        /// <summary>
+        /// Why a name cannot be a key of [HullIntegrityPerShip] / [SystemTypeIntegrity] (BepInEx refuses these characters in a key:
+        /// = \n \t \ " ' [ ]), or null when it can.
+        /// </summary>
+        public static string BadKey(string key)
+        {
+            key = key ?? "";
+            if (key.Trim().Length == 0) return "empty";
+            foreach (char ch in "=\n\t\\\"'[]") if (key.IndexOf(ch) >= 0) return "not allowed: " + (ch == '\n' ? "line break" : ch == '\t' ? "tab" : ch.ToString());
+            return null;
+        }
+
+        /// <summary>A per-ship / per-type line into the values in use; a key BepInEx refuses is left out (never stops the rest).</summary>
+        void PutLine(Dictionary<ConfigDefinition, string> orphans, string section, string key, string value)
+        {
+            if (BadKey(key) != null) { Warn("[" + section + "] '" + key + "' left out (" + BadKey(key) + ")."); return; }
+            try { orphans[new ConfigDefinition(section, key)] = value; }
+            catch (Exception e) { Warn("[" + section + "] '" + key + "' left out (" + e.Message + ")."); }
+        }
+
+        public static bool IsBuiltIn(string name) { return SystemName(name) != null; }
 
         /// <summary>Why a name cannot be used for a profile of the player's own, or null when it can.</summary>
         public static string BadName(string name)
@@ -130,10 +187,10 @@ namespace AlternativeDamageModel
 
         static string UserFile(string name) { return Path.Combine(UserProfilesDir, name.Trim() + ".cfg"); }
 
-        /// <summary>The names to choose from: the two built-in ones, then the player's own (alphabetical).</summary>
+        /// <summary>The names to choose from: the system profiles (alphabetical), then the player's own (alphabetical).</summary>
         public static List<string> ProfileNames()
         {
-            var list = new List<string> { BaseGameName, AdvancedName };
+            var list = SystemProfiles();
             var own = new List<string>();
             try
             {
@@ -150,21 +207,28 @@ namespace AlternativeDamageModel
             return list;
         }
 
-        /// <summary>A profile by name (built-in: file over the code's values); null when there is no such profile.</summary>
+        static readonly HashSet<string> _missingWarned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// A profile by name; null when there is no such profile. Built-in ones come from Profiles/name.cfg next to the dll (the
+        /// files are the defaults); a value missing there (or no file) falls back to the code's default, with a warning in the log.
+        /// </summary>
         public Profile LoadProfile(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
             if (IsBuiltIn(name))
             {
-                bool basic = string.Equals(name, BaseGameName, StringComparison.OrdinalIgnoreCase);
-                var p = new Profile { Name = basic ? BaseGameName : AdvancedName, BuiltIn = true };
-                foreach (var e in _profileEntries)
-                {
-                    string k = Key(e.Definition), v;
-                    p.Values[k] = basic && BaseGameValues.TryGetValue(k, out v) ? v : TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType);
-                }
-                string dir = ModProfilesDir;
-                if (dir != null) ReadProfileFile(Path.Combine(dir, p.Name + ".cfg"), p);
+                var p = new Profile { Name = SystemName(name), BuiltIn = true };
+                var read = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                string dir = ModProfilesDir, bf = dir == null ? null : Path.Combine(dir, p.Name + ".cfg");
+                foreach (var e in _profileEntries) p.Values[Key(e.Definition)] = TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType);
+                if (bf != null) ReadProfileFile(bf, p, read);
+                var missing = new List<string>();
+                foreach (var e in _profileEntries) if (!read.Contains(Key(e.Definition))) missing.Add(Key(e.Definition));
+                if (missing.Count > 0 && _missingWarned.Add(p.Name))
+                    Warn(bf == null || !File.Exists(bf)
+                        ? "Built-in profile file missing: " + (bf ?? p.Name + ".cfg") + " - the code's defaults are used."
+                        : "Built-in profile " + p.Name + ".cfg has no " + string.Join(", ", missing.ToArray()) + " - the code's defaults are used for them.");
                 return p;
             }
             string file = UserFile(name);
@@ -175,14 +239,42 @@ namespace AlternativeDamageModel
             return own;
         }
 
+        /// <summary>A setting in a format of an older build (converted by ConvertOld).</summary>
+        static bool IsOld(string section, string key)
+        {
+            return string.Equals(section, OldPerModuleSection, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(section, "FireAndFlooding", StringComparison.OrdinalIgnoreCase) && string.Equals(key, "FireSpreadChance", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Older formats into the current one: [SystemsPerType] multipliers become [SystemTypeIntegrity] integrities (x the game's
+        /// modules.ini value); FireSpreadChance (x the game's) becomes FireSpreadPercent. Returns the key it set, or null.
+        /// </summary>
+        static string ConvertOld(Profile p, string section, string key, string value)
+        {
+            Factor f;
+            if (!Factor.TryParse(value, out f) || f.V < 0f) return null;
+            if (string.Equals(section, OldPerModuleSection, StringComparison.OrdinalIgnoreCase))
+            {
+                float gi = ModuleNames.GameIntegrity(key);
+                if (gi <= 0f || f.V <= 0f) return null;
+                p.Modules[ModuleNames.ToKey(key)] = new Factor(f.V * gi).ToString();
+                return PerModuleSection + "/" + key;
+            }
+            const string fire = "FireAndFlooding/FireSpreadPercent";
+            if (!p.Values.ContainsKey(fire)) return null;
+            p.Values[fire] = new Factor(Math.Min(100f, f.V * GameFireSpreadPct)).ToString();
+            return fire;
+        }
+
         /// <summary>A plain ini: [Section] / Key = Value, '#' comments; [HullIntegrityPerShip] lines are the per-ship values.</summary>
-        void ReadProfileFile(string file, Profile p)
+        void ReadProfileFile(string file, Profile p, HashSet<string> read = null)
         {
             try
             {
                 if (!File.Exists(file)) return;
                 string section = "";
-                bool shipsSeen = false;
+                bool shipsSeen = false, modsSeen = false;
                 foreach (var raw in File.ReadAllLines(file))
                 {
                     string line = raw.Trim();
@@ -191,15 +283,31 @@ namespace AlternativeDamageModel
                     int eq = line.IndexOf('=');
                     if (eq <= 0) continue;
                     string k = line.Substring(0, eq).Trim(), v = line.Substring(eq + 1).Trim();
+                    if (IsOld(section, k))
+                    {
+                        if (string.Equals(section, OldPerModuleSection, StringComparison.OrdinalIgnoreCase) && !modsSeen) { p.Modules.Clear(); modsSeen = true; }
+                        string conv = ConvertOld(p, section, k, v);
+                        if (conv != null && read != null) read.Add(conv);
+                        continue;
+                    }
                     if (string.Equals(section, PerShipSection, StringComparison.OrdinalIgnoreCase))
                     {
                         if (!shipsSeen) { p.Ships.Clear(); shipsSeen = true; }
                         Factor f;
-                        if (k.Length > 0 && Factor.TryParse(v, out f) && f.V > 0f) p.Ships[k] = f.ToString();
+                        if (BadKey(k) != null) { Trace("Profile " + file + ": [" + PerShipSection + "] '" + k + "' ignored (" + BadKey(k) + ")."); continue; }
+                        if (Factor.TryParse(v, out f) && f.V > 0f) p.Ships[k] = f.ToString();
+                        continue;
+                    }
+                    if (string.Equals(section, PerModuleSection, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!modsSeen) { p.Modules.Clear(); modsSeen = true; }
+                        Factor f;
+                        if (BadKey(k) != null) { Trace("Profile " + file + ": [" + PerModuleSection + "] '" + k + "' ignored (" + BadKey(k) + ")."); continue; }
+                        if (Factor.TryParse(v, out f) && f.V > 0f) p.Modules[k] = f.ToString();
                         continue;
                     }
                     string key = section + "/" + k;
-                    if (p.Values.ContainsKey(key)) p.Values[key] = v;   // only settings that exist
+                    if (p.Values.ContainsKey(key)) { p.Values[key] = v; if (read != null) read.Add(key); }   // only settings that exist
                 }
             }
             catch (Exception e) { Warn("Profile " + file + " could not be read: " + e.Message); }
@@ -209,7 +317,8 @@ namespace AlternativeDamageModel
         {
             var sb = new StringBuilder();
             sb.Append("## Alternative Damage Model - settings profile \"").Append(p.Name).Append("\"").AppendLine();
-            sb.Append("## Chosen in the game: Unit Status -> Damage Control -> the gear next to (i). Same keys as the mod's .cfg.").AppendLine();
+            sb.Append("## Chosen in the game: Unit Status -> Damage Control -> the gear next to (i), or [General] Profile in AlternativeDamageModel.cfg.").AppendLine();
+            sb.Append("## Edits made here while the game runs are picked up at once when this profile is in use.").AppendLine();
             foreach (var sec in ProfileSections)
             {
                 sb.AppendLine().Append('[').Append(sec).Append(']').AppendLine();
@@ -221,9 +330,13 @@ namespace AlternativeDamageModel
                 }
             }
             sb.AppendLine().Append('[').Append(PerShipSection).Append(']').AppendLine();
+            foreach (var c in PerShipComment) sb.Append(c).AppendLine();
             foreach (var kv in p.Ships) sb.Append(kv.Key).Append(" = ").Append(kv.Value).AppendLine();
+            sb.AppendLine().Append('[').Append(PerModuleSection).Append(']').AppendLine();
+            foreach (var kv in p.Modules) sb.Append(kv.Key).Append(" = ").Append(kv.Value).AppendLine();
             Directory.CreateDirectory(Path.GetDirectoryName(file));
             File.WriteAllText(file, sb.ToString(), new UTF8Encoding(false));
+            if (string.Equals(file, _profWatch.Path, StringComparison.OrdinalIgnoreCase)) _profWatch.Remember();   // our own write
         }
 
         // ------------------------------------------------------------ the values in use
@@ -240,6 +353,11 @@ namespace AlternativeDamageModel
                     {
                         Factor f;
                         if (Factor.TryParse(kv.Value, out f) && f.V > 0f) p.Ships[kv.Key.Key.Trim()] = f.ToString();
+                    }
+                    else if (string.Equals(kv.Key.Section, PerModuleSection, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Factor f;
+                        if (Factor.TryParse(kv.Value, out f) && f.V > 0f) p.Modules[kv.Key.Key.Trim()] = f.ToString();
                     }
             return p;
         }
@@ -263,15 +381,25 @@ namespace AlternativeDamageModel
                 if (orphans != null)
                 {
                     foreach (var kv in new List<KeyValuePair<ConfigDefinition, string>>(orphans))
-                        if (string.Equals(kv.Key.Section, PerShipSection, StringComparison.OrdinalIgnoreCase)) orphans.Remove(kv.Key);
-                    foreach (var kv in p.Ships) orphans[new ConfigDefinition(PerShipSection, kv.Key)] = kv.Value;
+                        if (string.Equals(kv.Key.Section, PerShipSection, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(kv.Key.Section, PerModuleSection, StringComparison.OrdinalIgnoreCase)) orphans.Remove(kv.Key);
+                    foreach (var kv in p.Ships) PutLine(orphans, PerShipSection, kv.Key, kv.Value);
+                    foreach (var kv in p.Modules) PutLine(orphans, PerModuleSection, kv.Key, kv.Value);
                 }
                 _profileEntry.Value = name;
             }
             finally { _reloading = false; }
+            _profWatch.Set(ProfilePath(name));
             ReadSettings();
             SaveConfig();
             RescaleLiveHulls();
+        }
+
+        /// <summary>The file of a profile: next to the dll for a built-in one, else in the player's folder.</summary>
+        static string ProfilePath(string name)
+        {
+            if (IsBuiltIn(name)) { string dir = ModProfilesDir; return dir == null ? null : Path.Combine(dir, SystemName(name) + ".cfg"); }
+            return UserFile(name);
         }
 
         /// <summary>
@@ -294,6 +422,7 @@ namespace AlternativeDamageModel
                     string own = prof == null ? name : CustomName;
                     WriteProfileFile(UserFile(own), cur.Copy(own));
                     if (_profileEntry.Value != own) { _reloading = true; try { _profileEntry.Value = own; } finally { _reloading = false; } SaveConfig(); }
+                    _profWatch.Set(UserFile(own));
                     Say("Settings differ from profile " + (prof == null ? "?" : prof.Name) + ": kept as profile \"" + own + "\".");
                 }
                 else WriteProfileFile(UserFile(prof.Name), cur.Copy(prof.Name));
@@ -341,8 +470,16 @@ namespace AlternativeDamageModel
         {
             string bad = BadName(name);
             if (bad != null) return bad;
-            try { WriteProfileFile(UserFile(name.Trim()), values.Copy(name.Trim())); return null; }
+            name = name.Trim();
+            try { WriteProfileFile(UserFile(name), values.Copy(name)); }
             catch (Exception e) { return "Could not save: " + e.Message; }
+            // saved over the profile in use: these values are in use now (the file and the values in use stay the same)
+            if (string.Equals(name, _profileEntry.Value, StringComparison.OrdinalIgnoreCase))
+            {
+                var p = LoadProfile(name);
+                if (p != null) ApplyValues(p, p.Name);
+            }
+            return null;
         }
 
         public string RenameProfile(string from, string to)
@@ -363,6 +500,7 @@ namespace AlternativeDamageModel
                 {
                     _reloading = true; try { _profileEntry.Value = to; } finally { _reloading = false; }
                     SaveConfig();
+                    _profWatch.Set(b);
                 }
                 return null;
             }

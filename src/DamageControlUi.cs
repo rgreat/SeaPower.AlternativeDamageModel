@@ -28,6 +28,9 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
         public static Action<string> Warn = s => { };
         public static bool Verbose;
+        /// <summary>Alternative Damage Control on (orders to single teams, DC Priority); the view itself works either way.</summary>
+        public static Func<bool> ModelOn = () => true;
+        static bool Manual(object comp) { return !DcControl.AutoDc(comp); }   // tasks by hand: always; moves only with the damage model
         /// <summary>
         /// True when DamageSummary.DamageIntensity no longer notifies on an unchanged value (AdmPlugin's prefix): the list items
         /// then stay, and the Flooding / Fire rows are drawn into (coloured arrows). False: text mode via Description.
@@ -55,8 +58,58 @@ namespace AlternativeDamageModel
                 Views.RemoveAll(w => !w.IsAlive);
                 Views.Add(new WeakReference(view));
             }
+            var fe = view as FrameworkElement;
+            if (fe != null)
+            {
+                // the tab opened / another unit shown: work at once (the next frame), not at the next quarter-second tick
+                try { fe.IsVisibleChanged += OnViewVisible; } catch (Exception e) { Trace("IsVisibleChanged: " + e.Message); }
+                try { fe.DataContextChanged += OnViewContext; } catch (Exception e) { Trace("DataContextChanged: " + e.Message); }
+            }
+            Kick();
             Trace("Damage Control view created");
         }
+
+        static void OnViewVisible(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            try { if (e.NewValue is bool && (bool)e.NewValue) Kick(); } catch { }
+        }
+
+        static void OnViewContext(object sender, DependencyPropertyChangedEventArgs e) { Kick(); }
+
+        /// <summary>
+        /// Work on the next frame, and for a second after it every frame while a view is not recognised yet (its rows are made
+        /// by the layout pass after the tab opens or the unit changes); failed tries in that second are not counted as failures.
+        /// </summary>
+        static void Kick() { _kick = true; }
+
+        /// <summary>Every frame between the ticks: whether a shown view now has another unit (another view model, or the same
+        /// one with another ship) - only reference checks.</summary>
+        static bool UnitChanged()
+        {
+            lock (Views)
+            {
+                for (int i = 0; i < Views.Count; i++)
+                {
+                    var fe = Views[i].Target as FrameworkElement;
+                    ViewState st;
+                    if (fe == null || !States.TryGetValue(fe, out st) || st.Vm == null) continue;
+                    try
+                    {
+                        if (!fe.IsVisible) continue;
+                        var vm = fe.DataContext;
+                        if (vm == null || !_vmType.IsInstanceOfType(vm)) continue;   // Process would not take it either: no kick loop
+                        var comp = _vmComp.GetValue(vm, null);
+                        if (comp == null) continue;
+                        if (!ReferenceEquals(vm, st.Vm) || !ReferenceEquals(comp, st.Comp)) return true;
+                    }
+                    catch { }
+                }
+            }
+            return false;
+        }
+
+        static bool _kick, _pending;
+        static float _fastUntil = -1f;
 
         // ------------------------------------------------------------ game members
         static bool _init, _ok;
@@ -119,12 +172,15 @@ namespace AlternativeDamageModel
             public double T = -1;
             public float P, S, F, IP, IS, RP, RS, RF, RIP, RIS;
             public double FireHitT = -1, HullHitP = -1, HullHitS = -1;          // game time of the last jump (a hit)
+            public float RealT = -1;                                            // real time of the last sample (a gap: the tab was hidden)
+            public int FindMisses; public float NextFind;                       // rows not found: looked for every tick for 2 s, then once a second
         }
 
         sealed class ViewState
         {
+            public float Now;                     // real time of this tick
             public object Vm, Comp;               // the unit shown now: the tab is reused when another unit is selected
-            public Border AutoCard; public UIElement AutoContent;
+            public Border AutoCard; public UIElement AutoContent; public Panel AutoStack;   // AutoStack: our panel it is in
             public Image Picture; public float PictureMaxW, PictureMaxH; public Thickness PictureMargin;   // the ship's profile, made bigger   // the game's Auto DC card and its content, moved into ours
             public bool Ok, Dumped;
             public float NextDiscover;
@@ -148,11 +204,24 @@ namespace AlternativeDamageModel
         static bool _wasActive;
 
         /// <summary>Called every frame by the plugin; works 4 times a second.</summary>
-        public static void Tick(float now, bool active)
+        /// <summary>A setting of the view changed: the next tick decorates / restores the views and scans the headers at once.</summary>
+        public static void RefreshNow() { _nextTick = 0f; _scanNow = true; }
+
+        /// <summary>The detailed view is on: the (i) legend next to the gear (without it only the gear, to switch it on again).</summary>
+        static bool _full, _headersOn;
+
+        /// <summary>active: the detailed view; on: the mod (the gear of the settings window stays while the mod is on).</summary>
+        static float _tickNow;
+
+        public static void Tick(float now, bool active, bool on)
         {
+            if (!_kick && now < _nextTick && _ok && active) _kick = UnitChanged();
+            if (_kick) { _kick = false; _fastUntil = now + 1f; _nextTick = 0f; }
             if (now < _nextTick) return;
             _nextTick = now + 0.25f;
+            _tickNow = now;
             if (!_ok) return;
+            _pending = false;
 
             List<object> views = new List<object>();
             lock (Views)
@@ -164,13 +233,22 @@ namespace AlternativeDamageModel
                 }
             }
 
+            _full = active;
             if (!active)
             {
-                if (_wasActive) foreach (var v in views) Restore(v, true);
+                if (_wasActive)
+                {
+                    foreach (var v in views) try { Restore(v, true); } catch (Exception e) { Trace("Restore: " + e); }
+                    Groups.Clear(); OpenTips.Clear(); OpenMenus.Clear();   // our icons are gone
+                }
                 _wasActive = false;
+                if (on) { try { DecorateStatusViews(now); } catch (Exception e) { Trace("DecorateStatusViews: " + e.Message); } }   // the gear only
+                else if (_headersOn) { try { RestoreHeaders(); } catch (Exception e) { Trace("RestoreHeaders: " + e); } }
+                _headersOn = on;
                 return;
             }
-            _wasActive = true;
+            _wasActive = true; _headersOn = true;
+            try { DecorateStatusViews(now); } catch (Exception e) { Trace("DecorateStatusViews: " + e.Message); }
 
             foreach (var v in views)
             {
@@ -178,6 +256,22 @@ namespace AlternativeDamageModel
                 catch (Exception e) { Trace("DamageControlUi.Process: " + e); }
             }
             if (OpenTips.Count > 0) try { UpdateOpenTips(); } catch (Exception e) { Trace("UpdateOpenTips: " + e.Message); }
+            PruneGroups();
+            if (_pending && now < _fastUntil) _nextTick = 0f;   // a view still being laid out: try again next frame
+        }
+
+        /// <summary>Hover groups: icons no longer shown are dropped, empty groups too (they kept the team objects and the last
+        /// mission's icons alive).</summary>
+        static void PruneGroups()
+        {
+            if (Groups.Count == 0) return;
+            List<object> empty = null;
+            foreach (var kv in Groups)
+            {
+                kv.Value.RemoveAll(f => f == null || Parent(f) == null);
+                if (kv.Value.Count == 0) (empty ?? (empty = new List<object>())).Add(kv.Key);
+            }
+            if (empty != null) foreach (var key in empty) Groups.Remove(key);
         }
 
         static void Process(object view, float now)
@@ -191,7 +285,13 @@ namespace AlternativeDamageModel
 
             var st = States.GetOrCreateValue(view);
             st.View = fe;
-            if (!ReferenceEquals(st.Vm, vm)) { st.Vm = vm; st.Ok = false; st.Cols = null; st.Fails = 0; st.Dumped = false; st.NextDiscover = 0f; }
+            if (!ReferenceEquals(st.Vm, vm))
+            {
+                // another unit (the game makes a new view model for each): the old one's rows back to the game's own text first -
+                // in text mode the Description we wrote belongs to that ship's objects and would stay with them
+                if (st.Vm != null && st.Cols != null) try { Restore(view); } catch (Exception e) { Trace("Restore (unit switch): " + e.Message); }
+                st.Vm = vm; st.Ok = false; st.Cols = null; st.Fails = 0; st.Dumped = false; st.NextDiscover = 0f;
+            }
             if (!ReferenceEquals(st.Comp, comp))
             {
                 // another unit in the same tab: its own rows, teams and priority; the parts we added stay and follow st.Comp
@@ -201,10 +301,13 @@ namespace AlternativeDamageModel
 
             if (!st.Ok)
             {
-                if (now < st.NextDiscover) return;
+                bool fast = now < _fastUntil;
+                if (now < st.NextDiscover && !fast) return;
+                if (fast) try { fe.UpdateLayout(); } catch { }   // the lists' rows made now, not by the next layout pass
                 st.Ok = Discover(fe, vm, comp, st);
                 if (!st.Ok)
                 {
+                    if (fast) { _pending = true; return; }   // retried next frame; not a failure yet
                     st.Fails++;
                     st.NextDiscover = now + 1f;
                     if (st.Fails == 3 && !st.Dumped)
@@ -223,6 +326,7 @@ namespace AlternativeDamageModel
             }
             if (!Valid(st)) { st.Ok = false; return; }
 
+            st.Now = now;
             Update(comp, st);
         }
 
@@ -398,8 +502,9 @@ namespace AlternativeDamageModel
                     break;
                 }
 
-                c.TeamsOrig = c.Teams == null ? null : c.Teams.Text;
-                c.HeaderOrig = c.Header == null ? null : c.Header.Text;
+                Keep(c.Teams); Keep(c.Header);
+                c.TeamsOrig = FirstText(c.Teams);   // as the game had it when we first saw it (not our icons after a re-discovery)
+                c.HeaderOrig = FirstText(c.Header);
             }
 
             int nIcs = 0; foreach (var x in ics) if (x != null) nIcs++;
@@ -421,7 +526,7 @@ namespace AlternativeDamageModel
                     bool inCol = false;
                     foreach (var r in roots) if (IsAncestor(r, tb)) { inCol = true; break; }
                     if (inCol) continue;
-                    if (st.Help == null || text.Length > st.HelpOrig.Length) { st.Help = tb; st.HelpOrig = text; }
+                    if (st.Help == null || text.Length > st.HelpOrig.Length) { st.Help = tb; st.HelpOrig = text; Keep(tb); }
                 }
             var sb = new StringBuilder("Damage Control tab recognised:");
             for (int i = 0; i < count; i++)
@@ -461,9 +566,9 @@ namespace AlternativeDamageModel
                 string text = tb.Text;
                 // a fresh item shows the game's text; one we drew into shows ours - both are this row's
                 if (c.Flood == null && HasContext(tb, c.FloodSum, root) && (text == c.FloodDesc || text.StartsWith(c.FloodDesc + "  ", StringComparison.Ordinal)))
-                { c.Flood = tb; c.FloodSig = null; }
+                { c.Flood = tb; c.FloodSig = null; Keep(tb); }
                 else if (c.Fire == null && HasContext(tb, c.FireSum, root) && (text == c.FireDesc || text.StartsWith(c.FireDesc + "  ", StringComparison.Ordinal)))
-                { c.Fire = tb; c.FireSig = null; }
+                { c.Fire = tb; c.FireSig = null; Keep(tb); }
             }
         }
 
@@ -537,14 +642,18 @@ namespace AlternativeDamageModel
                 float max = F(_scMaxSev.GetValue(sc));
                 float f = max > 0f ? 100f * F(_scSeverity.GetValue(sc, null)) / max : 0f;
 
-                // trends (game time; paused game keeps the last ones)
+                // trends (game time; paused game keeps the last ones). After a gap (the tab hidden for a while) the samples start
+                // again: a change over minutes is no trend and no hit
+                if (c.RealT >= 0f && st.Now - c.RealT > 1f) c.T = -1;
+                c.RealT = st.Now;
                 if (c.T >= 0 && t > c.T)
                 {
                     float dt = (float)(t - c.T);
-                    // sudden jumps between two samples (a quarter of a second): hits
-                    if (f - c.F > 3f) c.FireHitT = t;
-                    if (c.IP - ip > 1.5f) c.HullHitP = t;
-                    if (c.IS - isb > 1.5f) c.HullHitS = t;
+                    // sudden jumps between two samples (a quarter of a second): hits - more than the trend itself brings in that time
+                    // (at high time compression a quarter of a second is many game seconds)
+                    if (f - c.F > 3f + 2f * Math.Max(0f, c.RF) * dt) c.FireHitT = t;
+                    if (c.IP - ip > 1.5f + 2f * Math.Max(0f, -c.RIP) * dt) c.HullHitP = t;
+                    if (c.IS - isb > 1.5f + 2f * Math.Max(0f, -c.RIS) * dt) c.HullHitS = t;
                     c.RP = (p - c.P) / dt; c.RS = (s - c.S) / dt; c.RF = (f - c.F) / dt;
                     c.RIP = (ip - c.IP) / dt; c.RIS = (isb - c.IS) / dt;
                 }
@@ -604,9 +713,12 @@ namespace AlternativeDamageModel
                         var g = p as Grid;
                         int cols = 0;
                         try { cols = g == null ? 0 : g.ColumnDefinitions.Count; } catch { }
-                        if (cols == 5) { grid = g; card = child as Border; break; }
+                        // the summary row: 5 columns, the toggle's card a Border in it. The sections' grid has 5 columns too - a
+                        // toggle inside a section's rows (realised once there is damage) leads there: not it, the next toggle is tried
+                        if (cols == 5) { if (child is Border) { grid = g; card = (Border)child; } break; }
                     }
-                    if (grid != null) break;
+                    if (grid != null && card != null) break;
+                    grid = null; card = null;
                 }
                 if (grid == null || card == null) { Trace("priority card: summary grid not found"); return; }
 
@@ -655,7 +767,7 @@ namespace AlternativeDamageModel
                     card.Child = null;
                     stack.Children.Add(autoContent);
                     card.Visibility = Visibility.Collapsed;
-                    st.AutoCard = card; st.AutoContent = autoContent;
+                    st.AutoCard = card; st.AutoContent = autoContent; st.AutoStack = stack;
                 }
 
                 var title = new TextBlock { Text = "DC Priority", HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0f, 6f, 0f, 4f) };
@@ -737,16 +849,23 @@ namespace AlternativeDamageModel
         {
             try
             {
-                if (st.AutoContent != null && st.Priority != null)
+                if (st.AutoContent != null)
                 {
-                    var stack = st.Priority.Child as Panel;
-                    if (stack != null) stack.Children.Remove(st.AutoContent);
+                    // out of our stack (known), else out of whatever holds it now (logical or visual parent)
+                    if (st.AutoStack != null) try { st.AutoStack.Children.Remove(st.AutoContent); } catch { }
+                    DependencyObject holder = null;
+                    var fe = st.AutoContent as FrameworkElement;
+                    try { if (fe != null) holder = fe.Parent; } catch { }
+                    if (holder == null) holder = Parent(st.AutoContent);
+                    var panel = holder as Panel;
+                    if (panel != null) panel.Children.Remove(st.AutoContent);
+                    else { var dec = holder as Decorator; if (dec != null && dec != st.AutoCard) dec.Child = null; }
                 }
                 if (st.AutoCard != null && st.AutoContent != null && st.AutoCard.Child == null) st.AutoCard.Child = st.AutoContent;
                 if (st.AutoCard != null) st.AutoCard.Visibility = Visibility.Visible;
             }
             catch (Exception e) { Trace("PutBackAuto: " + e.Message); }
-            st.AutoCard = null; st.AutoContent = null;
+            st.AutoCard = null; st.AutoContent = null; st.AutoStack = null;
             if (st.Picture != null)
             {
                 try { st.Picture.MaxWidth = st.PictureMaxW; st.Picture.MaxHeight = st.PictureMaxH; st.Picture.Margin = st.PictureMargin; } catch { }
@@ -840,11 +959,97 @@ namespace AlternativeDamageModel
 
         static void RenderTabHeader(ViewState st)
         {
-            var tb = st.TabHeader;
+            if (st.TabHeader != null) DecorateHeader(st.TabHeader, (UIElement)st.View);
+        }
+
+        // ------------------------------------------------------------ the tab button, also before the tab is first opened
+
+        sealed class HeaderState { public string Shown, Text; public UIElement Anchor; public bool Full; }
+        static readonly ConditionalWeakTable<TextBlock, HeaderState> Headers = new ConditionalWeakTable<TextBlock, HeaderState>();
+        static readonly List<WeakReference> Decorated = new List<WeakReference>();     // TextBlocks with our icons (to restore)
+        static readonly List<WeakReference> StatusViews = new List<WeakReference>();   // SeapowerUI.UnitStatusView
+        sealed class StatusState { public TextBlock Header; public float NextScan; }
+        static readonly ConditionalWeakTable<object, StatusState> StatusStates = new ConditionalWeakTable<object, StatusState>();
+
+        // the "Damage Control" tab view models (UnitStatusTabViewModel, Kind = DamageControl), caught when the game makes them;
+        // their content (the tab's view model) is made only when the tab is first opened, so they are told by Kind
+        static readonly List<WeakReference> DcTabs = new List<WeakReference>();
+        static PropertyInfo _tabKind;
+
+        public static void RegisterTab(object tabVm)
+        {
+            if (tabVm == null) return;
+            try
+            {
+                if (_tabKind == null) _tabKind = tabVm.GetType().GetProperty("Kind");
+                if (_tabKind == null || Convert.ToString(_tabKind.GetValue(tabVm, null)) != "DamageControl") return;
+                lock (DcTabs) { DcTabs.RemoveAll(w => !w.IsAlive); DcTabs.Add(new WeakReference(tabVm)); }
+                _scanNow = true;
+            }
+            catch (Exception e) { Trace("RegisterTab: " + e.Message); }
+        }
+
+        static bool _scanNow;
+
+        static bool IsDcTab(object dc)
+        {
+            if (dc.GetType().Name != "UnitStatusTabViewModel") return false;
+            lock (DcTabs) foreach (var w in DcTabs) if (ReferenceEquals(w.Target, dc)) return true;
+            try
+            {
+                if (_tabKind == null) _tabKind = dc.GetType().GetProperty("Kind");
+                return _tabKind != null && Convert.ToString(_tabKind.GetValue(dc, null)) == "DamageControl";
+            }
+            catch { return false; }
+        }
+
+        /// <summary>A Unit Status window was made: its "Damage Control" tab button gets (i) and the gear at once, not only once the tab is opened.</summary>
+        public static void RegisterStatusView(object view)
+        {
+            if (view == null) return;
+            lock (StatusViews) { StatusViews.RemoveAll(w => !w.IsAlive); StatusViews.Add(new WeakReference(view)); }
+        }
+
+        static void DecorateStatusViews(float now)
+        {
+            List<object> views = new List<object>();
+            lock (StatusViews) { foreach (var w in StatusViews) { var v = w.Target; if (v != null) views.Add(v); } }
+            foreach (var v in views)
+            {
+                var fe = v as FrameworkElement;
+                if (fe == null || !fe.IsVisible) continue;
+                var ss = StatusStates.GetOrCreateValue(v);
+                if (ss.Header != null && Parent(ss.Header) != null) { DecorateHeader(ss.Header, fe); continue; }
+                if (now < ss.NextScan && !_scanNow) continue;
+                ss.NextScan = now + 0.5f;
+                foreach (var e in Flatten(fe, 8000))
+                {
+                    var rb = e as RadioButton;
+                    if (rb == null) continue;
+                    object dc = null; try { dc = rb.DataContext; } catch { }
+                    if (dc == null || !IsDcTab(dc)) continue;
+                    foreach (var x in Flatten(rb, 50)) { var t = x as TextBlock; if (t != null) { ss.Header = t; break; } }
+                    break;
+                }
+                if (ss.Header != null) DecorateHeader(ss.Header, fe);
+            }
+            _scanNow = false;
+        }
+
+        /// <summary>"Damage Control" + (i) with the legend + the gear (the settings window); kept when the game rewrites the text.</summary>
+        static void DecorateHeader(TextBlock tb, UIElement anchor)
+        {
             if (tb == null) return;
-            if (st.TabHeaderShown != null && tb.Text == st.TabHeaderShown) return;
+            var hs = Headers.GetOrCreateValue(tb);
+            if (anchor != null) hs.Anchor = anchor;
+            bool full = _full;
+            if (hs.Shown != null && tb.Text == hs.Shown && hs.Full == full) return;
             string text = tb.Text ?? "";
-            if (st.TabHeaderText != null && text.StartsWith(st.TabHeaderText + "  ", StringComparison.Ordinal)) { st.TabHeaderShown = text; return; }  // still ours
+            if (hs.Text != null && text.StartsWith(hs.Text + "  ", StringComparison.Ordinal))
+            {
+                if (hs.Full == full) { hs.Shown = text; return; }   // still ours
+                text = hs.Text;                                       // ours, with the other set of icons: done again
+            }
             var il = tb.Inlines;
             il.Clear();
             il.Add(new Run(text + "  "));
@@ -862,19 +1067,39 @@ namespace AlternativeDamageModel
             var gear = HeaderIcon(GearIcon());
             gear.Margin = new Thickness(6f, 0f, 0f, 0f);
             try { gear.Cursor = Cursors.Hand; ToolTipService.SetToolTip(gear, "Alternative Damage Model settings"); } catch { }
-            var owner = st;
             gear.PreviewMouseLeftButtonDown += (s, e) =>
             {
                 e.Handled = true;
                 Trace("settings gear clicked");
-                SettingsWindow.Open((UIElement)owner.View ?? gear);
+                SettingsWindow.Open(gear, hs.Anchor);   // the gear clicked: its own screen (after a mission restart the old anchor is gone)
             };
-            var pair = new StackPanel { Orientation = Orientation.Horizontal, RenderTransform = new TranslateTransform(0f, 3f) };
-            pair.Children.Add(info);
+            // the negative top margin: in layout the icons are lower than the text's ascent, so they never make the line taller (the
+            // line's height did change once the header was measured again - the first hover -, the text jumped up); drawn where they were
+            var pair = new StackPanel { Orientation = Orientation.Horizontal, RenderTransform = new TranslateTransform(0f, 3f), Margin = new Thickness(0f, -6f, 0f, 0f) };
+            if (full) pair.Children.Add(info); else gear.Margin = new Thickness(0f);   // detailed view off: the gear only
             pair.Children.Add(gear);
             il.Add(new InlineUIContainer(pair));
-            st.TabHeaderShown = tb.Text;
-            st.TabHeaderText = text;
+            hs.Shown = tb.Text;
+            hs.Text = text;
+            hs.Full = full;
+            lock (Decorated) { Decorated.RemoveAll(w => !w.IsAlive); Decorated.Add(new WeakReference(tb)); }
+        }
+
+        /// <summary>The mod or its view switched off: every tab button back to its own text.</summary>
+        static void RestoreHeaders()
+        {
+            lock (Decorated)
+            {
+                foreach (var w in Decorated)
+                {
+                    var tb = w.Target as TextBlock;
+                    HeaderState hs;
+                    if (tb == null || !Headers.TryGetValue(tb, out hs) || hs.Text == null) continue;
+                    RestoreBlock(tb, hs.Text);
+                    hs.Shown = null; hs.Text = null;
+                }
+                Decorated.Clear();
+            }
         }
 
         /// <summary>A header icon: 14 x 14, centred, a transparent (hit-testable) frame, a little dimmer until the mouse is on it.</summary>
@@ -981,7 +1206,12 @@ namespace AlternativeDamageModel
             if (StableRows)
             {
                 // the game recreates a row's item only when its stage changes: look for it again until found
-                if (c.Flood == null || c.Fire == null) FindRows(c, c.List);
+                if ((c.Flood == null || c.Fire == null) && _tickNow >= c.NextFind)
+                {
+                    FindRows(c, c.List);
+                    if (c.Flood != null && c.Fire != null) c.FindMisses = 0;
+                    else if (++c.FindMisses > 8) c.NextFind = _tickNow + 1f;   // not in the tree (not realised / scrolled away): no full search every tick
+                }
                 if (c.Flood != null) RenderFlood(c, p, s, comp, i);
                 if (c.Fire != null) RenderFire(c, f, comp, i);
                 return;
@@ -1075,16 +1305,16 @@ namespace AlternativeDamageModel
         {
             var tb = c.Teams;
             if (tb == null) return;
-            int[] forced, actual;
-            DcControl.GetTeams(comp, i, n, out forced, out actual);
-            bool manual = !DcControl.AutoDc(comp);
+            int[] forced, actual; object[] refs;
+            DcControl.GetTeams(comp, i, n, out forced, out actual, out refs);
+            bool manual = Manual(comp);
             var coming = moving.FindAll(v => v.Section == i);
             var sb = new StringBuilder();
             sb.Append(n).Append(manual ? 'm' : 'a');
             for (int k = 0; k < n; k++) sb.Append(':').Append(actual[k]).Append('/').Append(forced[k]);
             foreach (var v in coming) sb.Append('>').Append(v.Ref.GetHashCode());
             string sig = sb.ToString();
-            if (_menusOpen > 0 && c.TeamsSig != null) return;   // an open menu would close with its icon
+            if (c.TeamsSig != null && MenusOpen()) return;   // an open menu would close with its icon
             if (!NeedsRender(tb, sig, c.TeamsSig, c.TeamsShown)) return;
             var il = tb.Inlines;
             il.Clear();
@@ -1097,8 +1327,8 @@ namespace AlternativeDamageModel
                 int kk = k;
                 if (manual)
                 {
-                    int fk = forced[k];
-                    Clickable(frame, () => TeamMenu(comp, i, kk, fk, sec), null);
+                    int fk = forced[k]; object rk = refs[k];
+                    if (rk != null) Clickable(frame, () => TeamMenu(comp, i, rk, fk, sec), null);
                 }
                 LiveTip(frame, () => SlotTip(comp, i, kk, sec));
                 il.Add(new InlineUIContainer(frame));
@@ -1127,7 +1357,7 @@ namespace AlternativeDamageModel
                 var tb = new TextBlock { Text = " " };
                 ToolTipService.SetToolTip(el, tb);
                 ToolTipService.SetShowDuration(el, int.MaxValue);
-                var entry = new KeyValuePair<TextBlock, Func<string>>(tb, text);
+                var entry = new OpenTip { Tb = tb, Text = text, Owner = el };
                 el.ToolTipOpening += (s, e) =>
                 {
                     try { tb.Text = text(); } catch { }
@@ -1138,19 +1368,22 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("LiveTip: " + e.Message); }
         }
 
-        static readonly List<KeyValuePair<TextBlock, Func<string>>> OpenTips = new List<KeyValuePair<TextBlock, Func<string>>>();
+        sealed class OpenTip { public TextBlock Tb; public Func<string> Text; public FrameworkElement Owner; }
+        static readonly List<OpenTip> OpenTips = new List<OpenTip>();
 
         /// <summary>The open tooltips follow what they describe (times, rates, teams).</summary>
         static void UpdateOpenTips()
         {
             for (int k = OpenTips.Count - 1; k >= 0; k--)
             {
-                var kv = OpenTips[k];
+                var o = OpenTips[k];
                 try
                 {
-                    if (Parent(kv.Key) == null && k > 8) { OpenTips.RemoveAt(k); continue; }
-                    string t = kv.Value();
-                    if (kv.Key.Text != t) kv.Key.Text = t;
+                    // its icon no longer shown (rebuilt, the tab hidden or switched off): its tooltip is closed even when no
+                    // ToolTipClosing came - dropped, so it is not computed 4 times a second for ever
+                    if (o.Owner == null || !o.Owner.IsVisible || Parent(o.Owner) == null) { OpenTips.RemoveAt(k); continue; }
+                    string t = o.Text();
+                    if (o.Tb.Text != t) o.Tb.Text = t;
                 }
                 catch { OpenTips.RemoveAt(k); }
             }
@@ -1193,7 +1426,7 @@ namespace AlternativeDamageModel
                     string kn = KnockNote(here[k].Knocks);
                     if (kn != null) sb.Append("\n" + kn);
                 }
-                if (!DcControl.AutoDc(comp)) sb.Append("\nClick: task / move");
+                if (Manual(comp)) sb.Append(ModelOn() ? "\nClick: task / move" : "\nClick: task");
                 return sb.ToString();
             }
             catch (Exception e) { Trace("SlotTip: " + e.Message); return "DC team"; }
@@ -1208,13 +1441,13 @@ namespace AlternativeDamageModel
                 {
                     if (!ReferenceEquals(v.Ref, teamRef)) continue;
                     string dc = Dc(v.Number) + ": ";
-                    bool manual = !DcControl.AutoDc(comp);
+                    bool manual = Manual(comp);
                     string kn = KnockNote(v.Knocks);
                     switch ((DcTeams.St)v.State)
                     {
                         case DcTeams.St.Moving:
                         {
-                            bool mustering = v.Total - v.Left < DcTeams.Muster;
+                            bool mustering = !v.Back && v.Total - v.Left < DcTeams.Muster;
                             var sb = new StringBuilder(dc + SectionName(names, v.From) + " → " + (v.Section >= 0 ? SectionName(names, v.Section) : "reserve"));
                             sb.Append("\n" + Clock(v.Left) + " left" + (mustering ? ", getting ready" : ""));
                             if (kn != null) sb.Append("\n" + kn);
@@ -1248,7 +1481,20 @@ namespace AlternativeDamageModel
             };
         }
 
-        static int _menusOpen;   // our menus open now: their icons are not rebuilt meanwhile (the menu would close)
+        /// <summary>
+        /// Our menus open now: their icons are not rebuilt meanwhile (the menu would close). The menus themselves are kept, not a
+        /// count: a menu whose Closed never came (its view switched off or replaced while it was open) no longer blocks the icons.
+        /// </summary>
+        static readonly List<ContextMenu> OpenMenus = new List<ContextMenu>();
+        static bool MenusOpen()
+        {
+            OpenMenus.RemoveAll(m =>
+            {
+                try { return m == null || !m.IsOpen; }
+                catch { return true; }
+            });
+            return OpenMenus.Count > 0;
+        }
 
         // a team on the move is shown twice (where it goes, "In Transfer"): its icons light up together
         static readonly Dictionary<object, List<Border>> Groups = new Dictionary<object, List<Border>>();
@@ -1274,7 +1520,7 @@ namespace AlternativeDamageModel
                 if (!Groups.TryGetValue(group, out list)) Groups[group] = list = new List<Border>();
                 list.RemoveAll(f => Parent(f) == null);
                 list.Add(frame);
-                if (Groups.Count > 64) foreach (var key in new List<object>(Groups.Keys)) if (Groups[key].Count == 0) Groups.Remove(key);
+
             }
             frame.MouseEnter += (s, e) => SetHover(frame, group, true);
             frame.MouseLeave += (s, e) => SetHover(frame, group, false);
@@ -1285,8 +1531,8 @@ namespace AlternativeDamageModel
                 try
                 {
                     var m = menu();
-                    m.Opened += (o, a) => _menusOpen++;
-                    m.Closed += (o, a) => { if (_menusOpen > 0) _menusOpen--; _forceRender = true; };
+                    m.Opened += (o, a) => { if (!OpenMenus.Contains(m)) OpenMenus.Add(m); };
+                    m.Closed += (o, a) => { OpenMenus.Remove(m); _forceRender = true; };
                     m.PlacementTarget = frame;
                     m.Placement = PlacementMode.Bottom;
                     frame.ContextMenu = m;
@@ -1297,13 +1543,15 @@ namespace AlternativeDamageModel
             };
         }
 
-        static ContextMenu TeamMenu(object comp, int i, int k, int forced, Sections sec)
+        /// <summary>The menu of one team. It acts on the team itself (not on its place in the row): others may come and go while it is open.</summary>
+        static ContextMenu TeamMenu(object comp, int i, object team, int forced, Sections sec)
         {
             var menu = new ContextMenu();
             foreach (var t in new[] { TaskLeak, TaskFire, TaskPump, TaskHull, TaskSystems })
-                menu.Items.Add(MenuEntry(Cap(TaskName(t)), Icon(t), t == forced, comp, i, k, t));
+                menu.Items.Add(MenuEntry(Cap(TaskName(t)), Icon(t), t == forced, comp, team, t));
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuEntry("By priority (as the other teams)", Icon(IconByPriority), forced == TaskNone, comp, i, k, TaskNone));
+            menu.Items.Add(MenuEntry("By priority (as the other teams)", Icon(IconByPriority), forced == TaskNone, comp, team, TaskNone));
+            if (!ModelOn()) return menu;   // moves between sections: only with Alternative Damage Control
             menu.Items.Add(new Separator());
             var move = new MenuItem { Header = "Move to section" };
             foreach (int j in sec.Order)
@@ -1313,8 +1561,8 @@ namespace AlternativeDamageModel
                 if (j != i)
                     item.Click += (s, e) =>
                     {
-                        DcControl.RemoveSlot(comp, i, k);   // this team's own slot leaves with it
-                        if (!DcTeams.MoveToSection(comp, i, to, false, k)) Trace("move to section failed");
+                        int from, k = DcTeams.SlotOf(comp, team, out from);
+                        if (k < 0 || from == to || !DcTeams.MoveToSection(comp, from, to, false, k)) Trace("move to section failed");
                         _forceRender = true;
                     };
                 move.Items.Add(item);
@@ -1323,8 +1571,8 @@ namespace AlternativeDamageModel
             var home = new MenuItem { Header = "To Reserve" };
             home.Click += (s, e) =>
             {
-                DcControl.RemoveSlot(comp, i, k);
-                if (!DcTeams.ToReserve(comp, i, k)) Trace("to reserve failed");
+                int from, k = DcTeams.SlotOf(comp, team, out from);
+                if (k < 0 || !DcTeams.ToReserve(comp, from, k)) Trace("to reserve failed");
                 _forceRender = true;
             };
             move.Items.Add(home);
@@ -1341,13 +1589,13 @@ namespace AlternativeDamageModel
             return menu;
         }
 
-        static MenuItem MenuEntry(string text, FrameworkElement icon, bool current, object comp, int i, int k, int task)
+        static MenuItem MenuEntry(string text, FrameworkElement icon, bool current, object comp, object team, int task)
         {
             var item = new MenuItem { Header = text, IsChecked = current };
             if (icon != null) item.Icon = icon;
             item.Click += (s, e) =>
             {
-                DcControl.SetForced(comp, i, k, task);
+                DcControl.SetForced(comp, team, task);
                 _forceRender = true;
             };
             return item;
@@ -1587,7 +1835,9 @@ namespace AlternativeDamageModel
                 case TaskPump: return "pumping water out";
                 case TaskHull: return "welding the hull";
                 case TaskSystems: return "repairing systems";
-                case IconKnocked: case IconDead: return "killed (knocked out twice)";
+                case IconKnocked: case IconDead:
+                    return DcTeams.KnocksToDie > 1 ? "lost (knocked out " + DcTeams.KnocksToDie.ToString(CultureInfo.InvariantCulture) + " times)" :
+                           DcTeams.KnocksToDie == 1 ? "lost (knocked out)" : "lost";
                 case IconTransit: return "on the move (In Transfer)";
                 case IconInjured: return "recovering (In Transfer)";
                 default: return "no task";
@@ -1601,23 +1851,35 @@ namespace AlternativeDamageModel
         static void Restore(object view, bool removeCard)
         {
             ViewState st;
-            if (view == null || !States.TryGetValue(view, out st) || st.Cols == null) return;
-            foreach (var c in st.Cols)
+            if (view == null || !States.TryGetValue(view, out st)) return;
+            int[] counts = null;
+            try { if (st.Comp != null) counts = _compTeams.GetValue(st.Comp, null) as int[]; } catch { }
+            if (st.Cols != null)
+            for (int ci = 0; ci < st.Cols.Length; ci++)
             {
+                var c = st.Cols[ci];
                 RestoreBlock(c.Header, c.HeaderOrig); c.HeaderSig = null;
-                RestoreBlock(c.Teams, c.TeamsOrig); c.TeamsSig = null;
+                // "DC Teams: N" with the number of now, not of when the view was decorated (the game rewrites it only when it changes)
+                if (!RestoreBlock(c.Teams, c.TeamsOrig) && c.Teams != null && counts != null && ci < counts.Length)
+                {
+                    // not bound (does not update itself): with the number of now
+                    string want = WithCount(c.TeamsOrig, counts[ci]);
+                    if (!string.IsNullOrEmpty(want) && c.Teams.Text != want) try { c.Teams.Inlines.Clear(); c.Teams.Inlines.Add(new Run(want)); } catch { }
+                }
+                c.TeamsSig = null;
                 RestoreBlock(c.Flood, c.FloodOrig); c.FloodSig = null;
                 RestoreBlock(c.Fire, c.FireOrig); c.FireSig = null;
                 if (c.FloodData != null) { SetDesc(c.FloodSum, c.FloodDesc); c.FloodData = null; }
                 if (c.FireData != null) { SetDesc(c.FireSum, c.FireDesc); c.FireData = null; }
                 if (c.Teams != null) try { ToolTipService.SetToolTip(c.Teams, null); } catch { }
             }
-            if (removeCard && st.Priority != null && st.PriorityHost != null)
+            if (removeCard)
             {
-                try { st.PriorityHost.Children.Remove(st.Priority); } catch { }
+                PutBackAuto(st);   // first: it takes the game's Auto DC content out of our card
+                if (st.Priority != null && st.PriorityHost != null) try { st.PriorityHost.Children.Remove(st.Priority); } catch { }
                 st.Priority = null; st.PriorityHost = null; st.PriorityButtons = null;
-                RemoveExtras(st.X); st.X = null;
-                PutBackAuto(st);
+                try { RemoveExtras(st.X); } catch (Exception e) { Trace("RemoveExtras: " + e.Message); }
+                st.X = null;
             }
             if (st.Help != null && st.HelpOrig != null)
             {
@@ -1626,19 +1888,75 @@ namespace AlternativeDamageModel
                 st.HelpShown = null; st.HelpSig = null;
             }
             if (st.HelpTitle != null) { try { st.HelpTitle.Visibility = Visibility.Visible; } catch { } }
-            if (removeCard && st.TabHeader != null && st.TabHeaderText != null)
-            {
-                RestoreBlock(st.TabHeader, st.TabHeaderText);
-                st.TabHeaderShown = null;
-            }
+            if (removeCard) RestoreHeaders();
             st.Ok = false;   // found again (and the priority card added again) when switched back on
-            Trace("Damage Control tab restored");
+            if (removeCard) Trace("Damage Control tab restored");
         }
 
-        static void RestoreBlock(TextBlock tb, string text)
+        /// <summary>The game's "DC Teams: N" text with another N (its last number); as it is when it has none.</summary>
+        static string WithCount(string text, int n)
         {
-            if (tb == null || text == null) return;
-            try { tb.Inlines.Clear(); tb.Inlines.Add(new Run(text)); } catch { }
+            if (string.IsNullOrEmpty(text)) return text;
+            int end = text.Length - 1;
+            while (end >= 0 && !char.IsDigit(text[end])) end--;
+            if (end < 0) return text;
+            int start = end;
+            while (start > 0 && char.IsDigit(text[start - 1])) start--;
+            return text.Substring(0, start) + Math.Max(0, n).ToString(CultureInfo.InvariantCulture) + text.Substring(end + 1);
+        }
+
+        /// <summary>
+        /// What the game had in a text block before we first wrote into it: its Text binding (if any), its inlines (the objects
+        /// themselves - Runs with their own bindings keep them) and its text. Kept once per text block, at the first sight.
+        /// </summary>
+        sealed class Orig { public BindingBase Binding; public List<Inline> Inlines = new List<Inline>(); public string Text; }
+        static readonly ConditionalWeakTable<TextBlock, Orig> Origs = new ConditionalWeakTable<TextBlock, Orig>();
+
+        static void Keep(TextBlock tb)
+        {
+            if (tb == null) return;
+            Orig o;
+            if (Origs.TryGetValue(tb, out o)) return;
+            o = new Orig();
+            try { o.Binding = BindingOperations.GetBindingBase(tb, TextBlock.TextProperty); } catch { }
+            try { foreach (var i in tb.Inlines) o.Inlines.Add(i); } catch { }
+            try { o.Text = tb.Text; } catch { }
+            Origs.Add(tb, o);
+        }
+
+        static string FirstText(TextBlock tb)
+        {
+            if (tb == null) return null;
+            Keep(tb);
+            Orig o;
+            return Origs.TryGetValue(tb, out o) && o.Text != null ? o.Text : tb.Text;
+        }
+
+        /// <summary>
+        /// The game's text back: its own inlines and its binding again (the live value - e.g. "DC Teams: N" of now); without
+        /// either, 'text'. True when the game's binding is back (it updates itself).
+        /// </summary>
+        static bool RestoreBlock(TextBlock tb, string text)
+        {
+            if (tb == null) return false;
+            Orig o;
+            bool have = Origs.TryGetValue(tb, out o);
+            try
+            {
+                tb.Inlines.Clear();
+                if (have && o.Inlines.Count > 0) foreach (var i in o.Inlines) tb.Inlines.Add(i);
+                else if (text != null) tb.Inlines.Add(new Run(text));
+            }
+            catch (Exception ex) { Trace("RestoreBlock: " + ex.Message); if (text != null) try { tb.Inlines.Clear(); tb.Inlines.Add(new Run(text)); } catch { } }
+            if (!have || o.Binding == null) return false;
+            try
+            {
+                var e = BindingOperations.GetBindingExpressionBase(tb, TextBlock.TextProperty);
+                if (e != null) e.UpdateTarget();
+                else BindingOperations.SetBinding(tb, TextBlock.TextProperty, o.Binding);
+                return true;
+            }
+            catch (Exception ex) { Trace("RestoreBlock binding: " + ex.Message); return false; }
         }
 
         // ------------------------------------------------------------ diagnostics

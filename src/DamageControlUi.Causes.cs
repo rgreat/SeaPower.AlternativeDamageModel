@@ -120,7 +120,7 @@ namespace AlternativeDamageModel
                     if (_shownListComp.Target == comp)
                     {
                         float list = _shownList;
-                        if ((port ? list > 0f : list < 0f) && Math.Abs(list) > Limits.ListFull)
+                        if (!IsSub(comp) && (port ? list > 0f : list < 0f) && Math.Abs(list) > (ModelOn() ? Limits.ListFlood : 45f))
                             Line(sb, "List " + Math.Abs(list).ToString("0", CultureInfo.InvariantCulture) + "°: water over deck");
                     }
                     if (integ < 19f && inSec == 0 && leak > 0f) Line(sb, "Leak grows: hull " + Pc(integ) + ", no team");
@@ -157,8 +157,13 @@ namespace AlternativeDamageModel
                 if (rate >= 0 && ago >= 0 && ago < 60) Line(sb, "Hit " + ((int)ago).ToString(CultureInfo.InvariantCulture) + " s ago");
                 Line(sb, OnIt(comp, i, fighting, rate >= 0 ? "fighting" : "putting out", inSec, plugging, "leak"));
                 if (fighting.Count == 0) Line(sb, "Only DC puts it out");
+                double un = AdmPlugin.UnattendedFor(comp, i);
+                if (un >= 0) Line(sb, "Unattended " + ((int)un).ToString(CultureInfo.InvariantCulture) + " s: grows faster");
+                // the game: the hull burns at every stage (in proportion to the fire); systems take damage from time to time -
+                // a little while minor, more when moderate, most when severe; only a severe fire spreads
                 if (fire > 49.8f) Line(sb, "Spreads, hurts systems, hull");
                 else if (fire > 24.9f) Line(sb, "Hurts systems, hull");
+                else if (fire > 0f) Line(sb, "Hurts hull, systems a little");
                 return sb.ToString();
             }
             catch (Exception e) { Trace("FireCause: " + e.Message); return "Fire"; }

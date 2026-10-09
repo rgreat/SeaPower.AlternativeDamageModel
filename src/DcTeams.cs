@@ -21,8 +21,10 @@ namespace AlternativeDamageModel
     /// </summary>
     static class DcTeams
     {
-        public static Func<bool> IsEnabled = () => false;
+        public static Func<bool> IsEnabled = () => false;     // Alternative Damage Control on: transfers, knock-outs, our counts
+        public static Func<bool> IsTracking = () => false;    // the mod on: the team objects follow the game's counts (numbers for the UI)
         public static Action<string> Trace = s => { };
+        public static Action<string> Info = s => { };
 
         // settings (AdmPlugin)
         public static float Speed = 50f, Muster = 60f, Heal = 90f, HealSpread = 0f, Effectiveness = 0.5f;
@@ -45,16 +47,19 @@ namespace AlternativeDamageModel
             public double Until, Total;  // Moving / Injured: when it is over, and how long it takes in all
             public int Knocks;
             public double Arrived;       // InSection: when it got there (Auto DC does not pull a team that has just arrived)
+            public int Task, Doing;      // InSection: the task given by hand (DcControl, 0 = by priority) and what it did last tick
+            public bool Back;            // Moving: turned back (Cancel Transfer) - no muster in its time
         }
 
-        sealed class Ship { public readonly List<Team> Teams = new List<Team>(); }
+        sealed class Ship { public readonly List<Team> Teams = new List<Team>(); public int Timers; }
         static readonly ConditionalWeakTable<object, Ship> Ships = new ConditionalWeakTable<object, Ship>();
 
         // game members
         static bool _ok, _bypass;
         static PropertyInfo _teams, _defaults, _gameTime, _length;
         static MethodInfo _set, _send;
-        static FieldInfo _timers, _sinking, _count, _obp;
+        static FieldInfo _timers, _sinking, _count, _obp, _lastRecall, _base;
+        static PropertyInfo _destroyed;
 
         public static bool Init(Assembly asm)
         {
@@ -70,6 +75,10 @@ namespace AlternativeDamageModel
                 _sinking = t.GetField("_isSinking", all);
                 _count = t.GetField("_compartmentsCount", all);
                 _obp = t.GetField("_obp", all);
+                _lastRecall = t.GetField("_dcTeamsLastRecall", all);
+                _base = t.GetField("_baseObject", all);
+                var tBo = asm.GetType("SeaPower.BaseObject");
+                _destroyed = tBo == null ? null : tBo.GetProperty("IsDestroyed", all);
                 _gameTime = asm.GetType("SeaPower.GameTime").GetProperty("missionElapsedTime", all);
                 _length = asm.GetType("SeaPower.ObjectBaseParameters").GetProperty("_length", all);
                 _ok = _teams != null && _defaults != null && _set != null && _send != null && _timers != null && _sinking != null && _count != null && _gameTime != null;
@@ -114,6 +123,68 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("DcTeams.SetCount: " + e.Message); }
         }
 
+        /// <summary>The mod's number of teams for a ship (tables; NumberOfDCTeams in its ini wins); -1 = leave it.</summary>
+        public static int ModCount(float displacement, bool isSub, bool isCiv, int iniOverride)
+        {
+            if (iniOverride > 0) return iniOverride;
+            return Lookup(isSub ? SubTable : isCiv ? CivTable : WarTable, displacement);
+        }
+
+        /// <summary>The game's number of teams (Compartments.Init): civilian 1; submarine 1, over 5000 t 2; others 1, over 7000 t 2, over 24000 t 3.</summary>
+        public static int GameCount(float displacement, bool isSub, bool isCiv, int iniOverride)
+        {
+            if (iniOverride > 0) return iniOverride;
+            if (isCiv) return 1;
+            if (isSub) return displacement > 5000f ? 2 : 1;
+            return displacement > 24000f ? 3 : displacement > 7000f ? 2 : 1;
+        }
+
+        /// <summary>
+        /// A ship at sea gets another number of teams (settings changed, Alternative Damage Control switched): teams added to the
+        /// reserve, or taken from the reserve first, then from the sections (last section first).
+        /// </summary>
+        public static void Retarget(object comp, int total, string who = null)
+        {
+            if (!_ok || comp == null || total < 1) return;
+            int cur = Convert.ToInt32(_defaults.GetValue(comp, null));
+            if (cur == total) return;
+            var counts = Counts(comp);
+            if (counts == null || counts.Length < 6) return;
+            int diff = total - cur;
+            if (diff > 0) Set(comp, 5, counts[5] + diff);
+            else
+            {
+                int take = -diff;
+                int fromPool = Math.Min(take, counts[5]);
+                if (fromPool > 0) { Set(comp, 5, counts[5] - fromPool); take -= fromPool; }
+                for (int i = 4; i >= 0 && take > 0; i--)
+                {
+                    counts = Counts(comp);
+                    int t = Math.Min(take, counts[i]);
+                    if (t > 0) { Set(comp, i, counts[i] - t); take -= t; }
+                }
+            }
+            _defaults.SetValue(comp, total, null);
+            Ship s;
+            if (Ships.TryGetValue(comp, out s)) Reconcile(comp, s);
+            Info("DC teams" + (who != null ? " of " + who : "") + ": " + cur + " -> " + total + (IsEnabled() ? " (the mod's table)" : " (the game's rule)"));
+        }
+
+        /// <summary>Alternative Damage Control switched off: teams on the move arrive, knocked-out and lost ones are back in the reserve.</summary>
+        public static void ReleaseAll(object comp)
+        {
+            Ship s;
+            if (!_ok || comp == null || !Ships.TryGetValue(comp, out s)) return;
+            foreach (var t in s.Teams)
+            {
+                var counts = Counts(comp);
+                if (counts == null) return;
+                if (t.State == St.Moving && t.Section >= 0 && t.Section < 5) { Set(comp, t.Section, counts[t.Section] + 1); t.State = St.InSection; t.Arrived = Now(); }
+                else if (t.State == St.Moving || t.State == St.Injured || t.State == St.Dead) { Set(comp, 5, counts[5] + 1); t.State = St.Pool; t.Section = -1; }
+                t.Knocks = 0;
+            }
+        }
+
         /// <summary>Multiplier of every damage control work rate (Repair* methods, after the crew's rate is read).</summary>
         public static float Eff(float v) { return IsEnabled() ? v * Effectiveness : v; }
 
@@ -125,6 +196,21 @@ namespace AlternativeDamageModel
         }
 
         static int[] Counts(object comp) { return _teams.GetValue(comp, null) as int[]; }
+
+        /// <summary>The team leaves its section: a task given by hand stays with the section it was given for.</summary>
+        static void Leave(Team t) { t.Task = 0; t.Doing = 0; t.Back = false; }
+
+        /// <summary>Sinking or destroyed: nothing to do for the teams any more (the game stops damage control too).</summary>
+        public static bool Out(object comp)
+        {
+            try
+            {
+                if ((bool)_sinking.GetValue(comp)) return true;
+                var bo = _base == null ? null : _base.GetValue(comp);
+                return bo != null && _destroyed != null && (bool)_destroyed.GetValue(bo, null);
+            }
+            catch { return false; }
+        }
 
         static void Set(object comp, int i, int v) { _set.Invoke(comp, new object[] { i, v }); }
 
@@ -180,36 +266,67 @@ namespace AlternativeDamageModel
         {
             var counts = Counts(comp);
             if (counts == null) return;
+            int total = Total(comp);
             // teams stay where they are as far as the counts allow (their numbers stay with them); the rest are moved
             var need = new int[6];
-            for (int loc = 0; loc < 6 && loc < counts.Length; loc++) need[loc] = Math.Max(0, counts[loc]);
+            int counted = 0;
+            for (int loc = 0; loc < 6 && loc < counts.Length; loc++) { need[loc] = Math.Max(0, counts[loc]); counted += need[loc]; }
             var spare = new List<Team>();
+            var other = new List<Team>();   // on the move, recovering, lost: in no count of the game
             foreach (var t in s.Teams)
             {
-                if (t.State != St.Pool && t.State != St.InSection) continue;
+                if (t.State != St.Pool && t.State != St.InSection) { other.Add(t); continue; }
                 int loc = t.State == St.Pool ? 5 : t.Section;
                 if (loc >= 0 && loc < 6 && need[loc] > 0) need[loc]--; else spare.Add(t);
             }
+            // strict accounting: the ship has 'total' teams. The game may put them all back into its counts itself (RepairAllDamage:
+            // all in the reserve) - teams on the move / recovering / lost beyond what is left are those teams: they take the
+            // places first (lost ones first), so no team is ever counted twice
+            int allowed = total > 0 ? Math.Max(0, total - counted) : other.Count;
+            if (other.Count > allowed)
+            {
+                other.Sort((a, b) => Rank(a).CompareTo(Rank(b)));
+                for (int k2 = 0; k2 < other.Count - allowed; k2++) spare.Add(other[k2]);
+            }
             double now = Now();
-            int k = 0;
+            int k = 0, made = 0;
             for (int loc = 5; loc >= 0; loc--)
                 for (; need[loc] > 0; need[loc]--)
                 {
                     Team t;
                     if (k < spare.Count) t = spare[k++];
-                    else { t = new Team(); s.Teams.Add(t); }
+                    else { t = new Team(); s.Teams.Add(t); made++; }
+                    if (t.State != (loc == 5 ? St.Pool : St.InSection) || t.Section != (loc == 5 ? -1 : loc)) Leave(t);
                     t.State = loc == 5 ? St.Pool : St.InSection;
                     t.Section = loc == 5 ? -1 : loc;
+                    if (t.Knocks > 0 && other.Contains(t)) t.Knocks = 0;   // a lost / recovering team the game put back: whole again
                     if (loc < 5) t.Arrived = now;
                 }
+            int removed = spare.Count - k;
             for (; k < spare.Count; k++) s.Teams.Remove(spare[k]);
+            if (made > 0 || removed > 0) Trace("DC teams reconciled: +" + made + " / -" + removed + ", now " + s.Teams.Count + " of " + total);
+            if (total > 0 && s.Teams.Count > total)
+                Info("DC teams: " + s.Teams.Count + " team objects for " + total + " teams (game counts " + counted + ")");
         }
+
+        /// <summary>Which teams outside the game's counts give way first: lost, then recovering, then those on the move.</summary>
+        static int Rank(Team t) { return t.State == St.Dead ? 0 : t.State == St.Injured ? 1 : 2; }
+
+        /// <summary>The ship's number of teams (Compartments.DamageControlTeamDefaultsNumber); 0 = unknown.</summary>
+        static int Total(object comp)
+        {
+            try { return Math.Max(0, Convert.ToInt32(_defaults.GetValue(comp, null))); } catch { return 0; }
+        }
+
+        static int[] _mine = new int[8];   // InSync's buffer (main thread; no array every physics tick)
 
         static bool InSync(object comp, Ship s)
         {
             var counts = Counts(comp);
             if (counts == null) return true;
-            var mine = new int[counts.Length];
+            if (_mine.Length < counts.Length) _mine = new int[counts.Length];
+            var mine = _mine;
+            Array.Clear(mine, 0, mine.Length);
             foreach (var t in s.Teams)
             {
                 if (t.State == St.Pool && counts.Length > 5) mine[5]++;
@@ -247,6 +364,7 @@ namespace AlternativeDamageModel
             if (t == null) { Reconcile(comp, s); t = s.Teams.FindLast(x => x.State == St.InSection && x.Section == index); }
             if (t == null) return true;
             Set(comp, index, counts[index] - 1);
+            Leave(t);
             t.State = St.Moving; t.Section = -1; t.From = index; t.Total = TransferTime(comp, index); t.Until = Now() + t.Total;
             return false;
         }
@@ -267,6 +385,7 @@ namespace AlternativeDamageModel
             if (t == null) t = s.Teams.FindLast(x => x.State == St.InSection && x.Section == from);
             if (t == null) return false;
             Set(comp, from, counts[from] - 1);
+            Leave(t);
             t.State = St.Moving; t.From = from; t.Section = to; t.Total = TransferTime(comp, from, to); t.Until = Now() + t.Total;
             Trace("DC team moved: section " + from + " -> " + to + ", " + t.Total + " s");
             return true;
@@ -286,6 +405,7 @@ namespace AlternativeDamageModel
             Team t = slot >= 0 && slot < here.Count ? here[slot] : (here.Count > 0 ? here[here.Count - 1] : null);
             if (t == null) return false;
             Set(comp, from, counts[from] - 1);
+            Leave(t);
             if (TransfersOn)
             {
                 t.State = St.Moving; t.Section = -1; t.From = from; t.Total = TransferTime(comp, from); t.Until = Now() + t.Total;
@@ -318,31 +438,60 @@ namespace AlternativeDamageModel
             double walked = Math.Max(0, spent - Muster);
             int back = t.From;
             t.From = t.Section; t.Section = back;
-            t.Total = walked; t.Until = now + walked;
+            t.Total = walked; t.Until = now + walked; t.Back = true;
             Trace("DC transfer cancelled: back to " + back + " in " + walked.ToString("0", CultureInfo.InvariantCulture) + " s");
             return true;
         }
 
         /// <summary>Prefix of RecallAllTeams: skipped while transfers take time.</summary>
-        public static bool RecallPrefix() { return !(_ok && IsEnabled() && TransfersOn); }
+        /// <summary>Prefix of RecallAllTeams: skipped while transfers take time (the time of the recall is still set, as the game
+        /// does first thing - else Compartments.OnFixedUpdate would call it again every tick).</summary>
+        public static bool RecallPrefix(object comp)
+        {
+            if (!(_ok && IsEnabled() && TransfersOn)) return true;
+            try { if (_lastRecall != null && comp != null) _lastRecall.SetValue(comp, Now()); } catch { }
+            return false;
+        }
 
         /// <summary>Prefix of Compartments.OnFixedUpdate: knock-outs, arrivals, recoveries.</summary>
         public static void Tick(object comp)
         {
-            if (!_ok || comp == null || !IsEnabled()) return;
+            if (!_ok || comp == null) return;
+            if (!IsEnabled())
+            {
+                // the game's own rules: only keep the team objects in step with its counts (the tab numbers them)
+                if (!IsTracking()) return;
+                try
+                {
+                    Ship sh;
+                    if (Ships.TryGetValue(comp, out sh))
+                    {
+                        if (!InSync(comp, sh) || (Total(comp) > 0 && sh.Teams.Count > Total(comp))) Reconcile(comp, sh);
+                        var tl = _timers.GetValue(comp) as List<double>;
+                        sh.Timers = tl == null ? 0 : tl.Count;   // the game's own timers: not ours to take over when switched on
+                    }
+                }
+                catch { }
+                return;
+            }
             try
             {
-                if ((bool)_sinking.GetValue(comp)) return;
+                if (Out(comp)) return;
                 var s = Get(comp);
                 double now = Now();
                 var counts = Counts(comp);
                 if (counts == null) return;
 
-                // knocked out by a hit (Blastzone): the game took one from a section and queued a return timer - taken over
+                // knocked out by a hit (Blastzone): the game took one from a section and queued a return timer (appended at the
+                // end) - taken over. Only timers added since the last tick count, and only as far as a team of ours is missing in a
+                // section; the others (queued before, e.g. while ADC was off) the game keeps and returns the team itself
                 var timers = _timers.GetValue(comp) as List<double>;
-                if (timers != null && timers.Count > 0)
+                int nTimers = timers == null ? 0 : timers.Count;
+                int fresh = nTimers - s.Timers;
+                if (fresh > 0)
                 {
-                    for (int n = 0; n < timers.Count; n++)
+                    int taken = 0;
+                    for (int n = 0; n < fresh; n++)
                     {
                         Team hit = null;
                         for (int i = 0; i < 5 && hit == null; i++)
@@ -351,8 +500,10 @@ namespace AlternativeDamageModel
                             foreach (var t in s.Teams) if (t.State == St.InSection && t.Section == i) mine++;
                             if (i < counts.Length && mine > counts[i]) hit = s.Teams.FindLast(x => x.State == St.InSection && x.Section == i);
                         }
-                        if (hit == null) break;
+                        if (hit == null) break;   // no team of ours missing
+                        taken++;
                         int from = hit.Section;
+                        Leave(hit);
                         hit.Knocks++;
                         if (KnocksToDie > 0 && hit.Knocks >= KnocksToDie) { hit.State = St.Dead; Trace("DC team dead (section " + from + ")"); }
                         else
@@ -365,8 +516,9 @@ namespace AlternativeDamageModel
                         }
                         hit.Section = -1; hit.From = from;   // From: where it was hit (shown in its tooltip)
                     }
-                    timers.Clear();
+                    if (taken > 0) timers.RemoveRange(timers.Count - taken, taken);   // the newest ones: those just added
                 }
+                s.Timers = timers == null ? 0 : timers.Count;
 
                 // arrivals and recoveries
                 foreach (var t in s.Teams)
@@ -374,15 +526,18 @@ namespace AlternativeDamageModel
                     if (t.State == St.Moving && t.Until <= now)
                     {
                         counts = Counts(comp);
-                        if (t.Section >= 0)
+                        t.Back = false;
+                        if (t.Section >= 0 && t.Section <= 4)
                         {
                             // into the section through the game's own send (it also picks the side to drain)
                             Set(comp, 5, counts[5] + 1);
                             _bypass = true;
-                            try { _send.Invoke(comp, new object[] { t.Section }); } finally { _bypass = false; }
+                            try { _send.Invoke(comp, new object[] { t.Section }); }
+                            catch { Set(comp, 5, Counts(comp)[5] - 1); throw; }
+                            finally { _bypass = false; }
                             t.State = St.InSection; t.Arrived = now;
                         }
-                        else { Set(comp, 5, counts[5] + 1); t.State = St.Pool; }
+                        else { Set(comp, 5, counts[5] + 1); t.State = St.Pool; t.Section = -1; }
                     }
                     else if (t.State == St.Injured && t.Until <= now)
                     {
@@ -392,14 +547,15 @@ namespace AlternativeDamageModel
                     }
                 }
 
-                if (!InSync(comp, s)) Reconcile(comp, s);   // the game changed the counts itself (reset, load)
+                int total = Total(comp);
+                if (!InSync(comp, s) || (total > 0 && s.Teams.Count > total)) Reconcile(comp, s);   // the game changed the counts itself (reset, repair, load)
             }
             catch (Exception e) { Trace("DcTeams.Tick: " + e.Message); }
         }
 
         // ------------------------------------------------------------ saved games
 
-        /// <summary>"state/section/left/total/knocks/from|..." per team (no ';': the game's ini reader takes it for a comment).</summary>
+        /// <summary>"state/section/left/total/knocks/from/stay|..." per team (no ';': the game's ini reader takes it for a comment).</summary>
         public static string Save(object comp)
         {
             Ship s;
@@ -408,7 +564,8 @@ namespace AlternativeDamageModel
             var parts = new List<string>();
             foreach (var t in s.Teams)
                 parts.Add((int)t.State + "/" + t.Section + "/" + Math.Max(0, t.Until - now).ToString("0.#", CultureInfo.InvariantCulture) + "/" +
-                          t.Total.ToString("0.#", CultureInfo.InvariantCulture) + "/" + t.Knocks + "/" + t.From);
+                          t.Total.ToString("0.#", CultureInfo.InvariantCulture) + "/" + t.Knocks + "/" + t.From + "/" +
+                          (t.State == St.InSection ? Math.Max(0, now - t.Arrived) : 0).ToString("0", CultureInfo.InvariantCulture));
             return string.Join("|", parts.ToArray());
         }
 
@@ -429,7 +586,16 @@ namespace AlternativeDamageModel
                         !double.TryParse(f[3], NumberStyles.Float, CultureInfo.InvariantCulture, out total) || !int.TryParse(f[4], out kn)) continue;
                     int from = -1;
                     if (f.Length > 5) int.TryParse(f[5], out from);
-                    list.Add(new Team { State = (St)Math.Max(0, Math.Min(4, st)), Section = sec, From = from, Until = now + left, Total = total, Knocks = kn });
+                    double stay = 0;
+                    if (f.Length > 6) double.TryParse(f[6], NumberStyles.Float, CultureInfo.InvariantCulture, out stay);
+                    // a broken / hand-edited save: places out of range are the reserve
+                    if (sec < -1 || sec > 4) sec = -1;
+                    if (from < -1 || from > 4) from = -1;
+                    var state = (St)Math.Max(0, Math.Min(4, st));
+                    if (state == St.InSection && sec < 0) state = St.Pool;
+                    if (state == St.Pool) sec = -1;
+                    list.Add(new Team { State = state, Section = sec, From = from, Until = now + Math.Max(0, left), Total = Math.Max(0, total),
+                                        Knocks = Math.Max(0, kn), Arrived = now - Math.Max(0, stay) });
                 }
                 if (list.Count == 0) return;
                 var s = Ships.GetOrCreateValue(comp);
@@ -444,6 +610,7 @@ namespace AlternativeDamageModel
                         if ((i == 5 && t.State == St.Pool) || (i < 5 && t.State == St.InSection && t.Section == i)) n++;
                     Set(comp, i, n);
                 }
+                try { _defaults.SetValue(comp, list.Count, null); } catch { }   // the saved teams are all the ship's teams
                 Trace("DC teams loaded: " + text);
             }
             catch (Exception e) { Trace("DcTeams.Load: " + e.Message); }
@@ -451,7 +618,7 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ read by the UI
 
-        public struct View { public int State; public int Section; public int From; public float Left; public float Total; public float Stay; public int Number; public int Knocks; public object Ref; }
+        public struct View { public int State; public int Section; public int From; public float Left; public float Total; public float Stay; public int Number; public int Knocks; public bool Back; public object Ref; }
 
         /// <summary>Teams that are in no section: moving, recovering, dead (and the reserve as State Pool).</summary>
         public static List<View> Snapshot(object comp)
@@ -465,7 +632,7 @@ namespace AlternativeDamageModel
             {
                 var t = s.Teams[k];
                 list.Add(new View { State = (int)t.State, Section = t.Section, From = t.From, Left = (float)Math.Max(0, t.Until - now), Total = (float)t.Total,
-                                    Stay = (float)(now - t.Arrived), Number = k + 1, Knocks = t.Knocks, Ref = t });
+                                    Stay = (float)(now - t.Arrived), Number = k + 1, Knocks = t.Knocks, Back = t.Back, Ref = t });
             }
             return list;
         }
@@ -474,6 +641,36 @@ namespace AlternativeDamageModel
         public static List<View> InSection(object comp, int section)
         {
             return Snapshot(comp).FindAll(v => v.State == (int)St.InSection && v.Section == section);
+        }
+
+        /// <summary>The team objects working in a section, in the order of the section's icons (DcControl: tasks given by hand).</summary>
+        public static List<Team> SectionTeams(object comp, int section)
+        {
+            var list = new List<Team>();
+            return SectionTeams(comp, section, list) ? list : null;
+        }
+
+        /// <summary>The same into 'into' (cleared first): no new list - for the physics tick.</summary>
+        public static bool SectionTeams(object comp, int section, List<Team> into)
+        {
+            into.Clear();
+            if (!_ok || comp == null) return false;
+            var s = Get(comp);
+            foreach (var t in s.Teams) if (t.State == St.InSection && t.Section == section) into.Add(t);
+            return true;
+        }
+
+        /// <summary>Where a team is now: its section and its slot there (-1 when it is in no section).</summary>
+        public static int SlotOf(object comp, object teamRef, out int section)
+        {
+            section = -1;
+            var t = teamRef as Team;
+            Ship s;
+            if (t == null || comp == null || !Ships.TryGetValue(comp, out s) || t.State != St.InSection) return -1;
+            section = t.Section;
+            int k = 0;
+            foreach (var x in s.Teams) { if (x == t) return k; if (x.State == St.InSection && x.Section == section) k++; }
+            return -1;
         }
 
         /// <summary>The teams waiting in the reserve.</summary>

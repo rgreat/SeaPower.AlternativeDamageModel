@@ -41,6 +41,19 @@ namespace AlternativeDamageModel
             if (!_ok) Trace("TrimFlooding: game members not found; trim past the limit does nothing");
         }
 
+        /// <summary>What does not change during a mission, read once per ship (not every physics tick).</summary>
+        sealed class Ship { public bool Vessel; public int Count; public Component Base; public float Length; }
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Ship> Ships = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Ship>();
+
+        static Ship Get(object comp)
+        {
+            Ship s;
+            if (Ships.TryGetValue(comp, out s)) return s;
+            s = new Ship { Vessel = _vessel.GetValue(comp) != null, Count = (int)_count.GetValue(comp), Base = _base.GetValue(comp) as Component, Length = DcTeams.ShipLength(comp) };
+            Ships.Add(comp, s);
+            return s;
+        }
+
         static float Wrap(float a) { a %= 360f; if (a > 180f) a -= 360f; else if (a < -180f) a += 360f; return a; }
 
         /// <summary>Prefix of Compartments.OnFixedUpdate.</summary>
@@ -51,15 +64,13 @@ namespace AlternativeDamageModel
             if (!_ok) return;
             try
             {
-                if (_vessel.GetValue(comp) == null || (bool)_sinking.GetValue(comp)) return;
-                int count = (int)_count.GetValue(comp);
-                if (count < 2) return;
-                var bo = _base.GetValue(comp) as Component;
-                if (bo == null) return;
-                float pitch = Wrap(bo.transform.localEulerAngles.x);   // + bow down
-                float limit = Limits.Trim(DcTeams.ShipLength(comp));
-                float over = Math.Abs(pitch);
-                if (over <= limit) return;
+                var ship = Get(comp);
+                if (!ship.Vessel || ship.Count < 2 || ship.Base == null) return;
+                int count = ship.Count;
+                float pitch = Wrap(ship.Base.transform.localEulerAngles.x);   // + bow down
+                float limit = Limits.TrimFlood(ship.Length);                   // from the red zone of the TRIM gauge
+                if (Math.Abs(pitch) <= limit) return;
+                if ((bool)_sinking.GetValue(comp)) return;
                 // each side: the outermost compartment of the end going down that is not full yet
                 var port = _port.GetValue(comp) as Array; var star = _star.GetValue(comp) as Array;
                 foreach (var side in new[] { port, star })

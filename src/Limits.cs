@@ -10,7 +10,11 @@ namespace AlternativeDamageModel
     /// </summary>
     static class Limits
     {
-        public static float ListFull = 45f * 0.7f;    // 31.5 degrees (game: 45)
+        public static float ListFull = 45f * 0.7f;    // 31.5 degrees (game: 45): the LIST scale
+        /// <summary>Faster flooding starts where the gauges turn red: at 75% of the scale.</summary>
+        public const float FloodFrom = 0.75f;
+        public static float ListFlood { get { return ListFull * FloodFrom; } }
+        public static float TrimFlood(float length) { return Trim(length) * FloodFrom; }
         public static float TrimFull = 5.2f;          // degrees (game: 8), for a ship TrimReferenceLength long
         public static float TrimRefLength = 100f;     // metres; 0 = the same trim limit for every ship (as in the game)
 

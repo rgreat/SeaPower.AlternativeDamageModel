@@ -12,7 +12,7 @@ AlternativeDamageModel/
 ├─ src/
 │  ├─ AdmPlugin.cs                 <- сам плагин (BepInEx BaseUnityPlugin, Harmony-хуки)
 │  ├─ AdmPlugin.Profiles.cs        <- профили настроек (Base Game / Advanced / свои)
-│  ├─ SettingsWindow.cs            <- окно настроек в игре (шестерёнка рядом с (i))
+│  ├─ SettingsWindow.cs / ShipNames.cs / ModuleNames.cs <- окно настроек в игре; списки кораблей и типов систем
 │  ├─ DamageControlUi*.cs          <- расширенная вкладка Damage Control (Noesis): панели, подсказки, схема затопления
 │  ├─ DcTeams.cs / DcControl.cs / DcAuto.cs <- команды DC, приоритеты, Auto DC
 │  ├─ Limits.cs / TrimFlooding.cs  <- пороги (предел дифферента по длине); за пределом дифферента — заливает оконечность
@@ -20,7 +20,7 @@ AlternativeDamageModel/
 └─ Release/                        <- ЭТО и есть мод: содержимое папки выкладываете
    ├─ _info.ini
    ├─ AlternativeDamageModel.dll
-   ├─ Profiles/                    <- встроенные профили «Base Game.cfg» и «Advanced.cfg» (только чтение)
+   ├─ Profiles/                    <- системные профили *.cfg: «Base Game.cfg», «Advanced.cfg» и любые другие (только чтение)
    ├─ thumbnail.jpg                <- картинка для Workshop (JPEG 512x512, < 1 МБ)
    └─ README.md                    <- пишете сами
 ```
@@ -43,7 +43,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
 
 1. Скопируйте содержимое `Release` в `Sea Power\Sea Power_Data\StreamingAssets\AlternativeDamageModel\`.
 2. Включите мод в меню **Mods**. Уберите IntegrityX2 ini-патчи, если они установлены (иначе удвоение применится дважды).
-3. Для проверки поставьте `LogShipIntegrity = true` в `BepInEx\config\com.rgreat.seapower.alternativedamagemodel.cfg`.
+3. Для проверки поставьте `LogShipIntegrity = true` в `Sea Power_Data\StreamingAssets\user\AdvancedDamageControl\AlternativeDamageModel.cfg` (окно настроек → General).
 4. В `BepInEx\LogOutput.log` должно быть:
    * `Alternative Damage Model 1.0.0 (build ...) loaded; follows its tick in the game's Mods menu.`
    * `Hooks installed: 29.` (без `failed`);
@@ -54,7 +54,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
    проценты и стрелки у Flooding / Fire. Если вкладка не распознана — в логе предупреждение со счётчиками найденного,
    а разметка вкладки записывается в `BepInEx/AlternativeDamageModel.dctab.txt` (один раз за запуск).
 7. Шестерёнка рядом с (i) на кнопке вкладки Damage Control открывает окно настроек: выбор профиля, правка, Apply —
-   в логе `Settings profile "..." in use.`; свои профили — в `BepInEx\config\AlternativeDamageModel\Profiles\`.
+   в логе `Settings profile "..." in use.`; свои профили — в `Sea Power_Data\StreamingAssets\user\AdvancedDamageControl\Profiles\`.
 8. Предупреждения вида `... patched, 30 expected` / `insertion point not found` означают, что игра обновилась и мод надо поправить.
 
 ## 4. Выкладка

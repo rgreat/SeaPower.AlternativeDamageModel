@@ -146,7 +146,7 @@ Noesis используется напрямую (ссылка на `Noesis.Noes
   красным крестом). Значки 22 px (Viewbox). Каждая команда видна на вкладке один раз: свободные — тут, остальные — в отсеках.
 * Задачи DC (устарело, до DcControl): префикс `CheckDamageControl(i)` → idle; постфиксы `RepairFloodingRate/RepairFire/RepairFlooding/RepairStructure/
   RepairSystems(index)` с `__result == true` → задача отсека (в игре все команды отсека делают одно и то же).
-* Выключение (галочка мода или DetailedDamageControl=false): Inlines возвращаются к исходному тексту.
+* Выключение (галочка мода или DetailedView=false): Inlines возвращаются к исходному тексту.
 * XAML игры: ассеты `NoesisXaml` (Noesis.NoesisGUI.dll; поля `uri`, `content` = текст XAML) в `Sea Power_Data/*.assets`.
   `[General] DumpXaml = true` → `DamageControlUi.ExportXaml`: `Resources.FindObjectsOfTypeAll<NoesisXaml>()` → файлы в
   `BepInEx/AlternativeDamageModel_xaml/<uri>`; запускается через 1 с после старта/перечитывания настроек и после создания
@@ -187,7 +187,7 @@ Noesis используется напрямую (ссылка на `Noesis.Noes
 * (i): подсказка-легенда ToolTipService Placement = Top (над кнопкой, Noesis переворачивает вниз, если не влезает),
   ShowDuration = int.MaxValue (без автоскрытия).
 * UI: карточка «Damage Control Teams» — свободные (значок матроса), убитые (IconDead 95, красный крест), идущие в резерв;
-  подпись «Active N of M teams» (живые из всех). Карточка «Teams Knocked Out» → «In Transfer» (заголовок и строка «Available In»
+  подпись «In reserve». Карточка «Teams Knocked Out» → «In Transfer» (заголовок и строка «Available In»
   скрыты/заменены): IconTransit 97 (серый) + оставшееся время, подсказка — куда идёт; за ними выбитые (IconInjured 96, серый с
   медзнаком, время под ним) — перенесены сюда, в первой карточке время не влезало.
 * Легенда (i): тексты укорочены (TaskName короткие — они же в подсказках и меню команд), правый столбец 300 px, строки значков
@@ -218,17 +218,33 @@ Noesis используется напрямую (ссылка на `Noesis.Noes
 
 
 ## Профили настроек — `src/AdmPlugin.Profiles.cs`
-* Профиль = все ключи разделов [HullIntegrity] [SideEffects] [FireAndFlooding] [DamageControlTeams] [Sinking] + строки
-  [HullIntegrityPerShip]. [General] (логи, Debug) и [UI] — общие, в профиль не входят. В .cfg — рабочие значения и
-  `[General] Profile = имя`.
-* Встроенные: Base Game и Advanced — `Release/Profiles/<имя>.cfg` рядом с dll (читаются поверх значений из кода; нет файла —
-  только код: Advanced = значения по умолчанию, Base Game = `BaseGameValues`). Только чтение.
-* Свои: `BepInEx/config/AlternativeDamageModel/Profiles/<имя>.cfg` (тот же формат ini). Имя ≤ 40, без символов пути и `; # [ ]`,
+* Профиль = все ключи разделов [HullIntegrity] [SideEffects] [Systems] [FireAndFlooding] [DamageControlTeams] [Sinking] + строки
+  [HullIntegrityPerShip] и [SystemTypeIntegrity]. [General] (переключатель, логи, Debug, `Profile = имя`) и [UI] — общие.
+* `AlternativeDamageModel.cfg` пишется без комментариев BepInEx (описания/тип/умолчание): `SaveConfig()` после `Cfg.Save()`
+  вычищает строки `#`; `Cfg.SaveOnConfigSet = false` сразу после создания. Описания остаются в коде — подсказки окна настроек.
+* `SystemProfiles()` возвращает КОПИЮ кэша `_system`: `ProfileNames()` дописывает в список свои профили — раньше они попадали
+  в кэш, становились «встроенными», и окно сравнивало их со значениями из кода (ложные точки изменений на вкладках).
+* Хранение БЕЗ дублирования: `AlternativeDamageModel.cfg` (`Cfg`) — ТОЛЬКО [General] и [UI]. Значения профиля привязаны к
+  второму `ConfigFile Pcfg` (путь `~profile-in-memory.cfg`, файл не создаётся: SaveOnConfigSet=false, Save не вызывается),
+  per-ship/per-type строки — его orphans. Источник значений — файл активного профиля (системный или свой); изменения в игре
+  пишутся в файл своего профиля (системный → Custom.cfg).
+* Старт: `TakeOldProfileValues()` вынимает из старого cfg разделы профиля (и старые форматы per-ship), `CleanCfg()` удаляет из
+  cfg всё лишнее (кроме [General] DumpXaml=true); `StartProfile()`: файл профиля из `Profile=` (нет — Advanced, или старые
+  значения сохраняются под этим именем); старые значения ≠ профиль → сохраняются как свой профиль / Custom.
+* Слежение за файлами (`FileWatch`, раз в 1 с, применение через 0.5 с тишины): cfg → `ReloadConfig()` (смена `Profile=` →
+  ApplyValues нового; нет такого — остаётся прежний); файл активного профиля → `ReloadProfile()`. Свои записи — Remember().
+* Системные (встроенные): все `Release/Profiles/*.cfg` рядом с dll, сколько угодно; Base Game и Advanced есть всегда
+  (без файла — из кода). В списке — по алфавиту, перед профилями пользователя (тоже по алфавиту); свой профиль с именем
+  системного не показывается. Base Game — колонка «game:» в окне, Advanced — профиль нового cfg. Эти файлы и есть значения по умолчанию:
+  чтобы изменить умолчания в релизе, правится файл, код не трогается. Значения `Cfg.Bind` в коде — только запасные для
+  отсутствующего файла/ключа (с предупреждением в логе). Только чтение. Значения встроенного профиля всегда берутся
+  из его файла (новые умолчания релиза подхватываются сами; старая миграция FloodLimit/TrimLimit удалена).
+* Свои: `StreamingAssets/user/AdvancedDamageControl/Profiles/<имя>.cfg` (раньше BepInEx/config/AlternativeDamageModel/Profiles — переносятся оттуда один раз, старая папка удаляется) (тот же формат ini). Имя ≤ 40, без символов пути и `; # [ ]`,
   не совпадает со встроенными.
-* `SyncProfile()` (старт, перечитывание .cfg, SettingChanged): значения ≠ профиль → встроенный становится Custom (файл Custom.cfg
+* `SyncProfile()` (Pcfg.SettingChanged, напр. Configuration Manager): значения ≠ профиль → встроенный становится Custom (файл Custom.cfg
   перезаписывается), свой — пересохраняется. Сравнение `SameValue`: числа как числа, списки без пробелов.
 * `Commit(selected, values, globals)`: выбранный профиль без изменений → он; изменённый встроенный → Custom; свой → под своим
-  именем; применяется сразу (ApplyValues: SetSerializedValue под `_reloading`, orphans [HullIntegrityPerShip], ReadSettings,
+  именем; применяется сразу (ApplyValues: SetSerializedValue под `_reloading`, orphans Pcfg [HullIntegrityPerShip]/[SystemTypeIntegrity], слежение за файлом профиля, ReadSettings,
   SaveConfig, RescaleLiveHulls).
 * Base Game: корпус ×1, команды как в игре (военные 0=1, 7000=2, 24000=3; подлодки 0=1, 5000=2; гражданские 0=1),
   эффективность 1.0, перемещения мгновенные (TransferSpeed 0, MusterTime 0 → игровой Auto DC), HealTime 90 ± 30 (игра:
@@ -257,6 +273,9 @@ Noesis используется напрямую (ссылка на `Noesis.Noes
   Canvas — Left/Top по центру; ZIndex 30000. Popup, созданный в коде, в игре НЕ показался (первая версия) — остался только
   запасным вариантом, если такой панели нет. Перетаскивание за заголовок — TranslateTransform. Первое открытие пишется
   в лог («Settings window opened (in Grid)»), ошибка — предупреждением. Кнопки/ComboBox/TextBox/CheckBox — стили игры (неявные).
+* User Interface: «Damage Control tab» → Detailed view (применяется сразу, как AlternativeDamageControl:
+  `LiveKey`, `DamageControlUi.RefreshNow()` — вкладка Damage Control перестраивается / восстанавливается на следующем тике);
+  группа «Trend arrows» (пороги стрелок) видна только при Detailed view = on.
 * Профиль: ComboBox (встроенные помечены «(built-in)»), Save as… / Rename… / Delete — маленькие диалоги поверх окна (оверлей).
   Правка встроенного → список переключается на Custom, «based on <профиль>». Delete активного → в работу Advanced.
 * Вкладки Hull / Fire & Flooding / DC Teams / Sinking / Display; строка: подпись с жёлтой точкой (≠ профилю), редактор
@@ -302,9 +321,81 @@ Noesis используется напрямую (ссылка на `Noesis.Noes
   резерв, иначе сразу; именно та команда, по которой кликнули).
 * Значок Systems (ключ с отвёрткой): стержень отвёртки светлый (206,212,220).
 
+## Главный выключатель, пожары, окно настроек (версия с разделами User Interface / General)
+* `[General] AlternativeDamageControl` (глобальная, не профиль): `Model = Enabled && _admOn` — все хуки повреждений и DC
+  (корпус, побочные эффекты, скорости огня/воды, распространение огня, пороги, TrimFlooding, DcTeams.IsEnabled, DcControl,
+  сохранение состояния команд). UI (вкладка) идёт по `Enabled` (галочка мода). Переключается на ходу: ReadSettings → при
+  выключении `ReleaseTeams` (идущие прибывают, выбитые/погибшие — в резерв), RescaleLiveHulls → множитель корпуса 1 / свой
+  и число команд `DcTeams.Retarget` (GameCount — правило игры / ModCount — таблицы; убавляет сначала резерв, потом секции).
+  HullState теперь пишется и при выключенной модели (Disp, TeamsIni), чтобы включение подхватило корабли в море.
+  DcTeams.IsTracking (мод вкл.): при выключенной модели только Reconcile — номера команд на вкладке. Приказы командам и
+  кнопки DC Priority при выключенной модели недоступны (`DamageControlUi.ModelOn`).
+* `[FireAndFlooding] FireSpreadPercent` (% за проверку; профиль; игра = 0.01333 = `GameFireSpreadPct`): транспайлер
+  SystemCompartment.CheckSpreadFire — после `ldc.r8 0.9998666644096375` вызов `FireSpreadThreshold` = 1 − p/100 (≈ игре → без
+  изменений). В игре проверка раз в FireCheckTime (10 с, options) при тяжести > X/600 (≈ 50% максимума).
+  Старый ключ FireSpreadChance (× игры) переводится при чтении профиля / старого cfg: p = k × 0.01333 (`ConvertOld`).
+* Factor пишется как "0.0####" (до 5 знаков — для 0.01333).
+* Окно: вкладки User Interface (вид вкладки, стрелки), General (Alternative Damage Control — применяется сразу, без Apply;
+  логи), Hull, Fire & Flooding (Fire growth, Fire damage to the hull, Fire spread chance, Water coming in), DC Teams
+  (Team effectiveness, Extinguishing, Pumping out, ...), Sinking. Выключен ADC → вкладки модели и строка профилей скрыты.
+* Single ships: редактируемый ComboBox; список — `ShipNames` (UnitMetadataProvider.UnitData, корабли и подлодки; имя —
+  ClassName (нативное/НАТО, как в игре), при совпадении + DefaultName, затем + [ini]); ввод фильтрует (KeyUp, до 300),
+  «+ Add ship» берёт ini по имени или введённый ini. В строках — имя, в подсказке — ini.
+* (i) и шестерёнка — сразу: постфикс конструктора `SeapowerUI.UnitStatusView` → `RegisterStatusView`; раз в секунду (пока не
+  найдено) ищем RadioButton вкладки с Content = DamageControlViewModel и декорируем (`DecorateHeader`, CWT-состояние,
+  `RestoreHeaders` при выключении). Якорь окна настроек — Unit Status.
+
+* Строгий учёт команд (DcTeams): инвариант — объектов команд не больше, чем `DamageControlTeamDefaultsNumber` (total), и
+  каждая команда учтена один раз. Игра сама кладёт все команды обратно в резерв (`RepairAllDamage`: RepairAll / ремонт,
+  DebugRessurect) — раньше наши «в пути / выбыла / погибла» оставались сверху (так у rgreat 2 команды превратились в 4).
+  Reconcile: вне счётчиков игры допускается total − (сумма счётчиков) объектов; лишние (сначала погибшие, затем выбывшие,
+  затем идущие) занимают недостающие места счётчиков, новых объектов не создаётся; восстановленным сбрасываются выбивания.
+  Tick (и при выключенной модели) зовёт Reconcile, если счётчики разошлись ИЛИ объектов больше total. Таймеры выбывания
+  игры снимаются только сопоставленные с нашей командой (остальные игра вернёт сама; раньше чистились все → команда терялась).
+  Load: total = числу сохранённых команд. Изменение числа команд кораблём в море (Retarget) пишется в лог с именем корабля.
+
+* Разделение: `DcControl.IsEnabled = Enabled && DetailedView` — DC Priority и задачи командам вручную работают при
+  любом Alternative Damage Control; перемещения (Move to section / To Reserve / отмена) — только с ним (`ModelOn`).
+  Сохранение: режим/задачи — при включённом детальном виде, команды — при включённой модели.
+* ADC выкл.: карточка «In Transfer» — снова игровая «Teams Knocked Out» (её заголовок, значение, «Available In»; наши скрыты).
+* Ускоренное затопление с красной зоны шкал: крен > 0,75·ListLimit (`Limits.ListFlood`), дифферент > 0,75·предела
+  (`Limits.TrimFlood`); ListLimit/TrimLimit — полные шкалы. LEVEL (FloodLimit) — по-прежнему потопление, как в игре.
+* Схема затоплений — подсказка всей карточки LIST/TRIM/LEVEL (у TRIM больше нет своей); под схемой строка пределов:
+  «List limit … · Trim limit … (L m) · floods faster from the red zones» (ADC выкл.: значения игры).
+* Окно настроек: строка профилей — на вкладке General между «Damage model» и «Logging» (скрыта при выключенном ADC).
+
+* Настройки — НЕ BepInEx/config: `Sea Power_Data/StreamingAssets/user/AdvancedDamageControl/AlternativeDamageModel.cfg`
+  (как cameraoffset: Application.streamingAssetsPath/user/<мод>), свой `ConfigFile Cfg` вместо `BaseUnityPlugin.Config`;
+  старый BepInEx/config/com.rgreat.seapower.alternativedamagemodel.cfg переносится туда один раз (File.Move, без *.moved; оставшийся от тестовых сборок *.moved удаляется);
+  при ошибке — BepInEx/config. Логи/trace/dctab по-прежнему в BepInEx.
+* (i)/шестерёнка сразу: вкладки Unit Status — `UnitStatusTabViewModel` (Kind = DamageControl), их Content (VM вкладки)
+  создаётся ТОЛЬКО при первом открытии — поэтому прошлое сравнение с Content не срабатывало. Теперь: постфикс конструкторов
+  UnitStatusTabViewModel → `RegisterTab` (Kind = DamageControl) + постфикс UnitStatusView → поиск RadioButton с этим
+  DataContext (сразу и раз в 0,5 с, пока не найдено).
+* Single ships: только UnitData["vessels", id] без «@» (ключи `<id>@<loadout>` — доп. загрузки, их игра добавляет отдельно).
+* [Systems] Integrity (× игры, профиль) + [SystemTypeIntegrity] (orphans «ModuleType = Integrity» — ЯВНОЕ значение вместо
+  modules.ini; в профиле — `Profile.Modules`): в ApplyHull и RescaleLiveHulls `ScaleSystems(obp)` — все `obp._systems`:
+  множитель = своё / `ModuleNames.GameIntegrity(тип)` (поправки игры — displacement^¼, мин. 10, значение из ini корабля —
+  сохраняют пропорцию), иначе [Systems] Integrity; `_maxIntegrity = исходное × множитель` (исходное в CWT, идемпотентно),
+  CurrentIntegrity — тот же процент. ADC выкл. → ×1.
+  `ModuleNames`: типы и Integrity из игры (`SeaPower.SystemLibraries.Modules`: SectionNames, Get(name).Integrity /
+  ScalesWithDisplacement), запасная таблица 0.8.4; Integrity 0 (Inert) не в списке. В окне при выборе типа подставляется
+  значение игры, колонка «game: N» (× displ.^¼ для масштабируемых).
+  Старый [SystemsPerType] (множители) переводится: Integrity = k × значение игры (`ConvertOld`).
+* Сохранения игры: целостности в сейве абсолютные (секции корпуса, пожары, CurrentIntegrity систем). Мод пишет рядом
+  множители, с которыми сохранено: `AlternativeDamageModel_HullMult` в секции Compartments (всегда, и в campaign state),
+  `AlternativeDamageModel_IntegrityMult` в секции каждой системы (постфикс BaseSystem.SaveStateToFile). При загрузке
+  (постфиксы LoadStateFromFile; Compartments.Init/ApplyHull к этому моменту уже прошёл) значения пересчитываются на
+  текущий/сохранённый: _currentIntegrity, _lowestIntegrity, FireSeverity, _fireGrowRate; CurrentIntegrity систем (≤ max).
+  Пропуск: нет ключа (старые сейвы / без мода), _campaignRepair, нет данных состояния. Работает и при выключенном моде
+  (постфиксы не смотрят на Enabled). Команды DC и DC Priority сохранялись и раньше (AlternativeDamageModel_DC / _Teams).
+* FireProbability систем (modules.ini) игра 0.8.4 читает в BaseSystem._fireProbability, но НИГДЕ не использует (пожары от
+  попаданий — Blastzone.AddCompartmentFire без участия систем) — множитель к нему ничего бы не дал; не сделан, rgreat спросить.
+* Окно: надписи «Not part of a profile…» на User Interface / General убраны (сдвигали элементы).
+
 ## Настройки (.cfg)
 Описания (Description) = подсказки окна настроек; сверены с реализацией (Auto DC, перемещения, выздоровление с переходом в резерв,
-LIST/TRIM без мгновенного потопления, FloodLimit как в игре, что убирает DetailedDamageControl — в т.ч. шестерёнку). Группы
+LIST/TRIM без мгновенного потопления, FloodLimit как в игре, что убирает DetailedView — в т.ч. шестерёнку). Группы
 вкладки Sinking: «Faster flooding from» (List, Trim, длина) и «Sinking from» (вода).
 [General] Debug, LogShipIntegrity, LogFires (DumpXaml скрыт: не пишется в .cfg; строку `DumpXaml = true` под [General] можно
 дописать руками — читается из orphans (`HiddenBool`), строка с false удаляется при запуске).
@@ -332,10 +423,184 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 tan θ = tan TrimLimit · (Lref/L)^0.442 — первая версия (7° @ 100 м, √) −30% для коротких, −20% для длинных: 30 м 8,8°, 60 м 6,5°,
 150 м 4,4°, 200 м 3,8°, 300 м 3,2°. .cfg на Advanced со старыми значениями (FloodLimit 28/33.6, TrimLimit 7) при запуске
 переводится на новые, чтобы не стать Custom. [General] Profile (Advanced).
-[UI] DetailedDamageControl, FloodingOneArrowAt 0.02, FloodingTwoArrowsAt 0.25, FireOneArrowAt 0.05, FireTwoArrowsUpAt 1.0, FireTwoArrowsDownAt 0.25.
+[UI] DetailedView, FloodingOneArrowAt 0.02, FloodingTwoArrowsAt 0.25, FireOneArrowAt 0.05, FireTwoArrowsUpAt 1.0, FireTwoArrowsDownAt 0.25.
 
 ## Открытые вопросы
 * Не проверено в игре. Point value считается при старте игры: смена галочки без перезапуска может не пересчитать кэш.
 * Порог выбывания команд DC (`CurrentIntegrityPercent < 50`) в ProcessCompartmentHit теперь идёт через FloodPercent (как в игре);
   порог роста течи без DC в `FloodingCompartment.OnFixedUpdate` (< 19%) не компенсируется.
 * Жалоба: «пожары растут в разы быстрее» при Warships 5 — по коду рост не зависит от X; ждём логов LogFires (1.0 vs 5.0).
+
+
+## Ревизия, пакет 1 — команды DC (2026-10-09)
+* `DcControl.IsEnabled` (Enabled && UI) — DC Priority и задачи вручную; `DcControl.AutoOn` (Model) — умный Auto DC и
+  «свободная команда остаётся на месте». CheckPrefix/AllocPrefix работают при любом из двух; без UI — режим Auto и без задач
+  вручную (= игра + StayWhenIdle). StayWhenIdle требует `DcAuto.Ok`.
+* Задача вручную хранится на команде: `DcTeams.Team.Task` / `.Doing` (что делала). Слот k = k-я команда секции в порядке
+  `s.Teams` (`DcTeams.SectionTeams`). Уходит из секции (Return/Move/ToReserve/выбита/Reconcile в другое место) → `Leave()`
+  сбрасывает задачу. Меню команды держит саму команду (`SlotOf` в момент клика). `RemoveSlot` удалён.
+  Сейв DcControl тот же формат; при загрузке задачи → `Pending[i]`, раздаются командам при первом CheckPrefix.
+* DcAuto: секция с любой работой (и свежей, < 4 с) оставляет себе одну команду — забрать её может только запасной путь
+  (огонь/вода, команда там ≥ 60 с).
+* DcTeams.Save: 7-е поле — сколько команда уже в секции (`Arrived`); Load: секции вне −1..4 → резерв, InSection без секции → Pool.
+* `DcTeams.Out(comp)`: тонет или уничтожен (`_baseObject.IsDestroyed`) — Tick и DcAuto не работают.
+* Выбитые: считаются только таймеры, добавленные с прошлого тика (`Ship.Timers`, ведётся и при выключенной модели), и
+  снимаются с конца списка (новые).
+* `RecallPrefix(comp)` при пропуске ставит `_dcTeamsLastRecall = now` (иначе OnFixedUpdate звал RecallAllTeams каждый тик).
+* Прибытие: только секции 0..4; при исключении в Send резерв откатывается. `Team.Back` — повернула назад (Cancel), без сбора:
+  в UI не «mustering».
+* Исправлено (после пакета 1): выключение Detailed View теряло игровую кнопку Auto DC — `Restore` обнулял `st.Priority` до
+  `PutBackAuto`, содержимое оставалось в нашей карточке; после включения Discover не находил карточку Auto DC → только
+  игровой вид. Теперь `PutBackAuto` вынимает содержимое из текущего родителя (VisualTreeHelper) и вызывается первым; очистка
+  карточки — и при `st.Cols == null`; Restore каждого вида в своём try. Одна ошибка `UiTick` больше не выключает вид навсегда
+  (только 50 подряд). Окно настроек: оставшееся невидимым с прошлого экрана открывается заново, Close снимает его с
+  фактического родителя.
+* Возврат игрового вида: текст «DC Teams: N» после выключения Detailed View был числом на момент разбора вкладки (или пустым).
+  Причина пустоты: после повторного разбора (Valid → Discover) «исходным» сохранялся наш текст (иконки → ""). Теперь
+  `Keep(tb)` при первом знакомстве с TextBlock запоминает раз и навсегда: привязку Text, сами объекты Inlines (Run со своими
+  привязками) и текст (`FirstText` — им берутся TeamsOrig/HeaderOrig). `RestoreBlock` возвращает эти Inlines и привязку
+  (`UpdateTarget` или `SetBinding`) — игра снова показывает живое значение.
+  Запасной путь для «DC Teams: N» — `WithCount` (последнее число заменяется текущим количеством).
+* Шестерёнка окна настроек теперь видна при включённом моде всегда: при выключенном Detailed View на вкладке — только
+  шестерёнка (без (i)), иначе включить вид обратно можно было только правкой cfg. `DamageControlUi.Tick(now, active, on)`;
+  `HeaderState.Full` — какой набор иконок стоит; смена набора перерисовывает заголовок. Заголовок возвращается к тексту
+  игры только при выключенном моде. В trace «settings:» пишет состояние detailed view и damage model.
+* `[UI] DetailedDamageControl` переименован в `[UI] DetailedView` (визуализация). Старый ключ из cfg при старте переносится
+  (orphan → значение) и удаляется. `[General] AlternativeDamageControl` (модель повреждений) — без изменений.
+* Возврат карточки Auto DC: `st.AutoStack` — наша панель, куда перенесено содержимое; PutBackAuto вынимает оттуда, затем из
+  логического (`FrameworkElement.Parent`) или визуального родителя. Если содержимое терялось, игровая кнопка Auto DC пропадала,
+  `AddPriorityCard` не находил видимый ToggleButton в сетке из 5 колонок («summary grid not found») и верхние панели не менялись.
+* Шестерёнка: окно открывается от самой нажатой шестерёнки (`Open(gear, hs.Anchor)` — второй якорь запасной). Без панели (Grid/Canvas) — Popup, который в Noesis не показывается.
+* `AddPriorityCard`: поиск строки сводки — первый видимый ToggleButton, у предка-Grid из 5 колонок дочерний Border. У сетки
+  секций тоже 5 колонок: когда в строках секций появляются ToggleButton (после повреждений), находилась она, card = null →
+  «summary grid not found», верхний ряд не перестраивался, при выключении «Auto DC card put back: no card». Теперь такой
+  ToggleButton пропускается и пробуется следующий.
+* Меню команд: счётчик `_menusOpen` заменён списком открытых меню `OpenMenus` (`MenusOpen()` выкидывает закрытые и те, чья
+  иконка исчезла). Счётчик залипал > 0, если Closed не приходил (вид выключен/заменён при открытом меню) — тогда иконки команд
+  больше не перерисовывались, и после выключения Auto DC оставались старые, без кликов (меню не открывались).
+* Заголовок вкладки: при первом наведении текст с (i)/шестерёнкой уезжал вверх — инлайн-контейнер иконок (14 px, стоит на
+  базовой линии) делал строку выше после повторного измерения. Панель иконок получила Margin top −6: в раскладке она ниже
+  высоты букв и строку не увеличивает; рисуется там же (RenderTransform 0,3 как был).
+* Срез «этап 1» (2026-10-09): `/mnt/user-data/outputs/AlternativeDamageModel_stage1.zip`, локально git-тег `stage1`
+  в /home/claude/adm. Временные trace-строки диагностики (menu click, no team object, card put back, restore: priority,
+  settings window: anchor) удалены.
+
+## Ревизия, пакет 2 — сейвы, профили, окно настроек
+* Патчи Save/LoadStateFromFile (Compartments, BaseSystem) ставятся независимо от DcControl.Init.
+* Сейв без ключа множителя корпуса: если в секции есть ключи команд/DC мода (старая сборка) — значения как есть; иначе это сейв
+  без мода → множитель сохранения = 1 (ванильный сейв с ×5 больше не даёт 50% корпуса). Системы без ключа откладываются
+  (`PendingSys` по объекту юнита) и решаются вместе с корпусом (`TakePendingSystems`), который грузится сразу после них.
+* `AlternativeDamageModel_IntegrityMult` пишется только для систем, которые мод масштабирует (SysState, т. е. корабли), и только
+  если игра записала CurrentIntegrity.
+* `BadKey`: ключи [HullIntegrityPerShip]/[SystemTypeIntegrity] без `= \n \t \ " ' [ ]` (BepInEx их не принимает и бросал
+  исключение в ApplyValues → мод не стартовал). Проверка в окне (Add), при чтении профиля (строка пропускается, Trace) и
+  `PutLine` в ApplyValues (по ключу, в try).
+* TakeOldProfileValues: списки кораблей/типов профиля заменяются строками cfg, только если такие строки в cfg есть.
+  ReloadConfig: убранные CleanCfg строки удаляются и из файла (SaveConfig) + предупреждение.
+* «Save as» под именем активного профиля: значения сразу применяются (ApplyValues).
+* Окно: ввод не-числа в поле возвращает прежнее значение (раньше становился минимумом).
+* Описание [General] AlternativeDamageControl: DC Priority и задачи вручную относятся к виду и остаются.
+* Исправлено: сейв этой сборки, сделанный при выключенном в меню Mods моде, — у систем нет SysState → нет ключа, а у корпуса ключ
+  есть («1.0»), и системы брались как есть (20 из 40 при Integrity ×2). Теперь системы без ключа в сейве с ключом корпуса = ×1
+  (не масштабированы тогда) и пересчитываются; «как есть» — только сейвы старых сборок (ключей корпуса нет, есть ключи команд/DC).
+
+## Ревизия, пакет 3 — вкладка Damage Control
+* Шкалы по режиму и типу (`ListScale`, `TrimScale`, `SinkAt`, `IsSub` в Panels): ADC вкл. — Limits мода; выкл. — игровые
+  точки (вода через палубу 45°, утопление при 8°) как начало красной зоны (75% шкалы: 60° / 10.67°), уровень 40%. Подлодки:
+  уровень 50% всегда (игра: `FloodingPercentage > 50`, мод его не меняет), крен/дифферент их не топят — значения не краснеют,
+  на схеме «Submarine: list and trim flood nothing», в подсказке затопления нет «water over deck». Порог «water over deck»
+  при выкл. ADC — 45°.
+* Смена юнита (новая VM): строки старого юнита возвращаются к тексту игры (Restore без карточки) до сброса Cols.
+* Тренды/«Hit N s ago»: после паузы > 1 с реального времени (вкладка скрыта) отсчёт заново; скачок считается попаданием, только
+  если больше того, что даёт сам тренд за это время (×2) — на ускорении времени не ложные.
+* Схема: вычисление FloodState убрано (цифры одного цвета), кисть одна.
+* Утечки: открытые подсказки (`OpenTip` с владельцем) выбрасываются, когда иконка не видна/не в дереве (правило `k > 8`
+  убрано); `Groups` чистятся каждый тик (`PruneGroups`); при выключении вида Groups/OpenTips/OpenMenus очищаются.
+* Без новых кистей на тик: `SetText`/`SetBrush` (только при изменении), ленивые общие кисти BDanger/BDimText/BWhite/BPastMuster.
+* Поиск строк Flooding/Fire: каждый тик первые 8 промахов (2 с), дальше раз в секунду.
+* Тексты: «lost (knocked out N times)» по KnocksToDie; FireCause — корпус горит на всех стадиях, системы понемногу и при Minor.
+
+## Ревизия, пакет 4 — механика и производительность
+* Зажигательные попадания (`_ap._addFire` 3/2/1 → доля 0.5/0.25/0.125 максимума пожара): транспайлер OnHitUnit вставляет
+  `IncendiaryFrac` после каждой из трёх констант (ldc.r4 → stloc, за ≤6 инструкций до — ldfld _addFire): доля / m × HullFireVulnerability
+  (m — множитель корпуса этого юнита; юнит берётся из `FireIntegrity`, вызванного чуть раньше в том же попадании —
+  `_lastFireComp`). Ожидается 3 места.
+* FloodingSpeed: только «_shipFloodingCoefficient * _floodingRate * 0.5f * dt» (вода через пробоины; IL: ldfld _floodingRate, mul, ldc.r4 0.5 — сверено с DLL); ветка тонущего корабля
+  («… * dt * _floodingMultiplicatorWhenSinking») — как в игре: FloodingSpeed 0 больше не держит тонущий корабль на плаву. Ожидается 1 место.
+* Тик физики: TrimFlooding — постоянные данные корабля (судно ли, число секций, объект, длина) в CWT, дифферент проверяется
+  первым; SinkTrim — число секций в CWT; DcTeams.InSync — общий буфер; DcControl.CheckPrefix — общий список команд секции
+  (`SectionTeams(comp, i, into)`).
+
+## Состояние на 2026-10-09 (ревизия завершена)
+* Этапы ревизии 1–4 закрыты и проверены в игре. Срезы: `AlternativeDamageModel_stage1..4.zip`, git-теги `stage1..stage4`
+  (локально, /home/claude/adm).
+* Не делались (по решению rgreat): Base Game как точная копия игры по крену/дифференту (п. 4 ревизии); уход свободных команд
+  из секций < 50%; сглаживание дифферента / условие повреждений для TrimFlooding; ReleaseAll для кораблей вне LiveHulls;
+  BecomeOwn после ↺; Commit без перехвата ошибок записи; зажигалки/FireProbability систем (игра не использует).
+* Правило работы: сначала trace/лог, потом правка; шаблоны транспайлеров сверять с IL (`ilspycmd -il`).
+
+## 2026-10-09: новые функции
+* Auto DC: свободная команда остаётся на месте, только пока на корабле есть работа (`DcAuto.AnyWork`: работа в любой секции за
+  последние 10 с; `Ship.LastWork`); иначе CheckPrefix возвращает её в резерв (пешком), как игровой Auto DC.
+* [FireAndFlooding] UnattendedFireGrowth (false) / UnattendedFireTime (60 с) / UnattendedFireGrowthRate (0.5 % макс. роста за
+  проверку): постфикс RepairFire (true → время тушения секции), постфикс CheckFire (раз в FireCheckTime): горит дольше
+  UnattendedFireTime с начала пожара или последнего тушения → _fireGrowRate += rate% × _maxfireGrowRate (как попадание;
+  обычное попадание добавляет 0.1–0.8%). Строка «Unattended N s: grows faster» в подсказке пожара. В окне время/скорость
+  видны только при включённом флажке (`ShownWhen`).
+* Single system types: колонка «game: N» обычным серым; масштабируемые по водоизмещению — светло-голубым в две строки
+  «game: N» / «tonnage dependent»; подсказка (`ModuleTip`) — только цифры: итоговое Integrity этой системы на боевом корабле
+  500/1000/3000/5000/10000/20000 т («game» и, если значение своё, «yours»); панель помощи — те же цифры одной строкой (`ModuleHelp`) (`ScaledIntegrity` = игровая формула LoadModuleParameters:
+  v × t^¼, гражданские ½, не меньше ×1, итог не меньше 10).
+* [Effects] ExtraSmokeEmitters (true) / ExtraSmokeMinLength (100 м) — `FireSmoke`: постфикс Compartments.Init — 5 точек
+  вместо 3 (Compartment1..3FirePosition: нос между секциями 0/1, середина = секция 2, корма между 3/4 → секции 1/3 на 2/3 пути
+  к концевой точке, 0/4 на 4/3; высота/борт — как у концевой; не дальше 45% длины от середины), _firesCount = 5, массивы
+  _currentFires/_fireDecal/эффектов пересоздаются; постфикс UpdateFireState — у каждой точки пожар своей секции. Только новые
+  корабли. Вкладка Effects перед General (не модельная — видна при выключенном ADC).
+* Окно настроек: 1040 × 990 (было 960, +80 под вкладку Effects).
+* Описание TransferSpeed сокращено.
+* Дым пожаров (игра): эффекты переключаются ступенями (small/moderate/severe по FireState: Severe ≥ maxInt/600 ≈ 50% макс.,
+  Moderate ≥ /1200, иначе small; пороги /300 и /1800 — дубликаты), и только в CheckFire (раз в FireCheckTime 10 с); после
+  попадания updateFireEffect идёт по старым _currentFires. Мод: `FireSmoke.Tick` (из TeamTickPrefix, раз в 1 с Time.time) —
+  при смене стадии любой секции вызывает UpdateFireState + updateFireEffect. CreateFireEffect: `transform.Find("pointlight").gameObject`
+  без проверки (NRE при отсутствии света → нет звука, остальные точки не обновлены) — транспайлер Find+get_gameObject →
+  `FireSmoke.SafeChild`. При Debug в trace — состав каждого эффекта пожара (ParticleSystem: rate/bursts/size/life/max/loop,
+  Light, Audio; через рефлексию, модули частиц/звука не подключены) — для решения о плавной плотности.
+* Эффекты пожара игры (из trace): shipfire_s / shipfire_s_2 / shipfire_m_2 / shipfire_l — корневая система «дым с огнём в
+  спрайтах» rate 5/с, life 6–16 с; «shipfire_m_part_2» (клубы, rate 1, life 10–30); у m/l ещё «fireemitter» (rate 3, life 2),
+  у l — «Fire_Flares» (max 25); Light pointlight 0.5; Audio 0.5. Всплесков нет, всё потоком.
+* [Effects] SmokeBySeverity («Tune visuals», true) / SmokeStartOpacity (0%) / SmokeEndOpacity (100%) / SmokeModerateFrom (50%) / SmokeSevereFrom (90%):
+  вид пожара по силе (доля макс.), а не по стадиям игры (25/50%) — `Restage` в постфиксе UpdateFireState переписывает
+  _currentFires (не трогая «нет пожара»); урон/распространение по стадиям игры не меняются. `FireSmoke.Tick` с опцией раз
+  в секунду вызывает UpdateFireState и updateFireEffect при смене вида. Прозрачность — только у слабого вида: альфа
+  стартового цвета дымовых систем (корень и «shipfire*», пламя не трогается) от StartOpacity при 0 до 100% к ModerateFrom
+  (на средней/сильной стадиях прозрачность давала обратный эффект — убрано). Режимы цвета Color/TwoColors, новые частицы.
+  Выключение опции возвращает альфу (`ResetLooks`). Trace: «smoke density: '…' N smoke systems, colour modes …».
+* Плотность дыма слабого пожара — не альфа, а частицы в секунду (EmissionModule.rateOverTimeMultiplier × k). С альфой в игре
+  новые частицы были не видны до ~38% и резко проявлялись к 40%: по всей видимости, материал дыма использует альфу частицы как
+  порог (dissolve/cut-off), а не как прозрачность. Ключ SmokeStartOpacity → SmokeStartDensity.
+* Диагностика (Debug, `FireSmoke.Probe`, раз в секунду на горящую точку): сила, стадия игры, вид, k, rate после установки,
+  живые частицы. Итог прогона: rate реально меняется (2.81 при k 0.56), живых спрайтов ~14 при k 0.56 и ~23 при k 0.96;
+  «shipfire_m_part_2» малого эффекта не излучает вовсе (loop False, stop). При смене вида старый эффект гаснет ~5 с (n 19→0),
+  новый набирает частицы с нуля. На глаз пользователя больше спрайтов = прозрачнее, а не плотнее.
+* Частоту частиц больше не трогаем (на глаз с ней и без неё одинаково). Снова только прозрачность: альфа стартового цвета
+  новых частиц × k, k линейно от SmokeStartOpacity при 0% силы пожара до SmokeEndOpacity к
+  SmokeModerateFrom; оба значения задаёт пользователь, по умолчанию 100/100 (как в игре). Ключи *Density → *Opacity.
+  Trace: «smoke opacity: '…' N smoke systems, colour modes M a=…», в probe — альфа нового цвета вместо rate.
+* Probe показал: у основного дыма слабого эффекта («shipfire_s*») стартовый цвет — градиент (a -1 = не обработан), так что
+  прозрачность до видимого дыма не доходила; применялась лишь к «shipfire_m_part_2», который в слабом эффекте не излучает.
+  Теперь для режимов Gradient / TwoGradients делается копия градиента с альфой всех ключей × k (Gradient — класс, исходный
+  не трогаем). В probe для градиента a = наибольший ключ альфы. При Debug в trace — «smoke: effects switched (…)» в момент
+  реального вызова updateFireEffect (play+emit в probe — состояние системы, а не событие включения).
+* Градиент, прочитанный из startColor, остаётся связан с градиентом самой системы: после установки нашей копии «исходный»
+  градиент тоже менялся, и каждое новое k умножалось на предыдущее (a: 0.56 → 0.32 → 0.19 … → 0, дым исчезал полностью).
+  Теперь в `LookOf` исходный цвет сразу копируется по ключам (`Detached`), и все k считаются только от этой копии.
+* Подписи: «Tune visuals» (было Looks by fire strength), «Moderate fire look from», «Severe fire look from».
+* Закладка Damage Control обновляется сразу, а не только по таймеру 0.25 с: `RegisterView` подписывается на IsVisibleChanged
+  (закладка открыта) и DataContextChanged (другой юнит), а между тиками каждый кадр дешёвая проверка `UnitChanged` (другой
+  view model или другой корабль в том же). Любое из этого — `Kick`: работа на следующем кадре, и ещё секунду каждый кадр,
+  пока вид не распознан (перед Discover — `UpdateLayout`, чтобы строки списков появились сразу); неудачи в эту секунду не
+  считаются отказами (иначе через 3 попытки ушёл бы дамп/предупреждение) и не ждут 1 с до следующей попытки.
+* Вкладка настроек General → «Damage Model». [FireAndFlooding] UnattendedFireMaxGrowth (0.5 %/с от макс. силы пожара):
+  предел, до которого безнадзорный пожар поднимает скорость роста; UnattendedFireGrowthRate по умолчанию 0.25. У строк
+  Unattended fire в колонке игры «default: x» (в игре таких параметров нет). Умолчания: ExtraSmokeMinLength 75,
+  стрелки FloodingOne/FireOne 0.001, FireTwoArrowsUp 0.25 (остальное уже совпадало: Profile Advanced, Debug/Log* off).

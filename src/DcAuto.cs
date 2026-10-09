@@ -25,7 +25,8 @@ namespace AlternativeDamageModel
     ///  6. the second and third teams come from free teams only (nobody is taken off other work for them);
     ///  7. a job has to be there for 4 s before anybody walks (a fire that a hit starts and the team puts out at once moves nobody);
     ///  8. a team that runs out of work stays where it is (DcControl does not send it back): it is picked from there next time,
-    ///     often closer than the reserve.
+    ///     often closer than the reserve - while the ship has work somewhere; 10 s after the last work is done everywhere, all
+    ///     teams walk back to the reserve.
     /// </summary>
     static class DcAuto
     {
@@ -43,10 +44,24 @@ namespace AlternativeDamageModel
             public float[] FireRise = new float[5], WaterRise = new float[5];  // smoothed growth a second
             public double[] Seen = new double[5];                              // since when the section has had work (0 = none)
             public bool Primed;
+            public double LastWork = -1;   // game time the ship last had any work (any section)
         }
+
+        /// <summary>A team with nothing to do waits where it is only while the ship still has work somewhere (or had, within
+        /// the last 10 s); once all work is done the teams walk back to the reserve, as the game's own Auto DC does.</summary>
+        public static bool AnyWork(object comp)
+        {
+            Ship s;
+            if (!_ok || comp == null || !Ships.TryGetValue(comp, out s) || s.LastWork < 0) return false;
+            double now;
+            try { now = Convert.ToDouble(_gameTime.GetValue(null, null)); } catch { return true; }
+            return now - s.LastWork < IdleGrace;
+        }
+        const double IdleGrace = 10.0;
         static readonly ConditionalWeakTable<object, Ship> Ships = new ConditionalWeakTable<object, Ship>();
 
         static bool _ok;
+        public static bool Ok { get { return _ok; } }
         static FieldInfo _port, _star, _sys, _count, _sinking, _floodRate, _grow, _maxSev, _systems, _always, _maxInt;
         static PropertyInfo _teams, _floodDelta, _intDelta, _severity, _gameTime, _repairable, _curDmg, _bigDmg;
 
@@ -102,7 +117,7 @@ namespace AlternativeDamageModel
                 if (now < ship.Next && now >= ship.Last) return false;
                 double dt = ship.Primed ? now - ship.Last : 0;
                 ship.Next = now + Period; ship.Last = now;
-                if ((bool)_sinking.GetValue(comp)) return false;
+                if (DcTeams.Out(comp)) return false;
 
                 int count = Math.Min(5, (int)_count.GetValue(comp));
                 var port = _port.GetValue(comp) as Array; var star = _star.GetValue(comp) as Array; var sys = _sys.GetValue(comp) as Array;
@@ -180,6 +195,7 @@ namespace AlternativeDamageModel
                         break;
                     }
                     if (!work[i]) ship.Seen[i] = 0;
+                    else ship.LastWork = now;
                 }
                 ship.Primed = true;
                 if (needs.Count == 0) return false;
@@ -228,7 +244,8 @@ namespace AlternativeDamageModel
                         // free teams: in a section with no work, or more than a section without fire / flooding needs
                         for (int j = 0; j < count; j++)
                         {
-                            if (j == i || holds[j] || here[j] <= target[j]) continue;
+                            // a section with work (also fresh, still debounced) keeps one team: only the fallback below takes it
+                            if (j == i || holds[j] || here[j] <= Math.Max(target[j], work[j] ? 1 : 0)) continue;
                             float tt = DcTeams.TransferTime(comp, j, i);
                             if (tt < best) { best = tt; from = j; }
                         }

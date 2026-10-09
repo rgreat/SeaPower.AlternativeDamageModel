@@ -8,8 +8,7 @@ namespace AlternativeDamageModel
     /// <summary>
     /// The tooltip of the List / Trim / Level card (opens below it): the ship from above like the game's F10 damage panel, bow on
     /// the right, port side on top. Every compartment (5 sections × port / starboard) is a cell filled from its bottom edge to its
-    /// water level, with the same trend arrows as the section's Flooding row and its water % under them (yellow / red while damage
-    /// control can still get water out, grey once it cannot - as the Flooding row). The cells are clipped by the hull's outline,
+    /// water level, with the same trend arrows as the section's Flooding row and its water % under them (white, one colour). The cells are clipped by the hull's outline,
     /// so the bow cells come out pointed. Built once per card, updated in place 4 times a second while the tab is shown.
     /// </summary>
     static partial class DamageControlUi
@@ -18,7 +17,7 @@ namespace AlternativeDamageModel
         {
             public Border Root;
             public int Count;
-            public TextBlock Title;
+            public TextBlock Title, Limits;
             public Border[] Fill;          // [column * 2 + side]: port 0 (top), starboard 1 (bottom)
             public StackPanel[] Arrows;
             public TextBlock[] Value;
@@ -90,6 +89,8 @@ namespace AlternativeDamageModel
             var root = new StackPanel { Orientation = Orientation.Vertical };
             s.Title = new TextBlock { FontSize = 10f, Foreground = new SolidColorBrush(CDim), Margin = new Thickness(0f, 0f, 0f, 3f) };
             root.Children.Add(cv);
+            s.Limits = new TextBlock { FontSize = 10f, Foreground = new SolidColorBrush(CDim), Margin = new Thickness(0f, 4f, 0f, 0f) };
+            root.Children.Add(s.Limits);
             s.Root = new Border { Child = root, Padding = new Thickness(6f, 4f, 6f, 6f), Background = new SolidColorBrush(Color.FromRgb(30, 33, 38)),
                                   BorderBrush = new SolidColorBrush(Color.FromRgb(70, 76, 86)), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(4f) };
             return s;
@@ -144,20 +145,29 @@ namespace AlternativeDamageModel
 
                     float rate = cols != null && i < cols.Length ? (side == 0 ? cols[i].RP : cols[i].RS) : 0f;
                     int a = Arrows(rate, FloodOne, FloodTwo, FloodTwo);
-                    int state = water > 0.0005f ? FloodState(comp, i, side == 0) : 0;
-                    string sig = Pct(water) + "|" + a + "|" + state;
+                    string sig = Pct(water) + "|" + a;
                     if (sig == s.Sig[j]) continue;
                     s.Sig[j] = sig;
                     s.Value[j].Text = Pct(water);
-                    s.Value[j].Foreground = new SolidColorBrush(CWhite);
+                    if (!ReferenceEquals(s.Value[j].Foreground, BWhite)) s.Value[j].Foreground = BWhite;
                     s.Arrows[j].Children.Clear();
                     if (a != 0) s.Arrows[j].Children.Add(ArrowShape(a > 0, Math.Abs(a), a > 0 ? CUp : CDown));
                 }
             }
             float total = 0f;
             try { total = Convert.ToSingle(_compFloodPct.GetValue(comp, null), CultureInfo.InvariantCulture); } catch { }
-            string title = "Water " + Pct(total) + " · sinks at " + Limits.LevelFull.ToString("0.#", CultureInfo.InvariantCulture) + "%";
+            string title = "Water " + Pct(total) + " · sinks at " + SinkAt(comp).ToString("0.#", CultureInfo.InvariantCulture) + "%";
             if (s.Title.Text != title) s.Title.Text = title;
+            // the list / trim limits of this ship (the gauges' full scales; faster flooding from their red zones)
+            string lim;
+            float L = DcTeams.ShipLength(comp);
+            if (IsSub(comp)) lim = "Submarine: list and trim flood nothing";
+            else if (ModelOn())
+                lim = "List limit " + Limits.ListFull.ToString("0.#", CultureInfo.InvariantCulture) + "° · Trim limit " +
+                      Limits.Trim(L).ToString("0.0", CultureInfo.InvariantCulture) + "°" + (L > 0f ? " (" + L.ToString("0", CultureInfo.InvariantCulture) + " m)" : "") +
+                      " · floods faster from the red zones";
+            else lim = "List 45° · Trim 8° (the game's)";
+            if (s.Limits.Text != lim) s.Limits.Text = lim;
         }
     }
 }
