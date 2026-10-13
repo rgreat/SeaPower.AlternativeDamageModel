@@ -382,7 +382,8 @@ namespace AlternativeDamageModel
             title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var tt = Text("Alternative Damage Model - Settings", CText, 14f); tt.Margin = new Thickness(10f, 0f, 0f, 0f);
             title.Children.Add(tt);
-            var x = new Button { Content = "✕", Width = 28f, Height = 24f, Margin = new Thickness(0f, 0f, 4f, 0f) };
+            var x = new Button { Content = Cross(10f), Width = 28f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 0f, 4f, 0f),
+                                 HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
             x.Click += (o, e) => Close();
             Grid.SetColumn(x, 1);
             title.Children.Add(x);
@@ -467,12 +468,19 @@ namespace AlternativeDamageModel
             }
             win.Child = layout;
 
-            _root.Children.Add(ResizeGrip());
+            AddResizeHandles();
 
             _overlay = new Border { Background = B(Color.FromArgb(150, 0, 0, 0)), CornerRadius = new CornerRadius(4f), Visibility = Visibility.Collapsed };
             _root.Children.Add(_overlay);
 
             RebuildProfiles();
+        }
+
+        /// <summary>A drawn ✕ for a button: the font's glyph sat low in the button, cut at the bottom and off centre.</summary>
+        static Path Cross(float size)
+        {
+            return new Path { Data = new StreamGeometry("M0,0 L10,10 M10,0 L0,10"), Stroke = B(CText), StrokeThickness = 1.5f, Stretch = Stretch.Uniform,
+                              Width = size, Height = size, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         }
 
         // drag the window by its title bar
@@ -536,34 +544,63 @@ namespace AlternativeDamageModel
         static float _winW = 1040f, _winH = 990f;   // UI units; set from 960 x 990 screen pixels at the first opening
         static ScrollViewer _scroll;
 
-        /// <summary>The bottom right corner: drag to resize (560..1600 x 420..1400; the settings area takes the change).</summary>
-        static FrameworkElement ResizeGrip()
+        /// <summary>
+        /// Resizing by the window's edges (5 px strips) and corners (16 px; the bottom right one shows the grip lines):
+        /// 560..1600 x 420..1400, the settings area takes the change. Dragging the left or top side keeps the opposite side in place.
+        /// The size is kept while the game runs.
+        /// </summary>
+        static void AddResizeHandles()
         {
-            var grip = new Border { Width = 16f, Height = 16f, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
-                                    Background = B(Color.FromArgb(0, 0, 0, 0)), Margin = new Thickness(0f, 0f, 1f, 1f) };
-            grip.Child = new Path { Data = new StreamGeometry("M15,4 L4,15 M15,8 L8,15 M15,12 L12,15"), Stroke = B(CDim), StrokeThickness = 1f };
-            try { grip.Cursor = Cursors.SizeNWSE; ToolTipService.SetToolTip(grip, "Drag to resize"); } catch { }
+            for (int sy = -1; sy <= 1; sy++)
+                for (int sx = -1; sx <= 1; sx++)
+                    if (sx != 0 || sy != 0) _root.Children.Add(ResizeHandle(sx, sy));
+        }
+
+        /// <param name="sx">-1 left, 1 right, 0 neither</param>
+        /// <param name="sy">-1 top, 1 bottom, 0 neither</param>
+        static FrameworkElement ResizeHandle(int sx, int sy)
+        {
+            const float Edge = 5f, Corner = 16f;
+            bool corner = sx != 0 && sy != 0;
+            var h = new Border { Background = B(Color.FromArgb(0, 0, 0, 0)),
+                                 HorizontalAlignment = sx < 0 ? HorizontalAlignment.Left : sx > 0 ? HorizontalAlignment.Right : HorizontalAlignment.Stretch,
+                                 VerticalAlignment = sy < 0 ? VerticalAlignment.Top : sy > 0 ? VerticalAlignment.Bottom : VerticalAlignment.Stretch };
+            if (sx != 0) h.Width = corner ? Corner : Edge;
+            if (sy != 0) h.Height = corner ? Corner : Edge;
+            if (sx == 0) h.Margin = new Thickness(Corner, 0f, Corner, 0f);        // the corners belong to the corner handles
+            else if (sy == 0) h.Margin = new Thickness(0f, Corner, 0f, Corner);
+            if (sx > 0 && sy > 0)
+            {
+                h.Margin = new Thickness(0f, 0f, 1f, 1f);
+                h.Child = new Path { Data = new StreamGeometry("M15,4 L4,15 M15,8 L8,15 M15,12 L12,15"), Stroke = B(CDim), StrokeThickness = 1f };
+                try { ToolTipService.SetToolTip(h, "Drag to resize"); } catch { }
+            }
+            try { h.Cursor = corner ? (sx == sy ? Cursors.SizeNWSE : Cursors.SizeNESW) : sx != 0 ? Cursors.SizeWE : Cursors.SizeNS; } catch { }
             bool down = false; Point start = new Point(); float w0 = 0f, h0 = 0f;
-            grip.MouseLeftButtonDown += (o, e) =>
+            h.MouseLeftButtonDown += (o, e) =>
             {
                 down = true; start = e.GetPosition(_top); w0 = _winW; h0 = _winH;
-                grip.CaptureMouse(); e.Handled = true;
+                h.CaptureMouse(); e.Handled = true;
             };
-            grip.MouseMove += (o, e) =>
+            h.MouseMove += (o, e) =>
             {
                 if (!down || _root == null) return;
                 var p = e.GetPosition(_top);
-                float w = Math.Max(560f, Math.Min(1600f, w0 + (p.X - start.X)));
-                float h = Math.Max(420f, Math.Min(1400f, h0 + (p.Y - start.Y)));
-                float dw = w - _winW, dh = h - _winH;
+                float w = sx == 0 ? _winW : Math.Max(560f, Math.Min(1600f, w0 + sx * (p.X - start.X)));
+                float hh = sy == 0 ? _winH : Math.Max(420f, Math.Min(1400f, h0 + sy * (p.Y - start.Y)));
+                float dw = w - _winW, dh = hh - _winH;
                 if (Math.Abs(dw) < 0.5f && Math.Abs(dh) < 0.5f) return;
-                _winW = w; _winH = h;
-                _root.Width = w; _root.Height = h;
-                // a centred window grows both ways: keep its top left corner in place
-                if (_move != null && _host is Grid) { _move.X += dw / 2f; _move.Y += dh / 2f; }
+                _winW = w; _winH = hh;
+                _root.Width = w; _root.Height = hh;
+                if (_move == null) return;
+                // a window centred in a Grid grows both ways; one placed by its top left corner grows right / down:
+                // move it so that only the dragged side moves
+                bool centred = _host is Grid;
+                if (sx != 0) _move.X += centred ? sx * dw / 2f : (sx < 0 ? -dw : 0f);
+                if (sy != 0) _move.Y += centred ? sy * dh / 2f : (sy < 0 ? -dh : 0f);
             };
-            grip.MouseLeftButtonUp += (o, e) => { if (!down) return; down = false; grip.ReleaseMouseCapture(); e.Handled = true; };
-            return grip;
+            h.MouseLeftButtonUp += (o, e) => { if (!down) return; down = false; h.ReleaseMouseCapture(); e.Handled = true; };
+            return h;
         }
 
         static void RebuildProfiles()
@@ -1100,7 +1137,8 @@ namespace AlternativeDamageModel
                 var detail = detailOf == null ? null : detailOf(name, Num(kv.Value));
                 if (detail != null) try { ToolTipService.SetToolTip(gt, detail); } catch { }
                 Grid.SetColumn(gt, 2); g.Children.Add(gt);
-                var rm = new Button { Content = "✕", Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right };
+                var rm = new Button { Content = Cross(8f), Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right,
+                                      HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
                 try { ToolTipService.SetToolTip(rm, removeTip); } catch { }
                 rm.Click += (o, e) => { mapOf(_work).Remove(name); BecomeOwn(); ShowTab(_tab); };
                 Grid.SetColumn(rm, 3); g.Children.Add(rm);
