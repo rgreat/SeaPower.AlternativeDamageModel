@@ -759,8 +759,7 @@ namespace AlternativeDamageModel
             }
             for (int i = _root.transform.childCount - 1; i >= 0; i--)
                 UnityEngine.Object.Destroy(_root.transform.GetChild(i).gameObject);
-            Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color") ?? Shader.Find("Hidden/Internal-Colored");
-            Material mat = shader != null ? new Material(shader) : null;
+            Material mat = OnTopMaterial();
             _lines = new LineRenderer[count];
             for (int i = 0; i < count; i++)
             {
@@ -774,6 +773,89 @@ namespace AlternativeDamageModel
                 if (mat != null) lr.material = mat;
                 _lines[i] = lr;
             }
+            // the level labels: one mesh of line segments (digits drawn as 7-segment glyphs), rebuilt every tick
+            _labelMesh = new Mesh(); _labelMesh.MarkDynamic();
+            var lgo = new GameObject("levels");
+            lgo.transform.SetParent(_root.transform, false);
+            lgo.AddComponent<MeshFilter>().sharedMesh = _labelMesh;
+            var lmr = lgo.AddComponent<MeshRenderer>();
+            lmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; lmr.receiveShadows = false;
+            if (mat != null) lmr.sharedMaterial = mat;
+            _labelMesh.bounds = new Bounds(Vector3.zero, new Vector3(1e6f, 1e6f, 1e6f));
+        }
+
+        static Mesh _labelMesh;
+
+        /// <summary>Vertex-coloured, no depth test (seen through the sea surface), drawn after everything else.</summary>
+        static Material OnTopMaterial()
+        {
+            Shader shader = Shader.Find("Hidden/Internal-Colored");
+            if (shader == null) { shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color"); return shader == null ? null : new Material(shader); }
+            var m = new Material(shader);
+            m.hideFlags = HideFlags.HideAndDontSave;
+            m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+            m.SetInt("_ZWrite", 0);
+            m.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+            m.renderQueue = 4000;
+            return m;
+        }
+
+        // 7-segment glyphs: bits a (top), b (top right), c (bottom right), d (bottom), e (bottom left), f (top left), g (middle)
+        static readonly int[] DigitSegs = { 0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F };
+        const float GlyphW = 0.5f;
+        static readonly float[][] SegXY = {
+            new[] { 0f, 1f, GlyphW, 1f }, new[] { GlyphW, 1f, GlyphW, .5f }, new[] { GlyphW, .5f, GlyphW, 0f }, new[] { 0f, 0f, GlyphW, 0f },
+            new[] { 0f, 0f, 0f, .5f }, new[] { 0f, .5f, 0f, 1f }, new[] { 0f, .5f, GlyphW, .5f } };
+
+        static float GlyphAdvance(char c) { return c == '.' ? 0.35f : GlyphW + 0.35f; }
+
+        static void AddSeg(List<Vector3> v, List<Color> col, List<int> idx, Vector3 o, Vector3 r, Vector3 u, float s, float x0, float y0, float x1, float y1, Color c)
+        {
+            idx.Add(v.Count); v.Add(o + r * (x0 * s) + u * (y0 * s));
+            idx.Add(v.Count); v.Add(o + r * (x1 * s) + u * (y1 * s));
+            col.Add(c); col.Add(c);
+        }
+
+        static void AddGlyph(List<Vector3> v, List<Color> col, List<int> idx, char ch, Vector3 o, Vector3 r, Vector3 u, float s, Color c)
+        {
+            if (ch >= '0' && ch <= '9')
+            {
+                int m = DigitSegs[ch - '0'];
+                for (int k = 0; k < 7; k++) if ((m & (1 << k)) != 0) { var q = SegXY[k]; AddSeg(v, col, idx, o, r, u, s, q[0], q[1], q[2], q[3], c); }
+            }
+            else if (ch == '-') AddSeg(v, col, idx, o, r, u, s, 0f, .5f, GlyphW, .5f, c);
+            else if (ch == '+')
+            {
+                AddSeg(v, col, idx, o, r, u, s, 0f, .5f, GlyphW, .5f, c);
+                AddSeg(v, col, idx, o, r, u, s, GlyphW / 2f, .25f, GlyphW / 2f, .75f, c);
+            }
+            else if (ch == '.') AddSeg(v, col, idx, o, r, u, s, 0f, 0f, 0f, .08f, c);
+        }
+
+        /// <summary>Small level numbers (metres of the deck point above the sea: +, below: -) next to the points, facing the camera.</summary>
+        static void UpdateLabels(Vector3[] at, float[] meters)
+        {
+            if (_labelMesh == null) return;
+            var cam = Camera.main;
+            if (cam == null || at == null || meters == null) { _labelMesh.Clear(); return; }
+            var v = new List<Vector3>(); var col = new List<Color>(); var idx = new List<int>();
+            Vector3 right = cam.transform.right, up = cam.transform.up, camPos = cam.transform.position;
+            for (int i = 0; i < at.Length; i++)
+            {
+                float m = meters[i];
+                if (float.IsNaN(m)) continue;
+                float s = Vector3.Distance(camPos, at[i]) * 0.012f;
+                string text = (m >= 0f ? "+" : "-") + Math.Abs(m).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+                float w = 0f; foreach (char ch in text) w += GlyphAdvance(ch);
+                Vector3 o = at[i] + up * (s * 0.6f) - right * (w * s * 0.5f);
+                Color c = m >= 0f ? CDry : CWet;
+                foreach (char ch in text) { AddGlyph(v, col, idx, ch, o, right, up, s, c); o += right * (GlyphAdvance(ch) * s); }
+            }
+            _labelMesh.Clear();
+            if (v.Count == 0) return;
+            _labelMesh.SetVertices(v); _labelMesh.SetColors(col); _labelMesh.SetIndices(idx.ToArray(), MeshTopology.Lines, 0);
         }
 
         static void SetActive(bool on)
@@ -915,11 +997,13 @@ namespace AlternativeDamageModel
             if (showLines)
             {
                 Matrix4x4 ltw = _shipTransform.localToWorldMatrix;
+                var labelAt = new Vector3[_points.Length]; var labelM = new float[_points.Length];
                 for (int i = 0; i < _points.Length; i++)
                 {
                     Vector3 deck = ltw.MultiplyPoint3x4(_points[i]);
                     float waveY = QueryWave(deck.x, deck.z);
                     if (float.IsNaN(waveY)) waveY = deck.y;
+                    labelAt[i] = deck; labelM[i] = (deck.y - waveY) * 67.200066f;
                     var lr = _lines[i];
                     lr.startWidth = lr.endWidth = _lineWidth;
                     lr.SetPosition(0, new Vector3(deck.x, waveY, deck.z));
@@ -927,6 +1011,7 @@ namespace AlternativeDamageModel
                     Color c = deck.y < waveY ? CWet : CDry;   // red: this point is under the current wave; green: clear of it
                     lr.startColor = lr.endColor = c;
                 }
+                UpdateLabels(labelAt, labelM);
             }
 
             bool showHull = ShowCollider && alive && _hullPieces != null && _hullPieces.Count > 0;

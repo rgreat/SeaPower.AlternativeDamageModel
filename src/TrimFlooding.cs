@@ -138,6 +138,7 @@ namespace AlternativeDamageModel
             if (!_ok) return;
             try { SkewTick(comp); } catch (Exception e) { Trace("TrimFlooding.SkewTick: " + e.Message); }
             if (LogHeel) try { HeelLog(comp); } catch (Exception e) { Trace("TrimFlooding.HeelLog: " + e.Message); }
+            if (SubmergedFlooding.Covers(comp)) return;   // exact deck points: the water over the deck edge is SubmergedFlooding's
             try { FloodList(comp); } catch (Exception e) { Trace("TrimFlooding.FloodList: " + e.Message); }
             try
             {
@@ -236,7 +237,7 @@ namespace AlternativeDamageModel
         public static bool FloodsNow(object comp, int i, bool port, out float pitch)
         {
             pitch = 0f;
-            if (comp == null || !IsEnabled()) return false;
+            if (comp == null || !IsEnabled() || SubmergedFlooding.Covers(comp)) return false;
             Init(comp);
             if (!_ok) return false;
             try

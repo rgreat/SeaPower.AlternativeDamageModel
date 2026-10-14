@@ -119,7 +119,7 @@ namespace AlternativeDamageModel
                     if (_shownListComp.Target == comp)
                     {
                         float list = _shownList;
-                        if (!IsSub(comp) && (port ? list > 0f : list < 0f) && Math.Abs(list) > (ModelOn() ? Limits.ListFlood : 45f))
+                        if (!IsSub(comp) && !SubmergedFlooding.Covers(comp) && (port ? list > 0f : list < 0f) && Math.Abs(list) > (ModelOn() ? Limits.ListFlood : 45f))
                             Line(sb, "List " + Math.Abs(list).ToString("0", CultureInfo.InvariantCulture) + "°: water over deck");
                     }
                     float pitch;

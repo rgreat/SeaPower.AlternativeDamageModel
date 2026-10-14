@@ -101,6 +101,19 @@ namespace AlternativeDamageModel
             return s;
         }
 
+        /// <summary>True when this ship floods over the deck edge by this file's rule (exact deck points, rule on): the old list / trim
+        /// flooding (TrimFlooding) is then not used for it - the same water must not come in twice for one cause.</summary>
+        public static bool Covers(object comp)
+        {
+            try
+            {
+                if (comp == null || !IsEnabled() || Rate <= 0f) return false;
+                Init(comp);
+                return _ok && Get(comp) != null;
+            }
+            catch { return false; }
+        }
+
         static object Fc(object comp, int n, int k)
         {
             var arr = (k < n ? _fPort : _fStar).GetValue(comp) as Array;
