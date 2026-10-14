@@ -868,7 +868,7 @@ namespace AlternativeDamageModel
 
         static readonly List<GameObject> _colliderOverlays = new List<GameObject>();
         static Material _colliderMat;
-        static Material _wireMat;
+        static Material _wireMat, _wireTopMat;
 
         static void ClearColliderOverlays()
         {
@@ -886,6 +886,8 @@ namespace AlternativeDamageModel
                 _colliderMat = sh != null ? new Material(sh) : null;
                 _wireMat = sh != null ? new Material(sh) : null;
                 if (_wireMat != null) _wireMat.color = new Color(1f, 1f, 0.15f, 0.95f);   // bright yellow, near-opaque
+                _wireTopMat = OnTopMaterial();   // the same wireframe again with no depth test, faint: seen through the sea surface
+                if (_wireTopMat != null) _wireTopMat.color = new Color(1f, 1f, 0.15f, 0.3f);
             }
             if (_colliderMat != null) _colliderMat.color = PointsExact ? CCollExact : CCollFallback;   // orange: no exact points for this ship
             foreach (var mc in _hullPieces)
@@ -932,7 +934,9 @@ namespace AlternativeDamageModel
                         var wmf = wgo.AddComponent<MeshFilter>();
                         wmf.sharedMesh = wireMesh;
                         var wmr = wgo.AddComponent<MeshRenderer>();
-                        if (_wireMat != null) wmr.sharedMaterial = _wireMat;
+                        // two materials on the one submesh: the second (extra) one draws the same lines again, without the depth test
+                        if (_wireMat != null && _wireTopMat != null) wmr.sharedMaterials = new[] { _wireMat, _wireTopMat };
+                        else if (_wireMat != null) wmr.sharedMaterial = _wireMat;
                         wmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                         wmr.receiveShadows = false;
                         _colliderOverlays.Add(wgo);

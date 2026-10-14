@@ -1318,6 +1318,10 @@ namespace AlternativeDamageModel
                 return;
             }
             if (_drawTrace < 40 && d != null) { _drawTrace++; Trace("DC row rebuilt: " + (force ? "forced" : !ReferenceEquals(d.Tb, tb) ? "other text block" : tb.Text != d.Shown ? "text rewritten by the game" : "structure changed")); }
+            // the game's binding would write its own text into the row from time to time (and wipe the arrows, with their open tooltips):
+            // it is taken off while we draw (Keep saved it; RestoreBlock puts it back)
+            Keep(tb);
+            try { if (BindingOperations.GetBindingBase(tb, TextBlock.TextProperty) != null) BindingOperations.ClearBinding(tb, TextBlock.TextProperty); } catch (Exception ex) { Trace("Draw ClearBinding: " + ex.Message); }
             var il = tb.Inlines;
             il.Clear();
             var inl = new List<Inline>(segs.Count);
