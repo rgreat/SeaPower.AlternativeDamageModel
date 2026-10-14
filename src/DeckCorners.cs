@@ -1026,7 +1026,7 @@ namespace AlternativeDamageModel
             if (!_ok) return;
             bool alive = (_unit as UnityEngine.Object) != null;
 
-            bool showLines = (Model || now - WantedAt < 1f) && alive && _points != null && _shipTransform != null && _lines != null && _lines.Length == _points.Length;
+            bool showLines = (Model || now - WantedAt < 0.6f) && alive && _points != null && _shipTransform != null && _lines != null && _lines.Length == _points.Length;
             SetActive(showLines);
             if (showLines)
             {

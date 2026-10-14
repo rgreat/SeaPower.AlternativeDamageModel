@@ -535,6 +535,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: палубные точки показываются вместе со схемой затоплений
 * `RenderSchematic` (карточка схемы отсеков на вкладке Damage Control) при `ListCard.IsVisible` ставит `DeckCorners.WantedAt = Time.unscaledTime`; `DeckCorners.Tick` рисует линии/цифры точек, если `Model || now − WantedAt < 1 с`. Т.е. пока схема на экране — точки видны, даже при `ShowDeckCorners = false`; ушла схема — через ~1 с гаснут. Корабль тот же (выбранный игроком). Не проверено в игре (зависит от того, что `Render` вызывается, пока вкладка видна).
+  Уточнение: «схема затоплений» — это тултип карточки (`ListCard`), а не вся вкладка: точки показываются, только пока тултип открыт (`ToolTipOpening/Closing` → `_schemOpen`, `WantedAt` обновляется в `RenderSchematic`, окно 0.6 с).
 
 ## 2026-10-15: подпись под схемой затоплений в две строки
 * Строка пределов (`s.Limits`, «Tilt to the sea: list … port / … stbd · trim …») делится на две по первому « · » (`\n`): list в первой, trim во второй; то же для остальных вариантов подписи. Было слишком широко.
@@ -545,3 +546,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
   Поднимает: течь `Hole leak L: +L·0.5·FloodingMul %/s` («faster» при `_activateFasterFloodingForSinking`) + кто заделывает; контрзатопление `+команды·PumpPerTeam·CounterRate`; вода через палубу от крена/дифферента (старые правила); палубная точка (глубина, %/с, перелив в/из соседа — `SubmergedFlooding.Reasons`); рост течи без команды (корпус <19%); «The ship is sinking».
   Опускает: откачка `−команды·PumpPerTeam %/с` (игра качает один борт за раз — у другого «after the other side»; `_drainPortSide`), откачка при заделке `−команды·PumpPerTeam·LeakPump` (для борта с большей водой над минимумом, как `PumpFree`), «No water to pump out (at its minimum)», «Pumping is faster than the leak».
 * `DcControl.PumpPerTeam(comp)` — %/с на команду (навык экипажа × PumpOutSpeed). Не проверено в игре.
+
+## 2026-10-15: кнопка ↺ в окне настроек возвращает значение ИГРЫ
+* ↺ у строки раньше возвращала значение профиля (`FromValue`), теперь — значение игры (`GameValue`): для global-ключей и `Unattended*` — `DefaultValue` записи конфига, для остальных — значение профиля Base Game (`_game`, то, что в колонке «game:»); если игрового значения нет — прежнее поведение (профиль). Подсказка кнопки «Back to the game's value». Кнопка «Reset to profile» внизу окна — как раньше (возвращает профиль). Точки профиля («dots») по-прежнему сравниваются с профилем.

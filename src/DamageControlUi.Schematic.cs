@@ -106,22 +106,26 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>Puts the schematic on the card (once per card and number of sections) and brings its levels up to date.</summary>
+        static bool _schemOpen;   // the schematic tooltip is open
+
         static void RenderSchematic(object comp, Extras x, string[] names)
         {
             if (x.ListCard == null) return;
             int count = 0;
             try { count = (int)_compCount.GetValue(comp); } catch { }
             if (count <= 0 || count > 5) return;
-            // the flooding schematic is on the screen: the deck points of the ship are shown with it (whatever ShowDeckCorners says)
-            try { if (x.ListCard.IsVisible) DeckCorners.WantedAt = UnityEngine.Time.unscaledTime; } catch { }
+            // the flooding schematic (the card's tooltip) is open: the deck points of the ship are shown with it (whatever ShowDeckCorners says)
+            if (_schemOpen) DeckCorners.WantedAt = UnityEngine.Time.unscaledTime;   // it is on the screen now (a tooltip of the card): the points follow it
             if (x.Schem == null || x.Schem.Count != count)
             {
-                x.Schem = BuildSchematic(count);
+                x.Schem = BuildSchematic(count); _schemOpen = false;
                 try
                 {
                     ToolTipService.SetToolTip(x.ListCard, x.Schem.Root);
                     ToolTipService.SetPlacement(x.ListCard, PlacementMode.Bottom);
                     ToolTipService.SetShowDuration(x.ListCard, int.MaxValue);
+                    x.ListCard.ToolTipOpening += (o, e) => _schemOpen = true;
+                    x.ListCard.ToolTipClosing += (o, e) => _schemOpen = false;
                 }
                 catch (Exception e) { Trace("schematic tooltip: " + e.Message); }
             }

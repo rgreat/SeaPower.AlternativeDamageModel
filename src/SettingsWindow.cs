@@ -714,6 +714,20 @@ namespace AlternativeDamageModel
             return _from != null && _from.Values.TryGetValue(f.Key, out v) ? v : "";
         }
 
+        /// <summary>The game's own value of a setting (what the "game:" column shows): the entry's default for global keys, the Base Game profile for the rest.</summary>
+        static bool GameValue(Field f, out string v)
+        {
+            v = null;
+            if (f.Global || f.Key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal))
+            {
+                var e = Entry(f.Key);
+                if (e == null) return false;
+                v = TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType);
+                return true;
+            }
+            return _game != null && _game.Values.TryGetValue(f.Key, out v);
+        }
+
         static bool AdmOn()
         {
             string v;
@@ -915,8 +929,8 @@ namespace AlternativeDamageModel
             g.Children.Add(game);
 
             var rst = new Button { Content = "↺", Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right };
-            try { ToolTipService.SetToolTip(rst, "Back to the value of the profile"); } catch { }
-            rst.Click += (o, e) => { Set(f, FromValue(f)); refresh(); mark(); };
+            try { ToolTipService.SetToolTip(rst, "Back to the game's value"); } catch { }
+            rst.Click += (o, e) => { string gv; Set(f, GameValue(f, out gv) ? gv : FromValue(f)); refresh(); mark(); };
             Grid.SetColumn(rst, 3);
             g.Children.Add(rst);
 
