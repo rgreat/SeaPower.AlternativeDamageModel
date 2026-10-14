@@ -22,6 +22,7 @@ namespace AlternativeDamageModel
         public static Func<bool> IsEnabled = () => false;
         public static Action<string> Trace = s => { };
         public static float Rate = 0.1f;          // % per second per metre of submersion: 0.1 x [Sinking] DeckFloodingSpeed ("Water over the deck")
+        public static float FireDecay = 1f;       // [FireAndFlooding] SubmergedFireDecay: % of a fire per second per metre a section is under water; 0 = off
         public static float Delay = 3f;           // [Sinking] DeckFloodingDelay: game seconds under water before it starts
         const float UnityToMetre = 67.200066f;    // the game's UNITY_TO_METER
 
@@ -337,6 +338,7 @@ namespace AlternativeDamageModel
                     for (int k = 0; k < total && all; k++) all = s.Depth[k] > 0f;
                     if (all) { s.Deep = true; Trace("SubmergedFlooding: destroyed ship is under water, wave sampling off"); }
                 }
+                if (FireDecay > 0f) PutOutFires(comp, s, dt);
                 if (Rate <= 0f) return;
                 for (int k = 0; k < total; k++)
                 {
@@ -368,6 +370,52 @@ namespace AlternativeDamageModel
             }
             catch (Exception e) { Trace("SubmergedFlooding: " + e.Message); }
         }
+
+        static FieldInfo _fSys, _fScMax, _fScGrow;
+        static PropertyInfo _pScSev;
+        static bool _fireInit, _fireOk;
+
+        /// <summary>
+        /// A section under the sea puts its fire out: the fire loses FireDecay % of its maximum per second for every metre the section's deck edge is
+        /// under water (a section's depth = the mean of its two sides' depths, a dry side counting 0), and its growth stops. Works for ships with deck points.
+        /// </summary>
+        static void PutOutFires(object comp, State s, float dt)
+        {
+            if (!_fireInit)
+            {
+                _fireInit = true;
+                const BindingFlags all = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                try
+                {
+                    _fSys = comp.GetType().GetField("_systemCompartments", all);
+                    var tSc = _fSys == null ? null : _fSys.FieldType.GetElementType();
+                    _pScSev = tSc == null ? null : tSc.GetProperty("FireSeverity", all);
+                    _fScMax = tSc == null ? null : tSc.GetField("_maxFireSeverity", all);
+                    _fScGrow = tSc == null ? null : tSc.GetField("_fireGrowRate", all);
+                    _fireOk = _fSys != null && _pScSev != null && _fScMax != null && _fScGrow != null;
+                }
+                catch (Exception e) { Trace("SubmergedFlooding.PutOutFires init: " + e.Message); }
+                if (!_fireOk) Trace("SubmergedFlooding: fire members not found; a submerged section does not put its fire out");
+            }
+            if (!_fireOk) return;
+            var sys = _fSys.GetValue(comp) as Array;
+            if (sys == null) return;
+            int n = s.Count;
+            for (int l = 0; l < n && l < sys.Length; l++)
+            {
+                float depth = (Math.Max(0f, s.Depth[l]) + Math.Max(0f, s.Depth[n + l])) * 0.5f;
+                if (depth <= 0f) continue;
+                var sc = sys.GetValue(l);
+                float sev = (float)_pScSev.GetValue(sc, null), grow = (float)_fScGrow.GetValue(sc);
+                if (sev <= 0f && grow <= 0f) continue;
+                float max = (float)_fScMax.GetValue(sc);
+                if (max <= 0f) continue;
+                if (sev > 0f) _pScSev.SetValue(sc, Math.Max(0f, sev - FireDecay * depth / 100f * max * dt), null);
+                if (grow > 0f) _fScGrow.SetValue(sc, 0f);
+                if (!_fireTraced) { _fireTraced = true; Trace("SubmergedFlooding: section " + (l + 1) + " is " + depth.ToString("0.0") + " m under water: its fire dies down at " + (FireDecay * depth).ToString("0.0") + " %/s"); }
+            }
+        }
+        static bool _fireTraced;
 
         /// <summary>Where the water of the full compartment <paramref name="from"/> goes: its own neighbours first (the lowest not-full one by the
         /// deck point); when all of them are full too, theirs, and so on along the chain - the nearest not-full compartment, the lowest of those

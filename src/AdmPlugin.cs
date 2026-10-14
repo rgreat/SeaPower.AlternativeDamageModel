@@ -59,7 +59,7 @@ namespace AlternativeDamageModel
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
-        ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _counterRateEntry, _counterLimitEntry, _fireHullEntry;
+        ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _fireHullEntry;
         ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkRampEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
@@ -313,6 +313,9 @@ namespace AlternativeDamageModel
                 "How fast water comes in through the holes of a compartment. 1.0 = as in the game.");
             _pumpOutEntry = Pcfg.Bind("FireAndFlooding", "PumpOutSpeed", new Factor(1f),
                 "How fast damage control teams pump water out. 1.0 = as in the game.");
+            _subFireEntry = Pcfg.Bind("FireAndFlooding", "SubmergedFireDecay", new Factor(1f),
+                "A section under the sea puts its fire out: the fire loses this % of its maximum per second for every metre the section's deck edge is " +
+                "under water (1 = as many % per second as metres). Needs the ship's deck points (as flooding over the deck). 0 = off.");
             _counterRateEntry = Pcfg.Bind("FireAndFlooding", "CounterFloodSpeed", new Factor(2f),
                 "Counterflooding (a team's task given by hand): how fast water is let into a compartment, times the pumping out speed. " +
                 "The water goes into the side opposite to the heel, or into the side with less water when the ship is upright.");
@@ -761,6 +764,7 @@ namespace AlternativeDamageModel
             _floodSpeed = Math.Max(0f, _floodSpeedEntry.Value.V);
             _pumpOut = Math.Max(0f, _pumpOutEntry.Value.V);
             _teamBlocksSpread = _teamBlocksSpreadEntry.Value;
+            SubmergedFlooding.FireDecay = Math.Max(0f, _subFireEntry.Value.V);
             DcControl.CounterRate = Math.Max(0f, _counterRateEntry.Value.V);
             DcControl.CounterLimit = Math.Max(0f, _counterLimitEntry.Value.V);
             _fireHull = Math.Max(0f, _fireHullEntry.Value.V);

@@ -728,3 +728,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: пункт меню команды «By priority» переименован в «Auto»
 * Меню отдельной команды: «By priority (as the other teams)» → «Auto» (иконка и логика те же: задача 0 = работа по приоритету, как у остальных команд).
+
+## 2026-10-15: секция под водой гасит свой пожар (SubmergedFireDecay)
+* `SubmergedFlooding.PutOutFires` (из `Tick`, до проверки `Rate`): глубина секции = среднее двух бортов (`Depth[l]`, `Depth[n + l]`, м под водой, сухой борт — 0), т.е. секция, у которой под водой только один борт, гасит вдвое медленнее. Пожар теряет `SubmergedFireDecay` % от максимума (`_maxFireSeverity`) в секунду на каждый метр глубины: `FireSeverity −= Decay · глубина/100 · max · dt`; `_fireGrowRate` обнуляется (не растёт). Единица — проценты шкалы Fire в UI (3 м под водой = 3 %/с, пожар 100 % гаснет за ~33 с).
+* Работает для кораблей с точками палубы (там, где есть `Depth`; без точек — нет); для уничтоженных тоже. Окно настроек «Fire under water», `[FireAndFlooding] SubmergedFireDecay` (Advanced 1.0, Base Game 0.0 = выкл). Trace один раз: «section N is … m under water: its fire dies down at … %/s». Не проверено в игре.
