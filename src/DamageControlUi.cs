@@ -642,6 +642,7 @@ namespace AlternativeDamageModel
             for (int i = 0; i < st.Cols.Length; i++) { sections.Names[i] = st.Cols[i].HeaderOrig; sections.Order[i] = i; }
             Array.Sort(sections.Order, (a, b) => st.Cols[a].Column.CompareTo(st.Cols[b].Column));
             _order = sections.Order;
+            _sectionNames = sections.Names;
             _colsShown = st.Cols; _colsComp = new WeakReference(comp);
             var moving = DcTeams.Snapshot(comp).FindAll(v => v.State == (int)DcTeams.St.Moving);
 
@@ -1417,6 +1418,8 @@ namespace AlternativeDamageModel
         /// that team a task by hand (kept while the team stays in the compartment); a team with a task given by hand is underlined.
         /// </summary>
         sealed class Sections { public string[] Names; public int[] Order; }
+
+        static string[] _sectionNames;   // the sections' names as the game writes them, for the hints
 
         static string SectionName(Sections sec, int i)
         {

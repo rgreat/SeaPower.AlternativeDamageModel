@@ -125,7 +125,7 @@ namespace AlternativeDamageModel
                     float pitch;
                     if (TrimFlooding.FloodsNow(comp, i, port, out pitch))
                         Line(sb, "Trim " + Math.Abs(pitch).ToString("0.0", CultureInfo.InvariantCulture) + "° " + (pitch > 0f ? "bow" : "stern") + " down: water over deck");
-                    foreach (var why in SubmergedFlooding.Reasons(comp, i, port)) Line(sb, why);
+                    foreach (var why in SubmergedFlooding.Reasons(comp, i, port, _sectionNames)) Line(sb, why);
                     if (integ < 19f && inSec == 0 && leak > 0f) Line(sb, "Leak grows: hull " + Pc(integ) + ", no team");
                     if (sinking) Line(sb, "Sinking");
                 }

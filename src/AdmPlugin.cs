@@ -59,7 +59,7 @@ namespace AlternativeDamageModel
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _submergedRateEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _warTeamsEntry, _subTeamsEntry, _civTeamsEntry;
@@ -352,15 +352,12 @@ namespace AlternativeDamageModel
                 "Water in the whole ship, % (the average of its compartments), from which it sinks, as in the game (game: 40; submarines keep the game's 50). " +
                 "Also the full scale of the LEVEL gauge.");
             _deckFloodSpeedEntry = Pcfg.Bind("Sinking", "DeckFloodingSpeed", new Factor(1f),
-                "How fast the end that goes down (from trim past its limit, above) takes on water over the deck edge: on each side its outermost " +
-                "compartment, when that is full the next one, and so on - the mod's own mechanic, not in the game. 1.0 = its normal speed, " +
-                "2.0 = twice as fast, 0.5 = half.");
-            _submergedRateEntry = Pcfg.Bind("Sinking", "SubmergedFloodingRate", new Factor(0.1f),
-                "Water over the deck edge, for ships whose deck points are known (the full hull-collider algorithm; others keep the old rules). " +
-                "When a compartment's deck point has been under the sea for 10 seconds in a row (game time, so time compression counts), the " +
-                "compartment takes on water that damage control cannot stop: this many % of its volume per second per metre of submersion " +
-                "(deeper = faster). A full compartment passes the water to the lowest-lying not-full neighbour, and on along the chain. " +
-                "0 = off (as in the game).");
+                "Water over the deck edge, a multiplier. For ships whose deck points are known (the full hull-collider algorithm): when a compartment's " +
+                "deck point has been under the sea for 10 seconds in a row (game time, so time compression counts), the compartment takes on water " +
+                "that damage control cannot stop - 1.0 = 0.1% of its volume per second per metre of submersion (deeper = faster); a full compartment " +
+                "passes the water to the lowest-lying not-full neighbour, and on along the chain. For other ships: how fast the end that goes down " +
+                "(from trim past its limit) or the low side (from list past its limit) takes on water over the deck edge - the mod's own " +
+                "mechanic, not in the game. 2.0 = twice as fast, 0.5 = half, 0 = off.");
 
             _weaponColorEntry = Cfg.Bind("UI", "ColorWeaponStatus", true,
                 "Colours the weapon buttons of the selected unit's bottom panel by the state of their weapon systems: " +
@@ -767,7 +764,7 @@ namespace AlternativeDamageModel
             Limits.TrimRefLength = Math.Max(0f, _trimLengthEntry.Value.V);
             Limits.LevelFull = Clamp(_levelLimitEntry.Value.V, 5f, 100f);
             TrimFlooding.Speed = Math.Max(0f, _deckFloodSpeedEntry.Value.V);
-            SubmergedFlooding.Rate = Math.Max(0f, _submergedRateEntry.Value.V);
+            SubmergedFlooding.Rate = 0.1f * Math.Max(0f, _deckFloodSpeedEntry.Value.V);   // 1.0 = 0.1 % per second per metre
             TrimFlooding.Imbalance = 1f;   // FloodImbalanceEffect is switched off (hidden in the settings) until reworked; the key is still read so old profiles load
             _logFires = _logFiresEntry.Value;
             TrimFlooding.LogHeel = _logHeelEntry.Value;

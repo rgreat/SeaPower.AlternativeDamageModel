@@ -11,7 +11,7 @@ namespace AlternativeDamageModel
     /// ships keep the old list/trim rules). Every compartment (5 sections x port/starboard) has its deck point. While that point
     /// is under the sea level, a timer runs in GAME seconds (GameTime.fixedDeltaTime, so time compression counts: 10 s of game
     /// time, not of real time); a surfacing point resets it. After <see cref="Delay"/> seconds the compartment takes on water that
-    /// nothing in damage control can remove at the source: <see cref="Rate"/> % of its volume per second per metre of submersion
+    /// nothing in damage control can remove at the source: <see cref="Rate"/> % of its volume per second per metre of submersion (0.1 x DeckFloodingSpeed)
     /// (deeper = faster). When the compartment is 100% full the water goes to its neighbour - the lowest-lying not-full one next to it
     /// (the neighbours are the sections before and after on the same side, and the other side of the same section); when that one
     /// is full too, to the next one in the chain, and so on.
@@ -21,7 +21,7 @@ namespace AlternativeDamageModel
     {
         public static Func<bool> IsEnabled = () => false;
         public static Action<string> Trace = s => { };
-        public static float Rate = 0.1f;          // [Sinking] SubmergedFloodingRate: % per second per metre
+        public static float Rate = 0.1f;          // % per second per metre of submersion: 0.1 x [Sinking] DeckFloodingSpeed ("Water over the deck")
         public const float Delay = 10f;           // game seconds under water before it starts
         const float UnityToMetre = 67.200066f;    // the game's UNITY_TO_METER
 
@@ -122,7 +122,13 @@ namespace AlternativeDamageModel
 
         static bool Full(object fc) { return (float)_fCur.GetValue(fc) >= (float)_fMax.GetValue(fc) * 0.999f; }
 
-        static string Name(State s, int k) { return (k < s.Count ? "Port " : "Starboard ") + (k % s.Count + 1); }
+        /// <summary>"Port Aft midships": the side and the section's name as the game writes it in the section's header.</summary>
+        static string Name(State s, int k, string[] names)
+        {
+            int l = k % s.Count;
+            string sec = names != null && l < names.Length && !string.IsNullOrEmpty(names[l]) ? names[l] : "section " + (l + 1);
+            return (k < s.Count ? "Port " : "Starboard ") + sec;
+        }
 
         /// <summary>Prefix of Compartments.OnFixedUpdate.</summary>
         public static void Tick(object comp)
@@ -209,7 +215,7 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>Lines for the flooding arrow tooltips of section i, that side: why this compartment takes on water over the deck edge.</summary>
-        public static List<string> Reasons(object comp, int i, bool port)
+        public static List<string> Reasons(object comp, int i, bool port, string[] names)
         {
             var list = new List<string>();
             try
@@ -225,10 +231,10 @@ namespace AlternativeDamageModel
                 if (s.Own[k] > 0f)
                 {
                     string t = "Deck edge " + s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m under water: +" + s.Own[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s (" + r + "%/s per m)";
-                    if (s.PassedTo[k] >= 0) t += ", full: goes to " + Name(s, s.PassedTo[k]);
+                    if (s.PassedTo[k] >= 0) t += ", full: goes to " + Name(s, s.PassedTo[k], names);
                     list.Add(t);
                 }
-                if (s.GotFrom[k] >= 0) list.Add("Overflow from " + Name(s, s.GotFrom[k]) + ": +" + s.Got[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s");
+                if (s.GotFrom[k] >= 0) list.Add("Overflow from " + Name(s, s.GotFrom[k], names) + ": +" + s.Got[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s");
             }
             catch (Exception e) { Trace("SubmergedFlooding.Reasons: " + e.Message); }
             return list;
