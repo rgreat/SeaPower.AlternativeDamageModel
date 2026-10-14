@@ -168,6 +168,7 @@ namespace AlternativeDamageModel
             public string HeaderOrig, TeamsOrig, FloodOrig, FireOrig;          // the game's own text
             public string HeaderSig, TeamsSig, FloodSig, FireSig;              // what we rendered
             public string HeaderShown, TeamsShown, FloodShown, FireShown;      // TextBlock.Text right after rendering
+            public Drawn HeaderD, FloodD, FireD;                                // what the rows' inlines are now (updated in place: the arrows' tooltips stay open)
             // trend samples
             public double T = -1;
             public float P, S, F, IP, IS, RP, RS, RF, RIP, RIS;
@@ -1260,6 +1261,63 @@ namespace AlternativeDamageModel
             return tb != null && (sig != lastSig || tb.Text != lastShown);
         }
 
+        /// <summary>One piece of a row's text: a run (own colour or the row's) or an arrow with its tooltip.</summary>
+        sealed class Seg
+        {
+            public string Text; public Color? Col;
+            public bool Arrow; public bool Up; public int N; public Func<string> Why;
+        }
+        static Seg Run_(string text, Color? col = null) { return new Seg { Text = text, Col = col }; }
+        static Seg Arr_(bool up, int n, Color col, Func<string> why) { return new Seg { Arrow = true, Up = up, N = n, Col = col, Why = why }; }
+
+        /// <summary>What a row's inlines are now.</summary>
+        sealed class Drawn { public TextBlock Tb; public List<Seg> Segs; public List<Inline> Inl; public string Shown; }
+
+        /// <summary>
+        /// Writes a row. While the pieces are the same kind (same arrows, same colours of the arrows), only the texts and colours of the
+        /// runs are changed in place - the arrows and their open tooltips are not made anew (they flickered when the numbers changed).
+        /// Made anew only when the structure changes, the game rewrote the text, or force is set.
+        /// </summary>
+        static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
+        {
+            bool same = !force && d != null && ReferenceEquals(d.Tb, tb) && tb.Text == d.Shown && d.Segs.Count == segs.Count;
+            for (int i = 0; same && i < segs.Count; i++)
+            {
+                var o = d.Segs[i]; var n = segs[i];
+                if (o.Arrow != n.Arrow || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue))) same = false;
+            }
+            if (same)
+            {
+                for (int i = 0; i < segs.Count; i++)
+                {
+                    var o = d.Segs[i]; var n = segs[i];
+                    if (n.Arrow) continue;
+                    var run = d.Inl[i] as Run;
+                    if (run == null) continue;
+                    if (run.Text != n.Text) run.Text = n.Text;
+                    if (n.Col.HasValue && !o.Col.Equals(n.Col)) run.Foreground = new SolidColorBrush(n.Col.Value);
+                }
+                d.Segs = segs; d.Shown = tb.Text;
+                return;
+            }
+            var il = tb.Inlines;
+            il.Clear();
+            var inl = new List<Inline>(segs.Count);
+            foreach (var s in segs)
+            {
+                Inline x;
+                if (s.Arrow) x = Arrow(s.Up, s.N, s.Col.Value, s.Why);
+                else
+                {
+                    var r = new Run(s.Text);
+                    if (s.Col.HasValue) r.Foreground = new SolidColorBrush(s.Col.Value);
+                    x = r;
+                }
+                il.Add(x); inl.Add(x);
+            }
+            d = new Drawn { Tb = tb, Segs = segs, Inl = inl, Shown = tb.Text };
+        }
+
         /// <summary>The colour of a side's hull %: grey once it is welded as far as it can be (MaxAllowedIntegrity, whatever the %);
         /// otherwise by damage - yellow (light damage, can be welded), orange, red.</summary>
         static readonly Color CYellow = Color.FromRgb(236, 212, 110);
@@ -1287,21 +1345,18 @@ namespace AlternativeDamageModel
             bool whole = ip >= 99.95f && isb >= 99.95f;
             InitCauses(comp, fp, sc);
             Color cp = HullColor(ip, WeldedUp(fp)), cs = HullColor(isb, WeldedUp(fs));
-            string sig = whole ? "whole" : Pct(ip) + ap + "/" + Pct(isb) + asb + cp + cs;
-            if (!NeedsRender(tb, sig, c.HeaderSig, c.HeaderShown)) return;
-            var il = tb.Inlines;
-            il.Clear();
-            il.Add(new Run(c.HeaderOrig ?? ""));
+            var segs = new List<Seg> { Run_(c.HeaderOrig ?? "") };
             if (!whole)
             {
-                il.Add(new Run("   "));
-                il.Add(Colored(Pct(ip), cp));
-                if (ap != 0) il.Add(Arrow(ap > 0, 1, ap > 0 ? CDown : CUp, () => HullCause(comp, c, i, true))); // integrity: up is good (green), down is bad (red)
-                il.Add(Colored(" / ", CGrey));
-                il.Add(Colored(Pct(isb), cs));
-                if (asb != 0) il.Add(Arrow(asb > 0, 1, asb > 0 ? CDown : CUp, () => HullCause(comp, c, i, false)));
+                segs.Add(Run_("   "));
+                segs.Add(Run_(Pct(ip), cp));
+                if (ap != 0) segs.Add(Arr_(ap > 0, 1, ap > 0 ? CDown : CUp, () => HullCause(comp, c, i, true))); // integrity: up is good (green), down is bad (red)
+                segs.Add(Run_(" / ", CGrey));
+                segs.Add(Run_(Pct(isb), cs));
+                if (asb != 0) segs.Add(Arr_(asb > 0, 1, asb > 0 ? CDown : CUp, () => HullCause(comp, c, i, false)));
             }
-            c.HeaderSig = sig;
+            Draw(tb, ref c.HeaderD, c.HeaderSig == null, segs);
+            c.HeaderSig = "ok";
             c.HeaderShown = tb.Text;
         }
 
@@ -1634,22 +1689,17 @@ namespace AlternativeDamageModel
             int ap = Arrows(c.RP, FloodOne, FloodTwo, FloodTwo), asb = Arrows(c.RS, FloodOne, FloodTwo, FloodTwo);
             // colour: yellow / red while damage control can still get water out (or a leak is open), grey once it cannot
             int sp = any ? FloodState(comp, i, true) : 0, ss = any ? FloodState(comp, i, false) : 0;
-            string sig = any ? Pct(p) + ap + "/" + Pct(s) + asb + "|" + sp + ss : "none";
-            if (!NeedsRender(tb, sig, c.FloodSig, c.FloodShown)) return;
-            var il = tb.Inlines;
-            il.Clear();
-            var label = new Run(c.FloodOrig ?? "");
-            if (any) label.Foreground = new SolidColorBrush(FloodColor(Math.Max(sp, ss)));
-            il.Add(label);
+            var segs = new List<Seg> { Run_(c.FloodOrig ?? "", any ? (Color?)FloodColor(Math.Max(sp, ss)) : null) };
             if (any)
             {
-                il.Add(Colored("  " + Pct(p), FloodColor(sp)));
-                if (ap != 0) il.Add(Arrow(ap > 0, Math.Abs(ap), ap > 0 ? CUp : CDown, () => FloodCause(comp, c, i, true)));
-                il.Add(Colored(" / ", FloodColor(Math.Max(sp, ss))));
-                il.Add(Colored(Pct(s), FloodColor(ss)));
-                if (asb != 0) il.Add(Arrow(asb > 0, Math.Abs(asb), asb > 0 ? CUp : CDown, () => FloodCause(comp, c, i, false)));
+                segs.Add(Run_("  " + Pct(p), FloodColor(sp)));
+                if (ap != 0) segs.Add(Arr_(ap > 0, Math.Abs(ap), ap > 0 ? CUp : CDown, () => FloodCause(comp, c, i, true)));
+                segs.Add(Run_(" / ", FloodColor(Math.Max(sp, ss))));
+                segs.Add(Run_(Pct(s), FloodColor(ss)));
+                if (asb != 0) segs.Add(Arr_(asb > 0, Math.Abs(asb), asb > 0 ? CUp : CDown, () => FloodCause(comp, c, i, false)));
             }
-            c.FloodSig = sig;
+            Draw(tb, ref c.FloodD, c.FloodSig == null, segs);
+            c.FloodSig = "ok";
             c.FloodShown = tb.Text;
         }
 
@@ -1692,17 +1742,14 @@ namespace AlternativeDamageModel
             if (tb == null) return;
             bool any = f > 0.0005f;
             int a = Arrows(c.RF, FireOne, FireTwoUp, FireTwoDown);
-            string sig = any ? Pct(f) + a : "none";
-            if (!NeedsRender(tb, sig, c.FireSig, c.FireShown)) return;
-            var il = tb.Inlines;
-            il.Clear();
-            il.Add(new Run(c.FireOrig ?? ""));
+            var segs = new List<Seg> { Run_(c.FireOrig ?? "") };
             if (any)
             {
-                il.Add(new Run("  " + Pct(f)));
-                if (a != 0) il.Add(Arrow(a > 0, Math.Abs(a), a > 0 ? CUp : CDown, () => FireCause(comp, c, i)));
+                segs.Add(Run_("  " + Pct(f)));
+                if (a != 0) segs.Add(Arr_(a > 0, Math.Abs(a), a > 0 ? CUp : CDown, () => FireCause(comp, c, i)));
             }
-            c.FireSig = sig;
+            Draw(tb, ref c.FireD, c.FireSig == null, segs);
+            c.FireSig = "ok";
             c.FireShown = tb.Text;
         }
 
