@@ -193,6 +193,17 @@ namespace AlternativeDamageModel
                 Transform shipT = _fCompTransform.GetValue(comp) as Transform;
                 if (shipT == null) { Trace("Deck corners: '" + SafeName(unit) + "' has no compartments transform; collider overlay and points are off."); return; }
                 _shipTransform = shipT; _hullPieces = hull;
+                try
+                {
+                    int n = 0;
+                    foreach (var mc in hull)
+                    {
+                        Mesh ms = SharedMesh(mc);
+                        var bb = PieceBoxes(shipT, new List<Component> { mc })[0];
+                        Trace("Deck corners hull piece " + (++n) + "/" + hull.Count + " '" + mc.gameObject.name + "' mesh '" + ms.name + "' verts " + ms.vertexCount + (ms.isReadable ? "" : " (unreadable)") + " active " + mc.gameObject.activeInHierarchy + ", ship-local z " + bb.Min.z.ToString("F1") + ".." + bb.Max.z.ToString("F1") + " x " + bb.Min.x.ToString("F1") + ".." + bb.Max.x.ToString("F1") + " y " + bb.Min.y.ToString("F1") + ".." + bb.Max.y.ToString("F1"));
+                    }
+                }
+                catch (Exception e) { Trace("Deck corners hull piece log: " + e.Message); }
                 Vector3[] points = null; bool exact = false;
                 try { exact = LocalPoints(shipT, hull, out points, out _lineWidth); }
                 catch (Exception e) { Trace("Deck corners LocalPoints '" + SafeName(unit) + "': " + e); exact = false; }
@@ -410,9 +421,10 @@ namespace AlternativeDamageModel
                 if (name == null) continue;
                 if (!name.StartsWith("coll_hull", StringComparison.OrdinalIgnoreCase)) continue;
                 var mc = e.Value as Component;   // the actual MeshCollider; used only via its Component base and reflection
-                if (mc == null) continue;
+                if (mc == null) { Trace("Deck corners: hull collider '" + name + "' has no component - skipped."); continue; }
                 Mesh mesh = SharedMesh(mc);
                 if (mesh != null) result.Add(mc);
+                else Trace("Deck corners: hull collider '" + name + "' has no mesh (sharedMesh is null) - skipped.");
             }
             return result;
         }
