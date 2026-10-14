@@ -558,3 +558,4 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-14: проверка длины коллайдера корпуса
 * `ColliderLengthOk` (Select): длина по z объединённых кусков `coll_hull*` (× `lossyScale.z`) сравнивается с длиной корабля из ini (`ObjectBaseParameters._length`, м). Расхождение > 10% (`MaxLengthMismatch`) — коллайдер «плохой»: точек нет, `PointsExact = false`, оранжевый оверлей, старые правила затопления; одно WARN на корабль. Длина неизвестна (≤ 0.5) — проверка пропускается. В trace всегда: `hull collider length X m, ship length Y m (N% off)`.
+* Исправление: длина коллайдера считалась в единицах Unity, а `Length` из ini — в метрах, поэтому «плохими» стали все корабли (разница ≈ в 67 раз). Мир игры: `METER_TO_UNITY = 0.0148809375` (1 ед. = 67.2 м). Теперь длина коллайдера переводится в метры (`UnityToMetre = 67.200066`). По trace все пять кораблей получаются в пределах 3–6% — проверка проходит.

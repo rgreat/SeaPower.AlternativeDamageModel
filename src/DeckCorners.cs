@@ -219,6 +219,7 @@ namespace AlternativeDamageModel
         /// MaxLengthMismatch is treated as bad (a broken or partial collider mesh in a mod): no points, old rules,
         /// orange overlay. If the length is unknown (0) the check is skipped.</summary>
         const float MaxLengthMismatch = 0.10f;
+        const float UnityToMetre = 67.200066f;   // the game's UNITY_TO_METER
         static bool ColliderLengthOk(object obp, Transform shipT, List<Component> hull)
         {
             try
@@ -231,7 +232,8 @@ namespace AlternativeDamageModel
                 if (pieces.Count == 0) return true;
                 float zMin = pieces[0].Min.z, zMax = pieces[0].Max.z;
                 foreach (var p in pieces) { zMin = Mathf.Min(zMin, p.Min.z); zMax = Mathf.Max(zMax, p.Max.z); }
-                float collLen = (zMax - zMin) * Mathf.Abs(shipT.lossyScale.z);
+                // world units are not metres: the game's METER_TO_UNITY = 0.0148809375 (1 unit = 67.2 m)
+                float collLen = (zMax - zMin) * Mathf.Abs(shipT.lossyScale.z) * UnityToMetre;
                 float diff = Mathf.Abs(collLen - shipLen) / shipLen;
                 Trace("Deck corners: hull collider length " + collLen.ToString("F1") + " m, ship length " + shipLen.ToString("F1") + " m (" + (diff * 100f).ToString("F0") + "% off)");
                 if (diff > MaxLengthMismatch)
