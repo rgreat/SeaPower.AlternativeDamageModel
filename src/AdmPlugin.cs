@@ -352,10 +352,10 @@ namespace AlternativeDamageModel
                 "Water in the whole ship, % (the average of its compartments), from which it sinks, as in the game (game: 40; submarines keep the game's 50). " +
                 "Also the full scale of the LEVEL gauge.");
             _capsizeEntry = Pcfg.Bind("Sinking", "CapsizeFactor", new Factor(1f),
-                "Capsizing. The game never moves the ship's centre of mass, so a flooded ship keeps its stability and, once sunk, lies on its side. " +
+                "Centre of mass rise (capsizing). The game never moves the ship's centre of mass, so a flooded ship keeps its stability and, once sunk, lies on its side. " +
                 "With this the centre of mass rises with the water in the ship (the stability falls the way the water does it in real life): " +
-                "1.0 = the stability is gone where the ship sinks (FloodLimit), 2.0 = already at half of that water, 0 = off (the game's). " +
-                "A ship with it gone turns over, keel up.");
+                "1.0 = at FloodLimit it is raised by the whole roll stiffness the water leaves (the ship turns over before that, from about a quarter of the water for a destroyer, " +
+                "because its centre of mass is already above the buoyancy points), 2.0 = twice as high, 0 = off (the game's). A ship that has lost its stability turns over, keel up.");
             _deckFloodDelayEntry = Pcfg.Bind("Sinking", "DeckFloodingDelay", new Factor(3f),
                 "Seconds (game time, so time compression counts) a compartment's deck point must stay under the sea in a row before water over the deck " +
                 "starts to come in (see DeckFloodingSpeed). A surfacing point resets the timer. Default 3.");
