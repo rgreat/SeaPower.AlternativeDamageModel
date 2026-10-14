@@ -96,7 +96,7 @@ namespace AlternativeDamageModel
             Add(TDbg, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Visualisation (selected ship)", "General/ShowDeckCorners", "Deck point heights", "wave to hull-only deck, 28 points", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Visualisation (selected ship)", "General/ShowHullCollider", "Hull collider (translucent)", "coll_hull* only", Kind.Bool, 0, 0, 0, true);
-            Add(TDbg, "Visualisation (selected ship)", "General/HideShipModel", "Hide ship's 3D model", "for the two above", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Visualisation (selected ship)", "General/HideShipModel", "Ship's 3D model 70% transparent", "for the two above", Kind.Bool, 0, 0, 0, true);
 
             Add(H, "Hull integrity", "HullIntegrity/Warships", "Warships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/CivilianShips", "Civilian ships", "× game", Kind.Number, 0.5f, 0.1f, 20f);

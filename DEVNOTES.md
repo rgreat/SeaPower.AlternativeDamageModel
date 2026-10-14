@@ -510,3 +510,8 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 ## 2026-10-14: рывок высоты панели с картинкой корабля
 * Причина: `AddPriorityCard` ставил картинке `MaxHeight` 300, а `FitPicture` (по высоте боковых карточек) срабатывал только когда у карточек уже был `DesiredSize` — то есть на следующем тике; строка рисовалась высокой, затем сжималась.
   Теперь `FitPicture` вызывается сразу после создания карточек и в конце каждого `Render` (после `RenderExtras`); в первый раз перед замером делается `img.UpdateLayout()` (`ViewState.PicFitted`).
+
+## 2026-10-14: HideShipModel → модель корабля на 70% прозрачная
+* Вместо отключения MeshRenderer'ов (`DeckCorners.ApplyHideModel`): всем MeshRenderer/SkinnedMeshRenderer корабля (с подмоделями; кроме оверлея ShowHullCollider) ставятся копии материалов с прозрачностью Standard-шейдера (как игра в `OBJLoaderHelper.EnableMaterialTransparency`: _Mode 3, _SrcBlend 5, _DstBlend 10, _ZWrite 0, _ALPHABLEND_ON, очередь 3000) и альфой `_Color` = 0.3 (`GhostAlpha`).
+  Игровые sharedMaterials запоминаются и возвращаются как были, копии уничтожаются; список рендереров пересматривается раз в ~60 кадров. Ключ [General] HideShipModel и его смысл («Debug») прежние, подпись в окне «Ship's 3D model 70% transparent».
+* Допущение: материалы кораблей — Standard-совместимые (есть _Color/_Mode); для другого шейдера прозрачность может не примениться (тогда модель выглядит как обычно).

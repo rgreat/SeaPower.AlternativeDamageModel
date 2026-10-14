@@ -243,8 +243,8 @@ namespace AlternativeDamageModel
                 "Debug: draws the selected ship's hull-only collider meshes (coll_hull*) as a translucent overlay plus " +
                 "a bright wireframe of their actual triangles, to compare against the visible 3D model directly.");
             _hideModelEntry = Cfg.Bind("General", "HideShipModel", false,
-                "Debug: hides the selected ship's own 3D model, so ShowDeckCorners/ShowHullCollider can be seen without " +
-                "the real hull in the way.");
+                "Debug: makes the selected ship's own 3D model (submodels too) 70% transparent, so ShowDeckCorners/ShowHullCollider " +
+                "can be seen without the real hull in the way.");
             _fixTrimTcEntry = Cfg.Bind("General", "FixHighTimeCompressionTrimError", true,
                 "Fixes an error of the game itself: above 10x time compression a ship's trim grows with the time compression " +
                 "(a 25 m boat at 47 kn: 2.6 degrees up to 10x, 9 at 100x) - enough to send a short, fast, undamaged ship " +

@@ -265,9 +265,11 @@ namespace AlternativeDamageModel
         // cached across frames - damage or a loadout change can add/remove submodels while it's off), with each
         // one's own .enabled value saved right before being forced off, so turning the toggle off again restores
         // exactly that, not a blanket "visible".
-        static List<MeshRenderer> _shipRenderers;
-        static List<bool> _shipRenderersWasEnabled;
+        static List<Renderer> _shipRenderers;
+        static List<Material[]> _shipOrigMaterials;   // the game's own (shared) materials, put back exactly
+        static List<Material[]> _shipGhostMaterials;  // our transparent copies, destroyed on restore
         static bool _hidingModel;
+        const float GhostAlpha = 0.3f;                // 70 % transparent
 
         static void Select(object unit)
         {
@@ -323,38 +325,75 @@ namespace AlternativeDamageModel
         {
             if (_hidingModel && _shipRenderers != null)
                 for (int i = 0; i < _shipRenderers.Count; i++)
-                    if (_shipRenderers[i] != null) _shipRenderers[i].enabled = _shipRenderersWasEnabled[i];
+                {
+                    try { if (_shipRenderers[i] != null) _shipRenderers[i].sharedMaterials = _shipOrigMaterials[i]; } catch { }
+                    try { foreach (var m in _shipGhostMaterials[i]) if (m != null) UnityEngine.Object.Destroy(m); } catch { }
+                }
             _hidingModel = false;
-            _shipRenderers = null; _shipRenderersWasEnabled = null;
+            _shipRenderers = null; _shipOrigMaterials = null; _shipGhostMaterials = null;
         }
 
-        /// <summary>HideShipModel, applied/undone as the toggle and the selected ship change. Re-scans the ship's
-        /// MeshRenderers fresh every time the toggle turns on, rather than reusing a cached list, since the game
-        /// can add or remove submodels (damage, a loadout swap) while it was off. The translucent hull overlay
-        /// (ShowHullCollider) is parented onto _shipTransform, which sits under the same ship GameObject this
-        /// scans - so its own MeshRenderers are excluded explicitly (_colliderOverlays), or this would hide the
-        /// collider overlay along with the real model instead of just the real model.</summary>
+        /// <summary>Standard-shader transparency (the way the game itself does it, OBJLoaderHelper.EnableMaterialTransparency) with alpha GhostAlpha.</summary>
+        static void MakeGhost(Material m)
+        {
+            if (m.HasProperty("_Mode")) m.SetFloat("_Mode", 3f);
+            if (m.HasProperty("_SrcBlend")) m.SetInt("_SrcBlend", 5);
+            if (m.HasProperty("_DstBlend")) m.SetInt("_DstBlend", 10);
+            if (m.HasProperty("_ZWrite")) m.SetInt("_ZWrite", 0);
+            m.DisableKeyword("_ALPHATEST_ON");
+            m.EnableKeyword("_ALPHABLEND_ON");
+            m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            m.renderQueue = 3000;
+            if (m.HasProperty("_Color")) { var c = m.color; c.a = GhostAlpha; m.color = c; }
+        }
+
+        static int _hideCheck;
+
+        /// <summary>HideShipModel, applied/undone as the toggle and the selected ship change: the ship's whole model (every MeshRenderer /
+        /// SkinnedMeshRenderer under its GameObject, submodels included) becomes 70 % transparent. Each renderer gets transparent copies of
+        /// its materials; the game's own materials are put back untouched when the toggle turns off or another ship is selected. The renderer
+        /// list is re-scanned about once a second while on (damage or a loadout change can add submodels). The translucent hull overlay
+        /// (ShowHullCollider) hangs under the same GameObject - its renderers (_colliderOverlays) are excluded.</summary>
         static void ApplyHideModel(bool alive)
         {
             bool want = HideModel && alive;
-            if (want && !_hidingModel)
+            if (want && _hidingModel && ++_hideCheck < 60) return;
+            _hideCheck = 0;
+            if (want)
             {
                 GameObject go = ShipGameObject(_unit);
                 if (go == null) return;
-                var mrs = go.GetComponentsInChildren<MeshRenderer>(true);
-                _shipRenderers = new List<MeshRenderer>();
-                _shipRenderersWasEnabled = new List<bool>();
-                foreach (var r in mrs)
+                var all = go.GetComponentsInChildren<Renderer>(true);
+                var fresh = new List<Renderer>();
+                foreach (var r in all)
                 {
-                    if (r == null || _colliderOverlays.Contains(r.gameObject)) continue;   // our own overlay, not the real model
-                    _shipRenderers.Add(r);
-                    _shipRenderersWasEnabled.Add(r.enabled);
+                    if (r == null || !(r is MeshRenderer || r is SkinnedMeshRenderer) || _colliderOverlays.Contains(r.gameObject)) continue;
+                    fresh.Add(r);
                 }
-                foreach (var r in _shipRenderers) r.enabled = false;
+                if (_hidingModel && _shipRenderers != null && _shipRenderers.Count == fresh.Count) return;   // nothing new
+                RestoreShipModel();
+                _shipRenderers = new List<Renderer>(); _shipOrigMaterials = new List<Material[]>(); _shipGhostMaterials = new List<Material[]>();
+                foreach (var r in fresh)
+                {
+                    try
+                    {
+                        var orig = r.sharedMaterials;
+                        var ghost = new Material[orig.Length];
+                        for (int i = 0; i < orig.Length; i++)
+                        {
+                            if (orig[i] == null) continue;
+                            ghost[i] = new Material(orig[i]);
+                            MakeGhost(ghost[i]);
+                        }
+                        r.sharedMaterials = ghost;
+                        _shipRenderers.Add(r); _shipOrigMaterials.Add(orig); _shipGhostMaterials.Add(ghost);
+                    }
+                    catch (Exception e) { Trace("Ghost model: " + e.Message); }
+                }
                 _hidingModel = true;
-                Trace("Deck corners: hid " + _shipRenderers.Count + " MeshRenderer(s) of the selected ship's model.");
+                Trace("Deck corners: made " + _shipRenderers.Count + " renderer(s) of the selected ship's model transparent.");
             }
-            else if (!want && _hidingModel) RestoreShipModel();
+            else if (_hidingModel) RestoreShipModel();
         }
 
         static List<Component> HullColliders(object obp)
