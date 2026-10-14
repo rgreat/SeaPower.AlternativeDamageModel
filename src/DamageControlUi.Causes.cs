@@ -105,33 +105,59 @@ namespace AlternativeDamageModel
                 float water = F(_fcFloodPct.GetValue(fc, null)), rate = port ? c.RP : c.RS;
                 float leak = GetF(_fcRate, fc), leakOther = GetF(_fcRate, other);
                 float integ = F(_fcIntPct.GetValue(fc, null));
+                float delta = GetP(_fcFloodDelta, fc), deltaOther = GetP(_fcFloodDelta, other);   // water above the minimum
                 bool sinking = GetB(_compSinking, comp);
+                bool faster = GetB(_fcFaster, fc);
                 int inSec;
                 var plugging = Doing(comp, i, TaskLeak, out inSec);
                 var pumping = Doing(comp, i, TaskPump, out inSec);
                 var counter = Doing(comp, i, TaskCounter, out inSec);
                 var fighting = Doing(comp, i, TaskFire, out inSec);
+                float perTeam = DcControl.PumpPerTeam(comp);
+                bool drainPort = true;
+                try { var arr = _compDrainPort == null ? null : _compDrainPort.GetValue(comp) as bool[]; if (arr != null && i < arr.Length) drainPort = arr[i]; } catch { }
+
+                var up = new StringBuilder(); var down = new StringBuilder();
+                // ---- what raises it
+                if (leak > 0f)
+                {
+                    // the game: water += leak rate x 0.5 x the flooding speed per second (faster while sinking)
+                    float inflow = AdmPlugin.FloodingMul(1f) * leak * 0.5f;
+                    Line(up, "Hole leak " + R(leak) + ": " + (faster ? "faster, " : "") + "+" + R(inflow) + "%/s");
+                    Line(up, OnIt(comp, i, plugging, "plugging (stops the leak)", inSec, fighting, "fire"));
+                }
+                else if (leakOther > 0f && plugging.Count > 0) Line(up, Who(plugging) + " plugging the other side");
+                if (counter.Count > 0 && DcControl.CounterSide(comp, i) == (port ? 1 : -1))
+                    Line(up, Who(counter) + " counterflooding: +" + R(counter.Count * perTeam * DcControl.CounterRate) + "%/s");
+                if (_shownListComp.Target == comp)
+                {
+                    float list = _shownList;
+                    if (!IsSub(comp) && !SubmergedFlooding.Covers(comp) && (port ? list > 0f : list < 0f) && Math.Abs(list) > (ModelOn() ? Limits.ListFlood : 45f))
+                        Line(up, "List " + Math.Abs(list).ToString("0", CultureInfo.InvariantCulture) + "\u00b0: water over the deck");
+                }
+                float pitch;
+                if (TrimFlooding.FloodsNow(comp, i, port, out pitch))
+                    Line(up, "Trim " + Math.Abs(pitch).ToString("0.0", CultureInfo.InvariantCulture) + "\u00b0 " + (pitch > 0f ? "bow" : "stern") + " down: water over the deck");
+                foreach (var why in SubmergedFlooding.Reasons(comp, i, port, _sectionNames)) Line(up, why);
+                if (integ < 19f && inSec == 0 && leak > 0f) Line(up, "The leak grows: hull " + Pc(integ) + ", no team");
+                if (sinking) Line(up, "The ship is sinking");
+
+                // ---- what lowers it
+                if (pumping.Count > 0)
+                {
+                    bool now = drainPort == port || deltaOther <= 1e-4f;   // the game pumps one side at a time
+                    Line(down, Who(pumping) + " pumping out: " + (now ? "\u2212" + R(pumping.Count * perTeam) + "%/s" : "after the other side"));
+                }
+                else if (delta > 1e-4f) Line(down, OnIt(comp, i, pumping, "pumping out", inSec, null, ""));
+                if (plugging.Count > 0 && DcControl.LeakPump > 0f && delta > 1e-4f && (port ? delta >= deltaOther : delta > deltaOther))
+                    Line(down, Who(plugging) + " also pump while plugging: \u2212" + R(plugging.Count * perTeam * DcControl.LeakPump) + "%/s");
+                if (delta <= 1e-4f) Line(down, "No water to pump out (at its minimum)");
+                if (leak > 0f && !faster && rate < 0f) Line(down, "Pumping is faster than the leak");
 
                 var sb = new StringBuilder((port ? "Port" : "Starboard") + ": " + Pc(water) + ", " + Rate(rate));
-                if (counter.Count > 0 && DcControl.CounterSide(comp, i) == (port ? 1 : -1)) Line(sb, Who(counter) + " counterflooding");
-                if (rate >= 0)
-                {
-                    if (leak > 0f) { Line(sb, "Leak " + R(leak)); Line(sb, OnIt(comp, i, plugging, "plugging", inSec, fighting, "fire")); }
-                    else if (leakOther > 0f && plugging.Count > 0) Line(sb, Who(plugging) + " plugging other side");
-                    if (_shownListComp.Target == comp)
-                    {
-                        float list = _shownList;
-                        if (!IsSub(comp) && !SubmergedFlooding.Covers(comp) && (port ? list > 0f : list < 0f) && Math.Abs(list) > (ModelOn() ? Limits.ListFlood : 45f))
-                            Line(sb, "List " + Math.Abs(list).ToString("0", CultureInfo.InvariantCulture) + "°: water over deck");
-                    }
-                    float pitch;
-                    if (TrimFlooding.FloodsNow(comp, i, port, out pitch))
-                        Line(sb, "Trim " + Math.Abs(pitch).ToString("0.0", CultureInfo.InvariantCulture) + "° " + (pitch > 0f ? "bow" : "stern") + " down: water over deck");
-                    foreach (var why in SubmergedFlooding.Reasons(comp, i, port, _sectionNames)) Line(sb, why);
-                    if (integ < 19f && inSec == 0 && leak > 0f) Line(sb, "Leak grows: hull " + Pc(integ) + ", no team");
-                    if (sinking) Line(sb, "Sinking");
-                }
-                else if (pumping.Count > 0) Line(sb, Who(pumping) + " pumping");
+                if (up.Length > 0) sb.Append("\nRaises it:").Append(up);
+                else sb.Append("\nNothing raises it now");
+                if (down.Length > 0) sb.Append("\nLowers it:").Append(down);
                 return sb.ToString();
             }
             catch (Exception e) { Trace("FloodCause: " + e.Message); return "Flooding"; }

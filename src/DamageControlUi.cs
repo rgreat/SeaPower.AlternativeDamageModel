@@ -1356,7 +1356,7 @@ namespace AlternativeDamageModel
             public bool Box;   // a number in a text block of its own, inside the row (changing it does not make the row's text lay itself out again)
         }
         static Seg Run_(string text, Color? col = null) { return new Seg { Text = text, Col = col }; }
-        static Seg Box_(string text, Color? col = null) { return new Seg { Text = text, Col = col, Box = true }; }
+        static Seg Box_(string text, Color? col = null, Func<string> why = null) { return new Seg { Text = text, Col = col, Box = true, Why = why }; }
         static Seg Arr_(bool up, int n, Color col, Func<string> why) { return new Seg { Arrow = true, Up = up, N = n, Col = col, Why = why }; }
 
         /// <summary>What a row's inlines are now.</summary>
@@ -1487,6 +1487,7 @@ namespace AlternativeDamageModel
                     // with those the pieces of the row sometimes lost their width and stood on top of each other)
                     try { float fs = tb.FontSize > 1f ? tb.FontSize : 14f; kid.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); kid.Width = BoxWidth(s.Text, tb); } catch { }
                     if (s.Col.HasValue) kid.Foreground = new SolidColorBrush(s.Col.Value);
+                    if (s.Why != null) LiveTip(kid, s.Why);   // the percent explains itself too (when nothing moves there is no arrow)
                     x = new InlineUIContainer(kid);
                 }
                 else
@@ -1569,10 +1570,10 @@ namespace AlternativeDamageModel
             if (!whole)
             {
                 segs.Add(Run_("   "));
-                segs.Add(Box_(Pct(ip), cp));
+                segs.Add(Box_(Pct(ip), cp, () => HullCause(comp, c, i, true)));
                 if (ap != 0) segs.Add(Arr_(ap > 0, 1, ap > 0 ? CDown : CUp, () => HullCause(comp, c, i, true))); // integrity: up is good (green), down is bad (red)
                 segs.Add(Run_(" / ", CGrey));
-                segs.Add(Box_(Pct(isb), cs));
+                segs.Add(Box_(Pct(isb), cs, () => HullCause(comp, c, i, false)));
                 if (asb != 0) segs.Add(Arr_(asb > 0, 1, asb > 0 ? CDown : CUp, () => HullCause(comp, c, i, false)));
             }
             Draw(tb, ref c.HeaderD, c.HeaderSig == null, segs);
@@ -1915,10 +1916,10 @@ namespace AlternativeDamageModel
             var segs = new List<Seg> { Run_(c.FloodOrig ?? "", any ? (Color?)FloodColor(Math.Max(sp, ss)) : null) };
             if (any)
             {
-                segs.Add(Run_("  ")); segs.Add(Box_(Pct(p), FloodColor(sp)));
+                segs.Add(Run_("  ")); segs.Add(Box_(Pct(p), FloodColor(sp), () => FloodCause(comp, c, i, true)));
                 if (ap != 0) segs.Add(Arr_(ap > 0, Math.Abs(ap), ap > 0 ? CUp : CDown, () => FloodCause(comp, c, i, true)));
                 segs.Add(Run_(" / ", FloodColor(Math.Max(sp, ss))));
-                segs.Add(Box_(Pct(s), FloodColor(ss)));
+                segs.Add(Box_(Pct(s), FloodColor(ss), () => FloodCause(comp, c, i, false)));
                 if (asb != 0) segs.Add(Arr_(asb > 0, Math.Abs(asb), asb > 0 ? CUp : CDown, () => FloodCause(comp, c, i, false)));
             }
             Draw(tb, ref c.FloodD, c.FloodSig == null, segs);
@@ -1969,7 +1970,7 @@ namespace AlternativeDamageModel
             var segs = new List<Seg> { Run_(c.FireOrig ?? "") };
             if (any)
             {
-                segs.Add(Run_("  ")); segs.Add(Box_(Pct(f)));
+                segs.Add(Run_("  ")); segs.Add(Box_(Pct(f), null, () => FireCause(comp, c, i)));
                 if (a != 0) segs.Add(Arr_(a > 0, Math.Abs(a), a > 0 ? CUp : CDown, () => FireCause(comp, c, i)));
             }
             Draw(tb, ref c.FireD, c.FireSig == null, segs);

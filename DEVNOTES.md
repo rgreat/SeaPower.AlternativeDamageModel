@@ -538,3 +538,10 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: подпись под схемой затоплений в две строки
 * Строка пределов (`s.Limits`, «Tilt to the sea: list … port / … stbd · trim …») делится на две по первому « · » (`\n`): list в первой, trim во второй; то же для остальных вариантов подписи. Было слишком широко.
+
+## 2026-10-15: подсказки и у процентов; подробный разбор затопления «поднимает / опускает»
+* `Seg.Why` теперь и у `Box_` (`Box_(text, col, why)`): в `Draw` при сборке строки у TextBlock процента — `LiveTip(kid, why)` (Hull → `HullCause`, Flooding → `FloodCause`, Fire → `FireCause`). Подсказка есть, даже когда нет стрелки (ничего не движется). Whys обновляются только при пересборке строки (как у стрелок).
+* `FloodCause` переписан: заголовок «Port: 54%, +0.35%/s», затем «Raises it:» и «Lowers it:» (всегда оба, пустые — «Nothing raises it now» / строки «No water to pump out»).
+  Поднимает: течь `Hole leak L: +L·0.5·FloodingMul %/s` («faster» при `_activateFasterFloodingForSinking`) + кто заделывает; контрзатопление `+команды·PumpPerTeam·CounterRate`; вода через палубу от крена/дифферента (старые правила); палубная точка (глубина, %/с, перелив в/из соседа — `SubmergedFlooding.Reasons`); рост течи без команды (корпус <19%); «The ship is sinking».
+  Опускает: откачка `−команды·PumpPerTeam %/с` (игра качает один борт за раз — у другого «after the other side»; `_drainPortSide`), откачка при заделке `−команды·PumpPerTeam·LeakPump` (для борта с большей водой над минимумом, как `PumpFree`), «No water to pump out (at its minimum)», «Pumping is faster than the leak».
+* `DcControl.PumpPerTeam(comp)` — %/с на команду (навык экипажа × PumpOutSpeed). Не проверено в игре.

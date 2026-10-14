@@ -148,6 +148,12 @@ namespace AlternativeDamageModel
             return true;
         }
 
+        /// <summary>Water pumped out per team per second, % (the crew's skill and PumpOutSpeed): for the tooltips.</summary>
+        public static float PumpPerTeam(object comp)
+        {
+            try { return AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp)))); } catch { return 0f; }
+        }
+
         /// <summary>The trim in degrees: positive = the bow is down (Euler x of the hull, as the game reads it).</summary>
         static float TrimOf(object comp)
         {
