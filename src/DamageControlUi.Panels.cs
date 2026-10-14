@@ -20,7 +20,7 @@ namespace AlternativeDamageModel
         {
             public Grid HullInner; public RowDefinition FireRowDef; public Grid FireRow; public TextBlock FireValue;
             public Panel ListHost; public Border ListCard;
-            public Action<float, float> ListRed, TrimRed; public RotateTransform ListRot, TrimRot; public TextBlock ListVal, TrimVal;
+            public float[] Lim; public object LimComp; public Action<float, float> ListRed, TrimRed; public RotateTransform ListRot, TrimRot; public TextBlock ListVal, TrimVal;
             public Border LevelFill; public float LevelHeight; public TextBlock LevelVal;
             public FrameworkElement Res;                // where the game's brushes are looked up
             public double T = -1; public float List, Trim;
@@ -572,12 +572,21 @@ namespace AlternativeDamageModel
                     // +z = port side down (needle to the left); trim: +x turns the needle to the right (checked in game)
                     float listRange = ListScale(comp), trimRange = TrimScale(comp);   // trim: this ship's limit (by its length)
                     bool sub = IsSub(comp);                                            // nothing floods from list / trim
-                    // red zones: where a deck point touches the flat sea from the ship's position now (ships with exact points), else 75% of the scale
+                    // the limits: the list / trim at which a deck point touches the flat sea (ships with exact points; SubmergedFlooding.Margins),
+                    // smoothed; the scales and the red zones follow from them (the larger limit of a gauge at 75% of its scale), else 75% of the scale
                     float redLP = Limits.FloodFrom * listRange, redLS = redLP, redTS = Limits.FloodFrom * trimRange, redTB = redTS;
                     if (ModelOn() && !sub)
                     {
                         float mp, ms, mt, mb;
-                        if (SubmergedFlooding.Margins(comp, x.List, x.Trim, out mp, out ms, out mt, out mb)) { redLP = mp; redLS = ms; redTS = mt; redTB = mb; }
+                        if (SubmergedFlooding.Margins(comp, x.List, x.Trim, out mp, out ms, out mt, out mb))
+                        {
+                            var nv = new[] { mp, ms, mt, mb };
+                            if (x.Lim == null || !ReferenceEquals(x.LimComp, comp)) { x.Lim = nv; x.LimComp = comp; }
+                            else for (int q = 0; q < 4; q++) x.Lim[q] += (nv[q] - x.Lim[q]) * 0.2f;
+                            redLP = x.Lim[0]; redLS = x.Lim[1]; redTS = x.Lim[2]; redTB = x.Lim[3];
+                            listRange = Math.Max(Math.Max(redLP, redLS), 3f) / Limits.FloodFrom;
+                            trimRange = Math.Max(Math.Max(redTS, redTB), 0.5f) / Limits.FloodFrom;
+                        }
                     }
                     x.ListRed(Math.Min(1f, redLP / listRange) * 90f, Math.Min(1f, redLS / listRange) * 90f);
                     x.TrimRed(Math.Min(1f, redTS / trimRange) * 90f, Math.Min(1f, redTB / trimRange) * 90f);

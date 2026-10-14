@@ -151,11 +151,14 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// Where the red zones of the LIST / TRIM gauges start NOW, per direction: the value of list (to port / to starboard) and trim
-        /// (to the stern / to the bow): for each direction the most limiting deck point on that side, by plain trigonometry from the present
-        /// pose - atan2(h, d), h = its height above the flat sea (Ocean level), d = its distance from the axis (the centreline at sea
-        /// level, at the middle of the compartments). A point already under water gives 0. The sides differ with the flooding: a low
-        /// flooded side has a small limit, the intact side a large one.
+        /// The ABSOLUTE list / trim limits of the ship (degrees, as the gauges read them): the value at which the first deck point of that
+        /// side touches the flat sea (Ocean level). Exact solution, not an approximation: the point p is taken in the ship's own frame
+        /// relative to the axis (the centreline at sea level, middle of the compartments, found from the present pose - so the present draft,
+        /// flooding included, counts); the height of the point at list a and trim b is h = (Rx(b)·Rz(a)·p).y - the Unity order of the
+        /// angles - and the limit is the first root of h = 0 going from 0 in the direction of that side (a > 0 port down, a &lt; 0 starboard
+        /// down; b &gt; 0 bow down, b &lt; 0 stern down), the other angle staying at its present value. A point already under water at 0 gives 0.
+        /// For a box hull this is the textbook "deck edge immersion": tan a = freeboard / half-beam. list: present list (+ port down),
+        /// trim: present trim (+ bow down).
         /// </summary>
         public static bool Margins(object comp, float list, float trim, out float toPort, out float toStbd, out float toStern, out float toBow)
         {
@@ -164,28 +167,48 @@ namespace AlternativeDamageModel
             var s = Get(comp);
             if (s == null || s.P.ShipT == null) return false;
             Transform t = s.P.ShipT;
-            Matrix4x4 ltw = t.localToWorldMatrix;
-            Vector3 o = ltw.MultiplyPoint3x4(new Vector3(0f, 0f, s.Zc));
-            Vector3 up = t.up;
-            if (up.y < 0.2f) return false;
+            Vector3 upw = t.up;
+            if (upw.y < 0.2f) return false;
             float sea = DeckCorners.SeaLevel();
-            Vector3 a = o + up * ((sea - o.y) / up.y);          // the centreline at the flat sea level
-            Vector3 right = t.right; right.y = 0f; right.Normalize();
-            Vector3 fwd = t.forward; fwd.y = 0f; fwd.Normalize();
-            double mp = 90, ms = 90, mst = 90, mb = 90;
+            Vector3 o = t.TransformPoint(new Vector3(0f, 0f, s.Zc));
+            Vector3 a = o + upw * ((sea - o.y) / upw.y);        // the centreline at the flat sea level, world
+            Vector3 aLocal = t.InverseTransformPoint(a);
+            float mp = 89f, ms = 89f, mst = 89f, mb = 89f;
             for (int k = 0; k < 2 * s.Count; k++)
             {
-                Vector3 w = ltw.MultiplyPoint3x4(s.P.Points[s.Map[k]]);
-                Vector3 r = w - a;
-                float h = w.y - sea, X = Vector3.Dot(r, right), Z = Vector3.Dot(r, fwd);
-                if (X < 0f) mp = Math.Min(mp, Math.Atan2(h, -X) * 180.0 / Math.PI); else ms = Math.Min(ms, Math.Atan2(h, X) * 180.0 / Math.PI);
-                if (Z > 0f) mb = Math.Min(mb, Math.Atan2(h, Z) * 180.0 / Math.PI); else mst = Math.Min(mst, Math.Atan2(h, -Z) * 180.0 / Math.PI);
+                Vector3 p = s.P.Points[s.Map[k]] - aLocal;       // the point relative to the axis, in the ship's frame
+                if (Mathf.Abs(p.x) > 1e-4f)
+                {
+                    if (p.x < 0f) mp = Mathf.Min(mp, TouchAngle(p, trim, true, 1f)); else ms = Mathf.Min(ms, TouchAngle(p, trim, true, -1f));
+                }
+                if (Mathf.Abs(p.z) > 1e-4f)
+                {
+                    if (p.z > 0f) mb = Mathf.Min(mb, TouchAngle(p, list, false, 1f)); else mst = Mathf.Min(mst, TouchAngle(p, list, false, -1f));
+                }
             }
-            // plain trigonometry of the lowest point of each direction: the angle of that point above the sea seen from the axis (0 if it is under water)
-            toPort = (float)Math.Max(0.0, mp); toStbd = (float)Math.Max(0.0, ms);
-            toStern = (float)Math.Max(0.0, mst); toBow = (float)Math.Max(0.0, mb);
+            toPort = mp; toStbd = ms; toStern = mst; toBow = mb;
             s.M = new[] { toPort, toStbd, toStern, toBow };
             return true;
+        }
+
+        /// <summary>First angle (degrees, magnitude) in the direction <paramref name="dir"/> at which the point reaches the sea level;
+        /// roll: the point's list is turned (a = list, b = other = trim), else its trim (a = trim, b = other = list). 0 if it is under already, 89 if never.</summary>
+        static float TouchAngle(Vector3 p, float other, bool roll, float dir)
+        {
+            Func<float, float> h = ang => (Quaternion.Euler(roll ? other : ang, 0f, roll ? ang : other) * p).y;
+            if (h(0f) <= 0f) return 0f;
+            float prev = 0f;
+            for (float m = 0.5f; m <= 89f; m += 0.5f)
+            {
+                if (h(dir * m) <= 0f)
+                {
+                    float lo = prev, hi = m;
+                    for (int i = 0; i < 24; i++) { float mid = 0.5f * (lo + hi); if (h(dir * mid) <= 0f) hi = mid; else lo = mid; }
+                    return 0.5f * (lo + hi);
+                }
+                prev = m;
+            }
+            return 89f;
         }
 
         /// <summary>The last Margins of this ship as a line of text, null if none yet.</summary>
