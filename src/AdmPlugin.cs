@@ -58,7 +58,7 @@ namespace AlternativeDamageModel
         // settings, cached for the hooks (updated on SettingChanged)
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
-        ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _fireHullEntry;
+        ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _counterRateEntry, _counterLimitEntry, _fireHullEntry;
         ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkRampEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
@@ -310,6 +310,11 @@ namespace AlternativeDamageModel
                 "How fast water comes in through the holes of a compartment. 1.0 = as in the game.");
             _pumpOutEntry = Pcfg.Bind("FireAndFlooding", "PumpOutSpeed", new Factor(1f),
                 "How fast damage control teams pump water out. 1.0 = as in the game.");
+            _counterRateEntry = Pcfg.Bind("FireAndFlooding", "CounterFloodSpeed", new Factor(2f),
+                "Counterflooding (a team's task given by hand): how fast water is let into a compartment, times the pumping out speed. " +
+                "The water goes into the side opposite to the heel, or into the side with less water when the ship is upright.");
+            _counterLimitEntry = Pcfg.Bind("FireAndFlooding", "CounterFloodLimit", new Factor(50f),
+                "Counterflooding lets water into one side of a compartment only up to this % (the game's own limit of a compartment also holds).");
 
             _warTeamsEntry = Pcfg.Bind("DamageControlTeams", "WarshipTeams", "0=1, 500=2, 1500=3, 5000=4, 20000=5",
                 "Damage control teams of a surface warship by displacement: tons=teams, from that many tons up. " +
@@ -749,6 +754,8 @@ namespace AlternativeDamageModel
             _extinguish = Math.Max(0f, _extinguishEntry.Value.V);
             _floodSpeed = Math.Max(0f, _floodSpeedEntry.Value.V);
             _pumpOut = Math.Max(0f, _pumpOutEntry.Value.V);
+            DcControl.CounterRate = Math.Max(0f, _counterRateEntry.Value.V);
+            DcControl.CounterLimit = Math.Max(0f, _counterLimitEntry.Value.V);
             _fireHull = Math.Max(0f, _fireHullEntry.Value.V);
             _fireSpread = Clamp(_fireSpreadEntry.Value.V, 0f, 100f);
             _unattended = _unattendedEntry.Value;

@@ -42,7 +42,7 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ tasks (DcControl decides; shown here)
         const int TaskNone = DcControl.TaskNone, TaskIdle = DcControl.TaskIdle, TaskLeak = DcControl.TaskLeak, TaskFire = DcControl.TaskFire,
-                  TaskPump = DcControl.TaskPump, TaskHull = DcControl.TaskHull, TaskSystems = DcControl.TaskSystems;
+                  TaskPump = DcControl.TaskPump, TaskHull = DcControl.TaskHull, TaskSystems = DcControl.TaskSystems, TaskCounter = DcControl.TaskCounter;
         const int IconByPriority = 99;   // menu entry "By priority": a gear in a ring of arrows
         const int IconKnocked = 98;      // (old) knocked out: the crewman greyed out with a red cross
         const int IconTransit = 97, IconInjured = 96, IconDead = 95;   // team on the move (grey), recovering (medical badge), dead (red cross)
@@ -1192,7 +1192,7 @@ namespace AlternativeDamageModel
 
             line("One icon = one damage control team:", CWhite, 14f);
             var icons = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 2f, 0f, 0f) };
-            foreach (var task in new[] { TaskLeak, TaskFire, TaskPump, TaskHull, TaskSystems, TaskIdle, IconTransit, IconInjured, IconDead })
+            foreach (var task in new[] { TaskLeak, TaskFire, TaskPump, TaskCounter, TaskHull, TaskSystems, TaskIdle, IconTransit, IconInjured, IconDead })
             {
                 var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0f, 0f, 0f, 3f) };
                 row.Children.Add(Icon(task));
@@ -1687,7 +1687,7 @@ namespace AlternativeDamageModel
         static ContextMenu TeamMenu(object comp, int i, object team, int forced, Sections sec)
         {
             var menu = new ContextMenu();
-            foreach (var t in new[] { TaskLeak, TaskFire, TaskPump, TaskHull, TaskSystems })
+            foreach (var t in new[] { TaskLeak, TaskFire, TaskPump, TaskCounter, TaskHull, TaskSystems })
                 menu.Items.Add(MenuEntry(Cap(TaskName(t)), Icon(t), t == forced, comp, team, t));
             menu.Items.Add(new Separator());
             menu.Items.Add(MenuEntry("By priority (as the other teams)", Icon(IconByPriority), forced == TaskNone, comp, team, TaskNone));
@@ -1873,6 +1873,12 @@ namespace AlternativeDamageModel
                 new object[] { "F0 M8.1,5.0 L8.1,13.8 L7.4,13.8 L7.4,5.0 Z", 162, 180, 202 },
                 new object[] { "F0 M3.55,10.6 L4.73,13.15 L4.77,13.26 L4.8,13.36 L4.83,13.46 L4.84,13.57 L4.85,13.68 L4.85,13.79 L4.84,13.9 L4.81,14.0 L4.78,14.11 L4.75,14.21 L4.7,14.31 L4.65,14.4 L4.58,14.49 L4.51,14.57 L4.44,14.65 L4.36,14.72 L4.27,14.78 L4.17,14.84 L4.08,14.89 L3.98,14.93 L3.87,14.96 L3.77,14.98 L3.66,15.0 L3.55,15.0 L3.44,15.0 L3.33,14.98 L3.23,14.96 L3.12,14.93 L3.02,14.89 L2.93,14.84 L2.83,14.78 L2.74,14.72 L2.66,14.65 L2.59,14.57 L2.52,14.49 L2.45,14.4 L2.4,14.31 L2.35,14.21 L2.32,14.11 L2.29,14.0 L2.26,13.9 L2.25,13.79 L2.25,13.68 L2.26,13.57 L2.27,13.46 L2.3,13.36 L2.33,13.26 L2.37,13.15 Z", 74, 150, 226 },
             } },
+            { TaskCounter, new[] {   // a compartment, water rising in it, an arrow up
+                new object[] { "F0 M1.6,2.0 L3.0,2.0 L3.0,13.6 L13.0,13.6 L13.0,2.0 L14.4,2.0 L14.4,15.2 L1.6,15.2 Z", 170, 176, 184 },
+                new object[] { "F0 M3.0,9.4 C4.4,8.0 6.0,8.0 7.5,9.4 C9.0,10.8 10.6,10.8 13.0,8.8 L13.0,13.6 L3.0,13.6 Z", 74, 150, 226 },
+                new object[] { "F0 M3.0,9.4 C4.4,8.0 6.0,8.0 7.5,9.4 C9.0,10.8 10.6,10.8 13.0,8.8 L13.0,9.9 C10.6,11.9 9.0,11.9 7.5,10.5 C6.0,9.1 4.4,9.1 3.0,10.5 Z", 160, 208, 250 },
+                new object[] { "F0 M8.0,1.4 L11.2,5.2 L9.0,5.2 L9.0,8.0 L7.0,8.0 L7.0,5.2 L4.8,5.2 Z", 160, 208, 250 },
+            } },
             { TaskHull, new[] {
                 new object[] { "F0 M7.5,11.4 L7.5,15.6 L0.4,15.6 L0.4,11.4 Z M15.6,11.4 L15.6,15.6 L8.5,15.6 L8.5,11.4 Z", 170, 176, 184 },
                 new object[] { "F0 M8.5,11.4 L8.5,15.6 L7.5,15.6 L7.5,11.4 Z", 250, 150, 60 },
@@ -1967,6 +1973,7 @@ namespace AlternativeDamageModel
                 case TaskLeak: return "plugging a leak";
                 case TaskFire: return "fighting the fire";
                 case TaskPump: return "pumping water out";
+                case TaskCounter: return "counterflooding";
                 case TaskHull: return "welding the hull";
                 case TaskSystems: return "repairing systems";
                 case IconKnocked: case IconDead:

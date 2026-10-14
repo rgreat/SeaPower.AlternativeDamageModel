@@ -109,9 +109,11 @@ namespace AlternativeDamageModel
                 int inSec;
                 var plugging = Doing(comp, i, TaskLeak, out inSec);
                 var pumping = Doing(comp, i, TaskPump, out inSec);
+                var counter = Doing(comp, i, TaskCounter, out inSec);
                 var fighting = Doing(comp, i, TaskFire, out inSec);
 
                 var sb = new StringBuilder((port ? "Port" : "Starboard") + ": " + Pc(water) + ", " + Rate(rate));
+                if (counter.Count > 0 && DcControl.CounterSide(comp, i) == (port ? 1 : -1)) Line(sb, Who(counter) + " counterflooding");
                 if (rate >= 0)
                 {
                     if (leak > 0f) { Line(sb, "Leak " + R(leak)); Line(sb, OnIt(comp, i, plugging, "plugging", inSec, fighting, "fire")); }

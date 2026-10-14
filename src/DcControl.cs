@@ -21,7 +21,7 @@ namespace AlternativeDamageModel
     /// </summary>
     static class DcControl
     {
-        public const int TaskNone = 0, TaskIdle = 1, TaskLeak = 2, TaskFire = 3, TaskPump = 4, TaskHull = 5, TaskSystems = 6;
+        public const int TaskNone = 0, TaskIdle = 1, TaskLeak = 2, TaskFire = 3, TaskPump = 4, TaskHull = 5, TaskSystems = 6, TaskCounter = 7;
         public const int ModeAuto = 0, ModeFire = 1, ModeFlooding = 2;
 
         static readonly int[][] Orders =
@@ -36,6 +36,8 @@ namespace AlternativeDamageModel
         /// <summary>Optimised Auto DC: a team with nothing to do waits where it is (no walk back to the reserve).</summary>
         public static Func<object, bool> StayWhenIdle = c => false;
         public static Action<string> Trace = s => { };
+        public static float CounterRate = 2f;     // [FireAndFlooding] CounterFloodSpeed: × the pumping speed
+        public static float CounterLimit = 50f;   // [FireAndFlooding] CounterFloodLimit: water in one compartment, %, up to which it is let in
 
         sealed class Ship
         {
@@ -49,6 +51,9 @@ namespace AlternativeDamageModel
         static PropertyInfo _teams, _autoDc;
         static FieldInfo _sinking, _port, _star, _sys, _floodRate, _growRate, _count;
         static PropertyInfo _floodDelta, _severity;
+        static FieldInfo _curFlood, _maxFlood, _baseObj, _crewF, _repairF;
+        static MethodInfo _getTransform;
+        static PropertyInfo _fixedDt;
         static MethodInfo _returnTeam, _sendTeam;
         static readonly Func<object, int, bool>[] Repairs = new Func<object, int, bool>[8];
 
@@ -78,12 +83,67 @@ namespace AlternativeDamageModel
                 Repairs[TaskPump] = Caller(tComp.GetMethod("RepairFlooding", all));
                 Repairs[TaskHull] = Caller(tComp.GetMethod("RepairStructure", all));
                 Repairs[TaskSystems] = Caller(tComp.GetMethod("RepairSystems", all));
+                Repairs[TaskCounter] = CounterFlood;
+                _curFlood = tFc.GetField("_currentFlooding", all); _maxFlood = tFc.GetField("_maxFlooding", all);
+                _baseObj = tComp.GetField("_baseObject", all);
+                _getTransform = _baseObj == null ? null : _baseObj.FieldType.GetMethod("getTransform", all);
+                _crewF = _baseObj == null ? null : _baseObj.FieldType.GetField("_crew", all);
+                _repairF = _crewF == null ? null : _crewF.FieldType.GetField("_floodingRepair", all);
+                var tGt = asm.GetType("SeaPower.GameTime");
+                _fixedDt = tGt == null ? null : tGt.GetProperty("fixedDeltaTime", all);
+                if (_curFlood == null || _maxFlood == null || _getTransform == null || _crewF == null || _repairF == null || _fixedDt == null)
+                { Repairs[TaskCounter] = null; Trace("DcControl: counterflooding is not available (game members not found)"); }
                 _ok = _teams != null && _autoDc != null && _sinking != null && _port != null && _star != null && _sys != null && _count != null &&
                       _floodRate != null && _floodDelta != null && _severity != null && _growRate != null && _returnTeam != null && _sendTeam != null &&
                       Repairs[TaskLeak] != null && Repairs[TaskFire] != null && Repairs[TaskPump] != null && Repairs[TaskHull] != null && Repairs[TaskSystems] != null;
             }
             catch (Exception e) { Trace("DcControl.Init: " + e); _ok = false; }
             return _ok;
+        }
+
+        // ------------------------------------------------------------ counterflooding (by hand only)
+
+        /// <summary>The ship's list in degrees: positive = the port side is down (as the game reads it: Euler z of the hull).</summary>
+        static float ListOf(object comp)
+        {
+            var tr = _getTransform.Invoke(_baseObj.GetValue(comp), null) as UnityEngine.Transform;
+            if (tr == null) return 0f;
+            float z = tr.localEulerAngles.z;
+            return z > 180f ? z - 360f : z;
+        }
+
+        /// <summary>The side of compartment i that counterflooding lets the water into: +1 port, -1 starboard, 0 = none. The side opposite to the heel
+        /// (list over 0.3 degrees); on an even keel the side with less water (so the trim can be corrected from the end sections without a list).</summary>
+        public static int CounterSide(object comp, int i)
+        {
+            if (!_ok || comp == null || Repairs[TaskCounter] == null || i < 0 || i > 4) return 0;
+            try
+            {
+                float list = ListOf(comp);
+                if (list > 0.3f) return -1;
+                if (list < -0.3f) return 1;
+                var port = _port.GetValue(comp) as Array; var star = _star.GetValue(comp) as Array;
+                return (float)_curFlood.GetValue(port.GetValue(i)) <= (float)_curFlood.GetValue(star.GetValue(i)) ? 1 : -1;
+            }
+            catch { return 0; }
+        }
+
+        /// <summary>Lets water into one side of compartment i at CounterRate × the pumping speed (the same crew skill, the same number of teams).
+        /// False = nothing to do (that side is at the limit): the team then works by priority.</summary>
+        static bool CounterFlood(object comp, int i)
+        {
+            int side = CounterSide(comp, i);
+            if (side == 0) return false;
+            var teams = _teams.GetValue(comp, null) as int[];
+            var arr = (side > 0 ? _port : _star).GetValue(comp) as Array;
+            var fc = arr.GetValue(i);
+            float cur = (float)_curFlood.GetValue(fc);
+            float cap = Math.Min(CounterLimit, (float)_maxFlood.GetValue(fc));
+            if (cur >= cap) return false;
+            float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));   // as fast as pumping (with PumpOutSpeed), times CounterRate
+            float add = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null)) * CounterRate;
+            _curFlood.SetValue(fc, Math.Min(cap, cur + add));
+            return true;
         }
 
         /// <summary>A fast call of a private bool Method(int) of Compartments; falls back to reflection.</summary>
@@ -183,7 +243,7 @@ namespace AlternativeDamageModel
                         foreach (var t in cs[i].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
                         {
                             int v;
-                            list.Add(int.TryParse(t, out v) && v >= TaskNone && v <= TaskSystems && v != TaskIdle ? v : TaskNone);
+                            list.Add(int.TryParse(t, out v) && v >= TaskNone && v <= TaskCounter && v != TaskIdle ? v : TaskNone);
                         }
                         s.Pending[i] = list;   // put on the teams at the first check (they are made from the game's counts then)
                     }

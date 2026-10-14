@@ -122,6 +122,8 @@ namespace AlternativeDamageModel
             Add(DC, "Work and movement", "DamageControlTeams/DCTeamEffectiveness", "Team effectiveness", "× game", Kind.Number, 0.1f, 0.05f, 5f);
             Add(DC, "Work and movement", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Work and movement", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Work and movement", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
+            Add(DC, "Work and movement", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
             Add(DC, "Work and movement", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
             Add(DC, "Work and movement", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Knock-outs", "DamageControlTeams/HealTime", "Recovery time", "s + transfer back", Kind.Number, 10f, 0f, 1200f);
