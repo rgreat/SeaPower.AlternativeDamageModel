@@ -123,7 +123,7 @@ namespace AlternativeDamageModel
             Add(DC, "Work and movement", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Work and movement", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Work and movement", "FireAndFlooding/SubmergedFireDecay", "Fire under water", "% per second per metre under water; 0 = off", Kind.Number, 0.5f, 0f, 20f);
-            Add(DC, "Work and movement", "FireAndFlooding/TeamBlocksFireSpread", "Team stops fire spread", "fire does not spread into a section with a team", Kind.Bool, 0, 0, 0, true);
+            Add(DC, "Work and movement", "FireAndFlooding/TeamBlocksFireSpread", "Team stops fire spread", "fire does not spread into a section with a team", Kind.Bool, 0, 0, 0);
             Add(DC, "Work and movement", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
             Add(DC, "Work and movement", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
             Add(DC, "Work and movement", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
@@ -141,7 +141,7 @@ namespace AlternativeDamageModel
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
             Add(S, "Sinking from", "Sinking/FloodLimit", "Water in the ship", "% of the hull", Kind.Number, 1f, 5f, 100f);
             Add(SK, "Capsizing", "Sinking/CapsizeFactor", "Centre of mass rise", "× · rises with the water in the ship; 0 = off", Kind.Number, 0.1f, 0f, 5f);
-            Add(SK, "Sinking and wreck", "Sinking/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0, true);
+            Add(SK, "Sinking and wreck", "Sinking/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0);
             Add(SK, "Sinking and wreck", "Sinking/SinkPullFactor", "Sinking pull", "× the game's pull down (acceleration); 0 = none", Kind.Number, 0.1f, 0f, 3f);
             Add(SK, "Sinking and wreck", "Sinking/SinkPullRamp", "Sinking pull ramp", "depth over which it builds up; game 10, 0 = game", Kind.Number, 1f, 0f, 200f);
             Add(SK, "Sinking and wreck", "Sinking/WreckDragFactor", "Wreck drag", "× the game's resistance to movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f);

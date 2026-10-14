@@ -529,3 +529,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 * Самолечение слипания %, замер ширины, сжатая строка команд (подгонка по скриншоту), PumpSafe/LeakPump/контрзатопление, SubmergedFireDecay, TeamBlocksFireSpread, WreckDrag, BubblesOff, SinkPull ×0.5 (всплытие мелких кораблей).
 * Качество опрокидывания (хватает ли момента довернуть до киля при демпфировании игры) — по feedback; варианты: больше CapsizeFactor, снижение angularDamping, постоянное угловое ускорение (`AddTorque(..., Acceleration)` вдоль forward).
 * Идея (не сделана): вести `centerOfMass.x` по воде в отсеках (`dx = Σ w_i·x_i / (M + Σ w_i)`) вместо множителя дисбаланса (`FloodImbalanceEffect`).
+
+## 2026-10-15: bool-настройки профиля не должны быть «global»
+* Баг: «Team stops fire spread» сбрасывался в false по Apply. Причина: последним аргументом `Add(...)` строки стояло `true` (global — это глобальные ключи вне профиля, `_globals`), а ключ `FireAndFlooding/TeamBlocksFireSpread` — настройка профиля; Apply писал значение не туда, а профильное читалось заново. То же было у `Sinking/KeepCentreOfMass`. Теперь у обеих строк `global` не указан. Правило: bool профиля — без `true` (как `UnattendedKey`), `true` — только для ключей `[General]/[UI]/[Particles]` и т.п. вне профилей.
