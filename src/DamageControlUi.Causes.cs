@@ -84,12 +84,12 @@ namespace AlternativeDamageModel
         static string Rate(float r) { return (r >= 0 ? "+" : "−") + R(r) + "%/s"; }
 
         /// <summary>Who is (not) on it: "DC1 plugging" / "busy: DC2 fire" / "team coming" / "no team".</summary>
-        static string OnIt(object comp, int i, List<string> doing, string verb, int inSec, List<string> busy, string busyWith)
+        static string OnIt(object comp, int i, List<string> doing, string verb, int inSec, List<string> busy, string busyWith, bool worse)
         {
             if (doing.Count > 0) return Who(doing) + " " + verb;
             if (busy != null && busy.Count > 0) return "Busy: " + Who(busy) + " " + busyWith + " first";
             if (inSec > 0) return null;   // a team here busy with something else does not change this value: nothing to say
-            return Coming(comp, i) > 0 ? "Team on its way" : null;   // nobody here: nothing to say
+            return Coming(comp, i) > 0 ? "Team on its way" : worse ? "No team here" : null;   // "no team" is said only when the value is getting worse because of it
         }
 
         // ------------------------------------------------------------ flooding
@@ -124,7 +124,7 @@ namespace AlternativeDamageModel
                     // the game: water += leak rate x 0.5 x the flooding speed per second (faster while sinking)
                     float mul = AdmPlugin.FloodingMul(1f), inflow = mul * leak * 0.5f;
                     Line(up, "Holes: +" + R(inflow) + "%/s" + (faster ? " (sinking: faster)" : ""));
-                    Line(up, OnIt(comp, i, plugging, "plugging (stops the leak)", inSec, fighting, "fire"));
+                    Line(up, OnIt(comp, i, plugging, "plugging (stops the leak)", inSec, fighting, "fire", rate > 0f));
                 }
                 else if (leakOther > 0f && plugging.Count > 0) Line(up, Who(plugging) + " plugging the other side");
                 if (counter.Count > 0 && DcControl.CounterSide(comp, i) == (port ? 1 : -1))
@@ -149,7 +149,7 @@ namespace AlternativeDamageModel
                     bool now = drainPort == port || deltaOther <= 1e-4f;   // the game pumps one side at a time
                     Line(down, Who(pumping) + " pumping out: \u2212" + R(pumping.Count * perTeam) + "%/s" + (now ? "" : " (the other side first)") + atMin);
                 }
-                else Line(down, OnIt(comp, i, pumping, "pumping out", inSec, null, ""));
+                else Line(down, OnIt(comp, i, pumping, "pumping out", inSec, null, "", rate > 0f && delta > 1e-4f));
                 if (plugging.Count > 0 && DcControl.LeakPump > 0f)
                     Line(down, Who(plugging) + " pump while plugging: \u2212" + R(plugging.Count * perTeam * DcControl.LeakPump) + "%/s" + atMin);
 
@@ -184,7 +184,7 @@ namespace AlternativeDamageModel
                 double ago = c.FireHitT >= 0 ? Now() - c.FireHitT : -1;
                 if (grow > 0f) Line(sb, "Grows " + R(grow) + "%/s by itself");
                 if (rate >= 0 && ago >= 0 && ago < 60) Line(sb, "Hit " + ((int)ago).ToString(CultureInfo.InvariantCulture) + " s ago");
-                Line(sb, OnIt(comp, i, fighting, rate >= 0 ? "fighting" : "putting out", inSec, plugging, "leak"));
+                Line(sb, OnIt(comp, i, fighting, rate >= 0 ? "fighting" : "putting out", inSec, plugging, "leak", rate > 0f));
                 if (fighting.Count == 0) Line(sb, "Only DC puts it out");
                 double un = AdmPlugin.UnattendedFor(comp, i);
                 if (un >= 0) Line(sb, "Unattended " + ((int)un).ToString(CultureInfo.InvariantCulture) + " s: grows faster");
