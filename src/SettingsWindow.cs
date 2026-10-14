@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
 
         // ------------------------------------------------------------ what is shown
-        enum Kind { Number, Integer, Table, Bool }
+        enum Kind { Number, Integer, Table, Bool, Choice }
 
         sealed class Field
         {
@@ -32,6 +32,7 @@ namespace AlternativeDamageModel
             public Kind Kind;
             public float Step, Min, Max;
             public bool Global;
+            public string[] Options;   // Kind.Choice
         }
 
         const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
@@ -96,7 +97,8 @@ namespace AlternativeDamageModel
             Add(TDbg, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Visualisation (selected ship)", "General/ShowDeckCorners", "Deck point heights", "wave to hull-only deck, 28 points", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Visualisation (selected ship)", "General/ShowHullCollider", "Hull collider (translucent)", "coll_hull* only", Kind.Bool, 0, 0, 0, true);
-            Add(TDbg, "Visualisation (selected ship)", "General/HideShipModel", "Ship's 3D model 70% transparent", "for the two above", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Visualisation (selected ship)", "General/ShipModelView", "Ship's 3D model", "for the two above", Kind.Choice, 0, 0, 0, true);
+            Fields[Fields.Count - 1].Options = new[] { "Show", "Translucent", "Hide" };
 
             Add(H, "Hull integrity", "HullIntegrity/Warships", "Warships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/CivilianShips", "Civilian ships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
@@ -177,7 +179,7 @@ namespace AlternativeDamageModel
         // (AdmPlugin.ReadSettings), same path as any other live settings change.
         static readonly HashSet<string> _liveGlobals = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "General/ShowDeckCorners", "General/ShowHullCollider", "General/HideShipModel",
+            "General/ShowDeckCorners", "General/ShowHullCollider", "General/ShipModelView",
         };
 
         static AdmPlugin P { get { return AdmPlugin.Instance; } }
@@ -889,6 +891,7 @@ namespace AlternativeDamageModel
             switch (f.Kind)
             {
                 case Kind.Bool: editor = BoolEditor(f, mark, out refresh); break;
+                case Kind.Choice: editor = ChoiceEditor(f, mark, out refresh); break;
                 case Kind.Table: editor = TableEditor(f, mark, out refresh); break;
                 default: editor = NumberEditor(f, mark, out refresh); break;
             }
@@ -952,6 +955,27 @@ namespace AlternativeDamageModel
             if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(f.Unit, CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
             refresh = () => box.Text = Get(f);
             return sp;
+        }
+
+        static FrameworkElement ChoiceEditor(Field f, Action mark, out Action refresh)
+        {
+            var cb = new ComboBox { Width = 150f, MinHeight = 24f, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
+            foreach (var o in f.Options) cb.Items.Add(o);
+            Func<int> index = () =>
+            {
+                string cur = Get(f).Trim();
+                for (int i = 0; i < f.Options.Length; i++) if (string.Equals(f.Options[i], cur, StringComparison.OrdinalIgnoreCase)) return i;
+                return 0;
+            };
+            cb.SelectedIndex = index();
+            cb.SelectionChanged += (o, e) =>
+            {
+                int i = cb.SelectedIndex;
+                if (i < 0 || i >= f.Options.Length || string.Equals(f.Options[i], Get(f).Trim(), StringComparison.OrdinalIgnoreCase)) return;
+                Set(f, f.Options[i]); mark();
+            };
+            refresh = () => cb.SelectedIndex = index();
+            return cb;
         }
 
         static FrameworkElement BoolEditor(Field f, Action mark, out Action refresh)

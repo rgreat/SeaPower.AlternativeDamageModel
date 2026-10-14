@@ -112,7 +112,7 @@ namespace AlternativeDamageModel
     {
         public static bool Model;                       // [General] ShowDeckCorners
         public static bool ShowCollider;                 // [General] ShowHullCollider
-        public static bool HideModel;                    // [General] HideShipModel
+        public static int ModelView;                     // [General] ShipModelView: 0 Show, 1 Translucent, 2 Hide
         public static Action<string> Trace = s => { };
         public static Action<string> Warn = s => { };
 
@@ -268,6 +268,8 @@ namespace AlternativeDamageModel
         static List<Renderer> _shipRenderers;
         static List<Material[]> _shipOrigMaterials;   // the game's own (shared) materials, put back exactly
         static List<Material[]> _shipGhostMaterials;  // our transparent copies, destroyed on restore
+        static List<bool> _shipWasEnabled;            // Hide: each renderer's own .enabled before it was forced off
+        static int _appliedView;                      // the mode the renderers are in now (0: untouched)
         static bool _hidingModel;
         const float GhostAlpha = 0.3f;                // 70 % transparent
 
@@ -326,11 +328,16 @@ namespace AlternativeDamageModel
             if (_hidingModel && _shipRenderers != null)
                 for (int i = 0; i < _shipRenderers.Count; i++)
                 {
-                    try { if (_shipRenderers[i] != null) _shipRenderers[i].sharedMaterials = _shipOrigMaterials[i]; } catch { }
-                    try { foreach (var m in _shipGhostMaterials[i]) if (m != null) UnityEngine.Object.Destroy(m); } catch { }
+                    try
+                    {
+                        if (_shipRenderers[i] == null) continue;
+                        if (_appliedView == 2) _shipRenderers[i].enabled = _shipWasEnabled[i];
+                        else _shipRenderers[i].sharedMaterials = _shipOrigMaterials[i];
+                    } catch { }
+                    try { if (_shipGhostMaterials[i] != null) foreach (var m in _shipGhostMaterials[i]) if (m != null) UnityEngine.Object.Destroy(m); } catch { }
                 }
-            _hidingModel = false;
-            _shipRenderers = null; _shipOrigMaterials = null; _shipGhostMaterials = null;
+            _hidingModel = false; _appliedView = 0;
+            _shipRenderers = null; _shipOrigMaterials = null; _shipGhostMaterials = null; _shipWasEnabled = null;
         }
 
         /// <summary>Standard-shader transparency (the way the game itself does it, OBJLoaderHelper.EnableMaterialTransparency) with alpha GhostAlpha.</summary>
@@ -356,10 +363,10 @@ namespace AlternativeDamageModel
         /// (ShowHullCollider) hangs under the same GameObject - its renderers (_colliderOverlays) are excluded.</summary>
         static void ApplyHideModel(bool alive)
         {
-            bool want = HideModel && alive;
-            if (want && _hidingModel && ++_hideCheck < 60) return;
+            int want = alive ? ModelView : 0;
+            if (want != 0 && _hidingModel && want == _appliedView && ++_hideCheck < 60) return;
             _hideCheck = 0;
-            if (want)
+            if (want != 0)
             {
                 GameObject go = ShipGameObject(_unit);
                 if (go == null) return;
@@ -370,28 +377,34 @@ namespace AlternativeDamageModel
                     if (r == null || !(r is MeshRenderer || r is SkinnedMeshRenderer) || _colliderOverlays.Contains(r.gameObject)) continue;
                     fresh.Add(r);
                 }
-                if (_hidingModel && _shipRenderers != null && _shipRenderers.Count == fresh.Count) return;   // nothing new
+                if (_hidingModel && want == _appliedView && _shipRenderers != null && _shipRenderers.Count == fresh.Count) return;   // nothing new
                 RestoreShipModel();
-                _shipRenderers = new List<Renderer>(); _shipOrigMaterials = new List<Material[]>(); _shipGhostMaterials = new List<Material[]>();
+                _shipRenderers = new List<Renderer>(); _shipOrigMaterials = new List<Material[]>(); _shipGhostMaterials = new List<Material[]>(); _shipWasEnabled = new List<bool>();
                 foreach (var r in fresh)
                 {
                     try
                     {
                         var orig = r.sharedMaterials;
-                        var ghost = new Material[orig.Length];
-                        for (int i = 0; i < orig.Length; i++)
+                        Material[] ghost = null;
+                        if (want == 1)
                         {
-                            if (orig[i] == null) continue;
-                            ghost[i] = new Material(orig[i]);
-                            MakeGhost(ghost[i]);
+                            ghost = new Material[orig.Length];
+                            for (int i = 0; i < orig.Length; i++)
+                            {
+                                if (orig[i] == null) continue;
+                                ghost[i] = new Material(orig[i]);
+                                MakeGhost(ghost[i]);
+                            }
+                            r.sharedMaterials = ghost;
                         }
-                        r.sharedMaterials = ghost;
+                        else { _shipWasEnabled.Add(r.enabled); r.enabled = false; }
+                        if (want == 1) _shipWasEnabled.Add(true);
                         _shipRenderers.Add(r); _shipOrigMaterials.Add(orig); _shipGhostMaterials.Add(ghost);
                     }
-                    catch (Exception e) { Trace("Ghost model: " + e.Message); }
+                    catch (Exception e) { Trace("Ship model view: " + e.Message); }
                 }
-                _hidingModel = true;
-                Trace("Deck corners: made " + _shipRenderers.Count + " renderer(s) of the selected ship's model transparent.");
+                _hidingModel = true; _appliedView = want;
+                Trace("Deck corners: " + (want == 1 ? "made " : "hid ") + _shipRenderers.Count + " renderer(s) of the selected ship's model" + (want == 1 ? " transparent." : "."));
             }
             else if (_hidingModel) RestoreShipModel();
         }

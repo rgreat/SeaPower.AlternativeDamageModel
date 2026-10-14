@@ -515,3 +515,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 * Вместо отключения MeshRenderer'ов (`DeckCorners.ApplyHideModel`): всем MeshRenderer/SkinnedMeshRenderer корабля (с подмоделями; кроме оверлея ShowHullCollider) ставятся копии материалов с прозрачностью Standard-шейдера (как игра в `OBJLoaderHelper.EnableMaterialTransparency`: _Mode 3, _SrcBlend 5, _DstBlend 10, _ZWrite 0, _ALPHABLEND_ON, очередь 3000) и альфой `_Color` = 0.3 (`GhostAlpha`).
   Игровые sharedMaterials запоминаются и возвращаются как были, копии уничтожаются; список рендереров пересматривается раз в ~60 кадров. Ключ [General] HideShipModel и его смысл («Debug») прежние, подпись в окне «Ship's 3D model 70% transparent».
 * Допущение: материалы кораблей — Standard-совместимые (есть _Color/_Mode); для другого шейдера прозрачность может не примениться (тогда модель выглядит как обычно).
+
+## 2026-10-14: ShipModelView — Show / Translucent / Hide
+* `[General] HideShipModel` (bool) заменён на `ShipModelView` (строка Show | Translucent | Hide, по умолчанию Show; старый ключ остаётся orphan'ом и игнорируется). В окне (Debug → Visualisation) — выпадающий список (`Kind.Choice`, `Field.Options`, `ChoiceEditor`), применяется сразу (`_liveGlobals`).
+* `DeckCorners.ModelView` 0/1/2: Translucent — копии материалов с альфой 0.3 (см. запись выше), Hide — `Renderer.enabled = false` с запоминанием прежнего `.enabled`; смена режима пересоздаёт состояние (`_appliedView`).

@@ -68,7 +68,8 @@ namespace AlternativeDamageModel
         static FieldInfo _fCompCount;
         static Dictionary<string, float> _perShip = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
-        ConfigEntry<bool> _debugEntry, _logShipsEntry, _logFiresEntry, _logHeelEntry, _uiEntry, _weaponColorEntry, _admEntry, _deckCornersEntry, _showHullEntry, _hideModelEntry, _fixTrimTcEntry;
+        ConfigEntry<bool> _debugEntry, _logShipsEntry, _logFiresEntry, _logHeelEntry, _uiEntry, _weaponColorEntry, _admEntry, _deckCornersEntry, _showHullEntry, _fixTrimTcEntry;
+        ConfigEntry<string> _shipViewEntry;
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
@@ -242,9 +243,9 @@ namespace AlternativeDamageModel
             _showHullEntry = Cfg.Bind("General", "ShowHullCollider", false,
                 "Debug: draws the selected ship's hull-only collider meshes (coll_hull*) as a translucent overlay plus " +
                 "a bright wireframe of their actual triangles, to compare against the visible 3D model directly.");
-            _hideModelEntry = Cfg.Bind("General", "HideShipModel", false,
-                "Debug: makes the selected ship's own 3D model (submodels too) 70% transparent, so ShowDeckCorners/ShowHullCollider " +
-                "can be seen without the real hull in the way.");
+            _shipViewEntry = Cfg.Bind("General", "ShipModelView", "Show",
+                "Debug: how the selected ship's own 3D model (submodels too) is drawn, so ShowDeckCorners/ShowHullCollider can be seen: " +
+                "Show (as in the game), Translucent (70% transparent) or Hide.");
             _fixTrimTcEntry = Cfg.Bind("General", "FixHighTimeCompressionTrimError", true,
                 "Fixes an error of the game itself: above 10x time compression a ship's trim grows with the time compression " +
                 "(a 25 m boat at 47 kn: 2.6 degrees up to 10x, 9 at 100x) - enough to send a short, fast, undamaged ship " +
@@ -765,7 +766,7 @@ namespace AlternativeDamageModel
             TrimFlooding.LogHeel = _logHeelEntry.Value;
             DeckCorners.Model = _deckCornersEntry.Value;
             DeckCorners.ShowCollider = _showHullEntry.Value;
-            DeckCorners.HideModel = _hideModelEntry.Value;
+            DeckCorners.ModelView = ParseShipView(_shipViewEntry.Value);
             _fixTrimTc = _fixTrimTcEntry.Value;
             _dumpXaml = HiddenBool("General", "DumpXaml");
             if (_dumpXaml) RequestXamlExport();
@@ -1702,6 +1703,13 @@ namespace AlternativeDamageModel
         }
 
         static bool _weaponColor;
+        static int ParseShipView(string v)
+        {
+            v = (v ?? "").Trim();
+            if (v.StartsWith("T", StringComparison.OrdinalIgnoreCase)) return 1;
+            if (v.StartsWith("H", StringComparison.OrdinalIgnoreCase)) return 2;
+            return 0;
+        }
         static bool UiActive { get { return _uiReady && _uiOn && Enabled; } }
 
         static void TabCreated(object __instance)
