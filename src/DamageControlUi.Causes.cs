@@ -89,7 +89,7 @@ namespace AlternativeDamageModel
             if (doing.Count > 0) return Who(doing) + " " + verb;
             if (busy != null && busy.Count > 0) return "Busy: " + Who(busy) + " " + busyWith + " first";
             if (inSec > 0) return null;   // a team here busy with something else does not change this value: nothing to say
-            return Coming(comp, i) > 0 ? "Team on its way" : "No team here";
+            return Coming(comp, i) > 0 ? "Team on its way" : null;   // nobody here: nothing to say
         }
 
         // ------------------------------------------------------------ flooding

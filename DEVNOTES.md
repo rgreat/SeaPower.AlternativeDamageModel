@@ -560,3 +560,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: убрана строка «Team busy with other work»
 * `OnIt`: команда в секции, занятая другим делом, ничего не меняет в этой величине — строка не выводится (остаются «DCn …», «Busy: DCn fire first» — это влияет, «Team on its way», «No team here»).
+
+## 2026-10-15: убрана строка «No team here»
+* `OnIt`: при отсутствии команд в секции строка не выводится (остаётся «Team on its way», если команда идёт).
