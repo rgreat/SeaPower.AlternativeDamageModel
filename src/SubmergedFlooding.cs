@@ -40,6 +40,7 @@ namespace AlternativeDamageModel
             public float[] Got;        // %/s received as overflow from others
             public int[] GotFrom;      // compartment it comes from (the last one), -1 none
             public int[] PassedTo;     // where this full compartment's water goes now, -1 none
+            public bool Deep;                    // a destroyed ship with all its deck points under water: no more wave sampling
             public float Zc;                     // mean z of the compartments (the pitch axis)
             public float[] M;                    // last Margins: list to port, to starboard, trim to the stern, to the bow (degrees at which the first point touches)
             public float ListTouch, TrimTouch;   // degrees of list / trim at which the first deck point touches the flat sea (0 = unknown)
@@ -317,7 +318,7 @@ namespace AlternativeDamageModel
                     var fc = Fc(comp, n, k);
                     worldY[k] = ltw.MultiplyPoint3x4(s.P.Points[s.Map[k]]).y;
                     float water = (float)_fWater.GetValue(fc);
-                    if (destroyed)
+                    if (destroyed && !s.Deep)
                     {
                         // the game stops sampling the waves for a destroyed ship (Compartments' wave job skips IsDestroyed): its water level stays as it was
                         // at the moment of destruction - take the wave at the point ourselves
@@ -329,6 +330,12 @@ namespace AlternativeDamageModel
                     s.Depth[k] = depth;
                     s.Under[k] = depth > 0f ? s.Under[k] + dt : 0f;
                     s.Got[k] = 0f; s.GotFrom[k] = -1; s.PassedTo[k] = -1; s.Own[k] = 0f;
+                }
+                if (destroyed && !s.Deep)
+                {
+                    bool all = true;
+                    for (int k = 0; k < total && all; k++) all = s.Depth[k] > 0f;
+                    if (all) { s.Deep = true; Trace("SubmergedFlooding: destroyed ship is under water, wave sampling off"); }
                 }
                 if (Rate <= 0f) return;
                 for (int k = 0; k < total; k++)
