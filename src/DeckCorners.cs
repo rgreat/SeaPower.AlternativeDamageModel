@@ -916,6 +916,7 @@ namespace AlternativeDamageModel
 
             List<Tri> tris;
             bool haveMesh = TryHullTriangles(shipT, hull, out tris);
+            PointsExact = haveMesh;
 
             Func<float, Vector3> port = z =>
             {
@@ -974,6 +975,9 @@ namespace AlternativeDamageModel
 
         static GameObject _root;
         static LineRenderer[] _lines;
+        /// <summary>The selected ship's points come from the full (mesh) algorithm; false: the ray-cast fallback (unreadable collider meshes).</summary>
+        public static bool PointsExact;
+        static readonly Color CCollExact = new Color(0.2f, 0.85f, 1f, 0.2f), CCollFallback = new Color(1f, 0.55f, 0.1f, 0.2f);
         static readonly Color CDry = new Color(0.3f, 1f, 0.4f), CWet = new Color(1f, 0.25f, 0.2f);
 
         /// <summary>(Re)builds the pool of per-point LineRenderers to match count, which is always PointCount (10)
@@ -1032,10 +1036,10 @@ namespace AlternativeDamageModel
             {
                 Shader sh = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color") ?? Shader.Find("Hidden/Internal-Colored");
                 _colliderMat = sh != null ? new Material(sh) : null;
-                if (_colliderMat != null) _colliderMat.color = new Color(0.2f, 0.85f, 1f, 0.35f);
                 _wireMat = sh != null ? new Material(sh) : null;
                 if (_wireMat != null) _wireMat.color = new Color(1f, 1f, 0.15f, 0.95f);   // bright yellow, near-opaque
             }
+            if (_colliderMat != null) _colliderMat.color = PointsExact ? CCollExact : CCollFallback;   // orange: the points of this ship are the fallback ones
             foreach (var mc in _hullPieces)
             {
                 Mesh mesh = SharedMesh(mc);
