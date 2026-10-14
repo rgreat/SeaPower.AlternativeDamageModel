@@ -580,3 +580,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: SinkPullSurface отменён
 * Тяга от поверхности (`SinkPullSurface`, заменявшая `SinkPullRamp`) отменена по решению пользователя: предыдущая правка (WreckDrag только по горизонтали) уже починила погружение. Код `SinkPull`, настройки и профили — как до неё (`SinkPullFactor`, `SinkPullRamp`). Факты, найденные при разборе, остаются верными: игровая тяга включается при `y < −2` ед. (134 м); `MaxFloodingValueWhenSinking = 1.05` (не 2), `Density` 0.5/0.45, drag 25.
+
+## 2026-10-15: SinkPull удалён совсем
+* По решению пользователя («большая глубина не интересна») удалены `SinkPull.cs`, ключи `[Sinking] SinkPullFactor` / `SinkPullRamp` (из `AdmPlugin`, окна, профилей; старые ключи в пользовательских .cfg просто не используются), вызов из `TeamTickPrefix`. Игровая тяга вниз (при `y < −2` ед. = 134 м) работает как в игре. README: строка про тягу заменена описанием WreckDrag (горизонталь). Записи выше про SinkPull — история.

@@ -60,7 +60,7 @@ namespace AlternativeDamageModel
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkRampEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _warTeamsEntry, _subTeamsEntry, _civTeamsEntry;
@@ -373,12 +373,6 @@ namespace AlternativeDamageModel
             _keepComEntry = Pcfg.Bind("Sinking", "KeepCentreOfMass", true,
                 "When a ship starts to sink the game puts its centre of mass at the hull origin ((0, 1, 0) if it has capsized): the centre of mass jumps, and with it " +
                 "every torque on the hull. On = the centre of mass stays where it was (with CapsizeFactor: where the water in the ship has raised it). Off = as in the game.");
-            _sinkPullEntry = Pcfg.Bind("Sinking", "SinkPullFactor", new Factor(0.5f),
-                "The game pulls a sinking ship down once its origin is deeper than y = -2 (Unity units): an acceleration that grows with depth (1 per unit of depth, " +
-                "up to 10 at y = -12). This scales the maximum of that pull: 1 = as in the game, 0 = no pull (the ship sinks only by its own weight).");
-            _sinkRampEntry = Pcfg.Bind("Sinking", "SinkPullRamp", new Factor(0f),
-                "The depth (Unity units below y = -2) over which that pull grows to its maximum, smoothly (no kink at either end). The game: 10 and a straight line. " +
-                "More = the pull builds up slower and softer. 0 = the game's.");
             _wreckDragEntry = Pcfg.Bind("Sinking", "WreckDragFactor", new Factor(5f),
                 "Resistance to the HORIZONTAL movement of a destroyed ship, times the game's linear drag (25 for nearly every ship): the wreck loses its way sooner. " +
                 "1 = as in the game. Sinking (vertical movement) and turning (capsizing) are not slowed.");
@@ -810,8 +804,6 @@ namespace AlternativeDamageModel
             CapsizeFix.Factor = Math.Max(0f, _capsizeEntry.Value.V);
             BubblesOff.Minutes = Math.Max(0f, _bubblesEntry.Value.V);
             CapsizeFix.KeepCom = _keepComEntry.Value;
-            SinkPull.Factor = Math.Max(0f, _sinkPullEntry.Value.V);
-            SinkPull.Ramp = Math.Max(0f, _sinkRampEntry.Value.V);
             WreckDrag.Factor = Math.Max(0f, _wreckDragEntry.Value.V);
             SubmergedFlooding.Rate = 0.1f * Math.Max(0f, _deckFloodSpeedEntry.Value.V);   // 1.0 = 0.1 % per second per metre
             TrimFlooding.Imbalance = 1f;   // FloodImbalanceEffect is switched off (hidden in the settings) until reworked; the key is still read so old profiles load
@@ -1197,7 +1189,7 @@ namespace AlternativeDamageModel
             DcTeams.Trace = Trace;
             if (tComp != null && DcTeams.Init(asm))
             {
-                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; BubblesOff.Trace = Trace; BubblesOff.IsEnabled = () => Model; SinkPull.Trace = Trace; SinkPull.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
+                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; BubblesOff.Trace = Trace; BubblesOff.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
                 SettingsWindow.Warn = Warn; SettingsWindow.Info = Say;
                 if (!DcAuto.Init(asm)) Warn("Optimised Auto DC: game members not found; the game's Auto DC is used.");
                 DcControl.StayWhenIdle = c => DcAuto.Ok && DcTeams.TransfersOn && DcTeams.Active(c) && DcAuto.AnyWork(c);
@@ -1949,7 +1941,7 @@ namespace AlternativeDamageModel
         static void WreckDragPostfix(object __instance) { WreckDrag.Tick(__instance); }
         static void SinkComPrefix(object __instance, out object __state) { __state = CapsizeFix.BeforeSink(__instance); }
         static void SinkComPostfix(object __instance, object __state) { CapsizeFix.AfterSink(__instance, __state); }
-        static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); CapsizeFix.Tick(__instance); BubblesOff.Tick(__instance); SinkPull.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
+        static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); CapsizeFix.Tick(__instance); BubblesOff.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
 
         public static float TeamEffMul(float v) { return DcTeams.Eff(v); }
 
