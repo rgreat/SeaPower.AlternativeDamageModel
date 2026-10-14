@@ -75,8 +75,18 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>List: the dial's full scale; its red zone (faster flooding) from 75%.</summary>
-        static float ListScale(object comp) { return ModelOn() ? Limits.ListFull : 45f / Limits.FloodFrom; }
-        static float TrimScale(object comp) { return ModelOn() ? Limits.Trim(DcTeams.ShipLength(comp)) : 8f / Limits.FloodFrom; }
+        static float ListScale(object comp)
+        {
+            float l, t;   // ships with exact deck points: the red zone starts where a deck point touches the flat sea
+            if (ModelOn() && SubmergedFlooding.TouchAngles(comp, out l, out t)) return l / Limits.FloodFrom;
+            return ModelOn() ? Limits.ListFull : 45f / Limits.FloodFrom;
+        }
+        static float TrimScale(object comp)
+        {
+            float l, t;
+            if (ModelOn() && SubmergedFlooding.TouchAngles(comp, out l, out t)) return t / Limits.FloodFrom;
+            return ModelOn() ? Limits.Trim(DcTeams.ShipLength(comp)) : 8f / Limits.FloodFrom;
+        }
         /// <summary>Water in the ship (% of the hull) at which it sinks.</summary>
         public static float SinkAt(object comp) { return IsSub(comp) ? 50f : ModelOn() ? Limits.LevelFull : 40f; }
 

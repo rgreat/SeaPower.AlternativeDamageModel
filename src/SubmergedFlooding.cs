@@ -40,6 +40,7 @@ namespace AlternativeDamageModel
             public float[] Got;        // %/s received as overflow from others
             public int[] GotFrom;      // compartment it comes from (the last one), -1 none
             public int[] PassedTo;     // where this full compartment's water goes now, -1 none
+            public float ListTouch, TrimTouch;   // degrees of list / trim at which the first deck point touches the flat sea (0 = unknown)
         }
         static readonly ConditionalWeakTable<object, State> States = new ConditionalWeakTable<object, State>();
 
@@ -96,9 +97,55 @@ namespace AlternativeDamageModel
                 }
             }
             for (int k = 0; k < 2 * n; k++) if (s.Map[k] < 0) { States.Add(comp, new State()); return null; }
+            try { Touch(s, port, star); } catch (Exception e) { Trace("SubmergedFlooding.Touch: " + e.Message); }
             States.Add(comp, s);
             Trace("SubmergedFlooding: " + (2 * n) + " compartments matched to deck points");
             return s;
+        }
+
+        /// <summary>
+        /// The list and the trim at which a deck point first touches the flat sea (no waves) - where the red zones of the LIST / TRIM
+        /// gauges start. The ship's rest waterline is where the game puts the compartments (their local y: TrimDepth, TrimAngle);
+        /// freeboard f = the point's height above it. The ship turns about the waterline at the centreline (list) / at the middle of the
+        /// compartments (trim): a point at distance d from the axis touches the sea at tan(angle) = f / d. The least angle over all points.
+        /// </summary>
+        static void Touch(State s, Array port, Array star)
+        {
+            int n = s.Count;
+            var pos = new Vector3[2 * n]; var ok = new bool[2 * n];
+            float zc = 0f; int cnt = 0;
+            for (int k = 0; k < 2 * n; k++)
+            {
+                var go = _fObject.GetValue((k < n ? port : star).GetValue(k % n)) as GameObject;
+                if (go == null) continue;
+                pos[k] = go.transform.localPosition; ok[k] = true; zc += pos[k].z; cnt++;
+            }
+            if (cnt == 0) return;
+            zc /= cnt;
+            double list = 90.0, trim = 90.0;
+            for (int k = 0; k < 2 * n; k++)
+            {
+                if (!ok[k]) continue;
+                Vector3 p = s.P.Points[s.Map[k]];
+                float f = p.y - pos[k].y;
+                float dx = Mathf.Abs(p.x), dz = Mathf.Abs(p.z - zc);
+                if (dx > 1e-4f) list = Math.Min(list, Math.Atan2(f, dx) * 180.0 / Math.PI);
+                if (dz > 1e-4f) trim = Math.Min(trim, Math.Atan2(f, dz) * 180.0 / Math.PI);
+            }
+            s.ListTouch = (float)Math.Max(1.0, Math.Min(60.0, list));
+            s.TrimTouch = (float)Math.Max(0.5, Math.Min(30.0, trim));
+            Trace("SubmergedFlooding: deck points touch the flat sea at list " + s.ListTouch.ToString("0.0") + ", trim " + s.TrimTouch.ToString("0.0"));
+        }
+
+        /// <summary>The touch angles of this ship (see Touch) when it floods by the deck-edge rule; false otherwise.</summary>
+        public static bool TouchAngles(object comp, out float list, out float trim)
+        {
+            list = trim = 0f;
+            if (!Covers(comp)) return false;
+            var s = Get(comp);
+            if (s == null || s.ListTouch <= 0f || s.TrimTouch <= 0f) return false;
+            list = s.ListTouch; trim = s.TrimTouch;
+            return true;
         }
 
         /// <summary>True when this ship floods over the deck edge by this file's rule (exact deck points, rule on): the old list / trim

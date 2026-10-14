@@ -162,6 +162,11 @@ namespace AlternativeDamageModel
             string lim;
             float L = DcTeams.ShipLength(comp);
             if (IsSub(comp)) lim = "Submarine: list and trim flood nothing";
+            else if (ModelOn() && SubmergedFlooding.Covers(comp))
+            {
+                float tl, tt; SubmergedFlooding.TouchAngles(comp, out tl, out tt);
+                lim = "Deck edge touches the sea at list " + tl.ToString("0.#", CultureInfo.InvariantCulture) + "° · trim " + tt.ToString("0.0", CultureInfo.InvariantCulture) + "° (red zones)";
+            }
             else if (ModelOn())
                 lim = "List limit " + Limits.ListFull.ToString("0.#", CultureInfo.InvariantCulture) + "° · Trim limit " +
                       Limits.Trim(L).ToString("0.0", CultureInfo.InvariantCulture) + "°" + (L > 0f ? " (" + L.ToString("0", CultureInfo.InvariantCulture) + " m)" : "") +
