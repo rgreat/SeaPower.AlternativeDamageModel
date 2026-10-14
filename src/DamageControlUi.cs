@@ -181,7 +181,7 @@ namespace AlternativeDamageModel
             public float Now;                     // real time of this tick
             public object Vm, Comp;               // the unit shown now: the tab is reused when another unit is selected
             public Border AutoCard; public UIElement AutoContent; public Panel AutoStack;   // AutoStack: our panel it is in
-            public Image Picture; public float PictureMaxW, PictureMaxH; public Thickness PictureMargin;   // the ship's profile, made bigger   // the game's Auto DC card and its content, moved into ours
+            public Image Picture; public bool PicFitted; public float PictureMaxW, PictureMaxH; public Thickness PictureMargin;   // the ship's profile, made bigger   // the game's Auto DC card and its content, moved into ours
             public bool Ok, Dumped;
             public float NextDiscover;
             public int Fails;
@@ -666,7 +666,6 @@ namespace AlternativeDamageModel
             RenderHelp(comp, st);
             RenderTabHeader(st);
             RenderPriority(comp, st);
-            FitPicture(st);
             if (st.X != null)
                 try
                 {
@@ -674,6 +673,7 @@ namespace AlternativeDamageModel
                     for (int k = 0; k < names.Length; k++) names[k] = st.Cols[k].HeaderOrig;
                     RenderExtras(comp, st.Vm, st.X, names);
                 } catch (Exception e) { Trace("RenderExtras: " + e.Message); }
+            FitPicture(st);   // after the cards got their content
         }
 
         // ------------------------------------------------------------ "DC Priority" card (Auto / Fire / Flooding)
@@ -742,7 +742,7 @@ namespace AlternativeDamageModel
                     {
                         var img = VisualTreeHelper.GetChild(host, k) as Image;
                         if (img == null) continue;
-                        st.Picture = img; st.PictureMaxW = img.MaxWidth; st.PictureMaxH = img.MaxHeight; st.PictureMargin = img.Margin;
+                        st.Picture = img; st.PicFitted = false; st.PictureMaxW = img.MaxWidth; st.PictureMaxH = img.MaxHeight; st.PictureMargin = img.Margin;
                         img.MaxWidth = PictureMaxWidth;
                         img.MaxHeight = PictureMaxHeight;
                         img.Margin = new Thickness(img.Margin.Left, PictureLift, img.Margin.Right, img.Margin.Bottom);
@@ -796,6 +796,7 @@ namespace AlternativeDamageModel
 
                 try { st.X = AddExtras(view, grid, host, card, all); } catch (Exception e) { Trace("extras: " + e.Message); }
                 SyncPriority(buttons, DcControl.GetMode(comp));
+                FitPicture(st);   // before the first frame: the picture is not shown at its 300 px limit and then pulled in
             }
             catch (Exception e) { Trace("priority card: " + e.Message); }
         }
@@ -816,6 +817,8 @@ namespace AlternativeDamageModel
             if (img == null) return;
             try
             {
+                // the first time: measure the cards now (the layout pass would come after the first frame - the picture row jumped then)
+                if (!st.PicFitted) try { img.UpdateLayout(); } catch { }
                 float need = 0f;
                 foreach (var card in new[] { st.Priority, st.X != null ? st.X.ListCard : null })
                 {
@@ -828,6 +831,7 @@ namespace AlternativeDamageModel
                 // the cards start SideTop below the row's top; the picture PictureLift (+ its bottom margin)
                 float max = Math.Min(PictureMaxHeight, need + SideTop - PictureLift - img.Margin.Bottom);
                 if (Math.Abs(img.MaxHeight - max) > 0.5f) img.MaxHeight = max;
+                if (!st.PicFitted) { st.PicFitted = true; try { img.UpdateLayout(); } catch { } }
             }
             catch (Exception e) { Trace("FitPicture: " + e.Message); }
         }
