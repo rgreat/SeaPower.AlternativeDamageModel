@@ -540,3 +540,8 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 * Из `DeckCorners` убран рейкаст-путь целиком (Collider.Raycast через рефлексию, активация/восстановление коллайдеров, `DeckCornerAtRay`, `CentreHeightAtRay`, `TopAt`, `HeightAtMesh`, `TryEdgeMesh`). Остался только точный алгоритм по мешу (`TryHullTriangles` + `DeckCornerAtMesh`).
 * Корабль с нечитаемым мешем (isReadable = false, напр. civ_ms_andizhan) точек не получает: `PointsExact = false`, `_points = null`, оверлей Hull Collider оранжевый, затопление идёт по старым правилам. Запись про цвет выше: «оранжевый» = «точек нет», не «рейкаст».
 * Открыто: новое правило затопления «через борт» для кораблей с точными точками не задано; точки пока считаются только для выбранного корабля.
+
+## 2026-10-14: чтение нечитаемых коллайдерных мешей из GPU
+* Меш с `isReadable == false` (Read/Write выключен при импорте; civ_ms_andizhan) больше не отключает точки: `TryGpuMesh` берёт `Mesh.GetVertexBuffer/GetIndexBuffer` и читает их через `AsyncGPUReadback` (синхронно, `WaitForCompletion`, один раз при выборе корабля). Меш в GPU есть — его рисует оверлей Hull Collider. DX11 и DX12 readback поддерживают.
+* Поддержано: позиции Float32, подмеши-треугольники (с `baseVertex`), индексы 16/32 бит. Прочее (или ошибка readback) — как раньше: точек нет, `PointsExact = false`, оранжевый оверлей, старые правила. Результат пишется в trace: `GPU read of '<mesh>': N vertices, M triangles` — по нему проверять на andizhan.
+* Визуальный (рендер) меш как источник отвергнут: включает надстройки, палубный угол определится неверно.

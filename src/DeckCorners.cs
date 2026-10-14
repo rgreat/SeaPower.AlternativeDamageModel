@@ -40,9 +40,9 @@ namespace AlternativeDamageModel
     /// nothing is guessed from unrelated geometry.
     ///
     /// Height and the port/starboard edge are found directly from the hull colliders' own mesh data (TryHullTriangles),
-    /// which puts a point exactly on the collider's real edge. There is no approximate fallback: a ship whose hull
-    /// meshes have Read/Write disabled (isReadable == false; seen for civ_ms_andizhan) gets no points at all, keeps
-    /// the old flooding rules and shows an orange Hull Collider overlay.
+    /// which puts a point exactly on the collider's real edge. There is no approximate fallback. A mesh with Read/Write
+    /// disabled (isReadable == false; seen for civ_ms_andizhan) is read back from the GPU buffers (TryGpuMesh); if
+    /// that fails too, the ship gets no points, keeps the old flooding rules and shows an orange Hull Collider overlay.
     ///
     /// The right edge isn't "the widest point of the cross-section" (a bulge below the waterline reads too low) nor
     /// "the highest point" (deck camber pulls it inboard). It is the corner where the two meet, found in two passes
@@ -458,9 +458,8 @@ namespace AlternativeDamageModel
         struct Tri { public Vector3 A, B, C; }
 
         /// <summary>Every hull piece's own triangles, transformed once into shipT's local space - true, exact mesh
-        /// geometry, so DeckCornerAtMesh can put a point exactly on the collider's own real edge. Needs mesh.vertices/mesh.triangles, which throws on a mesh with Read/Write disabled
-        /// in its import settings (confirmed for civ_ms_andizhan's hull collider) - so this is all-or-nothing for
-        /// the whole ship: any unreadable hull piece means no points for this ship.</summary>
+        /// geometry, so DeckCornerAtMesh can put a point exactly on the collider's own real edge. A mesh with Read/Write off is read back from the GPU (TryGpuMesh); this is all-or-nothing for
+        /// the whole ship: any hull piece that cannot be read means no points for this ship.</summary>
         static bool TryHullTriangles(Transform shipT, List<Component> hull, out List<Tri> tris)
         {
             tris = new List<Tri>();
@@ -469,17 +468,21 @@ namespace AlternativeDamageModel
             {
                 Mesh mesh = SharedMesh(mc);
                 if (mesh == null) continue;
-                // Unity does not throw on an unreadable mesh: it writes an ERROR to the game's own log and hands back
-                // an empty array - so ask first (isReadable), keep the game's log clean, and log it only here.
-                if (!mesh.isReadable)
+                Vector3[] v = null; int[] t = null;
+                // An unreadable mesh (Read/Write off) still lives in the GPU (the overlay draws it): read its buffers back.
+                // CPU access to such a mesh makes Unity write an ERROR to the game's log, so ask first (isReadable).
+                if (mesh.isReadable)
+                {
+                    try { v = mesh.vertices; t = mesh.triangles; }
+                    catch (Exception e) { Trace("Deck corners TryHullTriangles (mesh read failed): " + e.Message); }
+                }
+                else if (!TryGpuMesh(mesh, out v, out t))
                 {
                     if (_warnedOnce.Add("unreadable:" + mesh.name))
-                        Warn("Deck corners: hull mesh '" + mesh.name + "' is not readable (Read/Write off); no deck points for this ship (old flooding rules).");
+                        Warn("Deck corners: hull mesh '" + mesh.name + "' is not readable and the GPU read-back failed; no deck points for this ship (old flooding rules).");
                     tris = null; return false;
                 }
-                Vector3[] v; int[] t;
-                try { v = mesh.vertices; t = mesh.triangles; }
-                catch (Exception e) { Trace("Deck corners TryHullTriangles (mesh not readable): " + e.Message); tris = null; return false; }
+                if (v == null || t == null) { tris = null; return false; }
                 if (v.Length == 0 || t.Length == 0) { tris = null; return false; }
                 Matrix4x4 m = worldToShip * mc.transform.localToWorldMatrix;
                 var lv = new Vector3[v.Length];
@@ -488,6 +491,64 @@ namespace AlternativeDamageModel
                     tris.Add(new Tri { A = lv[t[i]], B = lv[t[i + 1]], C = lv[t[i + 2]] });
             }
             return true;
+        }
+
+        /// <summary>Reads positions and triangle indices of a mesh with Read/Write off straight from its GPU buffers
+        /// (Mesh.GetVertexBuffer/GetIndexBuffer + AsyncGPUReadback, waited for synchronously - once per ship selection).
+        /// Only Float32 positions and triangle-list submeshes are handled.</summary>
+        static bool TryGpuMesh(Mesh mesh, out Vector3[] verts, out int[] tris)
+        {
+            verts = null; tris = null;
+            GraphicsBuffer vb = null, ib = null;
+            try
+            {
+                if (!mesh.HasVertexAttribute(UnityEngine.Rendering.VertexAttribute.Position)) return false;
+                if (mesh.GetVertexAttributeFormat(UnityEngine.Rendering.VertexAttribute.Position) != UnityEngine.Rendering.VertexAttributeFormat.Float32) { Trace("GPU read: position format is not Float32 in '" + mesh.name + "'"); return false; }
+                int stream = mesh.GetVertexAttributeStream(UnityEngine.Rendering.VertexAttribute.Position);
+                int offset = mesh.GetVertexAttributeOffset(UnityEngine.Rendering.VertexAttribute.Position);
+                int stride = mesh.GetVertexBufferStride(stream);
+                int count = mesh.vertexCount;
+                vb = mesh.GetVertexBuffer(stream);
+                byte[] vbytes = ReadBack(vb);
+                if (vbytes == null || vbytes.Length < (long)count * stride) { Trace("GPU read: vertex buffer of '" + mesh.name + "' too small / unreadable"); return false; }
+                verts = new Vector3[count];
+                for (int i = 0; i < count; i++)
+                {
+                    int p = i * stride + offset;
+                    verts[i] = new Vector3(BitConverter.ToSingle(vbytes, p), BitConverter.ToSingle(vbytes, p + 4), BitConverter.ToSingle(vbytes, p + 8));
+                }
+                bool idx32 = mesh.indexFormat == UnityEngine.Rendering.IndexFormat.UInt32;
+                ib = mesh.GetIndexBuffer();
+                byte[] ibytes = ReadBack(ib);
+                if (ibytes == null) { Trace("GPU read: index buffer of '" + mesh.name + "' unreadable"); return false; }
+                var list = new List<int>();
+                for (int s = 0; s < mesh.subMeshCount; s++)
+                {
+                    var sm = mesh.GetSubMesh(s);
+                    if (sm.topology != MeshTopology.Triangles) continue;
+                    for (int k = 0; k < sm.indexCount; k++)
+                    {
+                        int pos = (sm.indexStart + k) * (idx32 ? 4 : 2);
+                        if (pos + (idx32 ? 4 : 2) > ibytes.Length) return false;
+                        int ix = idx32 ? BitConverter.ToInt32(ibytes, pos) : BitConverter.ToUInt16(ibytes, pos);
+                        list.Add(ix + sm.baseVertex);
+                    }
+                }
+                foreach (int ix in list) if (ix < 0 || ix >= count) { Trace("GPU read: index out of range in '" + mesh.name + "'"); return false; }
+                tris = list.ToArray();
+                Trace("GPU read of '" + mesh.name + "': " + count + " vertices, " + (tris.Length / 3) + " triangles");
+                return tris.Length > 0;
+            }
+            catch (Exception e) { Trace("GPU read of '" + mesh.name + "' failed: " + e.Message); return false; }
+            finally { if (vb != null) vb.Dispose(); if (ib != null) ib.Dispose(); }
+        }
+
+        static byte[] ReadBack(GraphicsBuffer src)
+        {
+            var req = UnityEngine.Rendering.AsyncGPUReadback.Request(src);
+            req.WaitForCompletion();
+            if (req.hasError) return null;
+            return req.GetData<byte>().ToArray();
         }
 
         // scratch lists reused by DeckCornerAtMesh - this runs only once per ship selection, not per frame
