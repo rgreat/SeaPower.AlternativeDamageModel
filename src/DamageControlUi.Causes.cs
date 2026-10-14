@@ -122,8 +122,8 @@ namespace AlternativeDamageModel
                 if (leak > 0f)
                 {
                     // the game: water += leak rate x 0.5 x the flooding speed per second (faster while sinking)
-                    float inflow = AdmPlugin.FloodingMul(1f) * leak * 0.5f;
-                    Line(up, "Hole leak " + R(leak) + ": " + (faster ? "faster, " : "") + "+" + R(inflow) + "%/s");
+                    float mul = AdmPlugin.FloodingMul(1f), inflow = mul * leak * 0.5f;
+                    Line(up, "Hole leak: +" + R(inflow) + "%/s  (intensity " + R(leak) + " \u00d7 0.5" + (Math.Abs(mul - 1f) > 0.001f ? " \u00d7 " + R(mul) + " \"Water coming in\"" : "") + (faster ? ", sinking: faster" : "") + ")");
                     Line(up, OnIt(comp, i, plugging, "plugging (stops the leak)", inSec, fighting, "fire"));
                 }
                 else if (leakOther > 0f && plugging.Count > 0) Line(up, Who(plugging) + " plugging the other side");
@@ -149,9 +149,14 @@ namespace AlternativeDamageModel
                     Line(down, Who(pumping) + " pumping out: " + (now ? "\u2212" + R(pumping.Count * perTeam) + "%/s" : "after the other side"));
                 }
                 else if (delta > 1e-4f) Line(down, OnIt(comp, i, pumping, "pumping out", inSec, null, ""));
-                if (plugging.Count > 0 && DcControl.LeakPump > 0f && delta > 1e-4f && (port ? delta >= deltaOther : delta > deltaOther))
-                    Line(down, Who(plugging) + " also pump while plugging: \u2212" + R(plugging.Count * perTeam * DcControl.LeakPump) + "%/s");
-                if (delta <= 1e-4f) Line(down, "No water to pump out (at its minimum)");
+                if (plugging.Count > 0 && DcControl.LeakPump > 0f)
+                {
+                    if (delta > 1e-4f && (port ? delta >= deltaOther : delta > deltaOther))
+                        Line(down, Who(plugging) + " also pump while plugging: \u2212" + R(plugging.Count * perTeam * DcControl.LeakPump) + "%/s");
+                    else if (delta > 1e-4f) Line(down, Who(plugging) + " also pump while plugging: after the other side");
+                    else Line(down, Who(plugging) + " pump while plugging, but there is nothing to pump");
+                }
+                if (delta <= 1e-4f) Line(down, "Nothing to pump out: a damaged hull keeps water (minimum = half of the hull damage)");
                 if (leak > 0f && !faster && rate < 0f) Line(down, "Pumping is faster than the leak");
 
                 var sb = new StringBuilder((port ? "Port" : "Starboard") + ": " + Pc(water) + ", " + Rate(rate));
