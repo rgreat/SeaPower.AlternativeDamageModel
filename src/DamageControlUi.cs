@@ -1327,7 +1327,13 @@ namespace AlternativeDamageModel
                     {
                         var kid = d.Kids[i];
                         if (kid == null) continue;
-                        if (kid.Text != n.Text) kid.Text = n.Text;
+                        if (kid.Text != n.Text)
+                        {
+                            bool wider = kid.Text == null || kid.Text.Length != n.Text.Length;
+                            kid.Text = n.Text;
+                            // the row's line layout does not follow a change of an inline box's width by itself: the next pieces then stood on top of it
+                            if (wider) { try { kid.InvalidateMeasure(); tb.InvalidateMeasure(); tb.InvalidateArrange(); } catch { } }
+                        }
                         if (n.Col.HasValue && !o.Col.Equals(n.Col)) kid.Foreground = new SolidColorBrush(n.Col.Value);
                         continue;
                     }
