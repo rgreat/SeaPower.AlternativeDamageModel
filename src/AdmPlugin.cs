@@ -60,7 +60,7 @@ namespace AlternativeDamageModel
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkSurfaceEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkRampEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _warTeamsEntry, _subTeamsEntry, _civTeamsEntry;
@@ -376,10 +376,9 @@ namespace AlternativeDamageModel
             _sinkPullEntry = Pcfg.Bind("Sinking", "SinkPullFactor", new Factor(0.5f),
                 "The game pulls a sinking ship down once its origin is deeper than y = -2 (Unity units): an acceleration that grows with depth (1 per unit of depth, " +
                 "up to 10 at y = -12). This scales the maximum of that pull: 1 = as in the game, 0 = no pull (the ship sinks only by its own weight).");
-            _sinkSurfaceEntry = Pcfg.Bind("Sinking", "SinkPullSurface", new Factor(0.5f),
-                "The game's pull of a sinking ship starts only 134 m down (y = -2 Unity units), so a ship full of water just sits on the surface, deck awash, and goes down only by " +
-                "its leftover buoyancy. This is a pull from the surface: an acceleration of 10 x this value, growing smoothly with how deep the ship's buoyancy points are in the water " +
-                "(none while it floats normally, full when they are under water). 0 = none, as in the game.");
+            _sinkRampEntry = Pcfg.Bind("Sinking", "SinkPullRamp", new Factor(0f),
+                "The depth (Unity units below y = -2) over which that pull grows to its maximum, smoothly (no kink at either end). The game: 10 and a straight line. " +
+                "More = the pull builds up slower and softer. 0 = the game's.");
             _wreckDragEntry = Pcfg.Bind("Sinking", "WreckDragFactor", new Factor(5f),
                 "Resistance to the HORIZONTAL movement of a destroyed ship, times the game's linear drag (25 for nearly every ship): the wreck loses its way sooner. " +
                 "1 = as in the game. Sinking (vertical movement) and turning (capsizing) are not slowed.");
@@ -812,7 +811,7 @@ namespace AlternativeDamageModel
             BubblesOff.Minutes = Math.Max(0f, _bubblesEntry.Value.V);
             CapsizeFix.KeepCom = _keepComEntry.Value;
             SinkPull.Factor = Math.Max(0f, _sinkPullEntry.Value.V);
-            SinkPull.Surface = Math.Max(0f, _sinkSurfaceEntry.Value.V);
+            SinkPull.Ramp = Math.Max(0f, _sinkRampEntry.Value.V);
             WreckDrag.Factor = Math.Max(0f, _wreckDragEntry.Value.V);
             SubmergedFlooding.Rate = 0.1f * Math.Max(0f, _deckFloodSpeedEntry.Value.V);   // 1.0 = 0.1 % per second per metre
             TrimFlooding.Imbalance = 1f;   // FloodImbalanceEffect is switched off (hidden in the settings) until reworked; the key is still read so old profiles load
