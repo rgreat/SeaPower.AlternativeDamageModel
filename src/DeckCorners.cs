@@ -849,7 +849,8 @@ namespace AlternativeDamageModel
                 float s = Vector3.Distance(camPos, at[i]) * 0.006f;
                 string text = (m >= 0f ? "+" : "-") + Math.Abs(m).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
                 float w = 0f; foreach (char ch in text) w += GlyphAdvance(ch);
-                Vector3 o = at[i] + up * (s * 0.6f) - right * (w * s * 0.5f);
+                // above the point; for a point under water (its line goes up from the point to the wave) - below it, not across the line
+                Vector3 o = at[i] + up * (m >= 0f ? s * 0.6f : -s * 1.6f) - right * (w * s * 0.5f);
                 Color c = m >= 0f ? CDry : CWet;
                 foreach (char ch in text) { AddGlyph(v, col, idx, ch, o, right, up, s, c); o += right * (GlyphAdvance(ch) * s); }
             }
