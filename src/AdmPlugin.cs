@@ -370,10 +370,10 @@ namespace AlternativeDamageModel
             _keepComEntry = Pcfg.Bind("Sinking", "KeepCentreOfMass", true,
                 "When a ship starts to sink the game puts its centre of mass at the hull origin ((0, 1, 0) if it has capsized): the centre of mass jumps, and with it " +
                 "every torque on the hull. On = the centre of mass stays where it was (with CapsizeFactor: where the water in the ship has raised it). Off = as in the game.");
-            _sinkPullEntry = Pcfg.Bind("Sinking", "SinkPullFactor", new Factor(1f),
+            _sinkPullEntry = Pcfg.Bind("Sinking", "SinkPullFactor", new Factor(0.5f),
                 "The game pulls a sinking ship down once its origin is deeper than y = -2 (Unity units): an acceleration that grows with depth (1 per unit of depth, " +
                 "up to 10 at y = -12). This scales the maximum of that pull: 1 = as in the game, 0 = no pull (the ship sinks only by its own weight).");
-            _sinkRampEntry = Pcfg.Bind("Sinking", "SinkPullRamp", new Factor(30f),
+            _sinkRampEntry = Pcfg.Bind("Sinking", "SinkPullRamp", new Factor(0f),
                 "The depth (Unity units below y = -2) over which that pull grows to its maximum, smoothly (no kink at either end). The game: 10 and a straight line. " +
                 "More = the pull builds up slower and softer. 0 = the game's.");
             _wreckDragEntry = Pcfg.Bind("Sinking", "WreckDragFactor", new Factor(5f),

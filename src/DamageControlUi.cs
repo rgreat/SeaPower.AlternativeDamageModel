@@ -1332,7 +1332,7 @@ namespace AlternativeDamageModel
                         {
                             kid.Text = n.Text;
                             // a fixed width from the text (not measured): the row's layout cannot lose it, and a changed text moves the next pieces at once
-                            try { kid.Width = BoxWidth(n.Text, tb.FontSize > 1f ? tb.FontSize : 14f); tb.InvalidateMeasure(); } catch { }
+                            try { kid.Width = BoxWidth(n.Text, tb); tb.InvalidateMeasure(); } catch { }
                         }
                         if (_boxTrace < 12 && !string.IsNullOrEmpty(kid.Text))
                         {
@@ -1379,7 +1379,7 @@ namespace AlternativeDamageModel
                     // an InlineUIContainer's child stands with its bottom edge on the text baseline, so the % sat higher than the label next to it:
                     // moved down by the descent with a negative bottom margin (part of the layout; no font or render transform set on the child -
                     // with those the pieces of the row sometimes lost their width and stood on top of each other)
-                    try { float fs = tb.FontSize > 1f ? tb.FontSize : 14f; kid.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); kid.Width = BoxWidth(s.Text, fs); } catch { }
+                    try { float fs = tb.FontSize > 1f ? tb.FontSize : 14f; kid.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); kid.Width = BoxWidth(s.Text, tb); } catch { }
                     if (s.Col.HasValue) kid.Foreground = new SolidColorBrush(s.Col.Value);
                     x = new InlineUIContainer(kid);
                 }
@@ -1395,8 +1395,37 @@ namespace AlternativeDamageModel
             try { tb.InvalidateMeasure(); } catch { }
         }
 
-        /// <summary>Width of a % box: the text's characters at the row's font size (a little over, never under).</summary>
-        static float BoxWidth(string text, float fs)
+        static readonly Dictionary<string, float> _bwCache = new Dictionary<string, float>();
+        static int _bwTrace;
+
+        /// <summary>Width of a % box: the text measured off the tree with the row's own font (cached by text + font); if the measure gives nothing, estimated by the characters.</summary>
+        static float BoxWidth(string text, TextBlock row)
+        {
+            float fs = row.FontSize > 1f ? row.FontSize : 14f;
+            string key = null;
+            try
+            {
+                key = (row.FontFamily == null ? "" : row.FontFamily.ToString()) + "|" + fs + "|" + row.FontWeight + "|" + row.FontStyle + "|" + text;
+                float cw;
+                if (_bwCache.TryGetValue(key, out cw)) return cw;
+                var probe = new TextBlock { Text = text ?? "", FontSize = fs, FontWeight = row.FontWeight, FontStyle = row.FontStyle };
+                if (row.FontFamily != null) probe.FontFamily = row.FontFamily;
+                probe.Measure(new Size(float.PositiveInfinity, float.PositiveInfinity));
+                float w = probe.DesiredSize.Width;
+                if (w > 0.5f)
+                {
+                    w = (float)Math.Ceiling(w) + 1f;
+                    if (_bwCache.Count > 500) _bwCache.Clear();
+                    _bwCache[key] = w;
+                    return w;
+                }
+                if (_bwTrace++ < 5) Trace("DC box: the text measure gave " + w + " for '" + text + "', estimated");
+            }
+            catch (Exception ex) { if (_bwTrace++ < 5) Trace("DC box measure: " + ex.Message); }
+            return BoxEstimate(text, fs);
+        }
+
+        static float BoxEstimate(string text, float fs)
         {
             float w = 0f;
             foreach (char c in text ?? "") w += c >= '0' && c <= '9' ? 0.62f : c == '%' ? 0.95f : c == '.' || c == ',' ? 0.34f : c == ' ' ? 0.3f : 0.66f;

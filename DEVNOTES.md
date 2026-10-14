@@ -739,3 +739,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: группы Water over the deck / Gauge scales / Sinking from возвращены на Flooding
 * По просьбе: на «Flooding» вернулись «Flooding rate» (Water coming in, Water over the deck, Time under water), «Gauge scales» и «Sinking from». На «Sinking» остались «Capsizing» и «Sinking and wreck». Ширина окна 1150 — без изменений.
+
+## 2026-10-15: ширина %-боксов измеряется; SinkPull — базовая формула ×0.5
+* `BoxWidth(text, row)`: ширина % считается замером временного `TextBlock` вне дерева (тот же `FontFamily/FontSize/FontWeight/FontStyle`, что у строки; `Measure(∞)` → `DesiredSize.Width`, округление вверх +1), кеш по «шрифт+текст». Если замер дал ≤0.5 или исключение — запасная оценка по знакам (`BoxEstimate`), в trace «DC box: …» (≤5 строк). Не проверено в игре.
+* `SinkPull`: сглаженная кривая (Ramp 30) была заметно слабее игровой на малых глубинах (на 10 ед. — 2.6 против 10), плавучесть побеждала, мелкие корабли всплывали после переворота. По решению: возвращена базовая игровая формула (`SinkPullRamp` по умолчанию 0 = игровая, опция осталась), `SinkPullFactor` по умолчанию 0.5 (Advanced). Base Game — 1 / 0.
