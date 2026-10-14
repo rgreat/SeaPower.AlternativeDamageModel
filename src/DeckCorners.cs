@@ -390,6 +390,18 @@ namespace AlternativeDamageModel
             _opaqueTex.Clear();
         }
 
+        /// <summary>A hull part: the renderer's own object or any of its parents below the ship's root has "hull" in its name (mods have hull-type submodels).</summary>
+        static bool IsHullPart(Renderer r, GameObject root)
+        {
+            try
+            {
+                for (var t = r.transform; t != null && t.gameObject != root; t = t.parent)
+                    if (t.name.IndexOf("hull", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+            catch { }
+            return false;
+        }
+
         static Shader _ghostShader;
         static readonly HashSet<string> _ghostSeen = new HashSet<string>();
         static readonly string[] TexProps = { "_MainTex", "_BaseMap", "_BaseColorMap", "_Albedo", "_Diffuse", "_AlbedoMap" };
@@ -401,7 +413,7 @@ namespace AlternativeDamageModel
         /// colour of the original are copied, alpha is GhostAlpha. (Lighting is lost - this is a debug view.) Fallback: the old way, flipping
         /// the original material into Standard-style transparency.
         /// </summary>
-        static Material MakeGhost(Material src)
+        static Material MakeGhost(Material src, bool hull)
         {
             string sh = src.shader != null ? src.shader.name : "?";
             if (_ghostSeen.Add(sh)) Trace("Ghost model: material shader '" + sh + "'");
@@ -410,7 +422,7 @@ namespace AlternativeDamageModel
             {
                 var m = new Material(_ghostShader);
                 foreach (var tp in TexProps)
-                    if (src.HasProperty(tp)) { var t = src.GetTexture(tp); if (t != null) { m.mainTexture = OpaqueCopy(t); try { m.mainTextureScale = src.GetTextureScale(tp); m.mainTextureOffset = src.GetTextureOffset(tp); } catch { } break; } }
+                    if (src.HasProperty(tp)) { var t = src.GetTexture(tp); if (t != null) { m.mainTexture = hull ? OpaqueCopy(t) : t; try { m.mainTextureScale = src.GetTextureScale(tp); m.mainTextureOffset = src.GetTextureOffset(tp); } catch { } break; } }
                 Color c = Color.white;
                 foreach (var cp in ColProps) if (src.HasProperty(cp)) { c = src.GetColor(cp); break; }
                 c.a = GhostAlpha;
@@ -460,6 +472,8 @@ namespace AlternativeDamageModel
                     try
                     {
                         var orig = r.sharedMaterials;
+                        bool hull = IsHullPart(r, go);
+                        if (want == 1) Trace("Ghost model: " + (hull ? "hull " : "sub ") + r.gameObject.name);
                         Material[] ghost = null;
                         if (want == 1)
                         {
@@ -467,7 +481,7 @@ namespace AlternativeDamageModel
                             for (int i = 0; i < orig.Length; i++)
                             {
                                 if (orig[i] == null) continue;
-                                ghost[i] = MakeGhost(orig[i]);
+                                ghost[i] = MakeGhost(orig[i], hull);
                             }
                             r.sharedMaterials = ghost;
                         }
