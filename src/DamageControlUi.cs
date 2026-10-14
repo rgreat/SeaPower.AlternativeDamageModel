@@ -565,6 +565,7 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The text blocks of the Flooding / Fire rows inside this compartment's list, when its items are in the visual tree.</summary>
+        const float TeamGapBelow = 1f, TeamHeaderGap = 2f;   // the gap under the team row (the game: 5) and the section name's margins above and below (6 / 4)
         const float TeamBtnHeight = 22f;   // the - / + buttons of the DC team row (the game's are about 32): the row is lower, the sections are higher
         static readonly HashSet<object> _compacted = new HashSet<object>();
         static int _compactTrace;
@@ -608,6 +609,14 @@ namespace AlternativeDamageModel
                             sb.Append(", row " + r + " height " + rd.Height + " min " + rd.MinHeight);
                             rd.MinHeight = 0f;
                             if (rd.Height.IsAbsolute) rd.Height = GridLength.Auto;
+                            // from the game's XAML (DamageControlView): the row above is the section name (margin 6,4), the row below is a 5 px gap
+                            if (r + 1 < g.RowDefinitions.Count && g.RowDefinitions[r + 1].Height.IsAbsolute) g.RowDefinitions[r + 1].Height = new GridLength(TeamGapBelow);
+                            int col = Grid.GetColumn(fe), ng = VisualTreeHelper.GetChildrenCount(g);
+                            for (int k = 0; k < ng; k++)
+                            {
+                                var h = VisualTreeHelper.GetChild(g, k) as TextBlock;
+                                if (h != null && Grid.GetRow(h) == r - 1 && Grid.GetColumn(h) == col) h.Margin = new Thickness(h.Margin.Left, TeamHeaderGap, h.Margin.Right, TeamHeaderGap);
+                            }
                         }
                     }
                 }
