@@ -511,6 +511,7 @@ namespace AlternativeDamageModel
                         var tb = VisualTreeHelper.GetChild(holder, k) as TextBlock;
                         if (tb != null) { c.Teams = tb; break; }
                     }
+                    CompactTeamRow(holder);
                     break;
                 }
 
@@ -564,6 +565,57 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The text blocks of the Flooding / Fire rows inside this compartment's list, when its items are in the visual tree.</summary>
+        const float TeamBtnHeight = 22f;   // the - / + buttons of the DC team row (the game's are about 32): the row is lower, the sections are higher
+        static readonly HashSet<object> _compacted = new HashSet<object>();
+        static int _compactTrace;
+
+        /// <summary>Makes the row with the - / + buttons and the team icon lower: buttons of a fixed small height, no extra margins of the row, a fixed row height of the grid made automatic.</summary>
+        static void CompactTeamRow(DependencyObject holder)
+        {
+            if (holder == null || _compacted.Contains(holder)) return;
+            _compacted.Add(holder);
+            try
+            {
+                var sb = new System.Text.StringBuilder();
+                int n = VisualTreeHelper.GetChildrenCount(holder);
+                for (int k = 0; k < n; k++)
+                {
+                    var b = VisualTreeHelper.GetChild(holder, k) as FrameworkElement;
+                    if (b == null) continue;
+                    sb.Append(b.GetType().Name + " " + b.ActualWidth.ToString("0") + "x" + b.ActualHeight.ToString("0") + " m" + b.Margin + " | ");
+                    if (b is ButtonBase)
+                    {
+                        b.MinHeight = 0f; b.Height = TeamBtnHeight;
+                        var bb = (Control)b;
+                        bb.Padding = new Thickness(bb.Padding.Left, 0f, bb.Padding.Right, 0f);
+                        b.Margin = new Thickness(b.Margin.Left, 0f, b.Margin.Right, 0f);
+                    }
+                    else if (b is TextBlock) b.Margin = new Thickness(b.Margin.Left, 0f, b.Margin.Right, 0f);
+                }
+                var fe = holder as FrameworkElement;
+                if (fe != null)
+                {
+                    sb.Append("holder " + fe.GetType().Name + " " + fe.ActualWidth.ToString("0") + "x" + fe.ActualHeight.ToString("0") + " m" + fe.Margin);
+                    fe.Margin = new Thickness(fe.Margin.Left, 0f, fe.Margin.Right, 0f);
+                    fe.MinHeight = 0f;
+                    var g = Parent(fe) as Grid;
+                    if (g != null)
+                    {
+                        int r = Grid.GetRow(fe);
+                        if (r >= 0 && r < g.RowDefinitions.Count)
+                        {
+                            var rd = g.RowDefinitions[r];
+                            sb.Append(", row " + r + " height " + rd.Height + " min " + rd.MinHeight);
+                            rd.MinHeight = 0f;
+                            if (rd.Height.IsAbsolute) rd.Height = GridLength.Auto;
+                        }
+                    }
+                }
+                if (_compactTrace < 3) { _compactTrace++; Trace("DC team row compacted: " + sb); }
+            }
+            catch (Exception ex) { Trace("CompactTeamRow: " + ex.Message); }
+        }
+
         static void FindRows(Col c, DependencyObject view)
         {
             c.FloodOrig = c.FloodDesc;
