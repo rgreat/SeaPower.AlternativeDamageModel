@@ -1307,6 +1307,7 @@ namespace AlternativeDamageModel
         /// Made anew only when the structure changes, the game rewrote the text, or force is set.
         /// </summary>
         static int _drawTrace;
+        static int _boxTrace;
         static float BoxDrop = 0.25f;   // how far (× font size) the % boxes are moved down onto the text baseline
 
         static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
@@ -1327,12 +1328,20 @@ namespace AlternativeDamageModel
                     {
                         var kid = d.Kids[i];
                         if (kid == null) continue;
-                        if (kid.Text != n.Text)
+                        if (kid.Text != n.Text) kid.Text = n.Text;
+                        if (_boxTrace < 12 && !string.IsNullOrEmpty(kid.Text))
                         {
-                            bool wider = kid.Text == null || kid.Text.Length != n.Text.Length;
-                            kid.Text = n.Text;
-                            // the row's line layout does not follow a change of an inline box's width by itself: the next pieces then stood on top of it
-                            if (wider) { try { kid.InvalidateMeasure(); tb.InvalidateMeasure(); tb.InvalidateArrange(); } catch { } }
+                            // diagnostics of the pieces standing on top of each other: a laid-out box with no width
+                            try
+                            {
+                                if (kid.ActualWidth < 0.5f && tb.ActualWidth > 0.5f)
+                                {
+                                    _boxTrace++;
+                                    Trace("DC box has no width: '" + kid.Text + "' kid " + kid.ActualWidth.ToString("0.#") + "x" + kid.ActualHeight.ToString("0.#") + ", row " + tb.ActualWidth.ToString("0.#") + "x" + tb.ActualHeight.ToString("0.#") +
+                                          ", font " + tb.FontSize.ToString("0.#") + ", wrap " + tb.TextWrapping + ", pieces " + segs.Count);
+                                }
+                            }
+                            catch { }
                         }
                         if (n.Col.HasValue && !o.Col.Equals(n.Col)) kid.Foreground = new SolidColorBrush(n.Col.Value);
                         continue;
@@ -1362,14 +1371,10 @@ namespace AlternativeDamageModel
                 else if (s.Box)
                 {
                     kid = new TextBlock { Text = s.Text };
-                    // an InlineUIContainer's child stands with its bottom edge on the text baseline, so the % sat higher than the label next to it
-                    // (and took the default font): same font as the row, moved down by the descent
-                    try
-                    {
-                        kid.FontSize = tb.FontSize; kid.FontFamily = tb.FontFamily; kid.FontWeight = tb.FontWeight; kid.FontStyle = tb.FontStyle;
-                        kid.RenderTransform = new TranslateTransform(0f, (float)Math.Round(tb.FontSize * BoxDrop));
-                    }
-                    catch { }
+                    // an InlineUIContainer's child stands with its bottom edge on the text baseline, so the % sat higher than the label next to it:
+                    // moved down by the descent with a negative bottom margin (part of the layout; no font or render transform set on the child -
+                    // with those the pieces of the row sometimes lost their width and stood on top of each other)
+                    try { float fs = tb.FontSize > 1f ? tb.FontSize : 14f; kid.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); } catch { }
                     if (s.Col.HasValue) kid.Foreground = new SolidColorBrush(s.Col.Value);
                     x = new InlineUIContainer(kid);
                 }

@@ -72,7 +72,7 @@ namespace AlternativeDamageModel
 
         static PropertyInfo _pDestroyed;
         /// <summary>The ship is destroyed (ObjectBase.IsDestroyed): the game no longer samples the waves for it.</summary>
-        static bool IsDestroyed(object comp)
+        public static bool IsDestroyed(object comp)
         {
             try
             {

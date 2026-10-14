@@ -59,7 +59,7 @@ namespace AlternativeDamageModel
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _counterRateEntry, _counterLimitEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkRampEntry, _bubblesEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkRampEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _warTeamsEntry, _subTeamsEntry, _civTeamsEntry;
@@ -370,6 +370,9 @@ namespace AlternativeDamageModel
             _sinkRampEntry = Pcfg.Bind("Sinking", "SinkPullRamp", new Factor(30f),
                 "The depth (Unity units below y = -2) over which that pull grows to its maximum, smoothly (no kink at either end). The game: 10 and a straight line. " +
                 "More = the pull builds up slower and softer. 0 = the game's.");
+            _wreckDragEntry = Pcfg.Bind("Sinking", "WreckDragFactor", new Factor(5f),
+                "Resistance to the movement (the linear drag of the rigidbody) of a destroyed ship, times the game's value: the wreck loses its way sooner. " +
+                "1 = as in the game. The drag against turning (capsizing) is not changed.");
             _bubblesEntry = Pcfg.Bind("Sinking", "BubblesStopMinutes", new Factor(10f),
                 "Minutes (game time, so time compression counts) after a ship starts to sink, when its sinking-bubbles effect stops emitting " +
                 "(the game never stops it while the wreck exists). Saves resources in long missions. 0 = never, as in the game.");
@@ -797,6 +800,7 @@ namespace AlternativeDamageModel
             CapsizeFix.KeepCom = _keepComEntry.Value;
             SinkPull.Factor = Math.Max(0f, _sinkPullEntry.Value.V);
             SinkPull.Ramp = Math.Max(0f, _sinkRampEntry.Value.V);
+            WreckDrag.Factor = Math.Max(0f, _wreckDragEntry.Value.V);
             SubmergedFlooding.Rate = 0.1f * Math.Max(0f, _deckFloodSpeedEntry.Value.V);   // 1.0 = 0.1 % per second per metre
             TrimFlooding.Imbalance = 1f;   // FloodImbalanceEffect is switched off (hidden in the settings) until reworked; the key is still read so old profiles load
             _logFires = _logFiresEntry.Value;
@@ -1180,7 +1184,7 @@ namespace AlternativeDamageModel
             DcTeams.Trace = Trace;
             if (tComp != null && DcTeams.Init(asm))
             {
-                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; BubblesOff.Trace = Trace; BubblesOff.IsEnabled = () => Model; SinkPull.Trace = Trace; SinkPull.IsEnabled = () => Model;
+                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; BubblesOff.Trace = Trace; BubblesOff.IsEnabled = () => Model; SinkPull.Trace = Trace; SinkPull.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
                 SettingsWindow.Warn = Warn; SettingsWindow.Info = Say;
                 if (!DcAuto.Init(asm)) Warn("Optimised Auto DC: game members not found; the game's Auto DC is used.");
                 DcControl.StayWhenIdle = c => DcAuto.Ok && DcTeams.TransfersOn && DcTeams.Active(c) && DcAuto.AnyWork(c);
@@ -1190,6 +1194,7 @@ namespace AlternativeDamageModel
                 int okBefore = ok;
                 Patch(harmony, tComp.GetMethod("OnFixedUpdate", all), "TeamTickPrefix", null, null, "Compartments.OnFixedUpdate (teams)", ref ok, ref failed);
                 Patch(harmony, tComp.GetMethod("Sink", all), "SinkComPrefix", "SinkComPostfix", null, "Compartments.Sink (centre of mass)", ref ok, ref failed);
+                Patch(harmony, tComp.GetMethod("OnFixedUpdate", all), null, "WreckDragPostfix", null, "Compartments.OnFixedUpdate (wreck drag)", ref ok, ref failed);
                 _trimFloodHooked = ok > okBefore;   // the game's trim sinking is replaced only when the flooding that replaces it runs
                 foreach (var name in new[] { "RepairFloodingRate", "RepairFire", "RepairFlooding", "RepairStructure", "RepairSystems" })
                     Patch(harmony, tComp.GetMethod(name, all), null, null, "TeamEffTranspiler", "Compartments." + name + " (effectiveness)", ref ok, ref failed);
@@ -1914,6 +1919,7 @@ namespace AlternativeDamageModel
         static bool TeamSendPrefix(object __instance, int index) { return DcTeams.SendPrefix(__instance, index); }
         static bool TeamReturnPrefix(object __instance, int index) { return DcTeams.ReturnPrefix(__instance, index); }
         static bool TeamRecallPrefix(object __instance) { return DcTeams.RecallPrefix(__instance); }
+        static void WreckDragPostfix(object __instance) { WreckDrag.Tick(__instance); }
         static void SinkComPrefix(object __instance, out object __state) { __state = CapsizeFix.BeforeSink(__instance); }
         static void SinkComPostfix(object __instance, object __state) { CapsizeFix.AfterSink(__instance, __state); }
         static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); CapsizeFix.Tick(__instance); BubblesOff.Tick(__instance); SinkPull.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }

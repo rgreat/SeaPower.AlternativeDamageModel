@@ -137,6 +137,7 @@ namespace AlternativeDamageModel
             Add(S, "Capsizing", "Sinking/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0, true);
             Add(S, "Capsizing", "Sinking/SinkPullFactor", "Sinking pull", "× the game's maximum pull down; 0 = none", Kind.Number, 0.1f, 0f, 3f);
             Add(S, "Capsizing", "Sinking/SinkPullRamp", "Sinking pull ramp", "depth over which it builds up; game 10, 0 = game", Kind.Number, 1f, 0f, 200f);
+            Add(S, "Capsizing", "Sinking/WreckDragFactor", "Wreck drag", "× the game's resistance to movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f);
             Add(S, "Capsizing", "Sinking/BubblesStopMinutes", "Stop bubbles after", "min after sinking starts; 0 = never", Kind.Number, 1f, 0f, 120f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/ListLimit", "List", "° · water over the deck edge from 75%", Kind.Number, 0.5f, 5f, 69f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
