@@ -1749,7 +1749,13 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ thresholds of faster flooding (Compartments.OnFixedUpdate)
 
-        public static float SinkLevel(float game) { return Model ? Limits.LevelFull : game; }       // 40: ship sinks above this flooding %
+        // 40: ship sinks above this flooding %; for ships with exact deck points also only while the decks are under water enough
+        // (SubmergedFlooding.SinkAllowed): below that the threshold is out of reach
+        public static float SinkLevel(float game, object comp)
+        {
+            if (!Model) return game;
+            return SubmergedFlooding.SinkAllowed(comp) ? Limits.LevelFull : float.MaxValue;
+        }
         // 8: trim (with a flooded section) sinks the ship in the game - off while the mod is on (TrimFlooding floods the end going down
         // instead); life rafts (1 compartment) keep it: the same check sets them level again
         sealed class CountBox { public int N; }
@@ -1781,9 +1787,9 @@ namespace AlternativeDamageModel
                 float v = (float)list[i].operand;
                 string m;
                 if (!map.TryGetValue(v, out m)) continue;
-                if (m == "SinkTrim")
+                if (m == "SinkTrim" || m == "SinkLevel")
                 {
-                    // per ship: SinkTrim(8, this)
+                    // per ship: SinkTrim(8, this) / SinkLevel(40, this)
                     list.Insert(i + 1, new CodeInstruction(OpCodes.Ldarg_0));
                     list.Insert(i + 2, new CodeInstruction(OpCodes.Call, typeof(AdmPlugin).GetMethod(m, BindingFlags.Static | BindingFlags.Public)));
                     i += 2;
