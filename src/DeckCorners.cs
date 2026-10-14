@@ -39,58 +39,16 @@ namespace AlternativeDamageModel
     /// game didn't need to be consistent about), its lines are simply not drawn and a warning is logged once;
     /// nothing is guessed from unrelated geometry.
     ///
-    /// Height and the port/starboard edge are found directly from the hull colliders' own mesh data whenever it
-    /// can be read (TryHullTriangles) - this puts a point exactly on the collider's own real edge, not merely near
-    /// it. Some ships' hull meshes turned out to have Read/Write disabled in their import settings (isReadable ==
-    /// false), which throws the moment anything touches Mesh.vertices/triangles; for those (confirmed so far only
-    /// for civ_ms_andizhan), every point on that ship instead falls back to physics - raycasting against the
-    /// collider (Collider.Raycast) needs none of that mesh data, working directly off whatever collision geometry
-    /// the engine already built for it, but can only ever land within one sweep step of the real edge, not exactly
-    /// on it. For a centreline point that's the exact mesh height at x = 0 (HeightAtMesh), or one ray straight down
-    /// at x = 0 taking its first hit (CentreHeightAtRay) when falling back to physics.
+    /// Height and the port/starboard edge are found directly from the hull colliders' own mesh data (TryHullTriangles),
+    /// which puts a point exactly on the collider's real edge. There is no approximate fallback: a ship whose hull
+    /// meshes have Read/Write disabled (isReadable == false; seen for civ_ms_andizhan) gets no points at all, keeps
+    /// the old flooding rules and shows an orange Hull Collider overlay.
     ///
-    /// For a port/starboard point, the right edge isn't "the widest point of the cross-section there" (that can
-    /// be a bulge below the waterline, reading too low) and isn't "the highest point of the cross-section"
-    /// either (deck camber, or any other unevenness, can pull that inboard toward the centreline instead of the
-    /// true edge). It is the corner where the two meet, found in two passes either way: exactly, from the mesh
-    /// itself (DeckCornerAtMesh) - first the true outboard edge at this z, from every triangle edge that actually
-    /// crosses the z = query plane (an exact point by linear interpolation, never a triangle's raw vertex); or
-    /// approximately, from physics (DeckCornerAtRay) - a row of purely HORIZONTAL rays cast from outside the
-    /// hull's whole beam straight toward the centreline at heights stepped from well above the hull to well below
-    /// it - each ray starts outside everything, so whatever it meets first is, by construction, the real outer
-    /// skin, never a
-    /// structure set back from it; the most outboard of all those hits is the edge. Second pass: among only the
-    /// hits within a thin strip of that edge, the highest is the corner where the wall meets the deck. (A single
-    /// first-hit raycast per sample, all tilted the same fixed angle, tried first and keeping whichever projected
-    /// furthest "outward and up" - does find the right corner on a plain hull, but a user screenshot showed it
-    /// losing to a taller secondary feature set back from the true side, such as a raised forecastle or a
-    /// well-deck break, since that's still taller even though it's further inboard; an even earlier idea, keeping
-    /// whichever vertical ray crosses the collider "exactly twice", foundered the same way a wide, bulging hull
-    /// wall gives the same crossing count as a sharp corner. Two passes - lateral extremity decided first, height
-    /// only among points already at that extreme - can't be fooled by either: nothing off the true outer skin
-    /// ever reaches the second pass at all.)
+    /// The right edge isn't "the widest point of the cross-section" (a bulge below the waterline reads too low) nor
+    /// "the highest point" (deck camber pulls it inboard). It is the corner where the two meet, found in two passes
+    /// (DeckCornerAtMesh): first the true outboard edge at this z, from every triangle edge crossing the z plane
+    /// (exact, by linear interpolation); then, among only the points within a thin strip of that edge, the highest.
     ///
-    /// Collider/Ray/RaycastHit are resolved lazily, from an actual hull MeshCollider instance (EnsureRaycastReflection,
-    /// on the first ship ever selected) rather than by guessing an assembly name at Init time: nothing has loaded
-    /// UnityEngine.PhysicsModule into the AppDomain yet when Init runs (straight off BepInEx startup, before any
-    /// ship or collider exists), so a name-based lookup there always came back empty - confirmed in testing, every
-    /// point silently fell back to TopAt with a "Collider.Raycast not found by reflection" warning in the log.
-    /// RaycastHit.point itself turned out to be a C# property, not a field (Unity wraps its native-interop members
-    /// that way) - a second confirmed-in-testing miss, fixed by trying both and using whichever is actually there.
-    /// Collider.Raycast itself always works in WORLD space, while every z/x/y used while building the ship's points is
-    /// in shipT's own local frame (the frame LocalPoints returns them in, and the one the ship's current heading/
-    /// roll/pitch/position get reapplied to every frame in Tick) - a third bug, this one silent (no exception, no
-    /// warning, every single cast just legitimately missed, since "local-frame coordinates fed straight in as if
-    /// they were world space" lands nowhere near the real, moving ship). DeckCornerAt/CentreHeightAt now transform
-    /// each ray's origin and direction out to world via shipT right before the cast, and transform the hit straight
-    /// back via shipT's inverse before using it, so everything the rest of the code sees is local as before.
-    ///
-    /// Collider.Raycast only reports a hit while the collider's GameObject (and every ancestor) is active and the
-    /// Collider component itself is enabled - and the hull's non-kinematic coll_hull* pieces are usually neither,
-    /// for the same reason the translucent overlay once needed reparenting (UseKinematicCollision deactivates
-    /// their whole hierarchy once a separate kinematic collider takes over). ActivateForRaycast forces exactly
-    /// what's inactive/disabled on, just for the duration of the one-off sweep that builds the ship's points, then
-    /// RestoreAfterRaycast puts all of it straight back - nothing is left changed once a ship's points are built.
     ///
     /// Runtime access: SeaPower.ObjectBaseParameters keeps a Dictionary&lt;string, MeshCollider&gt;
     /// _meshCollidersNames, built once when the ship is loaded and keyed by exactly these ini names - so the
@@ -124,69 +82,6 @@ namespace AlternativeDamageModel
         // UnityEngine.MeshCollider lives in UnityEngine.PhysicsModule, which isn't one of this mod's referenced DLLs
         // (like ParticleSystem in FireSmoke.cs) - its one property used here (sharedMesh) is read by reflection;
         // everything else works through its Component base (already referenced via UnityEngine.CoreModule).
-        // Collider.Raycast, and the Ray/RaycastHit types it takes, are resolved by EnsureRaycastReflection the
-        // first time a hull is actually selected (see there) rather than up front in Init - .NET only lists an
-        // assembly in AppDomain.GetAssemblies() once something has already loaded it, and at Init time (started
-        // from BepInEx, before any ship or its colliders exist) nothing has touched UnityEngine.PhysicsModule yet,
-        // so a name-based lookup for Collider/Ray/RaycastHit here always came back empty (confirmed in testing -
-        // "Collider.Raycast not found by reflection" every single time). If resolution still fails for some other
-        // reason once a real collider instance is in hand, the feature falls back to the bounds-only TopAt for
-        // every point rather than refusing to initialise at all.
-        static bool _raycastResolveAttempted;
-        static ConstructorInfo _cRay;
-        static MethodInfo _mColliderRaycast;
-        static FieldInfo _fHitPoint;        // RaycastHit.point as a field, if it turns out to be one (older Unity)
-        static PropertyInfo _pHitPoint;     // ...or as a property (confirmed: this is the one actually hit - Unity's
-                                             // RaycastHit wraps its native-interop fields in C# properties, point included)
-        static PropertyInfo _pColliderEnabled;
-
-        /// <summary>Resolves Collider.Raycast (and the Ray/RaycastHit types it takes) from an actual, already-loaded
-        /// hull MeshCollider instance rather than by guessing an assembly name up front: hull[0]'s own runtime type
-        /// (whatever Unity version/module actually put it in) is walked up its base-type chain to "Collider" -
-        /// guaranteed loaded, since hull[0] already exists as one - then its "Raycast(Ray, out RaycastHit, float)"
-        /// overload is found by shape (3 params, middle one by-ref, last one float) rather than by guessing exact
-        /// parameter types, and Ray/RaycastHit are read straight off that method's own parameter types. Tried once
-        /// per game session (on whichever ship is selected first), never again after - a failure here isn't going
-        /// to start succeeding later, since the relevant assembly is already loaded by the time this runs at all.</summary>
-        static void EnsureRaycastReflection(List<Component> hull)
-        {
-            if (_raycastResolveAttempted) return;
-            _raycastResolveAttempted = true;
-            if (hull == null || hull.Count == 0) return;
-            try
-            {
-                Type tCollider = hull[0].GetType();
-                while (tCollider != null && tCollider.Name != "Collider") tCollider = tCollider.BaseType;
-                if (tCollider == null)
-                { Warn("Deck corners: 'Collider' base type not found on a live hull collider; port/starboard points will fall back to bounds-only estimates."); return; }
-
-                MethodInfo raycast = null;
-                foreach (var m in tCollider.GetMethods(BindingFlags.Instance | BindingFlags.Public))
-                {
-                    if (m.Name != "Raycast") continue;
-                    var ps = m.GetParameters();
-                    if (ps.Length == 3 && ps[1].ParameterType.IsByRef && ps[2].ParameterType == typeof(float))
-                    { raycast = m; break; }
-                }
-                if (raycast == null)
-                { Warn("Deck corners: Collider.Raycast(Ray, out RaycastHit, float) not found; port/starboard points will fall back to bounds-only estimates."); return; }
-
-                var pars = raycast.GetParameters();
-                Type tRay = pars[0].ParameterType;
-                Type tRaycastHit = pars[1].ParameterType.GetElementType();
-                _cRay = tRay.GetConstructor(new[] { typeof(Vector3), typeof(Vector3) });
-                // RaycastHit.point turned out to be a C# property, not a field (confirmed in testing: the field
-                // lookup always came back null) - Unity wraps RaycastHit's native-interop members in properties,
-                // point included, so both are tried and whichever is actually there is used.
-                _fHitPoint = tRaycastHit?.GetField("point", BindingFlags.Instance | BindingFlags.Public);
-                if (_fHitPoint == null) _pHitPoint = tRaycastHit?.GetProperty("point", BindingFlags.Instance | BindingFlags.Public);
-                _pColliderEnabled = tCollider.GetProperty("enabled", BindingFlags.Instance | BindingFlags.Public);
-                if (_cRay != null && (_fHitPoint != null || _pHitPoint != null)) _mColliderRaycast = raycast;
-                else Warn("Deck corners: Ray constructor or RaycastHit.point not found; port/starboard points will fall back to bounds-only estimates.");
-            }
-            catch (Exception e)
-            { Warn("Deck corners: raycast reflection setup failed (" + e.Message + "); port/starboard points will fall back to bounds-only estimates."); Trace(e.ToString()); }
-        }
 
         /// <summary>Patches SeapowerUI.ViewModels.UnitStatusViewModel.SwitchUnit (the player's unit-selection panel)
         /// so the currently selected ship is known here regardless of which tab (if any) is open.</summary>
@@ -295,9 +190,11 @@ namespace AlternativeDamageModel
                 Transform shipT = _fCompTransform.GetValue(comp) as Transform;
                 if (shipT == null) return;
                 Vector3[] points;
-                if (!LocalPoints(shipT, hull, out points, out _lineWidth)) return;
-                _unit = unit; _shipTransform = shipT; _points = points; _hullPieces = hull;
-                RebuildVisual(points.Length);
+                bool exact = LocalPoints(shipT, hull, out points, out _lineWidth);
+                PointsExact = exact;
+                _unit = unit; _shipTransform = shipT; _hullPieces = hull;
+                _points = exact ? points : null;   // no points: the ship keeps the old rules; the collider overlay (ShowHullCollider) is orange
+                if (exact) RebuildVisual(points.Length); else RebuildVisual(0);
             }
             catch (Exception e) { Trace("Deck corners Select: " + e.Message); }
         }
@@ -524,8 +421,7 @@ namespace AlternativeDamageModel
 
         struct PieceBox { public Vector3 Min, Max; }
 
-        /// <summary>Every hull piece's own bounds, in shipT's local space (kept separate - TopAt needs them per piece,
-        /// not combined - and as the fallback when a point falls in a gap no triangle covers).</summary>
+        /// <summary>Every hull piece's own bounds, in shipT's local space (used for the overall hull bounds).</summary>
         static List<PieceBox> PieceBoxes(Transform shipT, List<Component> hull)
         {
             var list = new List<PieceBox>();
@@ -551,199 +447,20 @@ namespace AlternativeDamageModel
             return list;
         }
 
-        /// <summary>The hull's own top at longitudinal position z: only from the piece(s) whose own length actually
-        /// reaches z (or, if none does - a gap between pieces - the nearest one's), never a single ship-wide max.
-        /// Used only as the last-resort fallback, when the collider can't be raycast at all (reflection failed to
-        /// resolve Collider.Raycast) or a particular cast happens to miss everything.</summary>
-        static float TopAt(List<PieceBox> pieces, float z)
-        {
-            float minDist = float.PositiveInfinity;
-            foreach (var b in pieces)
-            {
-                float d = z < b.Min.z ? b.Min.z - z : (z > b.Max.z ? z - b.Max.z : 0f);
-                if (d < minDist) minDist = d;
-            }
-            float top = float.NegativeInfinity;
-            foreach (var b in pieces)
-            {
-                float d = z < b.Min.z ? b.Min.z - z : (z > b.Max.z ? z - b.Max.z : 0f);
-                if (d <= minDist + 1e-4f) top = Math.Max(top, b.Max.y);
-            }
-            return top;
-        }
-
         static readonly List<Transform> _reactivatedTransforms = new List<Transform>();
         static readonly List<Component> _reenabledColliders = new List<Component>();
 
-        /// <summary>Collider.Raycast only reports a hit while the collider's own GameObject - and every one of its
-        /// ancestors - is active, and the Collider component itself is enabled: exactly the condition the hull's
-        /// non-kinematic coll_hull* pieces usually fail. With UseKinematicCollision on (every ship checked so far),
-        /// the game deactivates their whole hierarchy once a separate kinematic collider takes over collision
-        /// duties - the same deactivation that made the ShowHullCollider overlay invisible until it was reparented
-        /// onto _shipTransform instead. Left alone, every raycast in the sweep misses everything silently and
-        /// LocalPoints falls straight through to TopAt for every single point - which is exactly what this looked
-        /// like in practice. Called once per ship selection (not per frame), right before the sweep: walks every
-        /// ancestor of each hull collider up to the scene root, force-activates any that are inactive, force-enables
-        /// the collider itself if it isn't, and remembers only what it actually changed - RestoreAfterRaycast puts
-        /// all of it straight back after the sweep, so nothing is left different from how the game had it.</summary>
-        static void ActivateForRaycast(List<Component> hull)
-        {
-            _reactivatedTransforms.Clear();
-            _reenabledColliders.Clear();
-            foreach (var mc in hull)
-            {
-                for (Transform t = mc.transform; t != null; t = t.parent)
-                {
-                    if (!t.gameObject.activeSelf)
-                    {
-                        _reactivatedTransforms.Add(t);
-                        t.gameObject.SetActive(true);
-                    }
-                }
-                if (_pColliderEnabled != null)
-                {
-                    try
-                    {
-                        if (!(bool)_pColliderEnabled.GetValue(mc, null))
-                        {
-                            _reenabledColliders.Add(mc);
-                            _pColliderEnabled.SetValue(mc, true, null);
-                        }
-                    }
-                    catch (Exception e) { Trace("Deck corners ActivateForRaycast: " + e.Message); }
-                }
-            }
-        }
-
-        static void RestoreAfterRaycast()
-        {
-            foreach (var mc in _reenabledColliders)
-            {
-                try { _pColliderEnabled.SetValue(mc, false, null); }
-                catch (Exception e) { Trace("Deck corners RestoreAfterRaycast: " + e.Message); }
-            }
-            foreach (var t in _reactivatedTransforms) if (t != null) t.gameObject.SetActive(false);
-            _reenabledColliders.Clear();
-            _reactivatedTransforms.Clear();
-        }
-
-        /// <summary>Casts one ray (origin, dir, up to maxDist) against every hull collider and returns the nearest
-        /// hit point across all of them (Collider.Raycast is a per-collider query; the hull can be several pieces).
-        /// Built entirely through reflection (see ResolveType) since Collider.Raycast needs none of Mesh.vertices/
-        /// triangles, which is exactly what fails on a hull mesh with Read/Write disabled in its import settings.
-        /// Returns false (and leaves hitPoint at Vector3.zero) if reflection never resolved, or every cast missed.</summary>
-        static bool RaycastFirst(List<Component> hull, Vector3 origin, Vector3 dir, float maxDist, out Vector3 hitPoint)
-        {
-            hitPoint = Vector3.zero;
-            if (_cRay == null || _mColliderRaycast == null || (_fHitPoint == null && _pHitPoint == null)) return false;
-            bool found = false; float bestDist = float.PositiveInfinity;
-            object ray;
-            try { ray = _cRay.Invoke(new object[] { origin, dir.normalized }); }
-            catch (Exception e) { Trace("Deck corners RaycastFirst (Ray ctor): " + e.Message); return false; }
-            foreach (var mc in hull)
-            {
-                try
-                {
-                    object[] args = { ray, null, maxDist };
-                    bool hit = (bool)_mColliderRaycast.Invoke(mc, args);
-                    if (!hit) continue;
-                    Vector3 p = (Vector3)(_fHitPoint != null ? _fHitPoint.GetValue(args[1]) : _pHitPoint.GetValue(args[1], null));
-                    float d = Vector3.Distance(origin, p);
-                    if (!found || d < bestDist) { bestDist = d; hitPoint = p; found = true; }
-                }
-                catch (Exception e) { Trace("Deck corners RaycastFirst: " + e.Message); }
-            }
-            return found;
-        }
-
-        /// <summary>The centreline height at z, approximated by physics: a single ray straight down from above the
-        /// hull at x = 0, taking its first hit. Only used when the mesh can't be read (HeightAtMesh unavailable -
-        /// see TryHullTriangles); falls back further to TopAt (bounds-only) if the cast misses or reflection never
-        /// resolved. Collider.Raycast works in WORLD space - origin/z here are in shipT's local frame (the frame
-        /// every point LocalPoints returns is in), so the origin and direction are transformed out to world via
-        /// shipT before the cast, and the hit transformed straight back via shipT's inverse before returning it.</summary>
-        static bool CentreHeightAtRay(Transform shipT, List<Component> hull, float z, float topY, float rayLen, out float y)
-        {
-            Vector3 originWorld = shipT.TransformPoint(new Vector3(0f, topY, z));
-            Vector3 dirWorld = shipT.TransformDirection(Vector3.down);
-            Vector3 hitWorld;
-            if (RaycastFirst(hull, originWorld, dirWorld, rayLen, out hitWorld)) { y = shipT.InverseTransformPoint(hitWorld).y; return true; }
-            y = 0f; return false;
-        }
-
-        // scratch lists reused by DeckCornerAtRay - this runs only once per ship selection, not per frame
         static readonly List<float> _hcX = new List<float>();
         static readonly List<float> _hcY = new List<float>();
-
-        /// <summary>The port (or starboard) deck corner at longitudinal position z, approximated by physics: only
-        /// used when the mesh can't be read (DeckCornerAtMesh unavailable - see TryHullTriangles). A sample point
-        /// sits wherever a ray happened to land on a mesh face, so this can only ever get within one sweep step of
-        /// the real edge - good enough to tell a coarse collider from a smooth one, not pixel-exact; DeckCornerAtMesh
-        /// (the real edge, found analytically wherever the mesh is readable) is what actually answers "exactly on
-        /// the edge". Found in two passes: first, sweep a row of HORIZONTAL rays, from outside the hull's overall
-        /// beam straight toward the centreline, at heights stepped from well above the hull down to well below it -
-        /// each one starts outside everything and stops at the very first surface it meets, which is by construction
-        /// the true outer skin at that height, never anything set back from it (an inner structure - a forecastle/
-        /// well-deck break, say - only intrudes on this sweep if it pokes out PAST the hull's own side, which a
-        /// recessed step never does). Across every height sampled this way, the most outboard hit X is the true
-        /// edge of the hull at this z (edgeX). Second pass: among only the samples within a thin strip of edgeX,
-        /// the highest Y is the corner where that wall meets the deck.
-        ///
-        /// A straight single-direction sweep (cast one ray per column, all tilted the same fixed angle, keep
-        /// whichever hit projects furthest "outward and up") was tried first and does find the right corner on a
-        /// plain hull - but a ship with a taller secondary feature set back from the true side (a raised forecastle
-        /// or a well-deck break, confirmed by a user screenshot) can have a point there outweigh the true corner on
-        /// that single combined up+out scale, even at a shallow tilt, since it's taller even though it's further
-        /// inboard. Two passes - lateral extremity decided first, height only among points already at that extreme
-        /// - can't be fooled that way: nothing not on the true outer skin ever enters the second pass at all.
-        ///
-        /// Collider.Raycast works in WORLD space - z/outerX/yTop/yBottom here are all in shipT's local frame (the
-        /// frame every point LocalPoints returns is in), so each sample's origin and the shared ray direction are
-        /// transformed out to world via shipT before the cast, and every hit transformed straight back via shipT's
-        /// inverse so edgeX/the returned x/y stay local. Returns false only if every cast in the sweep missed.</summary>
-        static bool DeckCornerAtRay(Transform shipT, List<Component> hull, float z, bool port, float outerX, float yTop, float yBottom, float rayLen, float beamTol, out float x, out float y)
-        {
-            x = 0f; y = 0f;
-            float side = port ? -1f : 1f;
-            Vector3 dirWorld = shipT.TransformDirection(new Vector3(-side, 0f, 0f));   // straight across, toward the centreline
-            _hcX.Clear(); _hcY.Clear();
-            float edgeX = 0f; bool haveEdge = false;
-            const int steps = 40;
-            for (int i = 0; i <= steps; i++)
-            {
-                float sy = Mathf.Lerp(yTop, yBottom, (float)i / steps);
-                Vector3 originWorld = shipT.TransformPoint(new Vector3(outerX * side, sy, z));
-                Vector3 hitWorld;
-                if (!RaycastFirst(hull, originWorld, dirWorld, rayLen, out hitWorld)) continue;
-                Vector3 hitLocal = shipT.InverseTransformPoint(hitWorld);
-                _hcX.Add(hitLocal.x); _hcY.Add(hitLocal.y);
-                if (!haveEdge || (port ? hitLocal.x < edgeX : hitLocal.x > edgeX)) { edgeX = hitLocal.x; haveEdge = true; }
-            }
-            if (!haveEdge) return false;
-
-            float bestY = float.NegativeInfinity; float bestX = edgeX; bool found = false;
-            for (int i = 0; i < _hcX.Count; i++)
-            {
-                if (Mathf.Abs(_hcX[i] - edgeX) > beamTol) continue;
-                if (!found || _hcY[i] > bestY) { bestY = _hcY[i]; bestX = _hcX[i]; found = true; }
-            }
-            x = bestX; y = bestY;
-            return found;
-        }
 
         // ------------------------------------------------------------ exact (mesh-based) point placement
 
         struct Tri { public Vector3 A, B, C; }
 
         /// <summary>Every hull piece's own triangles, transformed once into shipT's local space - true, exact mesh
-        /// geometry, used whenever it's available since DeckCornerAtMesh/HeightAtMesh can then put a point exactly
-        /// on the collider's own real edge, rather than within one physics-sweep step of it (DeckCornerAtRay/
-        /// CentreHeightAtRay). Needs mesh.vertices/mesh.triangles, which throws on a mesh with Read/Write disabled
+        /// geometry, so DeckCornerAtMesh can put a point exactly on the collider's own real edge. Needs mesh.vertices/mesh.triangles, which throws on a mesh with Read/Write disabled
         /// in its import settings (confirmed for civ_ms_andizhan's hull collider) - so this is all-or-nothing for
-        /// the whole ship: the moment any one hull piece throws, the exact path is abandoned for every point on
-        /// this ship (not just that one piece), since a part-exact, part-approximate hull would be an inconsistent,
-        /// confusing mix to look at, and the physics sweep alone is already a perfectly good fallback for the
-        /// (so far, rare) ships this happens on.</summary>
+        /// the whole ship: any unreadable hull piece means no points for this ship.</summary>
         static bool TryHullTriangles(Transform shipT, List<Component> hull, out List<Tri> tris)
         {
             tris = new List<Tri>();
@@ -757,7 +474,7 @@ namespace AlternativeDamageModel
                 if (!mesh.isReadable)
                 {
                     if (_warnedOnce.Add("unreadable:" + mesh.name))
-                        Warn("Deck corners: hull mesh '" + mesh.name + "' is not readable (Read/Write off); raycast fallback for this ship.");
+                        Warn("Deck corners: hull mesh '" + mesh.name + "' is not readable (Read/Write off); no deck points for this ship (old flooding rules).");
                     tris = null; return false;
                 }
                 Vector3[] v; int[] t;
@@ -773,60 +490,6 @@ namespace AlternativeDamageModel
             return true;
         }
 
-        /// <summary>True local hull height at (x, z): the highest point, among every hull triangle whose XZ
-        /// footprint covers (x, z), of that triangle's own plane there (barycentric) - used only for the exact
-        /// centreline point (x = 0), where there is no "edge" to find, just the deck's own real height. Falls back
-        /// to the nearest point on the mesh's own surface (NearestHeightMesh) if no triangle's footprint covers
-        /// (x, z) exactly (a seam, or a point right at the edge of the mesh), then to TopAt (bounds-only) as the
-        /// last resort.</summary>
-        static float HeightAtMesh(List<Tri> tris, List<PieceBox> pieces, float x, float z)
-        {
-            float best = float.NegativeInfinity; bool found = false;
-            for (int i = 0; i < tris.Count; i++)
-            {
-                var t = tris[i];
-                float x1 = t.A.x, z1 = t.A.z, x2 = t.B.x, z2 = t.B.z, x3 = t.C.x, z3 = t.C.z;
-                float d = (x1 - x3) * (z2 - z3) - (x2 - x3) * (z1 - z3);
-                if (d > -1e-9f && d < 1e-9f) continue;    // degenerate triangle
-                float a = ((x - x3) * (z2 - z3) - (x2 - x3) * (z - z3)) / d;
-                float b = ((x1 - x3) * (z - z3) - (x - x3) * (z1 - z3)) / d;
-                float c = 1f - a - b;
-                const float eps = -1e-3f;
-                if (a < eps || b < eps || c < eps) continue;   // outside this triangle's footprint
-                float y = a * t.A.y + b * t.B.y + c * t.C.y;
-                if (!found || y > best) { best = y; found = true; }
-            }
-            if (found) return best;
-            float nearest;
-            return NearestHeightMesh(tris, x, z, out nearest) ? nearest : TopAt(pieces, z);
-        }
-
-        static bool NearestHeightMesh(List<Tri> tris, float x, float z, out float y)
-        {
-            float bestDistSq = float.PositiveInfinity; float bestY = 0f; bool found = false;
-            for (int i = 0; i < tris.Count; i++)
-            {
-                var t = tris[i];
-                TryEdgeMesh(t.A, t.B, x, z, ref bestDistSq, ref bestY, ref found);
-                TryEdgeMesh(t.B, t.C, x, z, ref bestDistSq, ref bestY, ref found);
-                TryEdgeMesh(t.C, t.A, x, z, ref bestDistSq, ref bestY, ref found);
-            }
-            y = bestY;
-            return found;
-        }
-
-        static void TryEdgeMesh(Vector3 p0, Vector3 p1, float x, float z, ref float bestDistSq, ref float bestY, ref bool found)
-        {
-            float dx = p1.x - p0.x, dz = p1.z - p0.z;
-            float len2 = dx * dx + dz * dz;
-            float t = len2 > 1e-12f ? ((x - p0.x) * dx + (z - p0.z) * dz) / len2 : 0f;
-            t = Mathf.Clamp01(t);
-            float cx = p0.x + dx * t, cz = p0.z + dz * t;
-            float ex = x - cx, ez = z - cz;
-            float distSq = ex * ex + ez * ez;
-            if (!found || distSq < bestDistSq) { bestDistSq = distSq; bestY = Mathf.Lerp(p0.y, p1.y, t); found = true; }
-        }
-
         // scratch lists reused by DeckCornerAtMesh - this runs only once per ship selection, not per frame
         static readonly List<float> _crossX = new List<float>();
         static readonly List<float> _crossY = new List<float>();
@@ -834,7 +497,7 @@ namespace AlternativeDamageModel
         /// <summary>The port (or starboard) deck corner at longitudinal position z, EXACT: every triangle edge that
         /// actually crosses the z = query plane gives a precise (x, y) there, by linear interpolation along that
         /// edge - so every candidate is a real point on the collider's own surface, not a sample a physics sweep
-        /// happened to land near. Same two-pass logic as DeckCornerAtRay, for the same reason (taking the single
+        /// happened to land near. Two-pass logic, for the same reason (taking the single
         /// most-outboard crossing regardless of height can land below the gunwale wherever the hull is wider
         /// somewhere other than right at the top; taking the single highest crossing regardless of X can land
         /// inboard at a taller secondary feature, such as a raised forecastle): first the true outboard X among
@@ -878,82 +541,36 @@ namespace AlternativeDamageModel
             xs.Add(x); ys.Add(Mathf.Lerp(p0.y, p1.y, t));
         }
 
-        /// <summary>2 + 2*sections points in shipT's local space: a centreline point at the bow and at the stern
-        /// (for trim/pitch - DeckCornerAt isn't involved at all there, just HeightAtMesh/CentreHeightAtRay at
-        /// x = 0), then one port and one starboard point per damage-model section (Sections - normally 5, so 10
-        /// points), each at that section's own centre z (the hull's own length evenly divided into that many
-        /// slices - the game doesn't expose each section's individual 3D extent, only their count and order, bow
-        /// to stern, so an even split of the physical length is the closest available match to "centre of each
-        /// section"). These replace the original 28-point layout (bow/stern corners, a midships pair and 10
-        /// arbitrary evenly-spaced pairs) at the user's request, now that each side point lines up with an actual
-        /// damage-model section instead of an arbitrary station, ready to compare each section's own point against
-        /// the wave to tell whether that section is taking water over the side. Every port/starboard point is that
-        /// side's deck corner at that z, exact (DeckCornerAtMesh) whenever the hull mesh is readable, or physics-
-        /// approximate (DeckCornerAtRay) when it isn't, falling back to TopAt (bounds-only) if even that finds
-        /// nothing there; the centreline points use HeightAtMesh/CentreHeightAtRay the same way.</summary>
+        /// <summary>
+        /// One port and one starboard point per damage-model section (Sections = 5, so 10 points) in shipT's local space, each at that
+        /// section's own centre z (the hull's length split evenly: the game gives only the count and the order of the sections), each the
+        /// deck corner of that side at that z, found exactly on the hull collider's mesh (DeckCornerAtMesh) and moved InwardShift closer to the
+        /// centreline. There is no approximate fallback: a ship whose hull meshes are not readable (Read/Write off) or where a corner is not
+        /// found has no points (returns false) and keeps the old list/trim rules.
+        /// </summary>
         static bool LocalPoints(Transform shipT, List<Component> hull, out Vector3[] points, out float width)
         {
             points = null; width = 0.01f;
-            EnsureRaycastReflection(hull);
             var pieces = PieceBoxes(shipT, hull);
             if (pieces.Count == 0) return false;
             Vector3 bMin = pieces[0].Min, bMax = pieces[0].Max;
             foreach (var p in pieces) { bMin = Vector3.Min(bMin, p.Min); bMax = Vector3.Max(bMax, p.Max); }
             float zBow = bMin.z, zStern = bMax.z;
-            // margin so the ray sweeps start safely outside/above/below the hull's own bounding box, and cast far
-            // enough to pass clean through it - all scaled off the hull's own size rather than a fixed distance,
-            // so this works sensibly across wildly different ship sizes (a patrol boat vs. a cruiser).
-            float margin = Mathf.Max(0.5f, (bMax - bMin).magnitude * 0.05f);
-            float outerX = Mathf.Max(Mathf.Abs(bMin.x), Mathf.Abs(bMax.x)) + margin;
-            float topY = bMax.y + margin;
-            float bottomY = bMin.y - margin;
-            float vertRayLen = (bMax - bMin).magnitude + margin * 4f;      // for the centreline's straight-down cast
-            float horizRayLen = outerX * 2f + margin * 2f;                 // for DeckCornerAt's side-to-side casts
-            // the lateral tolerance for "still at the true edge, not a separate, taller feature further inboard"
-            // in DeckCornerAt's second pass - a small slice of the ship's own beam, not a fixed distance, so it
-            // scales sensibly across wildly different ship sizes.
+            // the lateral tolerance for "still at the true edge, not a separate, taller feature further inboard": a slice of the ship's beam
             float beamTol = Mathf.Max(1e-4f, (bMax.x - bMin.x) * 0.03f);
 
             List<Tri> tris;
-            bool haveMesh = TryHullTriangles(shipT, hull, out tris);
-            PointsExact = haveMesh;
+            if (!TryHullTriangles(shipT, hull, out tris)) return false;
 
-            Func<float, Vector3> port = z =>
+            var list = new List<Vector3>(PointCount);
+            for (int i = 0; i < Sections; i++)
             {
-                float x, y;
-                if (haveMesh && DeckCornerAtMesh(tris, z, true, beamTol, out x, out y)) return new Vector3(x, y, z);
-                if (DeckCornerAtRay(shipT, hull, z, true, outerX, topY, bottomY, horizRayLen, beamTol, out x, out y)) return new Vector3(x, y, z);
-                return new Vector3(bMin.x, TopAt(pieces, z), z);
-            };
-            Func<float, Vector3> starboard = z =>
-            {
-                float x, y;
-                if (haveMesh && DeckCornerAtMesh(tris, z, false, beamTol, out x, out y)) return new Vector3(x, y, z);
-                if (DeckCornerAtRay(shipT, hull, z, false, outerX, topY, bottomY, horizRayLen, beamTol, out x, out y)) return new Vector3(x, y, z);
-                return new Vector3(bMax.x, TopAt(pieces, z), z);
-            };
-            Func<float, Vector3> centre = z =>
-            {
-                if (haveMesh) return new Vector3(0f, HeightAtMesh(tris, pieces, 0f, z), z);
-                float y;
-                if (CentreHeightAtRay(shipT, hull, z, topY, vertRayLen, out y)) return new Vector3(0f, y, z);
-                return new Vector3(0f, TopAt(pieces, z), z);
-            };
-
-            List<Vector3> list;
-            ActivateForRaycast(hull);     // see ActivateForRaycast: the hull colliders are normally inactive/disabled
-            try
-            {
-                list = new List<Vector3>(PointCount);
-                for (int i = 0; i < Sections; i++)                          // one port/starboard pair per section, at its own centre z
-                {
-                    float z = zBow + (zStern - zBow) * (i + 0.5f) / Sections;
-                    var pp = port(z); var sp = starboard(z);
-                    pp.x *= 1f - InwardShift; sp.x *= 1f - InwardShift;
-                    list.Add(pp); list.Add(sp);
-                }
+                float z = zBow + (zStern - zBow) * (i + 0.5f) / Sections;
+                float xp, yp, xs, ys;
+                if (!DeckCornerAtMesh(tris, z, true, beamTol, out xp, out yp) || !DeckCornerAtMesh(tris, z, false, beamTol, out xs, out ys)) return false;
+                list.Add(new Vector3(xp * (1f - InwardShift), yp, z));
+                list.Add(new Vector3(xs * (1f - InwardShift), ys, z));
             }
-            finally { RestoreAfterRaycast(); }
             points = list.ToArray();
             width = Mathf.Clamp((bMax - bMin).magnitude * 0.004f, 0.001f, 0.05f);
             return true;
@@ -975,8 +592,8 @@ namespace AlternativeDamageModel
 
         static GameObject _root;
         static LineRenderer[] _lines;
-        /// <summary>The selected ship's points come from the full (mesh) algorithm; false: the ray-cast fallback (unreadable collider meshes).</summary>
-        public static bool PointsExact;
+        /// <summary>The selected ship's points come from the full (mesh) algorithm; false: unreadable collider meshes - no points.</summary>
+        public static bool PointsExact;   // set by Select
         static readonly Color CCollExact = new Color(0.2f, 0.85f, 1f, 0.2f), CCollFallback = new Color(1f, 0.55f, 0.1f, 0.2f);
         static readonly Color CDry = new Color(0.3f, 1f, 0.4f), CWet = new Color(1f, 0.25f, 0.2f);
 
@@ -1039,7 +656,7 @@ namespace AlternativeDamageModel
                 _wireMat = sh != null ? new Material(sh) : null;
                 if (_wireMat != null) _wireMat.color = new Color(1f, 1f, 0.15f, 0.95f);   // bright yellow, near-opaque
             }
-            if (_colliderMat != null) _colliderMat.color = PointsExact ? CCollExact : CCollFallback;   // orange: the points of this ship are the fallback ones
+            if (_colliderMat != null) _colliderMat.color = PointsExact ? CCollExact : CCollFallback;   // orange: no exact points for this ship
             foreach (var mc in _hullPieces)
             {
                 Mesh mesh = SharedMesh(mc);
