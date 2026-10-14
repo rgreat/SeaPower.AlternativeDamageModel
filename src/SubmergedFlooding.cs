@@ -187,7 +187,9 @@ namespace AlternativeDamageModel
                 }
             }
             toPort = mp; toStbd = ms; toStern = mst; toBow = mb;
-            s.M = new[] { toPort, toStbd, toStern, toBow };
+            // the same as the tilt still available from the present pose (what the hint shows): to port / starboard (list + port down),
+            // to the stern / bow (trim + bow down); 0 once the point is under water
+            s.M = new[] { Mathf.Max(0f, toPort - list), Mathf.Max(0f, toStbd + list), Mathf.Max(0f, toStern + trim), Mathf.Max(0f, toBow - trim) };
             return true;
         }
 
@@ -217,8 +219,8 @@ namespace AlternativeDamageModel
             State s;
             if (!States.TryGetValue(comp, out s) || s.M == null) return null;
             var ci = System.Globalization.CultureInfo.InvariantCulture;
-            return "Deck edge touches the sea at list " + s.M[0].ToString("0.#", ci) + "° port / " + s.M[1].ToString("0.#", ci) + "° stbd · trim " +
-                   s.M[2].ToString("0.0", ci) + "° stern / " + s.M[3].ToString("0.0", ci) + "° bow (red zones)";
+            return "Tilt to the sea: list " + s.M[0].ToString("0.#", ci) + "° port / " + s.M[1].ToString("0.#", ci) + "° stbd · trim " +
+                   s.M[2].ToString("0.0", ci) + "° stern / " + s.M[3].ToString("0.0", ci) + "° bow";
         }
 
         /// <summary>True when this ship floods over the deck edge by this file's rule (exact deck points, rule on): the old list / trim
