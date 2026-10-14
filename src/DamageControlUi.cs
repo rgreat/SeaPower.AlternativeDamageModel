@@ -1328,7 +1328,12 @@ namespace AlternativeDamageModel
                     {
                         var kid = d.Kids[i];
                         if (kid == null) continue;
-                        if (kid.Text != n.Text) kid.Text = n.Text;
+                        if (kid.Text != n.Text)
+                        {
+                            kid.Text = n.Text;
+                            // a fixed width from the text (not measured): the row's layout cannot lose it, and a changed text moves the next pieces at once
+                            try { kid.Width = BoxWidth(n.Text, tb.FontSize > 1f ? tb.FontSize : 14f); tb.InvalidateMeasure(); } catch { }
+                        }
                         if (_boxTrace < 12 && !string.IsNullOrEmpty(kid.Text))
                         {
                             // diagnostics of the pieces standing on top of each other: a laid-out box with no width
@@ -1374,7 +1379,7 @@ namespace AlternativeDamageModel
                     // an InlineUIContainer's child stands with its bottom edge on the text baseline, so the % sat higher than the label next to it:
                     // moved down by the descent with a negative bottom margin (part of the layout; no font or render transform set on the child -
                     // with those the pieces of the row sometimes lost their width and stood on top of each other)
-                    try { float fs = tb.FontSize > 1f ? tb.FontSize : 14f; kid.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); } catch { }
+                    try { float fs = tb.FontSize > 1f ? tb.FontSize : 14f; kid.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); kid.Width = BoxWidth(s.Text, fs); } catch { }
                     if (s.Col.HasValue) kid.Foreground = new SolidColorBrush(s.Col.Value);
                     x = new InlineUIContainer(kid);
                 }
@@ -1387,6 +1392,15 @@ namespace AlternativeDamageModel
                 il.Add(x); inl.Add(x); kids.Add(kid);
             }
             d = new Drawn { Tb = tb, Segs = segs, Inl = inl, Kids = kids, Shown = tb.Text };
+            try { tb.InvalidateMeasure(); } catch { }
+        }
+
+        /// <summary>Width of a % box: the text's characters at the row's font size (a little over, never under).</summary>
+        static float BoxWidth(string text, float fs)
+        {
+            float w = 0f;
+            foreach (char c in text ?? "") w += c >= '0' && c <= '9' ? 0.62f : c == '%' ? 0.95f : c == '.' || c == ',' ? 0.34f : c == ' ' ? 0.3f : 0.66f;
+            return (float)Math.Ceiling(w * fs) + 1f;
         }
 
         /// <summary>The colour of a side's hull %: grey once it is welded as far as it can be (MaxAllowedIntegrity, whatever the %);

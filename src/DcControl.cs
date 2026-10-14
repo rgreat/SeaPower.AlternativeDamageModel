@@ -146,6 +146,47 @@ namespace AlternativeDamageModel
             return true;
         }
 
+        /// <summary>The trim in degrees: positive = the bow is down (Euler x of the hull, as the game reads it).</summary>
+        static float TrimOf(object comp)
+        {
+            var tr = _getTransform.Invoke(_baseObj.GetValue(comp), null) as UnityEngine.Transform;
+            if (tr == null) return 0f;
+            float x = tr.localEulerAngles.x;
+            return x > 180f ? x - 360f : x;
+        }
+
+        /// <summary>
+        /// Pumping out for a team that is ordered to counterflood: only from a side (and a section) where it does not make the list / trim worse.
+        /// Taking water out of a side lifts it: that is bad for the list when this is the side that is already up (opposite to the heel), and for the trim when
+        /// the end of this section is already up (a forward section with the bow up, an after one with the stern up). The middle section does not touch the trim.
+        /// Pumps as the game does (teams × crew skill × PumpOutSpeed × dt, down to the side's minimum) and returns false when nothing may be pumped.
+        /// </summary>
+        static bool PumpSafe(object comp, int i)
+        {
+            if (Repairs[TaskCounter] == null) return Repairs[TaskPump](comp, i);   // no way to tell: the game's pumping
+            try
+            {
+                float list = ListOf(comp), trim = TrimOf(comp);
+                if (i < 2 && trim < -0.2f) return false;    // forward section, bow already up
+                if (i > 2 && trim > 0.2f) return false;     // after section, stern already up
+                var ports = _port.GetValue(comp) as Array; var stars = _star.GetValue(comp) as Array;
+                object fp = ports.GetValue(i), fs = stars.GetValue(i);
+                float wp = (float)_curFlood.GetValue(fp), ws = (float)_curFlood.GetValue(fs);
+                float minP = wp - (float)_floodDelta.GetValue(fp, null), minS = ws - (float)_floodDelta.GetValue(fs, null);   // FloodingDelta = water above the minimum
+                bool canPort = wp > minP + 1e-4f && !(list < -0.3f);   // the port side is the high one when the list is to starboard
+                bool canStar = ws > minS + 1e-4f && !(list > 0.3f);
+                if (!canPort && !canStar) return false;
+                bool port = canPort && (!canStar || wp - minP >= ws - minS);
+                var teams = _teams.GetValue(comp, null) as int[];
+                float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));
+                float dec = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null));
+                var f = port ? fp : fs; float cur = port ? wp : ws, min = port ? minP : minS;
+                _curFlood.SetValue(f, Math.Max(min, cur - dec));
+                return true;
+            }
+            catch (Exception e) { Trace("PumpSafe: " + e.Message); return false; }
+        }
+
         /// <summary>A fast call of a private bool Method(int) of Compartments; falls back to reflection.</summary>
         static Func<object, int, bool> Caller(MethodInfo m)
         {
@@ -283,12 +324,12 @@ namespace AlternativeDamageModel
             if (n <= 0) return false;   // the game does nothing either
             int mode = ui && s != null ? Math.Max(0, Math.Min(2, s.Mode)) : ModeAuto;
 
-            if (_free == null || _free.Length < n) { _free = new int[Math.Max(8, n)]; _done = new bool[Math.Max(8, n)]; _did = new int[Math.Max(8, n)]; }
+            if (_free == null || _free.Length < n) { _free = new int[Math.Max(8, n)]; _done = new bool[Math.Max(8, n)]; _did = new int[Math.Max(8, n)]; _rest = new int[Math.Max(8, n)]; }
             bool returnTeam = false;
             try
             {
                 // teams with a task given by hand, grouped by task
-                int nFree = 0;
+                int nFree = 0, nRest = 0;
                 for (int k = 0; k < n; k++) { _done[k] = false; _did[k] = TaskIdle; }
                 for (int k = 0; k < n; k++)
                 {
@@ -299,9 +340,24 @@ namespace AlternativeDamageModel
                     teams[i] = size;
                     bool worked = Repairs[t] != null && Repairs[t](comp, i);
                     for (int m = k; m < n; m++)
-                        if (m < objs.Count && objs[m].Task == t) { if (worked) _did[m] = t; else _free[nFree++] = m; }   // nothing to do: by priority
+                        if (m < objs.Count && objs[m].Task == t)
+                        {
+                            if (worked) _did[m] = t;
+                            else if (t == TaskCounter) _rest[nRest++] = m;   // nothing to counterflood: by priority, but it pumps only where that does not worsen the list / trim
+                            else _free[nFree++] = m;   // nothing to do: by priority
+                        }
                 }
                 for (int k = 0; k < n; k++) if (!_done[k]) _free[nFree++] = k;
+
+                // teams ordered to counterflood that have nothing to let in: the other tasks by priority, but pumping out only where it does not make the list / trim worse
+                if (nRest > 0)
+                {
+                    teams[i] = nRest;
+                    int did = TaskIdle;
+                    foreach (var t in Orders[mode])
+                        if (t == TaskPump ? PumpSafe(comp, i) : Repairs[t](comp, i)) { did = t; break; }
+                    for (int m = 0; m < nRest; m++) _did[_rest[m]] = did;
+                }
 
                 // the rest: the first task in the order that has work
                 if (nFree > 0)
@@ -319,7 +375,7 @@ namespace AlternativeDamageModel
             if (returnTeam) _returnTeam.Invoke(comp, new object[] { i });
             return false;
         }
-        static int[] _free, _did;   // reused buffers (main thread only)
+        static int[] _free, _did, _rest;   // reused buffers (main thread only)
         static readonly List<DcTeams.Team> _objs = new List<DcTeams.Team>();
         static bool[] _done;
 

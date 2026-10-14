@@ -57,6 +57,7 @@ namespace AlternativeDamageModel
 
         // settings, cached for the hooks (updated on SettingChanged)
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
+        static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _counterRateEntry, _counterLimitEntry, _fireHullEntry;
         ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkRampEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
@@ -73,7 +74,7 @@ namespace AlternativeDamageModel
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
-        ConfigEntry<bool> _unattendedEntry, _keepComEntry;
+        ConfigEntry<bool> _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _smokeLenEntry, _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -293,6 +294,8 @@ namespace AlternativeDamageModel
                 "Chance of a severe fire (from 50% of its maximum) to spread to the next sections, in % per fire check: the game checks every " +
                 "FireCheckTime (10 s) with a chance of 0.0133% - hardly ever. 0.0133 = as in the game; 1.0 = 1% per check (about once in " +
                 "17 minutes of severe fire), 0 = never.");
+            _teamBlocksSpreadEntry = Pcfg.Bind("FireAndFlooding", "TeamBlocksFireSpread", true,
+                "A fire does not spread into a compartment where a damage control team is (it stops the fire at the door). Off = as in the game.");
             _unattendedEntry = Pcfg.Bind("FireAndFlooding", "UnattendedFireGrowth", false,
                 "A fire no damage control team has fought for a while grows faster and faster: every fire check (FireCheckTime, 10 s) its " +
                 "growth rate rises as if the section were hit again. Off = as in the game (a fire grows only from hits).");
@@ -757,6 +760,7 @@ namespace AlternativeDamageModel
             _extinguish = Math.Max(0f, _extinguishEntry.Value.V);
             _floodSpeed = Math.Max(0f, _floodSpeedEntry.Value.V);
             _pumpOut = Math.Max(0f, _pumpOutEntry.Value.V);
+            _teamBlocksSpread = _teamBlocksSpreadEntry.Value;
             DcControl.CounterRate = Math.Max(0f, _counterRateEntry.Value.V);
             DcControl.CounterLimit = Math.Max(0f, _counterLimitEntry.Value.V);
             _fireHull = Math.Max(0f, _fireHullEntry.Value.V);
@@ -1157,6 +1161,7 @@ namespace AlternativeDamageModel
                 if (_fScComp != null && _pScSeverity != null && _pScState != null && _fScMaxSev != null)
                 {
                     Patch(harmony, tSc.GetMethod("SetFireState", all), null, "FireStatePostfix", null, "SystemCompartment.SetFireState", ref ok, ref failed);
+                    Patch(harmony, tSc.GetMethod("IgniteByNeighbour", all), "IgniteByNeighbourPrefix", null, null, "SystemCompartment.IgniteByNeighbour", ref ok, ref failed);
                     Patch(harmony, tSc.GetMethod("AddCompartmentFire", all), "AddFirePrefix", "AddFirePostfix", null, "SystemCompartment.AddCompartmentFire", ref ok, ref failed);
                 }
             }
@@ -1919,6 +1924,20 @@ namespace AlternativeDamageModel
         static bool TeamSendPrefix(object __instance, int index) { return DcTeams.SendPrefix(__instance, index); }
         static bool TeamReturnPrefix(object __instance, int index) { return DcTeams.ReturnPrefix(__instance, index); }
         static bool TeamRecallPrefix(object __instance) { return DcTeams.RecallPrefix(__instance); }
+        /// <summary>A fire does not spread into a compartment where a damage control team is.</summary>
+        static bool IgniteByNeighbourPrefix(object __instance)
+        {
+            try
+            {
+                if (!_teamBlocksSpread || !Model || _fScComp == null || _fScNum == null || _pCompDcTeams == null) return true;
+                var comp = _fScComp.GetValue(__instance);
+                int i = (int)_fScNum.GetValue(__instance) - 1;   // compartment numbers are 1-based, the teams' counts 0-based
+                var counts = comp == null ? null : _pCompDcTeams.GetValue(comp, null) as int[];
+                return !(counts != null && i >= 0 && i < 5 && i < counts.Length && counts[i] > 0);
+            }
+            catch { return true; }
+        }
+
         static void WreckDragPostfix(object __instance) { WreckDrag.Tick(__instance); }
         static void SinkComPrefix(object __instance, out object __state) { __state = CapsizeFix.BeforeSink(__instance); }
         static void SinkComPostfix(object __instance, object __state) { CapsizeFix.AfterSink(__instance, __state); }
