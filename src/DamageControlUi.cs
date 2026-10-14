@@ -383,6 +383,15 @@ namespace AlternativeDamageModel
             return -1;
         }
 
+        static readonly ConditionalWeakTable<object, object> FloodSums = new ConditionalWeakTable<object, object>();
+
+        /// <summary>Whether this DamageSummary is a Flooding row's (Compartments.floodStates), not a fire's or a system's.</summary>
+        public static bool IsFloodSummary(object summary)
+        {
+            object o;
+            return summary != null && FloodSums.TryGetValue(summary, out o);
+        }
+
         static string Desc(object summary)
         {
             try { return _sumDesc.GetValue(summary, null) as string ?? ""; } catch { return ""; }
@@ -447,6 +456,7 @@ namespace AlternativeDamageModel
                 var c = new Col();
                 cols[i] = c;
                 c.FloodSum = floodStates.GetValue(i);
+                if (c.FloodSum != null) try { FloodSums.Remove(c.FloodSum); FloodSums.Add(c.FloodSum, c.FloodSum); } catch { }
                 var sc = sys.GetValue(i);
                 c.FireSum = sc == null ? null : _scFireState.GetValue(sc);
                 c.FloodDesc = Desc(c.FloodSum);
@@ -1295,21 +1305,6 @@ namespace AlternativeDamageModel
         /// </summary>
         static int _drawTrace;
 
-        /// <summary>True when an open arrow tooltip belongs to this text block (its arrow is inside it).</summary>
-        static bool TipOpenIn(TextBlock tb)
-        {
-            foreach (var o in OpenTips)
-            {
-                DependencyObject x = o.Owner;
-                for (int k = 0; x != null && k < 12; k++)
-                {
-                    if (ReferenceEquals(x, tb)) return true;
-                    x = Parent(x);
-                }
-            }
-            return false;
-        }
-
         static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
         {
             bool same = !force && d != null && ReferenceEquals(d.Tb, tb) && tb.Text == d.Shown && d.Segs.Count == segs.Count;
@@ -1320,9 +1315,6 @@ namespace AlternativeDamageModel
             }
             if (same)
             {
-                // changing a run's text makes the text block lay itself out again, and with it its arrows (the open tooltip jumps or
-                // closes and opens): while a tooltip of this row is open, its numbers are left as they are (the tooltip itself stays live)
-                if (TipOpenIn(tb)) { d.Shown = tb.Text; return; }
                 for (int i = 0; i < segs.Count; i++)
                 {
                     var o = d.Segs[i]; var n = segs[i];

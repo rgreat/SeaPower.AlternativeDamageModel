@@ -2065,10 +2065,16 @@ namespace AlternativeDamageModel
         }
         static bool DcAllocPrefix(object __instance) { return DcControl.AllocPrefix(__instance); }
 
-        /// <summary>Skips setting an unchanged DamageIntensity (see PatchUi). Only while the detailed view is on.</summary>
-        static bool DcIntensityPrefix(int value, int ____damageIntensity)
+        /// <summary>Skips setting an unchanged DamageIntensity (see PatchUi), and a change between the stages of a Flooding row. Only while the detailed view is on.</summary>
+        static bool DcIntensityPrefix(object __instance, int value, int ____damageIntensity)
         {
-            return !(UiActive && value == ____damageIntensity);
+            if (!UiActive) return true;
+            if (value == ____damageIntensity) return false;
+            // the Flooding row: a change between the stages (Minor / Moderate / Severe: the water crossing 33% or 66%) is not needed - the row
+            // draws its own colours - and each change makes the game make the row's item anew (the arrows and their hints with it, and
+            // with the water hovering around a threshold, many times a second). Only the change from / to "none" passes.
+            if (____damageIntensity > 0 && value > 0 && DamageControlUi.IsFloodSummary(__instance)) return false;
+            return true;
         }
 
 
