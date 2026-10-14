@@ -131,6 +131,7 @@ namespace AlternativeDamageModel
             Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingDelay", "Time under water", "s before water over the deck starts", Kind.Number, 0.5f, 0f, 60f);
+            Add(S, "Flooding rate", "Sinking/CapsizeFactor", "Capsizing", "× · centre of mass rises with the water; 0 = off", Kind.Number, 0.1f, 0f, 5f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/ListLimit", "List", "° · water over the deck edge from 75%", Kind.Number, 0.5f, 5f, 69f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
