@@ -69,6 +69,7 @@ namespace AlternativeDamageModel
     static class DeckCorners
     {
         public static bool Model;                       // [General] ShowDeckCorners
+        public static float WantedAt = -100f;           // the last time the flooding schematic was on the screen (it shows the points too)
         public static bool ShowCollider;                 // [General] ShowHullCollider
         public static int ModelView;                     // [General] ShipModelView: 0 Show, 1 Translucent, 2 Hide
         public static Action<string> Trace = s => { };
@@ -1025,7 +1026,7 @@ namespace AlternativeDamageModel
             if (!_ok) return;
             bool alive = (_unit as UnityEngine.Object) != null;
 
-            bool showLines = Model && alive && _points != null && _shipTransform != null && _lines != null && _lines.Length == _points.Length;
+            bool showLines = (Model || now - WantedAt < 1f) && alive && _points != null && _shipTransform != null && _lines != null && _lines.Length == _points.Length;
             SetActive(showLines);
             if (showLines)
             {

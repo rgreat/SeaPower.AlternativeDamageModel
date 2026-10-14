@@ -532,3 +532,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: bool-настройки профиля не должны быть «global»
 * Баг: «Team stops fire spread» сбрасывался в false по Apply. Причина: последним аргументом `Add(...)` строки стояло `true` (global — это глобальные ключи вне профиля, `_globals`), а ключ `FireAndFlooding/TeamBlocksFireSpread` — настройка профиля; Apply писал значение не туда, а профильное читалось заново. То же было у `Sinking/KeepCentreOfMass`. Теперь у обеих строк `global` не указан. Правило: bool профиля — без `true` (как `UnattendedKey`), `true` — только для ключей `[General]/[UI]/[Particles]` и т.п. вне профилей.
+
+## 2026-10-15: палубные точки показываются вместе со схемой затоплений
+* `RenderSchematic` (карточка схемы отсеков на вкладке Damage Control) при `ListCard.IsVisible` ставит `DeckCorners.WantedAt = Time.unscaledTime`; `DeckCorners.Tick` рисует линии/цифры точек, если `Model || now − WantedAt < 1 с`. Т.е. пока схема на экране — точки видны, даже при `ShowDeckCorners = false`; ушла схема — через ~1 с гаснут. Корабль тот же (выбранный игроком). Не проверено в игре (зависит от того, что `Render` вызывается, пока вкладка видна).

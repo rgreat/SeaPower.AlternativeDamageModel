@@ -112,6 +112,8 @@ namespace AlternativeDamageModel
             int count = 0;
             try { count = (int)_compCount.GetValue(comp); } catch { }
             if (count <= 0 || count > 5) return;
+            // the flooding schematic is on the screen: the deck points of the ship are shown with it (whatever ShowDeckCorners says)
+            try { if (x.ListCard.IsVisible) DeckCorners.WantedAt = UnityEngine.Time.unscaledTime; } catch { }
             if (x.Schem == null || x.Schem.Count != count)
             {
                 x.Schem = BuildSchematic(count);
