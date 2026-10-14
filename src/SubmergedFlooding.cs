@@ -250,7 +250,7 @@ namespace AlternativeDamageModel
             }
             catch { return true; }
         }
-        public const int SinkPoints = 6;
+        public const int SinkPoints = 5;
 
         /// <summary>True when this ship floods over the deck edge by this file's rule (exact deck points, rule on): the old list / trim
         /// flooding (TrimFlooding) is then not used for it - the same water must not come in twice for one cause.</summary>
