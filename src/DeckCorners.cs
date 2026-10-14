@@ -11,7 +11,7 @@ namespace AlternativeDamageModel
     /// [General] ShowDeckCorners: a debug visualisation, for the player's currently selected ship only - a
     /// centreline point at the bow and at the stern, plus one port/starboard pair per damage-model section
     /// (Sections, a fixed constant of 5 - the game's damage model always has exactly 5 sections, each with
-    /// its own port and starboard compartment - so 12 points total), each at that section's own centre z, as
+    /// its own port and starboard compartment - so 10 points total), each at that section's own centre z, as
     /// a line segment from the current wave surface at that point up (or down) to the estimated deck height
     /// there. The side points line up with the ship's own actual damage-model sections, meant for telling
     /// whether a given section is taking water over the side (not just the ends pitching under).
@@ -312,7 +312,8 @@ namespace AlternativeDamageModel
         // compartment, per Compartments) - a fixed fact of the game, not something read per-ship. Confirmed by
         // the user: the earlier per-ship Compartments._compartmentsCount reflection read was unneeded churn.
         const int Sections = 5;
-        const int PointCount = 2 + Sections * 2;   // bow centre + stern centre + one port/starboard pair per section = 12
+        const int PointCount = Sections * 2;   // one port/starboard pair per section = 10
+        const float InwardShift = 0.25f;       // the points sit this share of their distance from the centreline closer to it than where they were found
 
         static GameObject ShipGameObject(object unit)
         {
@@ -942,11 +943,13 @@ namespace AlternativeDamageModel
             ActivateForRaycast(hull);     // see ActivateForRaycast: the hull colliders are normally inactive/disabled
             try
             {
-                list = new List<Vector3>(PointCount) { centre(zBow), centre(zStern) };
+                list = new List<Vector3>(PointCount);
                 for (int i = 0; i < Sections; i++)                          // one port/starboard pair per section, at its own centre z
                 {
                     float z = zBow + (zStern - zBow) * (i + 0.5f) / Sections;
-                    list.Add(port(z)); list.Add(starboard(z));
+                    var pp = port(z); var sp = starboard(z);
+                    pp.x *= 1f - InwardShift; sp.x *= 1f - InwardShift;
+                    list.Add(pp); list.Add(sp);
                 }
             }
             finally { RestoreAfterRaycast(); }
@@ -973,7 +976,7 @@ namespace AlternativeDamageModel
         static LineRenderer[] _lines;
         static readonly Color CDry = new Color(0.3f, 1f, 0.4f), CWet = new Color(1f, 0.25f, 0.2f);
 
-        /// <summary>(Re)builds the pool of per-point LineRenderers to match count, which is always PointCount (12)
+        /// <summary>(Re)builds the pool of per-point LineRenderers to match count, which is always PointCount (10)
         /// in practice, since the point layout is a fixed constant now - called once per ship selection, right
         /// after LocalPoints, destroying whatever the previous ship's pool held and making a fresh one. Cheap (a
         /// handful of GameObjects, once per selection, not per frame).</summary>
