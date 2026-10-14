@@ -1291,12 +1291,14 @@ namespace AlternativeDamageModel
         {
             public string Text; public Color? Col;
             public bool Arrow; public bool Up; public int N; public Func<string> Why;
+            public bool Box;   // a number in a text block of its own, inside the row (changing it does not make the row's text lay itself out again)
         }
         static Seg Run_(string text, Color? col = null) { return new Seg { Text = text, Col = col }; }
+        static Seg Box_(string text, Color? col = null) { return new Seg { Text = text, Col = col, Box = true }; }
         static Seg Arr_(bool up, int n, Color col, Func<string> why) { return new Seg { Arrow = true, Up = up, N = n, Col = col, Why = why }; }
 
         /// <summary>What a row's inlines are now.</summary>
-        sealed class Drawn { public TextBlock Tb; public List<Seg> Segs; public List<Inline> Inl; public string Shown; }
+        sealed class Drawn { public TextBlock Tb; public List<Seg> Segs; public List<Inline> Inl; public List<TextBlock> Kids; public string Shown; }
 
         /// <summary>
         /// Writes a row. While the pieces are the same kind (same arrows, same colours of the arrows), only the texts and colours of the
@@ -1311,7 +1313,7 @@ namespace AlternativeDamageModel
             for (int i = 0; same && i < segs.Count; i++)
             {
                 var o = d.Segs[i]; var n = segs[i];
-                if (o.Arrow != n.Arrow || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue))) same = false;
+                if (o.Arrow != n.Arrow || o.Box != n.Box || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue))) same = false;
             }
             if (same)
             {
@@ -1319,6 +1321,14 @@ namespace AlternativeDamageModel
                 {
                     var o = d.Segs[i]; var n = segs[i];
                     if (n.Arrow) continue;
+                    if (n.Box)
+                    {
+                        var kid = d.Kids[i];
+                        if (kid == null) continue;
+                        if (kid.Text != n.Text) kid.Text = n.Text;
+                        if (n.Col.HasValue && !o.Col.Equals(n.Col)) kid.Foreground = new SolidColorBrush(n.Col.Value);
+                        continue;
+                    }
                     var run = d.Inl[i] as Run;
                     if (run == null) continue;
                     if (run.Text != n.Text) run.Text = n.Text;
@@ -1335,19 +1345,27 @@ namespace AlternativeDamageModel
             var il = tb.Inlines;
             il.Clear();
             var inl = new List<Inline>(segs.Count);
+            var kids = new List<TextBlock>(segs.Count);
             foreach (var s in segs)
             {
                 Inline x;
+                TextBlock kid = null;
                 if (s.Arrow) x = Arrow(s.Up, s.N, s.Col.Value, s.Why);
+                else if (s.Box)
+                {
+                    kid = new TextBlock { Text = s.Text };
+                    if (s.Col.HasValue) kid.Foreground = new SolidColorBrush(s.Col.Value);
+                    x = new InlineUIContainer(kid);
+                }
                 else
                 {
                     var r = new Run(s.Text);
                     if (s.Col.HasValue) r.Foreground = new SolidColorBrush(s.Col.Value);
                     x = r;
                 }
-                il.Add(x); inl.Add(x);
+                il.Add(x); inl.Add(x); kids.Add(kid);
             }
-            d = new Drawn { Tb = tb, Segs = segs, Inl = inl, Shown = tb.Text };
+            d = new Drawn { Tb = tb, Segs = segs, Inl = inl, Kids = kids, Shown = tb.Text };
         }
 
         /// <summary>The colour of a side's hull %: grey once it is welded as far as it can be (MaxAllowedIntegrity, whatever the %);
@@ -1381,10 +1399,10 @@ namespace AlternativeDamageModel
             if (!whole)
             {
                 segs.Add(Run_("   "));
-                segs.Add(Run_(Pct(ip), cp));
+                segs.Add(Box_(Pct(ip), cp));
                 if (ap != 0) segs.Add(Arr_(ap > 0, 1, ap > 0 ? CDown : CUp, () => HullCause(comp, c, i, true))); // integrity: up is good (green), down is bad (red)
                 segs.Add(Run_(" / ", CGrey));
-                segs.Add(Run_(Pct(isb), cs));
+                segs.Add(Box_(Pct(isb), cs));
                 if (asb != 0) segs.Add(Arr_(asb > 0, 1, asb > 0 ? CDown : CUp, () => HullCause(comp, c, i, false)));
             }
             Draw(tb, ref c.HeaderD, c.HeaderSig == null, segs);
@@ -1725,10 +1743,10 @@ namespace AlternativeDamageModel
             var segs = new List<Seg> { Run_(c.FloodOrig ?? "", any ? (Color?)FloodColor(Math.Max(sp, ss)) : null) };
             if (any)
             {
-                segs.Add(Run_("  " + Pct(p), FloodColor(sp)));
+                segs.Add(Run_("  ")); segs.Add(Box_(Pct(p), FloodColor(sp)));
                 if (ap != 0) segs.Add(Arr_(ap > 0, Math.Abs(ap), ap > 0 ? CUp : CDown, () => FloodCause(comp, c, i, true)));
                 segs.Add(Run_(" / ", FloodColor(Math.Max(sp, ss))));
-                segs.Add(Run_(Pct(s), FloodColor(ss)));
+                segs.Add(Box_(Pct(s), FloodColor(ss)));
                 if (asb != 0) segs.Add(Arr_(asb > 0, Math.Abs(asb), asb > 0 ? CUp : CDown, () => FloodCause(comp, c, i, false)));
             }
             Draw(tb, ref c.FloodD, c.FloodSig == null, segs);
@@ -1779,7 +1797,7 @@ namespace AlternativeDamageModel
             var segs = new List<Seg> { Run_(c.FireOrig ?? "") };
             if (any)
             {
-                segs.Add(Run_("  " + Pct(f)));
+                segs.Add(Run_("  ")); segs.Add(Box_(Pct(f)));
                 if (a != 0) segs.Add(Arr_(a > 0, Math.Abs(a), a > 0 ? CUp : CDown, () => FireCause(comp, c, i)));
             }
             Draw(tb, ref c.FireD, c.FireSig == null, segs);
