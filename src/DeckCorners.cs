@@ -205,13 +205,43 @@ namespace AlternativeDamageModel
                 }
                 catch (Exception e) { Trace("Deck corners hull piece log: " + e.Message); }
                 Vector3[] points = null; bool exact = false;
-                try { exact = LocalPoints(shipT, hull, out points, out _lineWidth); }
+                bool sizeOk = ColliderLengthOk(obp, shipT, hull);
+                try { exact = sizeOk && LocalPoints(shipT, hull, out points, out _lineWidth); }
                 catch (Exception e) { Trace("Deck corners LocalPoints '" + SafeName(unit) + "': " + e); exact = false; }
                 PointsExact = exact;
                 _points = exact ? points : null;   // no points: the ship keeps the old rules; the collider overlay (ShowHullCollider) is orange
                 if (exact) RebuildVisual(points.Length); else RebuildVisual(0);
             }
             catch (Exception e) { Trace("Deck corners Select: " + e.Message); }
+        }
+
+        /// <summary>A hull collider whose length differs from the ship's own length (ini Length, metres) by more than
+        /// MaxLengthMismatch is treated as bad (a broken or partial collider mesh in a mod): no points, old rules,
+        /// orange overlay. If the length is unknown (0) the check is skipped.</summary>
+        const float MaxLengthMismatch = 0.10f;
+        static bool ColliderLengthOk(object obp, Transform shipT, List<Component> hull)
+        {
+            try
+            {
+                var pl = obp.GetType().GetProperty("_length", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                if (pl == null) return true;
+                float shipLen = Convert.ToSingle(pl.GetValue(obp, null));
+                if (shipLen <= 0.5f) return true;
+                var pieces = PieceBoxes(shipT, hull);
+                if (pieces.Count == 0) return true;
+                float zMin = pieces[0].Min.z, zMax = pieces[0].Max.z;
+                foreach (var p in pieces) { zMin = Mathf.Min(zMin, p.Min.z); zMax = Mathf.Max(zMax, p.Max.z); }
+                float collLen = (zMax - zMin) * Mathf.Abs(shipT.lossyScale.z);
+                float diff = Mathf.Abs(collLen - shipLen) / shipLen;
+                Trace("Deck corners: hull collider length " + collLen.ToString("F1") + " m, ship length " + shipLen.ToString("F1") + " m (" + (diff * 100f).ToString("F0") + "% off)");
+                if (diff > MaxLengthMismatch)
+                {
+                    if (_warnedOnce.Add("badlen:" + SafeName(_unit))) Warn("Deck corners: '" + SafeName(_unit) + "' hull collider is " + collLen.ToString("F0") + " m long vs ship " + shipLen.ToString("F0") + " m; treated as bad (no deck points, old flooding rules).");
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception e) { Trace("Deck corners ColliderLengthOk: " + e.Message); return true; }
         }
 
         static string SafeName(object unit)
