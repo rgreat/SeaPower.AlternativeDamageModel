@@ -736,3 +736,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 ## 2026-10-15: закладка Sinking в окне настроек
 * Новая закладка «Sinking» (после «Flooding»): все настройки секции `[Sinking]` перенесены туда из «Flooding». Группы: «Water over the deck» (DeckFloodingSpeed/Delay), «Capsizing» (CapsizeFactor), «Sinking and wreck» (KeepCentreOfMass, SinkPullFactor/Ramp, WreckDragFactor, BubblesStopMinutes), «Gauge scales» (ListLimit, TrimLimit, TrimReferenceLength), «Sinking from» (FloodLimit). На «Flooding» остался только «Water coming in» (FireAndFlooding/FloodingSpeed). Закладка модельная — скрывается вместе с остальными при выключенном Alternative Damage Control.
 * Окно шире: `PixW` 1050 → 1150 (и `_winW`) — под лишнюю закладку. Размер по-прежнему меняется мышью.
+
+## 2026-10-15: группы Water over the deck / Gauge scales / Sinking from возвращены на Flooding
+* По просьбе: на «Flooding» вернулись «Flooding rate» (Water coming in, Water over the deck, Time under water), «Gauge scales» и «Sinking from». На «Sinking» остались «Capsizing» и «Sinking and wreck». Ширина окна 1150 — без изменений.

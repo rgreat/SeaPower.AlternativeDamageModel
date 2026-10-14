@@ -133,18 +133,18 @@ namespace AlternativeDamageModel
             Add(DC, "Knock-outs", "DamageControlTeams/KnockoutsToDeath", "Knock-outs to death", "0 = never", Kind.Integer, 1f, 0f, 9f);
 
             Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
-            Add(SK, "Water over the deck", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
-            Add(SK, "Water over the deck", "Sinking/DeckFloodingDelay", "Time under water", "s before water over the deck starts", Kind.Number, 0.5f, 0f, 60f);
+            Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
+            Add(S, "Flooding rate", "Sinking/DeckFloodingDelay", "Time under water", "s before water over the deck starts", Kind.Number, 0.5f, 0f, 60f);
+            Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/ListLimit", "List", "° · water over the deck edge from 75%", Kind.Number, 0.5f, 5f, 69f);
+            Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
+            Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
+            Add(S, "Sinking from", "Sinking/FloodLimit", "Water in the ship", "% of the hull", Kind.Number, 1f, 5f, 100f);
             Add(SK, "Capsizing", "Sinking/CapsizeFactor", "Centre of mass rise", "× · rises with the water in the ship; 0 = off", Kind.Number, 0.1f, 0f, 5f);
             Add(SK, "Sinking and wreck", "Sinking/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0, true);
             Add(SK, "Sinking and wreck", "Sinking/SinkPullFactor", "Sinking pull", "× the game's maximum pull down; 0 = none", Kind.Number, 0.1f, 0f, 3f);
             Add(SK, "Sinking and wreck", "Sinking/SinkPullRamp", "Sinking pull ramp", "depth over which it builds up; game 10, 0 = game", Kind.Number, 1f, 0f, 200f);
             Add(SK, "Sinking and wreck", "Sinking/WreckDragFactor", "Wreck drag", "× the game's resistance to movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f);
             Add(SK, "Sinking and wreck", "Sinking/BubblesStopMinutes", "Stop bubbles after", "min after sinking starts; 0 = never", Kind.Number, 1f, 0f, 120f);
-            Add(SK, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/ListLimit", "List", "° · water over the deck edge from 75%", Kind.Number, 0.5f, 5f, 69f);
-            Add(SK, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
-            Add(SK, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
-            Add(SK, "Sinking from", "Sinking/FloodLimit", "Water in the ship", "% of the hull", Kind.Number, 1f, 5f, 100f);
         }
 
         // ------------------------------------------------------------ colours (the game's dark panels)
