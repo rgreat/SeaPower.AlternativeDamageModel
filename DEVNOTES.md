@@ -545,3 +545,8 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 * Меш с `isReadable == false` (Read/Write выключен при импорте; civ_ms_andizhan) больше не отключает точки: `TryGpuMesh` берёт `Mesh.GetVertexBuffer/GetIndexBuffer` и читает их через `AsyncGPUReadback` (синхронно, `WaitForCompletion`, один раз при выборе корабля). Меш в GPU есть — его рисует оверлей Hull Collider. DX11 и DX12 readback поддерживают.
 * Поддержано: позиции Float32, подмеши-треугольники (с `baseVertex`), индексы 16/32 бит. Прочее (или ошибка readback) — как раньше: точек нет, `PointsExact = false`, оранжевый оверлей, старые правила. Результат пишется в trace: `GPU read of '<mesh>': N vertices, M triangles` — по нему проверять на andizhan.
 * Визуальный (рендер) меш как источник отвергнут: включает надстройки, палубный угол определится неверно.
+
+## 2026-10-14: Select — модель не зависит от коллайдера и точек
+* Жалоба: у части кораблей не видно ни оверлея Hull Collider, ни полупрозрачной/скрытой модели. Вероятная причина: `Select` запоминал `_unit` только в конце, а любой ранний выход (нет `coll_hull*`, нет ObjectBaseParameters/transform, исключение в `LocalPoints`) оставлял `_unit = null`, и `Tick` считал корабль «не живым» — отключался в том числе вид модели. Теперь `_unit` ставится сразу после проверки компартментов; вид модели работает всегда, оверлей — при наличии `coll_hull*`; `LocalPoints` обёрнут в try/catch (в trace — полный стек). Для каждого раннего выхода пишется строка в trace.
+* Каркас (hull_wire) для нечитаемых мешей тоже строится через `TryGpuMesh`.
+* Не подтверждено: если у каких-то кораблей модель всё равно не видна — нужен trace/имя корабля (возможно, рендереры не MeshRenderer/SkinnedMeshRenderer или лежат вне GameObject юнита).

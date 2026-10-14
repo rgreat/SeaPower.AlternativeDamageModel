@@ -172,27 +172,31 @@ namespace AlternativeDamageModel
         {
             ClearColliderOverlays();
             RestoreShipModel();
-            _unit = null; _points = null; _shipTransform = null; _hullPieces = null;
+            _unit = null; _points = null; _shipTransform = null; _hullPieces = null; PointsExact = false;
             if (unit == null) return;
             try
             {
                 object comp = _pCompartments.GetValue(unit, null);
                 if (comp == null) return;          // not a ship with compartments (aircraft, weapon, ...)
+                // The unit is remembered first, whatever else fails below: the ship-model view (translucent / hidden)
+                // needs only the unit, and must not depend on the collider or the points being available.
+                _unit = unit;
                 object obp = _fObp.GetValue(unit);
-                if (obp == null) return;
+                if (obp == null) { Trace("Deck corners: '" + SafeName(unit) + "' has no ObjectBaseParameters; collider overlay and points are off."); return; }
                 var hull = HullColliders(obp);
                 if (hull.Count == 0)
                 {
                     string name = SafeName(unit);
-                    if (_warnedOnce.Add(name)) Warn("Deck corners: '" + name + "' has no coll_hull* collider; its lines are off.");
+                    if (_warnedOnce.Add(name)) Warn("Deck corners: '" + name + "' has no coll_hull* collider; its lines and collider overlay are off.");
                     return;
                 }
                 Transform shipT = _fCompTransform.GetValue(comp) as Transform;
-                if (shipT == null) return;
-                Vector3[] points;
-                bool exact = LocalPoints(shipT, hull, out points, out _lineWidth);
+                if (shipT == null) { Trace("Deck corners: '" + SafeName(unit) + "' has no compartments transform; collider overlay and points are off."); return; }
+                _shipTransform = shipT; _hullPieces = hull;
+                Vector3[] points = null; bool exact = false;
+                try { exact = LocalPoints(shipT, hull, out points, out _lineWidth); }
+                catch (Exception e) { Trace("Deck corners LocalPoints '" + SafeName(unit) + "': " + e); exact = false; }
                 PointsExact = exact;
-                _unit = unit; _shipTransform = shipT; _hullPieces = hull;
                 _points = exact ? points : null;   // no points: the ship keeps the old rules; the collider overlay (ShowHullCollider) is orange
                 if (exact) RebuildVisual(points.Length); else RebuildVisual(0);
             }
@@ -781,14 +785,18 @@ namespace AlternativeDamageModel
         /// piece that throws just has no wireframe (null) rather than taking the rest of the overlay down with it.</summary>
         static Mesh BuildWireframeMesh(Mesh src)
         {
-            if (!src.isReadable)
+            Vector3[] v = null; int[] t = null;
+            if (src.isReadable)
             {
-                if (_warnedOnce.Add("nowire:" + src.name)) Warn("Deck corners: no wireframe for '" + src.name + "' (mesh not readable).");
+                try { v = src.vertices; t = src.triangles; }
+                catch (Exception e) { Trace("Deck corners wireframe (mesh read failed): " + e.Message); return null; }
+            }
+            else if (!TryGpuMesh(src, out v, out t))
+            {
+                if (_warnedOnce.Add("nowire:" + src.name)) Warn("Deck corners: no wireframe for '" + src.name + "' (mesh not readable, GPU read-back failed).");
                 return null;
             }
-            Vector3[] v; int[] t;
-            try { v = src.vertices; t = src.triangles; }
-            catch (Exception e) { Trace("Deck corners wireframe (mesh not readable?): " + e.Message); return null; }
+            if (v == null || t == null) return null;
             if (v.Length == 0 || t.Length == 0) return null;
 
             var seen = new HashSet<long>();
