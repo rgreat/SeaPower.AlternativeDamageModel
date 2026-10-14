@@ -20,7 +20,7 @@ namespace AlternativeDamageModel
         {
             public Grid HullInner; public RowDefinition FireRowDef; public Grid FireRow; public TextBlock FireValue;
             public Panel ListHost; public Border ListCard;
-            public RotateTransform ListRot, TrimRot; public TextBlock ListVal, TrimVal;
+            public Action<float, float> ListRed, TrimRed; public RotateTransform ListRot, TrimRot; public TextBlock ListVal, TrimVal;
             public Border LevelFill; public float LevelHeight; public TextBlock LevelVal;
             public FrameworkElement Res;                // where the game's brushes are looked up
             public double T = -1; public float List, Trim;
@@ -216,9 +216,9 @@ namespace AlternativeDamageModel
                 card.HorizontalAlignment = HorizontalAlignment.Right;   // its own width
                 Grid.SetColumn(card, 2);
                 var rowp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                rowp.Children.Add(Dial("LIST", "PORT", "STBD", ListRange, ListDanger, out x.ListRot, out x.ListVal));
+                rowp.Children.Add(Dial("LIST", "PORT", "STBD", ListRange, ListDanger, out x.ListRot, out x.ListVal, out x.ListRed));
                 rowp.Children.Add(new Border { Width = 6f });
-                var trimDial = Dial("TRIM", "STERN", "BOW", TrimRange, TrimDanger, out x.TrimRot, out x.TrimVal);
+                var trimDial = Dial("TRIM", "STERN", "BOW", TrimRange, TrimDanger, out x.TrimRot, out x.TrimVal, out x.TrimRed);
                 // no tooltip of its own: the card's flooding plan shows over all three gauges (with the list / trim limits)
                 rowp.Children.Add(trimDial);
                 rowp.Children.Add(new Border { Width = 8f });
@@ -418,7 +418,7 @@ namespace AlternativeDamageModel
         static readonly Color CDial = Color.FromRgb(36, 40, 46), CScale = Color.FromRgb(214, 218, 222), CDanger = Color.FromRgb(200, 62, 54),
                               CNeedle = Color.FromRgb(250, 250, 250), CDim = Color.FromRgb(150, 156, 162);
 
-        static StackPanel Dial(string title, string left, string right, float range, float danger, out RotateTransform rot, out TextBlock val)
+        static StackPanel Dial(string title, string left, string right, float range, float danger, out RotateTransform rot, out TextBlock val, out Action<float, float> setRed)
         {
             var stack = new StackPanel { Orientation = Orientation.Vertical };
             stack.Children.Add(new TextBlock { Text = title, FontSize = 11f, Foreground = new SolidColorBrush(CDim), HorizontalAlignment = HorizontalAlignment.Center });
@@ -426,24 +426,34 @@ namespace AlternativeDamageModel
             var ch = cv.Children;
             float dz = danger / range * 90f;
             ch.Add(Shape("M" + P(DialR, -90f) + " A" + N(DialR) + "," + N(DialR) + " 0 0 1 " + P(DialR, 90f) + " Z", CDial));   // dial face
-            ch.Add(Shape(Band(DialR - 9f, DialR - 2f, -90f, -dz), CDanger));
-            ch.Add(Shape(Band(DialR - 9f, DialR - 2f, -dz, dz), CBand));   // a bit darker than the needle
-            ch.Add(Shape(Band(DialR - 9f, DialR - 2f, dz, 90f), CDanger));
-            // ticks evenly spaced, one on each end of the red bands (red ones there): step = half the red band (11.25° for 75%)
-            float step = (90f - dz) / 2f;
-            if (step < 5f) step = (90f - dz);
-            if (step < 5f) step = 11.25f;
-            int nt = (int)Math.Round(90f / step);
-            var greyTicks = new System.Text.StringBuilder(); var redTicks = new System.Text.StringBuilder();
-            for (int k = -nt; k <= nt; k++)
+            var bandL = Shape("M0,0", CDanger); var bandM = Shape("M0,0", CBand); var bandR = Shape("M0,0", CDanger);   // a bit darker than the needle
+            var greyP = new Path { Stroke = new SolidColorBrush(CScale), StrokeThickness = 1.2f };
+            var redP = new Path { Stroke = new SolidColorBrush(CDanger), StrokeThickness = 1.2f };
+            ch.Add(bandL); ch.Add(bandM); ch.Add(bandR); ch.Add(greyP); ch.Add(redP);
+            // the red zones start at dzL (left) / dzR (right), degrees of the dial from the top; ticks every 11.25 deg and on both edges
+            float lastL = -1f, lastR = -1f;
+            setRed = (dzL, dzR) =>
             {
-                float a = Math.Max(-90f, Math.Min(90f, k * step));
-                bool red = Math.Abs(a) >= dz - 0.01f;
-                bool major = k % 2 == 0;
-                (red ? redTicks : greyTicks).Append("M" + P(DialR - (major ? 15f : 13f), a) + " L" + P(DialR - 9f, a) + " ");
-            }
-            if (greyTicks.Length > 0) ch.Add(new Path { Data = new StreamGeometry(greyTicks.ToString()), Stroke = new SolidColorBrush(CScale), StrokeThickness = 1.2f });
-            if (redTicks.Length > 0) ch.Add(new Path { Data = new StreamGeometry(redTicks.ToString()), Stroke = new SolidColorBrush(CDanger), StrokeThickness = 1.2f });
+                dzL = Math.Max(0f, Math.Min(90f, dzL)); dzR = Math.Max(0f, Math.Min(90f, dzR));
+                if (Math.Abs(dzL - lastL) < 0.3f && Math.Abs(dzR - lastR) < 0.3f) return;
+                lastL = dzL; lastR = dzR;
+                bandL.Data = new StreamGeometry(Band(DialR - 9f, DialR - 2f, -90f, -dzL));
+                bandM.Data = new StreamGeometry(Band(DialR - 9f, DialR - 2f, -dzL, dzR));
+                bandR.Data = new StreamGeometry(Band(DialR - 9f, DialR - 2f, dzR, 90f));
+                var grey = new System.Text.StringBuilder(); var red = new System.Text.StringBuilder();
+                var angles = new List<float>();
+                for (int k = -8; k <= 8; k++) angles.Add(k * 11.25f);
+                angles.Add(-dzL); angles.Add(dzR);
+                foreach (float a in angles)
+                {
+                    bool isRed = a <= -dzL + 0.01f || a >= dzR - 0.01f;
+                    bool major = Math.Abs(a % 22.5f) < 0.01f || Math.Abs(Math.Abs(a) - dzL) < 0.01f || Math.Abs(a - dzR) < 0.01f;
+                    (isRed ? red : grey).Append("M" + P(DialR - (major ? 15f : 13f), a) + " L" + P(DialR - 9f, a) + " ");
+                }
+                greyP.Data = grey.Length > 0 ? new StreamGeometry(grey.ToString()) : null;
+                redP.Data = red.Length > 0 ? new StreamGeometry(red.ToString()) : null;
+            };
+            setRed(dz, dz);
             var needle = new Path { Data = new StreamGeometry("M" + N(DialCx) + "," + N(DialCy) + " L" + P(DialR - 4f, 0f)), Stroke = new SolidColorBrush(CNeedle), StrokeThickness = 2f };
             rot = new RotateTransform(0f) { CenterX = DialCx, CenterY = DialCy };
             needle.RenderTransform = rot;
@@ -562,12 +572,21 @@ namespace AlternativeDamageModel
                     // +z = port side down (needle to the left); trim: +x turns the needle to the right (checked in game)
                     float listRange = ListScale(comp), trimRange = TrimScale(comp);   // trim: this ship's limit (by its length)
                     bool sub = IsSub(comp);                                            // nothing floods from list / trim
+                    // red zones: where a deck point touches the flat sea from the ship's position now (ships with exact points), else 75% of the scale
+                    float redLP = Limits.FloodFrom * listRange, redLS = redLP, redTS = Limits.FloodFrom * trimRange, redTB = redTS;
+                    if (ModelOn() && !sub)
+                    {
+                        float mp, ms, mt, mb;
+                        if (SubmergedFlooding.Margins(comp, x.List, x.Trim, out mp, out ms, out mt, out mb)) { redLP = mp; redLS = ms; redTS = mt; redTB = mb; }
+                    }
+                    x.ListRed(Math.Min(1f, redLP / listRange) * 90f, Math.Min(1f, redLS / listRange) * 90f);
+                    x.TrimRed(Math.Min(1f, redTS / trimRange) * 90f, Math.Min(1f, redTB / trimRange) * 90f);
                     x.ListRot.Angle = -Math.Max(-1f, Math.Min(1f, x.List / listRange)) * 90f;
                     x.TrimRot.Angle = Math.Max(-1f, Math.Min(1f, x.Trim / trimRange)) * 90f;
                     SetText(x.ListVal, Math.Abs(x.List).ToString(Math.Abs(x.List) < 10f ? "0.0" : "0", CultureInfo.InvariantCulture) + "°");
                     SetText(x.TrimVal, Math.Abs(x.Trim).ToString("0.0", CultureInfo.InvariantCulture) + "°");
-                    SetBrush(x.ListVal, !sub && Math.Abs(x.List) >= Limits.FloodFrom * listRange ? BDanger : StageBrush(x.Res, 0));
-                    SetBrush(x.TrimVal, !sub && Math.Abs(x.Trim) >= Limits.FloodFrom * trimRange ? BDanger : StageBrush(x.Res, 0));
+                    SetBrush(x.ListVal, !sub && (x.List >= 0f ? x.List >= redLP : -x.List >= redLS) ? BDanger : StageBrush(x.Res, 0));
+                    SetBrush(x.TrimVal, !sub && (x.Trim >= 0f ? x.Trim >= redTB : -x.Trim >= redTS) ? BDanger : StageBrush(x.Res, 0));
                 }
             }
 

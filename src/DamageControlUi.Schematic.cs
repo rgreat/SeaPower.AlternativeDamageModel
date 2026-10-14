@@ -165,7 +165,7 @@ namespace AlternativeDamageModel
             else if (ModelOn() && SubmergedFlooding.Covers(comp))
             {
                 float tl, tt; SubmergedFlooding.TouchAngles(comp, out tl, out tt);
-                lim = "Deck edge touches the sea at list " + tl.ToString("0.#", CultureInfo.InvariantCulture) + "° · trim " + tt.ToString("0.0", CultureInfo.InvariantCulture) + "° (red zones)";
+                lim = SubmergedFlooding.MarginText(comp) ?? ("Deck edge touches the sea at list " + tl.ToString("0.#", CultureInfo.InvariantCulture) + "° · trim " + tt.ToString("0.0", CultureInfo.InvariantCulture) + "° (red zones)");
             }
             else if (ModelOn())
                 lim = "List limit " + Limits.ListFull.ToString("0.#", CultureInfo.InvariantCulture) + "° · Trim limit " +

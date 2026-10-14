@@ -40,6 +40,8 @@ namespace AlternativeDamageModel
             public float[] Got;        // %/s received as overflow from others
             public int[] GotFrom;      // compartment it comes from (the last one), -1 none
             public int[] PassedTo;     // where this full compartment's water goes now, -1 none
+            public float Zc;                     // mean z of the compartments (the pitch axis)
+            public float[] M;                    // last Margins: list to port, to starboard, trim to the stern, to the bow (degrees at which the first point touches)
             public float ListTouch, TrimTouch;   // degrees of list / trim at which the first deck point touches the flat sea (0 = unknown)
         }
         static readonly ConditionalWeakTable<object, State> States = new ConditionalWeakTable<object, State>();
@@ -121,7 +123,7 @@ namespace AlternativeDamageModel
                 pos[k] = go.transform.localPosition; ok[k] = true; zc += pos[k].z; cnt++;
             }
             if (cnt == 0) return;
-            zc /= cnt;
+            zc /= cnt; s.Zc = zc;
             double list = 90.0, trim = 90.0;
             for (int k = 0; k < 2 * n; k++)
             {
@@ -146,6 +148,52 @@ namespace AlternativeDamageModel
             if (s == null || s.ListTouch <= 0f || s.TrimTouch <= 0f) return false;
             list = s.ListTouch; trim = s.TrimTouch;
             return true;
+        }
+
+        /// <summary>
+        /// Where the red zones of the LIST / TRIM gauges start NOW, per direction: the value of list (to port / to starboard) and trim
+        /// (to the stern / to the bow) at which the first deck point touches the flat sea (y = 0), starting from the ship's present
+        /// position - so a flooded ship that already sits low has its red zone start closer (0 when a point is under water already).
+        /// The ship turns about the centreline at sea level (at the middle of the compartments); a point at height h and distance d
+        /// from the axis on the side going down touches after atan2(h, d) more degrees. list > 0: port down; trim > 0: bow down.
+        /// </summary>
+        public static bool Margins(object comp, float list, float trim, out float toPort, out float toStbd, out float toStern, out float toBow)
+        {
+            toPort = toStbd = toStern = toBow = 0f;
+            if (!Covers(comp)) return false;
+            var s = Get(comp);
+            if (s == null || s.P.ShipT == null) return false;
+            Transform t = s.P.ShipT;
+            Matrix4x4 ltw = t.localToWorldMatrix;
+            Vector3 o = ltw.MultiplyPoint3x4(new Vector3(0f, 0f, s.Zc));
+            Vector3 up = t.up;
+            if (up.y < 0.2f) return false;
+            Vector3 a = o + up * (-o.y / up.y);                 // the centreline at sea level
+            Vector3 right = t.right; right.y = 0f; right.Normalize();
+            Vector3 fwd = t.forward; fwd.y = 0f; fwd.Normalize();
+            double mp = 90, ms = 90, mst = 90, mb = 90;
+            for (int k = 0; k < 2 * s.Count; k++)
+            {
+                Vector3 w = ltw.MultiplyPoint3x4(s.P.Points[s.Map[k]]);
+                Vector3 r = w - a;
+                float h = w.y, X = Vector3.Dot(r, right), Z = Vector3.Dot(r, fwd);
+                if (X < 0f) mp = Math.Min(mp, Math.Atan2(h, -X) * 180.0 / Math.PI); else ms = Math.Min(ms, Math.Atan2(h, X) * 180.0 / Math.PI);
+                if (Z > 0f) mb = Math.Min(mb, Math.Atan2(h, Z) * 180.0 / Math.PI); else mst = Math.Min(mst, Math.Atan2(h, -Z) * 180.0 / Math.PI);
+            }
+            toPort = (float)Math.Max(0.0, list + mp); toStbd = (float)Math.Max(0.0, -list + ms);
+            toStern = (float)Math.Max(0.0, -trim + mst); toBow = (float)Math.Max(0.0, trim + mb);
+            s.M = new[] { toPort, toStbd, toStern, toBow };
+            return true;
+        }
+
+        /// <summary>The last Margins of this ship as a line of text, null if none yet.</summary>
+        public static string MarginText(object comp)
+        {
+            State s;
+            if (!States.TryGetValue(comp, out s) || s.M == null) return null;
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            return "Deck edge touches the sea at list " + s.M[0].ToString("0.#", ci) + "° port / " + s.M[1].ToString("0.#", ci) + "° stbd · trim " +
+                   s.M[2].ToString("0.0", ci) + "° stern / " + s.M[3].ToString("0.0", ci) + "° bow (red zones)";
         }
 
         /// <summary>True when this ship floods over the deck edge by this file's rule (exact deck points, rule on): the old list / trim
