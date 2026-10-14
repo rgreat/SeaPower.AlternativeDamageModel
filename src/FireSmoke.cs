@@ -26,7 +26,7 @@ namespace AlternativeDamageModel
         public static Func<bool> IsEnabled = () => false;
         public static float MinLength = 100f;
         public static Func<bool> DensityOn = () => false;   // [Effects] SmokeBySeverity
-        public static float StartOpacity = 0f;               // [Effects] SmokeStartOpacity: the small fire's smoke as the fire starts
+        public static float StartOpacity = 0.1f;              // [Effects] SmokeStartOpacity: the small fire's smoke as the fire starts
         public static float EndOpacity = 1f;                // [Effects] SmokeEndOpacity: the small fire's smoke at ModerateFrom
         public static float ModerateFrom = 0.50f;           // [Effects] SmokeModerateFrom: the moderate look from this share of the maximum
         public static float SevereFrom = 0.90f;             // [Effects] SmokeSevereFrom: the severe look from this share

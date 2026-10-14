@@ -10,10 +10,12 @@ A knocked-out team recovers and returns to the reserve; knocked out twice, it is
 [*][b]DC Priority[/b] for the whole ship: Auto (the game's order), Fire first or Flooding first.
 [*][b]Orders to single teams[/b] with Auto DC off: click a team to give it a task, move it to another section or send it to the reserve.
 [*][b]Detailed Damage Control tab:[/b]
-Hull integrity of each side next to the section name, with a trend arrow.
+Hull integrity of each side next to the section name, with a trend arrow: yellow / orange / red while it can still be welded, grey when it is welded as far as it can be.
 One icon per team (DC1, DC2...) showing what it is doing; teams on the move and recovering, with their time.
-Water and fire in % with trend arrows. Their tooltips explain why: leaks, who is plugging or pumping, a hit, list, water that stays until the hull is welded...
+Water and fire in % with trend arrows. Their tooltips explain why: leaks, who is plugging or pumping, a hit, list or trim putting water over the deck...
 Water shown yellow / red while damage control can still get it out, grey when it cannot.
+Hull Damage and Flooding at the top right also show the overall % of the whole ship, e.g. Moderate (15%), nothing added at 0%; with Alternative Damage Control the hull damage words change at 25 / 50 / 75%.
+Weapon buttons of the selected unit's bottom panel are coloured by weapon state: part of that type inoperable - yellow, all of it - red (setting UI / ColorWeaponStatus).
 LIST / TRIM / LEVEL gauges; their tooltip is a plan of the ship with the water in every compartment.
 A legend behind the (i) next to the tab's name.
 [/olist]

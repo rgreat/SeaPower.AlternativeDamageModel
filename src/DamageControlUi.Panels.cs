@@ -25,6 +25,7 @@ namespace AlternativeDamageModel
             public FrameworkElement Res;                // where the game's brushes are looked up
             public double T = -1; public float List, Trim;
             public string FireSig;
+            public TextBlock HullVal, FloodVal; public bool HullColored;   // the game's "Hull Damage" / "Flooding" values: we add (NN%)
             // "Damage Control Teams" / "Teams Knocked Out": the game's value (and the first card's "Available / Total") hidden, ours shown
             public List<UIElement> Hidden = new List<UIElement>();
             public List<KeyValuePair<Panel, UIElement>> Added = new List<KeyValuePair<Panel, UIElement>>();
@@ -79,7 +80,8 @@ namespace AlternativeDamageModel
         /// <summary>Water in the ship (% of the hull) at which it sinks.</summary>
         public static float SinkAt(object comp) { return IsSub(comp) ? 50f : ModelOn() ? Limits.LevelFull : 40f; }
 
-        static PropertyInfo _compFloodPct, _scFireStateProp;
+        static PropertyInfo _compFloodPct, _compIntPct, _scFireStateProp;
+        static MethodInfo _hullConv, _floodConv; static object _hullConvObj, _floodConvObj;
         static float _shownList; static WeakReference _shownListComp = new WeakReference(null);   // the list on the dial (smoothed): for the tooltips
         static FieldInfo _compBaseObj;
 
@@ -130,6 +132,9 @@ namespace AlternativeDamageModel
                 var tComp = asm.GetType("SeaPower.Compartments");
                 _compFloodPct = tComp.GetProperty("FloodingPercentage", inst);
                 _compBaseObj = tComp.GetField("_baseObject", inst);
+                _compIntPct = tComp.GetProperty("IntegrityPercentage", inst);
+                FindConv(asm, "IntegrityToDamageControlConverter", out _hullConv, out _hullConvObj);
+                FindConv(asm, "FloodingPercentageToDamageControlStringConverter", out _floodConv, out _floodConvObj);
                 _scFireStateProp = asm.GetType("SeaPower.SystemCompartment").GetProperty("FireState", inst);
             }
             var x = new Extras { Res = view };
@@ -175,6 +180,18 @@ namespace AlternativeDamageModel
                 row.Children.Add(value);
                 inner.Children.Add(row);
                 x.HullInner = inner; x.FireRow = row; x.FireValue = value;
+                for (int k = 0; k < m; k++)
+                {
+                    var g = VisualTreeHelper.GetChild(inner, k) as Grid;
+                    if (g == null || g == row) continue;
+                    int r = Grid.GetRow(g), cc = VisualTreeHelper.GetChildrenCount(g);
+                    for (int q = 0; q < cc; q++)
+                    {
+                        var t = VisualTreeHelper.GetChild(g, q) as TextBlock;
+                        if (t == null || Grid.GetColumn(t) != 2) continue;
+                        if (r == 0) x.HullVal = t; else if (r == 1) x.FloodVal = t;
+                    }
+                }
             }
             else Trace("extras: Hull Damage card not found");
 
@@ -321,7 +338,7 @@ namespace AlternativeDamageModel
                 x.Clocks.Clear();
                 Func<int, string> name = i => i < 0 ? "the reserve" : (sectionNames != null && i < sectionNames.Length && !string.IsNullOrEmpty(sectionNames[i]) ? sectionNames[i] : "section " + (i + 1));
 
-                // reserve: free teams, dead ones, and the ones on their way back here (recovering ones: In Transfer, with their time)
+                // reserve: free teams and dead ones only - teams on their way back and recovering ones are shown in In Transfer only
                 if (x.FreeIcons != null)
                 {
                     var ch = x.FreeIcons.Children;
@@ -339,16 +356,6 @@ namespace AlternativeDamageModel
                     {
                         if (t.State == (int)DcTeams.St.Dead) { var r = t.Ref; var e = BigIcon(IconDead, null, null); LiveTip(e, () => RefTip(comp, r, sectionNames)); ch.Add(e); }
                         if (t.State != (int)DcTeams.St.Dead) alive++;
-                    }
-                    foreach (var t in teams)
-                    {
-                        if (t.State != (int)DcTeams.St.Moving || t.Section >= 0) continue;
-                        var e = BigIcon(IconTransit, null, null);
-                        var frame = new Border { Child = e, CornerRadius = new CornerRadius(2f), Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)) };
-                        var r = t.Ref;
-                        LiveTip(frame, () => RefTip(comp, r, sectionNames));
-                        Clickable(frame, manual ? (Func<ContextMenu>)(() => CancelMenu(comp, r)) : null, r);
-                        ch.Add(frame);
                     }
                     if (x.FreeLabel != null) x.FreeLabel.Text = "In reserve";
                 }
@@ -521,6 +528,8 @@ namespace AlternativeDamageModel
                 }
             }
 
+            try { RenderHullFlood(comp, x); } catch (Exception e) { Trace("RenderHullFlood: " + e.Message); }
+
             // list / trim from the hull's attitude, smoothed (game time; a paused game keeps them)
             if (x.ListRot != null)
             {
@@ -566,6 +575,88 @@ namespace AlternativeDamageModel
             }
         }
 
+        static void FindConv(System.Reflection.Assembly asm, string name, out MethodInfo conv, out object obj)
+        {
+            conv = null; obj = null;
+            try
+            {
+                Type t = null;
+                foreach (var ty in asm.GetTypes()) if (ty.Name == name) { t = ty; break; }
+                if (t == null) return;
+                obj = Activator.CreateInstance(t, true);
+                conv = t.GetMethod("Convert");
+            }
+            catch (Exception e) { Trace("FindConv " + name + ": " + e.Message); }
+        }
+
+        static string GameText(MethodInfo conv, object obj, float v)
+        {
+            try { return conv == null ? null : conv.Invoke(obj, new object[] { v, typeof(string), null, CultureInfo.InvariantCulture }) as string; }
+            catch { return null; }
+        }
+
+        static string StripPct(string t)
+        {
+            int i = t == null ? -1 : t.LastIndexOf(" (", StringComparison.Ordinal);
+            return i > 0 && t.EndsWith("%)", StringComparison.Ordinal) ? t.Substring(0, i) : t;
+        }
+
+        /// <summary>
+        /// The top-right "Hull Damage" and "Flooding" values with the overall percentage: "Moderate (15%)".
+        /// Hull: damage = 100 - integrity. With Alternative Damage Control the words change at 25 / 50 / 75% of damage (the game's own
+        /// words: None, Slight, Moderate, Heavy and the game's last one above 75%). Flooding: the game's word and the water in the
+        /// whole ship on the scale of the LEVEL gauge (0..100%).
+        /// </summary>
+        static readonly Brush BHeavy = new SolidColorBrush(COrange), BCritical = new SolidColorBrush(Color.FromRgb(236, 70, 56));
+
+        /// <summary>The card's colours by class: the game's for 0-2, orange for Heavy, red for Structure Destroyed / Flooding Uncontrolled
+        /// (the game's own last colour is a dark one that is hard to read).</summary>
+        static Brush CardBrush(FrameworkElement where, int stage)
+        {
+            return stage >= 4 ? BCritical : stage == 3 ? BHeavy : StageBrush(where, stage);
+        }
+
+        static void RenderHullFlood(object comp, Extras x)
+        {
+            if (x.HullVal != null && _compIntPct != null)
+            {
+                float integ = 100f;
+                try { integ = Convert.ToSingle(_compIntPct.GetValue(comp, null), CultureInfo.InvariantCulture); } catch { }
+                float dmg = Math.Max(0f, Math.Min(100f, 100f - integ));
+                int pct = (int)Math.Round(dmg);
+                // the word is made here every tick (setting Text by hand replaces the game's binding, so it would stay as it was)
+                string word = GameText(_hullConv, _hullConvObj, integ) ?? StripPct(x.HullVal.Text);
+                bool model = ModelOn();
+                if (model)
+                {
+                    // the game's words through its own converter: a typical integrity of each class
+                    int stage = dmg < 1f ? 0 : dmg <= 25f ? 1 : dmg <= 50f ? 2 : dmg <= 75f ? 3 : 4;
+                    float[] typical = { 100f, 85f, 50f, 10f, 0f };   // integrity inside each of the game's classes
+                    string g = GameText(_hullConv, _hullConvObj, typical[stage]);
+                    if (!string.IsNullOrEmpty(g)) word = g;
+                    SetBrush(x.HullVal, CardBrush(x.Res, stage));
+                }
+                else
+                {
+                    // the game's classes (by integrity): 99 / 75 / 25 / 1
+                    int stage = integ >= 99f ? 0 : integ >= 75f ? 1 : integ >= 25f ? 2 : integ >= 1f ? 3 : 4;
+                    SetBrush(x.HullVal, CardBrush(x.Res, stage));
+                }
+                x.HullColored = true;
+                SetText(x.HullVal, pct == 0 ? word : word + " (" + pct.ToString(CultureInfo.InvariantCulture) + "%)");
+            }
+            if (x.FloodVal != null && _compFloodPct != null)
+            {
+                float fp = 0f;
+                try { fp = Convert.ToSingle(_compFloodPct.GetValue(comp, null), CultureInfo.InvariantCulture); } catch { }
+                int pct = (int)Math.Round(Math.Min(100f, 100f * fp / SinkAt(comp)));   // the LEVEL gauge's scale
+                // the game's classes (by its value): 1 / 10 / 20 / 30
+                SetBrush(x.FloodVal, CardBrush(x.Res, fp >= 30f ? 4 : fp >= 20f ? 3 : fp >= 10f ? 2 : fp >= 1f ? 1 : 0));
+                string fw = GameText(_floodConv, _floodConvObj, fp) ?? StripPct(x.FloodVal.Text);   // the game's word for the game's value
+                SetText(x.FloodVal, pct == 0 ? fw : fw + " (" + pct.ToString(CultureInfo.InvariantCulture) + "%)");
+            }
+        }
+
         /// <summary>Text and brush only when they change (no new brush and no re-render every tick).</summary>
         static void SetText(TextBlock tb, string text) { if (tb != null && tb.Text != text) tb.Text = text; }
         static void SetBrush(TextBlock tb, Brush b) { if (tb != null && !ReferenceEquals(tb.Foreground, b)) tb.Foreground = b; }
@@ -576,6 +667,8 @@ namespace AlternativeDamageModel
         static void RemoveExtras(Extras x)
         {
             if (x == null) return;
+            try { if (x.HullVal != null) { x.HullVal.Text = StripPct(x.HullVal.Text); if (x.HullColored) x.HullVal.ClearValue(TextBlock.ForegroundProperty); } } catch { }
+            try { if (x.FloodVal != null) { x.FloodVal.Text = StripPct(x.FloodVal.Text); x.FloodVal.ClearValue(TextBlock.ForegroundProperty); } } catch { }
             try { if (x.HullInner != null && x.FireRow != null) x.HullInner.Children.Remove(x.FireRow); } catch { }
             try { if (x.HullInner != null && x.FireRowDef != null) x.HullInner.RowDefinitions.Remove(x.FireRowDef); } catch { }
             try { if (x.ListHost != null && x.ListCard != null) x.ListHost.Children.Remove(x.ListCard); } catch { }

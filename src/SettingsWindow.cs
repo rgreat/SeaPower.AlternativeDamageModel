@@ -34,9 +34,9 @@ namespace AlternativeDamageModel
             public bool Global;
         }
 
-        const string TUi = "User Interface", TGen = "Damage Model";
+        const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
         const string TFx = "Effects";
-        static readonly string[] Tabs = { TUi, TFx, TGen, "Hull", "Systems", "Fire & Flooding", "DC Teams", "Sinking" };
+        static readonly string[] Tabs = { TUi, TFx, TGen, TDbg, "Hull", "Systems", "Fire", "Flooding", "DC Teams" };
         const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
         /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
         static bool LiveKey(string key) { return key == AdmKey || key == UiKey; }
@@ -59,7 +59,7 @@ namespace AlternativeDamageModel
             return v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
         }
         /// <summary>Tabs of the damage model: hidden while Alternative Damage Control is off.</summary>
-        static bool ModelTab(string tab) { return tab != TUi && tab != TGen && tab != TFx; }
+        static bool ModelTab(string tab) { return tab != TUi && tab != TGen && tab != TFx && tab != TDbg; }
 
         static readonly List<Field> Fields = new List<Field>();
 
@@ -70,8 +70,9 @@ namespace AlternativeDamageModel
 
         static SettingsWindow()
         {
-            const string H = "Hull", FF = "Fire & Flooding", DC = "DC Teams", S = "Sinking", D = TUi, G = TGen;
+            const string H = "Hull", FF = "Fire", DC = "DC Teams", S = "Flooding", D = TUi, G = TGen;
             Add(D, "Damage Control tab", UiKey, "Detailed view", "applies at once", Kind.Bool, 0, 0, 0, true);
+            Add(D, "Bottom panel", "UI/ColorWeaponStatus", "Weapon status colours", "yellow: part inoperable, red: all", Kind.Bool, 0, 0, 0, true);
             Add(D, ArrowsGroup, "UI/FloodingOneArrowAt", "Water: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FloodingTwoArrowsAt", "Water: two arrows from", "% a second", Kind.Number, 0.05f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FireOneArrowAt", "Fire: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
@@ -87,9 +88,15 @@ namespace AlternativeDamageModel
             Add(TFx, "Fire smoke", "Effects/SmokeSevereFrom", "Severe fire look from", "% of max fire (game 50)", Kind.Number, 5f, 1f, 100f, true);
 
             Add(G, "Damage model", AdmKey, "Alternative Damage Control", "applies at once", Kind.Bool, 0, 0, 0, true);
-            Add(G, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
-            Add(G, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
-            Add(G, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
+            Add(G, "Damage model", "General/FixHighTimeCompressionTrimError", "Fix trim compute error", "above 10x time compression", Kind.Bool, 0, 0, 0, true);
+
+            Add(TDbg, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Logging (BepInEx log)", "General/LogHeel", "List, trim and buoyancy", "", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Visualisation (selected ship)", "General/ShowDeckCorners", "Deck point heights", "wave to hull-only deck, 28 points", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Visualisation (selected ship)", "General/ShowHullCollider", "Hull collider (translucent)", "coll_hull* only", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Visualisation (selected ship)", "General/HideShipModel", "Hide ship's 3D model", "for the two above", Kind.Bool, 0, 0, 0, true);
 
             Add(H, "Hull integrity", "HullIntegrity/Warships", "Warships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/CivilianShips", "Civilian ships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
@@ -106,7 +113,6 @@ namespace AlternativeDamageModel
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireTime", "Unattended after", "s without a team", Kind.Number, 10f, 0f, 1200f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireGrowthRate", "Growth added", "% of max growth per fire check (10 s)", Kind.Number, 0.05f, 0f, 100f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireMaxGrowth", "Maximum growth rate", "% of max fire a second", Kind.Number, 0.1f, 0f, 100f);
-            Add(FF, "Flooding", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
 
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/WarshipTeams", "Warships", "", Kind.Table, 0, 0, 0);
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/SubmarineTeams", "Submarines", "", Kind.Table, 0, 0, 0);
@@ -120,6 +126,8 @@ namespace AlternativeDamageModel
             Add(DC, "Knock-outs", "DamageControlTeams/HealTimeSpread", "Recovery spread", "± s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Knock-outs", "DamageControlTeams/KnockoutsToDeath", "Knock-outs to death", "0 = never", Kind.Integer, 1f, 0f, 9f);
 
+            Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× default · from trim past the limit", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/ListLimit", "List", "° · water over the deck edge from 75%", Kind.Number, 0.5f, 5f, 69f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
@@ -162,6 +170,15 @@ namespace AlternativeDamageModel
         static Profile _game;              // Base Game: the "game:" column
         static readonly Dictionary<string, string> _globals = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         static readonly Dictionary<string, string> _globalsFrom = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // debug visualisation toggles: flipping them should show up in the game at once, not wait for Apply/OK -
+        // written straight to their own ConfigEntry as soon as the checkbox changes (Set), same as Commit would do
+        // for every global on Apply, just for these three right away. Cfg.SettingChanged then does the rest
+        // (AdmPlugin.ReadSettings), same path as any other live settings change.
+        static readonly HashSet<string> _liveGlobals = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "General/ShowDeckCorners", "General/ShowHullCollider", "General/HideShipModel",
+        };
 
         static AdmPlugin P { get { return AdmPlugin.Instance; } }
 
@@ -538,10 +555,10 @@ namespace AlternativeDamageModel
             catch (Exception ex) { _place = 2; Trace("settings window placing: " + ex.Message); }
         }
 
-        const float PixW = 1040f, PixH = 990f;   // +80: the Effects tab
+        const float PixW = 1050f, PixH = 1000f;   // +80: the Effects tab; +10: the Debug tab
 
         // ------------------------------------------------------------ size (kept while the game runs)
-        static float _winW = 1040f, _winH = 990f;   // UI units; set from 960 x 990 screen pixels at the first opening
+        static float _winW = 1050f, _winH = 1000f;   // UI units; set from screen pixels at the first opening
         static ScrollViewer _scroll;
 
         /// <summary>
@@ -709,7 +726,15 @@ namespace AlternativeDamageModel
         /// <summary>A value changed in the window. A built-in profile becomes Custom.</summary>
         static void Set(Field f, string v)
         {
-            if (f.Global) _globals[f.Key] = v;
+            if (f.Global)
+            {
+                _globals[f.Key] = v;
+                if (_liveGlobals.Contains(f.Key))
+                {
+                    var e = Entry(f.Key);
+                    if (e != null) try { e.SetSerializedValue(v); } catch (Exception ex) { Warn(f.Key + ": " + ex.Message); }
+                }
+            }
             else
             {
                 _work.Values[f.Key] = v;
@@ -802,17 +827,29 @@ namespace AlternativeDamageModel
                 if (f.Tab != Tabs[_tab]) continue;
                 string when = ShownWhen(f);
                 if (when != null && !IsOn(when)) continue;   // only while its switch is on
-                if (f.Group != group)
+                try
                 {
-                    // General: the settings profile (of the damage model, hidden while it is off) between the switch and Logging
-                    if (Tabs[_tab] == TGen && group == "Damage model" && adm && _profRow != null)
+                    if (f.Group != group)
                     {
-                        _body.Children.Add(GroupTitle("Settings profile"));
-                        _body.Children.Add(_profRow);
+                        // General: the settings profile (of the damage model, hidden while it is off) between the switch and Logging
+                        if (Tabs[_tab] == TGen && group == "Damage model" && adm && _profRow != null)
+                        {
+                            _body.Children.Add(GroupTitle("Settings profile"));
+                            _body.Children.Add(_profRow);
+                        }
+                        group = f.Group; _body.Children.Add(GroupTitle(group));
                     }
-                    group = f.Group; _body.Children.Add(GroupTitle(group));
+                    _body.Children.Add(Row(f));
                 }
-                _body.Children.Add(Row(f));
+                // one bad row must not blank out every row after it - this is why: Trace shows which key and why
+                catch (Exception e) { Trace("Settings row '" + f.Key + "' failed: " + e); }
+            }
+            // same insertion as inside the loop, for when "Damage model" is the last (now: the only) group on the tab -
+            // the loop's own check only fires on a group CHANGE, so it never ran once Logging/Visualisation moved to TDbg
+            if (Tabs[_tab] == TGen && group == "Damage model" && adm && _profRow != null)
+            {
+                _body.Children.Add(GroupTitle("Settings profile"));
+                _body.Children.Add(_profRow);
             }
             if (Tabs[_tab] == "Hull") ShipRows();
             if (Tabs[_tab] == "Systems") ModuleRows();

@@ -659,7 +659,7 @@ namespace AlternativeDamageModel
                 }
                 if (c.T < 0 || t != c.T) { c.T = t; c.P = p; c.S = s; c.F = f; c.IP = ip; c.IS = isb; }
 
-                RenderHeader(c, ip, isb, comp, i);
+                RenderHeader(c, ip, isb, comp, i, fp, fs, sc);
                 RenderTeams(c, comp, i, teams != null && i < teams.Length ? teams[i] : 0, sections, moving);
                 RenderRows(c, p, s, f, comp, i);
             }
@@ -1249,7 +1249,6 @@ namespace AlternativeDamageModel
             return ((int)Math.Floor(v)).ToString(CultureInfo.InvariantCulture) + "%";
         }
 
-        static Color Stage(float integrity) { return integrity >= 75f ? CWhite : (integrity >= 25f ? COrange : CRed); }
 
         /// <summary>Rebuilds a text block when what it shows changed, or when the game rewrote it (a binding update).</summary>
         static bool NeedsRender(TextBlock tb, string sig, string lastSig, string lastShown)
@@ -1257,14 +1256,34 @@ namespace AlternativeDamageModel
             return tb != null && (sig != lastSig || tb.Text != lastShown);
         }
 
-        static void RenderHeader(Col c, float ip, float isb, object comp, int i)
+        /// <summary>The colour of a side's hull %: grey once it is welded as far as it can be (MaxAllowedIntegrity, whatever the %);
+        /// otherwise by damage - yellow (light damage, can be welded), orange, red.</summary>
+        static readonly Color CYellow = Color.FromRgb(236, 212, 110);
+
+        static Color HullColor(float integrity, bool repaired)
+        {
+            if (repaired) return CGrey;
+            return integrity >= 75f ? CYellow : (integrity >= 25f ? COrange : CRed);
+        }
+
+        /// <summary>True when a damage control team can weld nothing more on this compartment (IntegrityDelta ~ 0).</summary>
+        static bool WeldedUp(object fc)
+        {
+            float max = GetF(_fcMaxInt, fc);
+            if (_fcMaxAllowed == null || _fcCurInt == null || max <= 0f) return false;
+            return GetP(_fcMaxAllowed, fc) - GetF(_fcCurInt, fc) <= max * 0.0005f;
+        }
+
+        static void RenderHeader(Col c, float ip, float isb, object comp, int i, object fp, object fs, object sc)
         {
             var tb = c.Header;
             if (tb == null) return;
             if (c.HeaderSig != null && tb.Text != c.HeaderShown) c.HeaderOrig = tb.Text; // the game changed the name (language)
             int ap = Math.Abs(c.RIP) < 1e-6f ? 0 : (c.RIP > 0 ? 1 : -1), asb = Math.Abs(c.RIS) < 1e-6f ? 0 : (c.RIS > 0 ? 1 : -1);
             bool whole = ip >= 99.95f && isb >= 99.95f;
-            string sig = whole ? "whole" : Pct(ip) + ap + "/" + Pct(isb) + asb + Stage(ip) + Stage(isb);
+            InitCauses(comp, fp, sc);
+            Color cp = HullColor(ip, WeldedUp(fp)), cs = HullColor(isb, WeldedUp(fs));
+            string sig = whole ? "whole" : Pct(ip) + ap + "/" + Pct(isb) + asb + cp + cs;
             if (!NeedsRender(tb, sig, c.HeaderSig, c.HeaderShown)) return;
             var il = tb.Inlines;
             il.Clear();
@@ -1272,10 +1291,10 @@ namespace AlternativeDamageModel
             if (!whole)
             {
                 il.Add(new Run("   "));
-                il.Add(Colored(Pct(ip), Stage(ip)));
+                il.Add(Colored(Pct(ip), cp));
                 if (ap != 0) il.Add(Arrow(ap > 0, 1, ap > 0 ? CDown : CUp, () => HullCause(comp, c, i, true))); // integrity: up is good (green), down is bad (red)
-                il.Add(Colored(" / ", Stage(isb)));
-                il.Add(Colored(Pct(isb), Stage(isb)));
+                il.Add(Colored(" / ", CGrey));
+                il.Add(Colored(Pct(isb), cs));
                 if (asb != 0) il.Add(Arrow(asb > 0, 1, asb > 0 ? CDown : CUp, () => HullCause(comp, c, i, false)));
             }
             c.HeaderSig = sig;

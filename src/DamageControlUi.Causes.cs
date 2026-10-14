@@ -8,8 +8,8 @@ namespace AlternativeDamageModel
 {
     /// <summary>
     /// Why a value on the Damage Control tab changes - the tooltips of its arrows (made when they open, from the state now):
-    ///  - Flooding (per side): holes (leak rate), who plugs / pumps (by team number), water over the deck edge from heavy list,
-    ///    the leak growing by itself (hull below 19% and no team), the water that stays until the hull is repaired, sinking;
+    ///  - Flooding (per side): holes (leak rate), who plugs / pumps (by team number), water over the deck edge from heavy list
+    ///    or from trim past the limit (TrimFlooding.FloodsNow), the leak growing by itself (hull below 19% and no team), sinking;
     ///  - Fire: its own growth, hits, who fights it, the stage and what it does (spreading, systems, hull);
     ///  - Hull (per side): fire in the section, hits, who welds, how far it can be welded.
     /// The game's rules behind it (Compartments.CheckDamageControl / Repair*, FloodingCompartment.OnFixedUpdate,
@@ -105,7 +105,6 @@ namespace AlternativeDamageModel
                 float water = F(_fcFloodPct.GetValue(fc, null)), rate = port ? c.RP : c.RS;
                 float leak = GetF(_fcRate, fc), leakOther = GetF(_fcRate, other);
                 float integ = F(_fcIntPct.GetValue(fc, null));
-                float minFlood = GetP(_fcMinFlood, fc);
                 bool sinking = GetB(_compSinking, comp);
                 int inSec;
                 var plugging = Doing(comp, i, TaskLeak, out inSec);
@@ -123,11 +122,13 @@ namespace AlternativeDamageModel
                         if (!IsSub(comp) && (port ? list > 0f : list < 0f) && Math.Abs(list) > (ModelOn() ? Limits.ListFlood : 45f))
                             Line(sb, "List " + Math.Abs(list).ToString("0", CultureInfo.InvariantCulture) + "°: water over deck");
                     }
+                    float pitch;
+                    if (TrimFlooding.FloodsNow(comp, i, port, out pitch))
+                        Line(sb, "Trim " + Math.Abs(pitch).ToString("0.0", CultureInfo.InvariantCulture) + "° " + (pitch > 0f ? "bow" : "stern") + " down: water over deck");
                     if (integ < 19f && inSec == 0 && leak > 0f) Line(sb, "Leak grows: hull " + Pc(integ) + ", no team");
                     if (sinking) Line(sb, "Sinking");
                 }
                 else if (pumping.Count > 0) Line(sb, Who(pumping) + " pumping");
-                if (minFlood > 0.5f) Line(sb, "Min " + Pc(minFlood) + " until welded");
                 return sb.ToString();
             }
             catch (Exception e) { Trace("FloodCause: " + e.Message); return "Flooding"; }

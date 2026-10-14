@@ -59,7 +59,7 @@ namespace AlternativeDamageModel
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _warTeamsEntry, _subTeamsEntry, _civTeamsEntry;
@@ -68,7 +68,8 @@ namespace AlternativeDamageModel
         static FieldInfo _fCompCount;
         static Dictionary<string, float> _perShip = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
-        ConfigEntry<bool> _debugEntry, _logShipsEntry, _logFiresEntry, _uiEntry, _admEntry;
+        ConfigEntry<bool> _debugEntry, _logShipsEntry, _logFiresEntry, _logHeelEntry, _uiEntry, _weaponColorEntry, _admEntry, _deckCornersEntry, _showHullEntry, _hideModelEntry, _fixTrimTcEntry;
+        static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
         ConfigEntry<bool> _unattendedEntry;
@@ -228,8 +229,29 @@ namespace AlternativeDamageModel
                 "Diagnostics: writes every fire started by a hit and every change of a fire's stage to the BepInEx log " +
                 "(ship, compartment, mission time, severity and growth in % of the compartment's maximum, damage control teams there). " +
                 "Works also while the mod is off in the Mods menu, to compare with the game.");
+            _logHeelEntry = Cfg.Bind("General", "LogHeel", false,
+                "Diagnostics: while a ship lists or trims noticeably, writes to the BepInEx log every 2 seconds: list, trim, height, " +
+                "buoyancy against weight, submerged volume, water in the ship and whether it is sinking / capsized.");
             _logShipsEntry = Cfg.Bind("General", "LogShipIntegrity", false,
                 "Writes a line to the BepInEx log for every ship that enters a mission: its hull integrity in the game and with the mod.");
+            _deckCornersEntry = Cfg.Bind("General", "ShowDeckCorners", false,
+                "Debug: for the ship currently selected in the Unit Status panel, draws a line from the current wave to the " +
+                "estimated deck height at the hull's bow and stern centreline, and at a port/starboard pair per damage-model " +
+                "section (its own centre point along the length) - hull colliders only, not turrets, masts or any other " +
+                "sub-model. Green: that point clears the wave; red: the wave is over it.");
+            _showHullEntry = Cfg.Bind("General", "ShowHullCollider", false,
+                "Debug: draws the selected ship's hull-only collider meshes (coll_hull*) as a translucent overlay plus " +
+                "a bright wireframe of their actual triangles, to compare against the visible 3D model directly.");
+            _hideModelEntry = Cfg.Bind("General", "HideShipModel", false,
+                "Debug: hides the selected ship's own 3D model, so ShowDeckCorners/ShowHullCollider can be seen without " +
+                "the real hull in the way.");
+            _fixTrimTcEntry = Cfg.Bind("General", "FixHighTimeCompressionTrimError", true,
+                "Fixes an error of the game itself: above 10x time compression a ship's trim grows with the time compression " +
+                "(a 25 m boat at 47 kn: 2.6 degrees up to 10x, 9 at 100x) - enough to send a short, fast, undamaged ship " +
+                "under. The game moves a ship by a step per physics tick, and above 10x that step is stretched while the " +
+                "buoyancy torque is still taken about the centre of mass from before the step. On: that extra step is left " +
+                "out, so the trim stays what it is at 10x at any time compression; up to 10x nothing changes. " +
+                "Surface ships only. Off: the game's own behaviour.");
 
             Factor.Register();
             OpenProfileValues();
@@ -321,10 +343,21 @@ namespace AlternativeDamageModel
             _trimLengthEntry = Pcfg.Bind("Sinking", "TrimReferenceLength", new Factor(Limits.TrimRefLength),
                 "Metres. The trim limit depends on the ship's length: the longer the ship, the sooner its bow or stern goes under at the same angle " +
                 "(tan limit = tan TrimLimit x (TrimReferenceLength / length)^0.442; with 5.2 at 100: 30 m 8.8, 60 m 6.5, 150 m 4.4, 300 m 3.2 degrees). 0 = TrimLimit for every ship (as in the game).");
+            _imbalanceEntry = Pcfg.Bind("Sinking", "FloodImbalanceEffect", new Factor(1f),
+                "How strongly the list follows uneven flooding. The difference in water between a section's port and starboard sides " +
+                "(which heels the ship) is multiplied by this; the section's average is kept, so the draught and the trim do not change from it. " +
+                "1 = as in the game, 2 = twice the heel from the same difference.");
             _levelLimitEntry = Pcfg.Bind("Sinking", "FloodLimit", new Factor(Limits.LevelFull),
                 "Water in the whole ship, % (the average of its compartments), from which it sinks, as in the game (game: 40; submarines keep the game's 50). " +
                 "Also the full scale of the LEVEL gauge.");
+            _deckFloodSpeedEntry = Pcfg.Bind("Sinking", "DeckFloodingSpeed", new Factor(1f),
+                "How fast the end that goes down (from trim past its limit, above) takes on water over the deck edge: on each side its outermost " +
+                "compartment, when that is full the next one, and so on - the mod's own mechanic, not in the game. 1.0 = its normal speed, " +
+                "2.0 = twice as fast, 0.5 = half.");
 
+            _weaponColorEntry = Cfg.Bind("UI", "ColorWeaponStatus", true,
+                "Colours the weapon buttons of the selected unit's bottom panel by the state of their weapon systems: " +
+                "all working - the game's colour, some of that type inoperable - yellow, all of them inoperable - red.");
             _uiEntry = Cfg.Bind("UI", "DetailedView", true,
                 "The detailed view of Unit Status -> Damage Control (the mod's display): hull integrity per side next to each section's " +
                 "name, an icon per damage control team (its task; tasks and moves by hand when Auto DC is off), water and fire in % with " +
@@ -362,7 +395,7 @@ namespace AlternativeDamageModel
                 "Fire looks by the fire's strength (share of its maximum) instead of the game's stages: small, moderate from " +
                 "SmokeModerateFrom, severe from SmokeSevereFrom (the game: 25% / 50%); the small fire's smoke grows from " +
                 "SmokeStartOpacity to SmokeEndOpacity. Only the look - damage and spreading stay the game's. Off = as in the game.");
-            _densityMinEntry = Cfg.Bind("Effects", "SmokeStartOpacity", new Factor(0f),
+            _densityMinEntry = Cfg.Bind("Effects", "SmokeStartOpacity", new Factor(10f),
                 "Small fire: smoke opacity of new particles at 0% of the fire's maximum, % of the game's.");
             _densityEndEntry = Cfg.Bind("Effects", "SmokeEndOpacity", new Factor(100f),
                 "Small fire: smoke opacity of new particles at SmokeModerateFrom, % of the game's; between - evenly by the fire's strength.");
@@ -394,6 +427,7 @@ namespace AlternativeDamageModel
         {
             if (!_patchTried) TryPatch();
             WatchConfigFile();
+            try { DeckCorners.Tick(UnityEngine.Time.unscaledTime); } catch (Exception e) { Trace("DeckCorners.Tick: " + e.Message); }
             if (_dumpXaml && _xamlExportAt >= 0f && _patchTried)
             {
                 // a second after the request: the tab's XAML (and the dictionaries it uses) are loaded by then
@@ -403,6 +437,11 @@ namespace AlternativeDamageModel
                     _xamlExportAt = -1f;
                     try { ExportXamlNow(); } catch (Exception e) { Warn("XAML export failed: " + e.Message); Trace(e.ToString()); }
                 }
+            }
+            if (_patchTried)
+            {
+                try { WeaponStatusColors.Tick(UnityEngine.Time.unscaledTime, Enabled && _weaponColor); }
+                catch (Exception e) { Trace("WeaponStatusColors.Tick: " + e.Message); }
             }
             if (_uiReady)
             {
@@ -720,10 +759,18 @@ namespace AlternativeDamageModel
             Limits.TrimFull = Clamp(_trimLimitEntry.Value.V, 1f, 30f);
             Limits.TrimRefLength = Math.Max(0f, _trimLengthEntry.Value.V);
             Limits.LevelFull = Clamp(_levelLimitEntry.Value.V, 5f, 100f);
+            TrimFlooding.Speed = Math.Max(0f, _deckFloodSpeedEntry.Value.V);
+            TrimFlooding.Imbalance = 1f;   // FloodImbalanceEffect is switched off (hidden in the settings) until reworked; the key is still read so old profiles load
             _logFires = _logFiresEntry.Value;
+            TrimFlooding.LogHeel = _logHeelEntry.Value;
+            DeckCorners.Model = _deckCornersEntry.Value;
+            DeckCorners.ShowCollider = _showHullEntry.Value;
+            DeckCorners.HideModel = _hideModelEntry.Value;
+            _fixTrimTc = _fixTrimTcEntry.Value;
             _dumpXaml = HiddenBool("General", "DumpXaml");
             if (_dumpXaml) RequestXamlExport();
             _uiOn = _uiEntry.Value;
+            _weaponColor = _weaponColorEntry.Value;
             try { ApplyUiSettings(); } catch (Exception e) { Trace("ApplyUiSettings: " + e.Message); }
 
             var map = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
@@ -862,13 +909,12 @@ namespace AlternativeDamageModel
                 foreach (var raw in File.ReadAllLines(path))
                 {
                     string t = raw.Trim();
-                    if (t.StartsWith("#")) continue;
-                    if (t.Length == 0 && (lines.Count == 0 || lines[lines.Count - 1].Length == 0)) continue;
-                    if (t.StartsWith("[") && lines.Count > 0 && lines[lines.Count - 1].Length != 0) lines.Add("");
+                    // no blank lines inside a section (BepInEx puts one after every entry); one blank line before each section
+                    if (t.StartsWith("#") || t.Length == 0) continue;
+                    if (t.StartsWith("[") && lines.Count > 0) lines.Add("");
                     lines.Add(t);
                 }
-                while (lines.Count > 0 && lines[lines.Count - 1].Length == 0) lines.RemoveAt(lines.Count - 1);
-                File.WriteAllText(path, string.Join(Environment.NewLine, lines.ToArray()) + Environment.NewLine, new UTF8Encoding(false));
+                    File.WriteAllText(path, string.Join(Environment.NewLine, lines.ToArray()) + Environment.NewLine, new UTF8Encoding(false));
             }
             catch (Exception e) { Trace("SaveConfig: " + e.Message); }
             RememberCfgStamp(); // our own write is not a change to re-read
@@ -1032,6 +1078,11 @@ namespace AlternativeDamageModel
             }
             else Warn("Extra smoke points: game members not found; the game's three are used.");
 
+            // debug visualisation: deck-corner heights vs. the current wave, for the player's selected ship
+            DeckCorners.Trace = Trace;
+            DeckCorners.Warn = Warn;
+            if (DeckCorners.Init(harmony, asm)) ok++; else failed++;
+
             // 2. gun shell damage tiers
             if (tBlast != null && _fCompMaxLimit != null)
                 Patch(harmony, tBlast.GetMethod("CheckForInstakill", all), null, null, "InstakillTranspiler", "Blastzone.CheckForInstakill", ref ok, ref failed);
@@ -1091,7 +1142,8 @@ namespace AlternativeDamageModel
             DcTeams.Trace = Trace;
             if (tComp != null && DcTeams.Init(asm))
             {
-                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.IsEnabled = () => Model; SettingsWindow.Warn = Warn; SettingsWindow.Info = Say;
+                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model;
+                SettingsWindow.Warn = Warn; SettingsWindow.Info = Say;
                 if (!DcAuto.Init(asm)) Warn("Optimised Auto DC: game members not found; the game's Auto DC is used.");
                 DcControl.StayWhenIdle = c => DcAuto.Ok && DcTeams.TransfersOn && DcTeams.Active(c) && DcAuto.AnyWork(c);
                 Patch(harmony, tComp.GetMethod("SendDCTeamToCompartment", all), "TeamSendPrefix", null, null, "Compartments.SendDCTeamToCompartment", ref ok, ref failed);
@@ -1112,6 +1164,13 @@ namespace AlternativeDamageModel
             // 9. faster flooding sooner: the game's own thresholds for heavy listing and for sinking, lowered
             if (tComp != null)
                 Patch(harmony, tComp.GetMethod("OnFixedUpdate", all), null, null, "SinkThresholdsTranspiler", "Compartments.OnFixedUpdate", ref ok, ref failed);
+
+            // 9b. the game's own trim error above 10x time compression (stale centre of mass in the buoyancy torque)
+            TimeCompressionFix.IsEnabled = () => Enabled && _fixTrimTc;
+            TimeCompressionFix.Trace = Trace; TimeCompressionFix.Warn = Warn;
+            if (TimeCompressionFix.Init(harmony, asm)) ok++; else failed++;
+            WeaponStatusColors.Trace = Trace; WeaponStatusColors.Init(asm);
+            if (TrimFlooding.InitList(harmony, asm)) ok++; else failed++;
 
             // 7. damage control: ship-wide priority (Auto / Fire / Flooding) and tasks given by hand to single teams
             DcControl.IsEnabled = () => Enabled && _uiOn;   // DC Priority and tasks by hand: with the detailed view, whatever the damage model
@@ -1642,6 +1701,7 @@ namespace AlternativeDamageModel
             DamageControlUi.Tick(UnityEngine.Time.unscaledTime, Enabled && _uiOn, Enabled);
         }
 
+        static bool _weaponColor;
         static bool UiActive { get { return _uiReady && _uiOn && Enabled; } }
 
         static void TabCreated(object __instance)
@@ -1691,8 +1751,8 @@ namespace AlternativeDamageModel
             }
             return b.N < 2 ? game : float.MaxValue;
         }
-        public static float HeavyList(float game) { return Model ? Limits.ListFlood : game; }        // 45: water over the deck edge
-        public static float HeavyListNeg(float game) { return Model ? -Limits.ListFlood : game; }    // -45
+        public static float HeavyList(float game) { return Model ? float.MaxValue : game; }        // 45: the game's water over the deck edge is off; TrimFlooding.FloodList does it
+        public static float HeavyListNeg(float game) { return Model ? float.MinValue : game; }    // -45
 
         static IEnumerable<CodeInstruction> SinkThresholdsTranspiler(IEnumerable<CodeInstruction> instructions)
         {
