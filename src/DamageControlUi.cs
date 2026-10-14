@@ -168,6 +168,7 @@ namespace AlternativeDamageModel
             public string HeaderOrig, TeamsOrig, FloodOrig, FireOrig;          // the game's own text
             public string HeaderSig, TeamsSig, FloodSig, FireSig;              // what we rendered
             public string HeaderShown, TeamsShown, FloodShown, FireShown;      // TextBlock.Text right after rendering
+            public int AP, AS, AF;                                              // the arrows shown now (for the hysteresis)
             public Drawn HeaderD, FloodD, FireD;                                // what the rows' inlines are now (updated in place: the arrows' tooltips stay open)
             // trend samples
             public double T = -1;
@@ -655,8 +656,11 @@ namespace AlternativeDamageModel
                     if (f - c.F > 3f + 2f * Math.Max(0f, c.RF) * dt) c.FireHitT = t;
                     if (c.IP - ip > 1.5f + 2f * Math.Max(0f, -c.RIP) * dt) c.HullHitP = t;
                     if (c.IS - isb > 1.5f + 2f * Math.Max(0f, -c.RIS) * dt) c.HullHitS = t;
-                    c.RP = (p - c.P) / dt; c.RS = (s - c.S) / dt; c.RF = (f - c.F) / dt;
-                    c.RIP = (ip - c.IP) / dt; c.RIS = (isb - c.IS) / dt;
+                    // the samples are a quarter of a second apart and the game's numbers do not always move evenly (some come in steps), so the
+                    // rate is smoothed (TrendSmooth s): the arrows do not come and go with every step
+                    float a = 1f - (float)Math.Exp(-dt / TrendSmooth);
+                    c.RP += ((p - c.P) / dt - c.RP) * a; c.RS += ((s - c.S) / dt - c.RS) * a; c.RF += ((f - c.F) / dt - c.RF) * a;
+                    c.RIP += ((ip - c.IP) / dt - c.RIP) * a; c.RIS += ((isb - c.IS) / dt - c.RIS) * a;
                 }
                 if (c.T < 0 || t != c.T) { c.T = t; c.P = p; c.S = s; c.F = f; c.IP = ip; c.IS = isb; }
 
@@ -1238,6 +1242,17 @@ namespace AlternativeDamageModel
             switch (a) { case 2: return " ++"; case 1: return " +"; case -1: return " -"; case -2: return " --"; default: return ""; }
         }
 
+        const float TrendSmooth = 1.5f;   // seconds
+
+        /// <summary>The arrows of a rate with hysteresis: an arrow already shown stays while the rate is still above ~half of its threshold
+        /// (<paramref name="prev"/> = what was shown), so a rate hovering around a threshold does not make the arrow (and its open tooltip) come and go.</summary>
+        static int Arrows(float rate, float one, float twoUp, float twoDown, int prev)
+        {
+            int n = Arrows(rate, one, twoUp, twoDown);
+            if (prev != 0 && n != prev && Arrows(rate, one * 0.4f, twoUp * 0.6f, twoDown * 0.6f) == prev) return prev;
+            return n;
+        }
+
         static int Arrows(float rate, float one, float twoUp, float twoDown)
         {
             if (rate >= twoUp) return 2;
@@ -1278,6 +1293,8 @@ namespace AlternativeDamageModel
         /// runs are changed in place - the arrows and their open tooltips are not made anew (they flickered when the numbers changed).
         /// Made anew only when the structure changes, the game rewrote the text, or force is set.
         /// </summary>
+        static int _drawTrace;
+
         static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
         {
             bool same = !force && d != null && ReferenceEquals(d.Tb, tb) && tb.Text == d.Shown && d.Segs.Count == segs.Count;
@@ -1300,6 +1317,7 @@ namespace AlternativeDamageModel
                 d.Segs = segs; d.Shown = tb.Text;
                 return;
             }
+            if (_drawTrace < 40 && d != null) { _drawTrace++; Trace("DC row rebuilt: " + (force ? "forced" : !ReferenceEquals(d.Tb, tb) ? "other text block" : tb.Text != d.Shown ? "text rewritten by the game" : "structure changed")); }
             var il = tb.Inlines;
             il.Clear();
             var inl = new List<Inline>(segs.Count);
@@ -1341,7 +1359,7 @@ namespace AlternativeDamageModel
             var tb = c.Header;
             if (tb == null) return;
             if (c.HeaderSig != null && tb.Text != c.HeaderShown) c.HeaderOrig = tb.Text; // the game changed the name (language)
-            int ap = Math.Abs(c.RIP) < 1e-6f ? 0 : (c.RIP > 0 ? 1 : -1), asb = Math.Abs(c.RIS) < 1e-6f ? 0 : (c.RIS > 0 ? 1 : -1);
+            int ap = Math.Abs(c.RIP) < 0.003f ? 0 : (c.RIP > 0 ? 1 : -1), asb = Math.Abs(c.RIS) < 0.003f ? 0 : (c.RIS > 0 ? 1 : -1);   // (the rate is smoothed: it dies away, not to exactly 0)
             bool whole = ip >= 99.95f && isb >= 99.95f;
             InitCauses(comp, fp, sc);
             Color cp = HullColor(ip, WeldedUp(fp)), cs = HullColor(isb, WeldedUp(fs));
@@ -1686,7 +1704,8 @@ namespace AlternativeDamageModel
             var tb = c.Flood;
             if (tb == null) return;
             bool any = p > 0.0005f || s > 0.0005f;
-            int ap = Arrows(c.RP, FloodOne, FloodTwo, FloodTwo), asb = Arrows(c.RS, FloodOne, FloodTwo, FloodTwo);
+            int ap = Arrows(c.RP, FloodOne, FloodTwo, FloodTwo, c.AP), asb = Arrows(c.RS, FloodOne, FloodTwo, FloodTwo, c.AS);
+            c.AP = ap; c.AS = asb;
             // colour: yellow / red while damage control can still get water out (or a leak is open), grey once it cannot
             int sp = any ? FloodState(comp, i, true) : 0, ss = any ? FloodState(comp, i, false) : 0;
             var segs = new List<Seg> { Run_(c.FloodOrig ?? "", any ? (Color?)FloodColor(Math.Max(sp, ss)) : null) };
@@ -1741,7 +1760,8 @@ namespace AlternativeDamageModel
             var tb = c.Fire;
             if (tb == null) return;
             bool any = f > 0.0005f;
-            int a = Arrows(c.RF, FireOne, FireTwoUp, FireTwoDown);
+            int a = Arrows(c.RF, FireOne, FireTwoUp, FireTwoDown, c.AF);
+            c.AF = a;
             var segs = new List<Seg> { Run_(c.FireOrig ?? "") };
             if (any)
             {
