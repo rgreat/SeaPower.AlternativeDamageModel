@@ -1715,7 +1715,7 @@ namespace AlternativeDamageModel
             foreach (var t in new[] { TaskLeak, TaskFire, TaskPump, TaskCounter, TaskHull, TaskSystems })
                 menu.Items.Add(MenuEntry(Cap(TaskName(t)), Icon(t), t == forced, comp, team, t));
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuEntry("By priority (as the other teams)", Icon(IconByPriority), forced == TaskNone, comp, team, TaskNone));
+            menu.Items.Add(MenuEntry("Auto", Icon(IconByPriority), forced == TaskNone, comp, team, TaskNone));
             if (!ModelOn()) return menu;   // moves between sections: only with Alternative Damage Control
             menu.Items.Add(new Separator());
             var move = new MenuItem { Header = "Move to section" };
