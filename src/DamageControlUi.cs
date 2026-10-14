@@ -1299,7 +1299,7 @@ namespace AlternativeDamageModel
         static Seg Arr_(bool up, int n, Color col, Func<string> why) { return new Seg { Arrow = true, Up = up, N = n, Col = col, Why = why }; }
 
         /// <summary>What a row's inlines are now.</summary>
-        sealed class Drawn { public TextBlock Tb; public List<Seg> Segs; public List<Inline> Inl; public List<TextBlock> Kids; public string Shown; }
+        sealed class Drawn { public TextBlock Tb; public List<Seg> Segs; public List<Inline> Inl; public List<TextBlock> Kids; public string Shown; public int Healed; }
 
         /// <summary>
         /// Writes a row. While the pieces are the same kind (same arrows, same colours of the arrows), only the texts and colours of the
@@ -1307,15 +1307,15 @@ namespace AlternativeDamageModel
         /// Made anew only when the structure changes, the game rewrote the text, or force is set.
         /// </summary>
         static int _drawTrace;
-        static int _boxTrace, _widthTrace, _overTrace;
+        static int _boxTrace, _widthTrace, _overTrace, _healTrace;
         static float BoxDrop = 0.25f;   // how far (× font size) the % boxes are moved down onto the text baseline
 
         /// <summary>Diagnostics: the boxes of a row standing on top of each other (the box's right edge past the left edge of the next box).</summary>
-        static void CheckOverlap(TextBlock tb, Drawn d, List<Seg> segs)
+        static bool CheckOverlap(TextBlock tb, Drawn d, List<Seg> segs)
         {
             try
             {
-                if (tb.ActualWidth < 0.5f) return;
+                if (tb.ActualWidth < 0.5f) return false;
                 int prev = -1; float px = 0f, pw = 0f;
                 for (int i = 0; i < segs.Count; i++)
                 {
@@ -1325,16 +1325,18 @@ namespace AlternativeDamageModel
                     float x = pt.X, w = kid.ActualWidth;
                     if (prev >= 0 && x < px + pw - 0.5f)
                     {
+                        if (_overTrace >= 25) return true;
                         _overTrace++;
                         var sb = new System.Text.StringBuilder();
                         for (int j = 0; j < segs.Count; j++) sb.Append(segs[j].Arrow ? "[arrow]" : segs[j].Box ? "<" + segs[j].Text + ">" : "'" + segs[j].Text + "'");
                         Trace("DC boxes overlap: #" + prev + " x " + px.ToString("0.#") + " w " + pw.ToString("0.#") + " (set " + d.Kids[prev].Width.ToString("0.#") + "), #" + i + " x " + x.ToString("0.#") + " w " + w.ToString("0.#") + " (set " + kid.Width.ToString("0.#") + "); row w " + tb.ActualWidth.ToString("0.#") + ", font " + tb.FontSize.ToString("0.#") + "; " + sb);
-                        return;
+                        return true;
                     }
                     prev = i; px = x; pw = w;
                 }
             }
             catch (Exception ex) { if (_overTrace < 25) { _overTrace++; Trace("DC overlap check: " + ex.Message); } }
+            return false;
         }
 
         static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
@@ -1345,6 +1347,11 @@ namespace AlternativeDamageModel
                 var o = d.Segs[i]; var n = segs[i];
                 if (o.Arrow != n.Arrow || o.Box != n.Box || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue))) same = false;
             }
+            // the inlines of a row sometimes keep stale positions (a box standing on top of the next one) until the row is made anew:
+            // found by the positions of the boxes, the row is rebuilt (at most once a second per row)
+            int healed = d != null ? d.Healed : 0;
+            bool heal = false;
+            if (same && Environment.TickCount - healed > 1000 && CheckOverlap(tb, d, segs)) { same = false; heal = true; healed = Environment.TickCount; if (_healTrace < 20) { _healTrace++; Trace("DC row: boxes overlap, the row is rebuilt"); } }
             if (same)
             {
                 for (int i = 0; i < segs.Count; i++)
@@ -1394,7 +1401,6 @@ namespace AlternativeDamageModel
                     if (run.Text != n.Text) run.Text = n.Text;
                     if (n.Col.HasValue && !o.Col.Equals(n.Col)) run.Foreground = new SolidColorBrush(n.Col.Value);
                 }
-                if (_overTrace < 25) CheckOverlap(tb, d, segs);
                 d.Segs = segs; d.Shown = tb.Text;
                 return;
             }
@@ -1430,7 +1436,7 @@ namespace AlternativeDamageModel
                 }
                 il.Add(x); inl.Add(x); kids.Add(kid);
             }
-            d = new Drawn { Tb = tb, Segs = segs, Inl = inl, Kids = kids, Shown = tb.Text };
+            d = new Drawn { Tb = tb, Segs = segs, Inl = inl, Kids = kids, Shown = tb.Text, Healed = healed };
             try { tb.InvalidateMeasure(); } catch { }
         }
 
