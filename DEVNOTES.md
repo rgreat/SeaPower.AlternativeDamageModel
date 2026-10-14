@@ -535,3 +535,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: палубные точки показываются вместе со схемой затоплений
 * `RenderSchematic` (карточка схемы отсеков на вкладке Damage Control) при `ListCard.IsVisible` ставит `DeckCorners.WantedAt = Time.unscaledTime`; `DeckCorners.Tick` рисует линии/цифры точек, если `Model || now − WantedAt < 1 с`. Т.е. пока схема на экране — точки видны, даже при `ShowDeckCorners = false`; ушла схема — через ~1 с гаснут. Корабль тот же (выбранный игроком). Не проверено в игре (зависит от того, что `Render` вызывается, пока вкладка видна).
+
+## 2026-10-15: подпись под схемой затоплений в две строки
+* Строка пределов (`s.Limits`, «Tilt to the sea: list … port / … stbd · trim …») делится на две по первому « · » (`\n`): list в первой, trim во второй; то же для остальных вариантов подписи. Было слишком широко.

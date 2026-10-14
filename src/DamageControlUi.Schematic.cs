@@ -174,6 +174,9 @@ namespace AlternativeDamageModel
                       Limits.Trim(L).ToString("0.0", CultureInfo.InvariantCulture) + "°" + (L > 0f ? " (" + L.ToString("0", CultureInfo.InvariantCulture) + " m)" : "") +
                       " · floods faster from the red zones";
             else lim = "List 45° · Trim 8° (the game's)";
+            // two lines (it was too wide): at the first " · "
+            int dot = lim.IndexOf(" · ", StringComparison.Ordinal);
+            if (dot > 0) lim = lim.Substring(0, dot) + "\n" + lim.Substring(dot + 3);
             if (s.Limits.Text != lim) s.Limits.Text = lim;
         }
     }
