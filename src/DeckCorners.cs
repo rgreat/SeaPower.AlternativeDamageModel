@@ -887,7 +887,7 @@ namespace AlternativeDamageModel
                 _wireMat = sh != null ? new Material(sh) : null;
                 if (_wireMat != null) _wireMat.color = new Color(1f, 1f, 0.15f, 0.95f);   // bright yellow, near-opaque
                 _wireTopMat = OnTopMaterial();   // the same wireframe again with no depth test, faint: seen through the sea surface
-                if (_wireTopMat != null) _wireTopMat.color = new Color(1f, 1f, 0.15f, 0.3f);
+                if (_wireTopMat != null) _wireTopMat.color = new Color(1f, 1f, 0.15f, 0.15f);
             }
             if (_colliderMat != null) _colliderMat.color = PointsExact ? CCollExact : CCollFallback;   // orange: no exact points for this ship
             foreach (var mc in _hullPieces)

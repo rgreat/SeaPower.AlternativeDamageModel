@@ -1460,7 +1460,7 @@ namespace AlternativeDamageModel
                 var entry = new OpenTip { Tb = tb, Text = text, Owner = el };
                 el.ToolTipOpening += (s, e) =>
                 {
-                    try { tb.Text = text(); } catch { }
+                    try { tb.MinWidth = 0f; tb.MinHeight = 0f; tb.Text = text(); } catch { }
                     if (!OpenTips.Contains(entry)) OpenTips.Add(entry);
                 };
                 el.ToolTipClosing += (s, e) => OpenTips.Remove(entry);
@@ -1484,6 +1484,11 @@ namespace AlternativeDamageModel
                     if (o.Owner == null || !o.Owner.IsVisible || Parent(o.Owner) == null) { OpenTips.RemoveAt(k); continue; }
                     string t = o.Text();
                     if (o.Tb.Text != t) o.Tb.Text = t;
+                    // the open tooltip only grows, never shrinks: digits changing width (a wave moves a number) or a line coming and going
+                    // would resize it and make it jump around
+                    float w = (float)o.Tb.ActualWidth, h = (float)o.Tb.ActualHeight;
+                    if (w > o.Tb.MinWidth + 0.5f) o.Tb.MinWidth = w;
+                    if (h > o.Tb.MinHeight + 0.5f) o.Tb.MinHeight = h;
                 }
                 catch { OpenTips.RemoveAt(k); }
             }
