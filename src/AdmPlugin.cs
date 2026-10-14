@@ -59,7 +59,7 @@ namespace AlternativeDamageModel
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _submergedRateEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _warTeamsEntry, _subTeamsEntry, _civTeamsEntry;
@@ -355,6 +355,12 @@ namespace AlternativeDamageModel
                 "How fast the end that goes down (from trim past its limit, above) takes on water over the deck edge: on each side its outermost " +
                 "compartment, when that is full the next one, and so on - the mod's own mechanic, not in the game. 1.0 = its normal speed, " +
                 "2.0 = twice as fast, 0.5 = half.");
+            _submergedRateEntry = Pcfg.Bind("Sinking", "SubmergedFloodingRate", new Factor(0.1f),
+                "Water over the deck edge, for ships whose deck points are known (the full hull-collider algorithm; others keep the old rules). " +
+                "When a compartment's deck point has been under the sea for 10 seconds in a row (game time, so time compression counts), the " +
+                "compartment takes on water that damage control cannot stop: this many % of its volume per second per metre of submersion " +
+                "(deeper = faster). A full compartment passes the water to the lowest-lying not-full neighbour, and on along the chain. " +
+                "0 = off (as in the game).");
 
             _weaponColorEntry = Cfg.Bind("UI", "ColorWeaponStatus", true,
                 "Colours the weapon buttons of the selected unit's bottom panel by the state of their weapon systems: " +
@@ -761,6 +767,7 @@ namespace AlternativeDamageModel
             Limits.TrimRefLength = Math.Max(0f, _trimLengthEntry.Value.V);
             Limits.LevelFull = Clamp(_levelLimitEntry.Value.V, 5f, 100f);
             TrimFlooding.Speed = Math.Max(0f, _deckFloodSpeedEntry.Value.V);
+            SubmergedFlooding.Rate = Math.Max(0f, _submergedRateEntry.Value.V);
             TrimFlooding.Imbalance = 1f;   // FloodImbalanceEffect is switched off (hidden in the settings) until reworked; the key is still read so old profiles load
             _logFires = _logFiresEntry.Value;
             TrimFlooding.LogHeel = _logHeelEntry.Value;
@@ -1143,7 +1150,7 @@ namespace AlternativeDamageModel
             DcTeams.Trace = Trace;
             if (tComp != null && DcTeams.Init(asm))
             {
-                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model;
+                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model;
                 SettingsWindow.Warn = Warn; SettingsWindow.Info = Say;
                 if (!DcAuto.Init(asm)) Warn("Optimised Auto DC: game members not found; the game's Auto DC is used.");
                 DcControl.StayWhenIdle = c => DcAuto.Ok && DcTeams.TransfersOn && DcTeams.Active(c) && DcAuto.AnyWork(c);
@@ -1870,7 +1877,7 @@ namespace AlternativeDamageModel
         static bool TeamSendPrefix(object __instance, int index) { return DcTeams.SendPrefix(__instance, index); }
         static bool TeamReturnPrefix(object __instance, int index) { return DcTeams.ReturnPrefix(__instance, index); }
         static bool TeamRecallPrefix(object __instance) { return DcTeams.RecallPrefix(__instance); }
-        static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
+        static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
 
         public static float TeamEffMul(float v) { return DcTeams.Eff(v); }
 

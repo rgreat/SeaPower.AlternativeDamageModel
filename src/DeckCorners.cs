@@ -168,6 +168,70 @@ namespace AlternativeDamageModel
         static bool _hidingModel;
         const float GhostAlpha = 0.3f;                // 70 % transparent
 
+        /// <summary>What is known about a ship's deck points: computed once per ship (first Select or first flooding tick) and kept.</summary>
+        public sealed class ShipPoints
+        {
+            public bool Exact;                 // the points are usable (full mesh algorithm, collider length ok)
+            public Vector3[] Points;           // local to ShipT, 10 (port/starboard per section, from the stern: z ascending); null if !Exact
+            public float Width = 0.01f;
+            public Transform ShipT;            // Compartments._compartmentsTransform
+            public List<Component> Hull;       // the ship's coll_hull* MeshColliders (may be empty)
+        }
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, ShipPoints> _shipPoints = new System.Runtime.CompilerServices.ConditionalWeakTable<object, ShipPoints>();
+
+        /// <summary>Deck points of any ship (unit = SeaPower.ObjectBase); null if the feature did not start or the ship is not ready yet
+        /// (tried again next time). A ship without usable points gets an object with Exact = false (kept).</summary>
+        public static ShipPoints PointsOf(object unit)
+        {
+            if (!_ok || unit == null) return null;
+            ShipPoints sp;
+            if (_shipPoints.TryGetValue(unit, out sp)) return sp;
+            bool keep;
+            sp = Compute(unit, out keep);
+            if (sp != null && keep) _shipPoints.Add(unit, sp);
+            return sp;
+        }
+
+        static ShipPoints Compute(object unit, out bool keep)
+        {
+            keep = false;
+            try
+            {
+                object comp = _pCompartments.GetValue(unit, null);
+                if (comp == null) { keep = true; return new ShipPoints(); }          // not a ship with compartments
+                object obp = _fObp.GetValue(unit);
+                if (obp == null) { Trace("Deck corners: '" + SafeName(unit) + "' has no ObjectBaseParameters; collider overlay and points are off."); return null; }
+                var hull = HullColliders(obp);
+                if (hull.Count == 0)
+                {
+                    string name = SafeName(unit);
+                    if (_warnedOnce.Add(name)) Warn("Deck corners: '" + name + "' has no coll_hull* collider; its lines and collider overlay are off.");
+                    keep = true; return new ShipPoints { Hull = hull };
+                }
+                Transform shipT = _fCompTransform.GetValue(comp) as Transform;
+                if (shipT == null) { Trace("Deck corners: '" + SafeName(unit) + "' has no compartments transform; collider overlay and points are off."); return null; }
+                var sp = new ShipPoints { ShipT = shipT, Hull = hull };
+                try
+                {
+                    int n = 0;
+                    foreach (var mc in hull)
+                    {
+                        Mesh ms = SharedMesh(mc);
+                        var bb = PieceBoxes(shipT, new List<Component> { mc })[0];
+                        Trace("Deck corners hull piece " + (++n) + "/" + hull.Count + " '" + mc.gameObject.name + "' mesh '" + ms.name + "' verts " + ms.vertexCount + (ms.isReadable ? "" : " (unreadable)") + " active " + mc.gameObject.activeInHierarchy + ", ship-local z " + bb.Min.z.ToString("F1") + ".." + bb.Max.z.ToString("F1") + " x " + bb.Min.x.ToString("F1") + ".." + bb.Max.x.ToString("F1") + " y " + bb.Min.y.ToString("F1") + ".." + bb.Max.y.ToString("F1"));
+                    }
+                }
+                catch (Exception e) { Trace("Deck corners hull piece log: " + e.Message); }
+                Vector3[] points = null; bool exact = false; float width = 0.01f;
+                bool sizeOk = ColliderLengthOk(unit, obp, shipT, hull);
+                try { exact = sizeOk && LocalPoints(shipT, hull, out points, out width); }
+                catch (Exception e) { Trace("Deck corners LocalPoints '" + SafeName(unit) + "': " + e); exact = false; }
+                sp.Exact = exact; sp.Points = exact ? points : null; sp.Width = width;
+                keep = true; return sp;
+            }
+            catch (Exception e) { Trace("Deck corners Compute: " + e.Message); return null; }
+        }
+
         static void Select(object unit)
         {
             ClearColliderOverlays();
@@ -181,36 +245,12 @@ namespace AlternativeDamageModel
                 // The unit is remembered first, whatever else fails below: the ship-model view (translucent / hidden)
                 // needs only the unit, and must not depend on the collider or the points being available.
                 _unit = unit;
-                object obp = _fObp.GetValue(unit);
-                if (obp == null) { Trace("Deck corners: '" + SafeName(unit) + "' has no ObjectBaseParameters; collider overlay and points are off."); return; }
-                var hull = HullColliders(obp);
-                if (hull.Count == 0)
-                {
-                    string name = SafeName(unit);
-                    if (_warnedOnce.Add(name)) Warn("Deck corners: '" + name + "' has no coll_hull* collider; its lines and collider overlay are off.");
-                    return;
-                }
-                Transform shipT = _fCompTransform.GetValue(comp) as Transform;
-                if (shipT == null) { Trace("Deck corners: '" + SafeName(unit) + "' has no compartments transform; collider overlay and points are off."); return; }
-                _shipTransform = shipT; _hullPieces = hull;
-                try
-                {
-                    int n = 0;
-                    foreach (var mc in hull)
-                    {
-                        Mesh ms = SharedMesh(mc);
-                        var bb = PieceBoxes(shipT, new List<Component> { mc })[0];
-                        Trace("Deck corners hull piece " + (++n) + "/" + hull.Count + " '" + mc.gameObject.name + "' mesh '" + ms.name + "' verts " + ms.vertexCount + (ms.isReadable ? "" : " (unreadable)") + " active " + mc.gameObject.activeInHierarchy + ", ship-local z " + bb.Min.z.ToString("F1") + ".." + bb.Max.z.ToString("F1") + " x " + bb.Min.x.ToString("F1") + ".." + bb.Max.x.ToString("F1") + " y " + bb.Min.y.ToString("F1") + ".." + bb.Max.y.ToString("F1"));
-                    }
-                }
-                catch (Exception e) { Trace("Deck corners hull piece log: " + e.Message); }
-                Vector3[] points = null; bool exact = false;
-                bool sizeOk = ColliderLengthOk(obp, shipT, hull);
-                try { exact = sizeOk && LocalPoints(shipT, hull, out points, out _lineWidth); }
-                catch (Exception e) { Trace("Deck corners LocalPoints '" + SafeName(unit) + "': " + e); exact = false; }
-                PointsExact = exact;
-                _points = exact ? points : null;   // no points: the ship keeps the old rules; the collider overlay (ShowHullCollider) is orange
-                if (exact) RebuildVisual(points.Length); else RebuildVisual(0);
+                var sp = PointsOf(unit);
+                if (sp == null || sp.ShipT == null || sp.Hull == null || sp.Hull.Count == 0) return;
+                _shipTransform = sp.ShipT; _hullPieces = sp.Hull; _lineWidth = sp.Width;
+                PointsExact = sp.Exact;
+                _points = sp.Exact ? sp.Points : null;   // no points: the ship keeps the old rules; the collider overlay (ShowHullCollider) is orange
+                RebuildVisual(sp.Exact ? sp.Points.Length : 0);
             }
             catch (Exception e) { Trace("Deck corners Select: " + e.Message); }
         }
@@ -220,7 +260,7 @@ namespace AlternativeDamageModel
         /// orange overlay. If the length is unknown (0) the check is skipped.</summary>
         const float MaxLengthMismatch = 0.10f;
         const float UnityToMetre = 67.200066f;   // the game's UNITY_TO_METER
-        static bool ColliderLengthOk(object obp, Transform shipT, List<Component> hull)
+        static bool ColliderLengthOk(object unit, object obp, Transform shipT, List<Component> hull)
         {
             try
             {
@@ -238,7 +278,7 @@ namespace AlternativeDamageModel
                 Trace("Deck corners: hull collider length " + collLen.ToString("F1") + " m, ship length " + shipLen.ToString("F1") + " m (" + (diff * 100f).ToString("F0") + "% off)");
                 if (diff > MaxLengthMismatch)
                 {
-                    if (_warnedOnce.Add("badlen:" + SafeName(_unit))) Warn("Deck corners: '" + SafeName(_unit) + "' hull collider is " + collLen.ToString("F0") + " m long vs ship " + shipLen.ToString("F0") + " m; treated as bad (no deck points, old flooding rules).");
+                    if (_warnedOnce.Add("badlen:" + SafeName(unit))) Warn("Deck corners: '" + SafeName(unit) + "' hull collider is " + collLen.ToString("F0") + " m long vs ship " + shipLen.ToString("F0") + " m; treated as bad (no deck points, old flooding rules).");
                     return false;
                 }
                 return true;
