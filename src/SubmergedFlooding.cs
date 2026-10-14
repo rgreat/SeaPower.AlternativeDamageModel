@@ -22,7 +22,7 @@ namespace AlternativeDamageModel
         public static Func<bool> IsEnabled = () => false;
         public static Action<string> Trace = s => { };
         public static float Rate = 0.1f;          // % per second per metre of submersion: 0.1 x [Sinking] DeckFloodingSpeed ("Water over the deck")
-        public const float Delay = 10f;           // game seconds under water before it starts
+        public static float Delay = 3f;           // [Sinking] DeckFloodingDelay: game seconds under water before it starts
         const float UnityToMetre = 67.200066f;    // the game's UNITY_TO_METER
 
         static bool _init, _ok;
