@@ -152,7 +152,7 @@ namespace AlternativeDamageModel
 
         /// <summary>
         /// Where the red zones of the LIST / TRIM gauges start NOW, per direction: the value of list (to port / to starboard) and trim
-        /// (to the stern / to the bow) at which the first deck point touches the flat sea (y = 0), starting from the ship's present
+        /// (to the stern / to the bow) at which the first deck point touches the flat sea (Ocean level), starting from the ship's present
         /// position - so a flooded ship that already sits low has its red zone start closer (0 when a point is under water already).
         /// The ship turns about the centreline at sea level (at the middle of the compartments); a point at height h and distance d
         /// from the axis on the side going down touches after atan2(h, d) more degrees. list > 0: port down; trim > 0: bow down.
@@ -168,7 +168,8 @@ namespace AlternativeDamageModel
             Vector3 o = ltw.MultiplyPoint3x4(new Vector3(0f, 0f, s.Zc));
             Vector3 up = t.up;
             if (up.y < 0.2f) return false;
-            Vector3 a = o + up * (-o.y / up.y);                 // the centreline at sea level
+            float sea = DeckCorners.SeaLevel();
+            Vector3 a = o + up * ((sea - o.y) / up.y);          // the centreline at the flat sea level
             Vector3 right = t.right; right.y = 0f; right.Normalize();
             Vector3 fwd = t.forward; fwd.y = 0f; fwd.Normalize();
             double mp = 90, ms = 90, mst = 90, mb = 90;
@@ -176,7 +177,7 @@ namespace AlternativeDamageModel
             {
                 Vector3 w = ltw.MultiplyPoint3x4(s.P.Points[s.Map[k]]);
                 Vector3 r = w - a;
-                float h = w.y, X = Vector3.Dot(r, right), Z = Vector3.Dot(r, fwd);
+                float h = w.y - sea, X = Vector3.Dot(r, right), Z = Vector3.Dot(r, fwd);
                 if (X < 0f) mp = Math.Min(mp, Math.Atan2(h, -X) * 180.0 / Math.PI); else ms = Math.Min(ms, Math.Atan2(h, X) * 180.0 / Math.PI);
                 if (Z > 0f) mb = Math.Min(mb, Math.Atan2(h, Z) * 180.0 / Math.PI); else mst = Math.Min(mst, Math.Atan2(h, -Z) * 180.0 / Math.PI);
             }

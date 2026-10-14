@@ -725,6 +725,34 @@ namespace AlternativeDamageModel
             return true;
         }
 
+        static float _sea = float.NaN; static bool _seaTried;
+        /// <summary>The flat sea level (no waves): Ocean.Instance.level (the Ceto ocean's own level) if the type has it, else 0.
+        /// Written to the trace once, with how it was found.</summary>
+        public static float SeaLevel()
+        {
+            if (!float.IsNaN(_sea)) return _sea;
+            if (_seaTried) return 0f;
+            _seaTried = true;
+            try
+            {
+                object inst = _pOceanInstance == null ? null : _pOceanInstance.GetValue(null, null);
+                if (inst != null)
+                {
+                    const BindingFlags all = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                    foreach (var name in new[] { "level", "Level", "SeaLevel", "seaLevel" })
+                    {
+                        var f = inst.GetType().GetField(name, all); var pr = inst.GetType().GetProperty(name, all);
+                        object v = f != null ? f.GetValue(inst) : pr != null && pr.GetIndexParameters().Length == 0 ? pr.GetValue(inst, null) : null;
+                        if (v is float) { _sea = (float)v; Trace("Sea level (flat) from Ocean." + name + " = " + _sea.ToString("0.###")); return _sea; }
+                    }
+                    Trace("Sea level: Ocean has no level member, taken as 0");
+                }
+            }
+            catch (Exception e) { Trace("Sea level: " + e.Message); }
+            _sea = 0f;
+            return _sea;
+        }
+
         static float QueryWave(float x, float z)
         {
             if (_pOceanInstance == null || _mQueryWaves == null) return float.NaN;
