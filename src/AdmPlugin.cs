@@ -59,7 +59,7 @@ namespace AlternativeDamageModel
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _bubblesEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkRampEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _warTeamsEntry, _subTeamsEntry, _civTeamsEntry;
@@ -359,9 +359,12 @@ namespace AlternativeDamageModel
             _keepComEntry = Pcfg.Bind("Sinking", "KeepCentreOfMass", true,
                 "When a ship starts to sink the game puts its centre of mass at the hull origin ((0, 1, 0) if it has capsized): the centre of mass jumps, and with it " +
                 "every torque on the hull. On = the centre of mass stays where it was (with CapsizeFactor: where the water in the ship has raised it). Off = as in the game.");
-            _sinkPullEntry = Pcfg.Bind("Sinking", "SinkPullFactor", new Factor(0.5f),
+            _sinkPullEntry = Pcfg.Bind("Sinking", "SinkPullFactor", new Factor(1f),
                 "The game pulls a sinking ship down once its origin is deeper than y = -2 (Unity units): an acceleration that grows with depth (1 per unit of depth, " +
-                "up to 10 at y = -12). This scales that pull: 1 = as in the game, 0.5 = half, 0 = none (the ship sinks only by its own weight).");
+                "up to 10 at y = -12). This scales the maximum of that pull: 1 = as in the game, 0 = no pull (the ship sinks only by its own weight).");
+            _sinkRampEntry = Pcfg.Bind("Sinking", "SinkPullRamp", new Factor(30f),
+                "The depth (Unity units below y = -2) over which that pull grows to its maximum, smoothly (no kink at either end). The game: 10 and a straight line. " +
+                "More = the pull builds up slower and softer. 0 = the game's.");
             _bubblesEntry = Pcfg.Bind("Sinking", "BubblesStopMinutes", new Factor(10f),
                 "Minutes (game time, so time compression counts) after a ship starts to sink, when its sinking-bubbles effect stops emitting " +
                 "(the game never stops it while the wreck exists). Saves resources in long missions. 0 = never, as in the game.");
@@ -786,6 +789,7 @@ namespace AlternativeDamageModel
             BubblesOff.Minutes = Math.Max(0f, _bubblesEntry.Value.V);
             CapsizeFix.KeepCom = _keepComEntry.Value;
             SinkPull.Factor = Math.Max(0f, _sinkPullEntry.Value.V);
+            SinkPull.Ramp = Math.Max(0f, _sinkRampEntry.Value.V);
             SubmergedFlooding.Rate = 0.1f * Math.Max(0f, _deckFloodSpeedEntry.Value.V);   // 1.0 = 0.1 % per second per metre
             TrimFlooding.Imbalance = 1f;   // FloodImbalanceEffect is switched off (hidden in the settings) until reworked; the key is still read so old profiles load
             _logFires = _logFiresEntry.Value;

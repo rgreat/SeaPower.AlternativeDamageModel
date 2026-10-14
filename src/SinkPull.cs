@@ -7,14 +7,17 @@ namespace AlternativeDamageModel
     /// <summary>
     /// The game's extra pull down on a ship that is sinking (Compartments.OnFixedUpdate): once the hull origin is deeper than y = -2 (Unity units),
     /// every physics tick it adds an acceleration of min(y + 2, (time since the sink) / 3), at most -10 - in practice y + 2, since the time term is
-    /// positive and the depth term negative: the pull grows with depth, 1 unit/s² per unit of depth, up to 10 at y = -12. Here Factor scales that pull:
-    /// the mod adds (Factor - 1) × the same acceleration (the same formula, before the game's own call in the same tick). 1 = as in the game; 0 = no pull.
+    /// positive and the depth term negative: the pull grows with depth, 1 unit/s² per unit of depth, up to 10 at y = -12. Here the pull the ship gets is
+    /// Factor × Cap × S(depth / Ramp), where depth = -2 - y, Cap = 10 and S is a smooth step (x²(3 - 2x), no kink where it starts and where it stops):
+    /// the mod adds the difference to the game's own acceleration (the same formula, before the game's call in the same tick). Ramp = the depth over which
+    /// the pull grows to its maximum (the game's: 10 units, linear; 0 = the game's linear 10); Factor scales the maximum. Factor 1 and Ramp 0 = as in the game.
     /// </summary>
     static class SinkPull
     {
         public static Func<bool> IsEnabled = () => false;
         public static Action<string> Trace = s => { };
         public static float Factor = 1f;     // [Sinking] SinkPullFactor
+        public static float Ramp = 0f;       // [Sinking] SinkPullRamp, depth units; 0 = the game's
 
         static bool _init, _ok, _traced;
         static FieldInfo _fSinking, _fSinkTime, _fObp, _fRb, _fVessel, _fBase;
@@ -53,7 +56,7 @@ namespace AlternativeDamageModel
         /// <summary>Prefix of Compartments.OnFixedUpdate.</summary>
         public static void Tick(object comp)
         {
-            if (comp == null || Math.Abs(Factor - 1f) < 1e-4f || !IsEnabled()) return;
+            if (comp == null || (Math.Abs(Factor - 1f) < 1e-4f && Ramp <= 0f) || !IsEnabled()) return;
             Init(comp);
             if (!_ok) return;
             try
@@ -68,8 +71,15 @@ namespace AlternativeDamageModel
                 if (a < -10f) a = -10f;
                 var rb = _fRb.GetValue(_fObp.GetValue(comp));
                 if (rb == null) return;
-                _mAddForce.Invoke(rb, new object[] { new Vector3(0f, (Factor - 1f) * a, 0f), _accel });
-                if (!_traced) { _traced = true; Trace("SinkPull: the pull of the sinking ship (game " + a.ToString("0.##") + ") scaled by " + Factor.ToString("0.##")); }
+                float want;
+                if (Ramp > 0f)
+                {
+                    float x = Math.Min(1f, Math.Max(0f, (-2f - y) / Ramp));
+                    want = -10f * Factor * x * x * (3f - 2f * x);
+                }
+                else want = Factor * a;
+                _mAddForce.Invoke(rb, new object[] { new Vector3(0f, want - a, 0f), _accel });
+                if (!_traced) { _traced = true; Trace("SinkPull: the pull of the sinking ship starts: game " + a.ToString("0.##") + ", now " + want.ToString("0.##") + " (factor " + Factor.ToString("0.##") + ", ramp " + Ramp.ToString("0.#") + ")"); }
             }
             catch (Exception e) { Trace("SinkPull: " + e.Message); }
         }

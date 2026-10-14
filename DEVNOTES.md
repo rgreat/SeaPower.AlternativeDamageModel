@@ -695,3 +695,8 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 * Игра, `Compartments.OnFixedUpdate`, при `_isSinking` и `transform.position.y < −2` (единицы Unity): `AddForce((0, a, 0), ForceMode.Acceleration)`, `a = min(y + 2, (missionElapsedTime − _sinkTime)/3)`, не меньше −10. Так как y + 2 < 0, а время/3 ≥ 0, `min` всегда даёт `y + 2`: временное слагаемое не работает, сила зависит только от глубины — растёт на 1 ед./с² на каждую единицу глубины, до −10 при y ≤ −12.
 * `SinkPull.Tick` (префикс `OnFixedUpdate`): для надводных тонущих кораблей добавляет `AddForce((0, (Factor − 1)·a, 0), Acceleration)` по той же формуле — суммарная сила = Factor × игровая. `[Sinking] SinkPullFactor` (Advanced 0.5, Base Game 1.0, 0 = без силы), окно настроек «Sinking pull». В trace один раз: «SinkPull: the pull of the sinking ship (game …) scaled by …».
 * Масштабируется вся сила (и наклон, и потолок −10), а не только скорость роста. Не проверено в игре.
+
+## 2026-10-14: плавное нарастание силы вниз (SinkPullRamp)
+* Уточнение к SinkPullFactor: нужно не ослабить силу, а сделать её нарастание плавнее. Теперь итоговое ускорение = `−10 · Factor · S(depth / Ramp)`, `depth = −2 − y`, `S(x) = x²(3 − 2x)` (smoothstep: без излома у начала и у потолка), `Ramp` — глубина, на которой сила дорастает до максимума (в игре 10 и прямая линия). Мод добавляет разность с игровым `a` (`want − a`).
+* `[Sinking] SinkPullFactor` — множитель потолка (по умолчанию 1, раньше 0.5), `SinkPullRamp` — 30 (Advanced; в 3 раза плавнее игры), 0 = игровая линейная (Base Game). Окно настроек: «Sinking pull», «Sinking pull ramp». При Factor 1 и Ramp 0 мод ничего не добавляет.
+* Не проверено в игре.
