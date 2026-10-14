@@ -11,7 +11,7 @@ namespace AlternativeDamageModel
     /// sunk by flooding Sink() puts the centre of mass at the hull origin, level with the lift points: on its side nothing turns it further, and it
     /// lies there. Here the centre of mass rises with the water in the ship, which is what the water really does to the stability (a lost metacentric height):
     /// rise = Factor · GM(LevelFull) · water/LevelFull, where GM(w) = x² / (H · (density + w)) is the model's own roll stiffness (x - half the distance between
-    /// the port and starboard points, H - the compartments' height, w - the flooding value at that water). At Factor 1 the stability is gone where the ship sinks;
+    /// the port and starboard points, H - the compartments' height, w - the flooding value at that water). The rise is scaled by RiseScale = 0.5 (the influence of the setting was halved): at Factor 2 the stability is gone where the ship sinks;
     /// more - sooner. A rolled ship with the centre of mass above the lift points keeps turning over (the lever grows up to 90°, then it turns it keel up).
     /// Every tick for surface ships with the model on; the game's own centre of mass of a capsized ship (0, 1, 0) is left alone.
     /// </summary>
@@ -19,6 +19,7 @@ namespace AlternativeDamageModel
     {
         public static Func<bool> IsEnabled = () => false;
         public static Action<string> Trace = s => { };
+        const float RiseScale = 0.5f;        // the influence of the setting is halved (1.0 = half of the rise it used to be)
         public static float Factor = 1f;     // [Sinking] CapsizeFactor; 0 = off
         public static bool KeepCom = true;   // [Sinking] KeepCentreOfMass: Sink() does not reset the centre of mass
 
@@ -74,7 +75,7 @@ namespace AlternativeDamageModel
                 if ((bool)_fCapsized.GetValue(comp)) return;     // the game's own (0, 1, 0)
                 float f = Convert.ToSingle(_pFlood.GetValue(comp, null));
                 float L = Math.Max(5f, Limits.LevelFull);
-                float rise = Factor * s.Gm * Math.Min(f / L, 2.5f);
+                float rise = RiseScale * Factor * s.Gm * Math.Min(f / L, 2.5f);
                 if (!float.IsNaN(s.Last) && Math.Abs(rise - s.Last) < 1e-5f && !(bool)_fSinking.GetValue(comp)) return;
                 var obp = _fObp.GetValue(comp);
                 if (_fRb == null) { var to = obp.GetType(); _fRb = to.GetField("_rigidbody", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); _fCom = to.GetField("_centerOfMass", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); _fCompCom = to.GetField("_compartmentsCenterOfMass", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); }

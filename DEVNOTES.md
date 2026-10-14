@@ -583,3 +583,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: SinkPull удалён совсем
 * По решению пользователя («большая глубина не интересна») удалены `SinkPull.cs`, ключи `[Sinking] SinkPullFactor` / `SinkPullRamp` (из `AdmPlugin`, окна, профилей; старые ключи в пользовательских .cfg просто не используются), вызов из `TeamTickPrefix`. Игровая тяга вниз (при `y < −2` ед. = 134 м) работает как в игре. README: строка про тягу заменена описанием WreckDrag (горизонталь). Записи выше про SinkPull — история.
+
+## 2026-10-15: CapsizeFactor ослаблен вдвое, WreckDrag 3
+* `CapsizeFix`: подъём центра масс умножен на `RiseScale = 0.5` (влияние настройки вдвое слабее при том же значении; прежнее действие — `CapsizeFactor` 2.0). Значения в профилях не менялись (Advanced 1.0), описание ключа обновлено.
+* Advanced: `WreckDragFactor` 5 → 3 (Base Game 1). README — «3× by default».

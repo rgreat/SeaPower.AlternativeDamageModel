@@ -368,8 +368,8 @@ namespace AlternativeDamageModel
             _capsizeEntry = Pcfg.Bind("Sinking", "CapsizeFactor", new Factor(1f),
                 "Centre of mass rise (capsizing). The game never moves the ship's centre of mass, so a flooded ship keeps its stability and, once sunk, lies on its side. " +
                 "With this the centre of mass rises with the water in the ship (the stability falls the way the water does it in real life): " +
-                "1.0 = at FloodLimit it is raised by the whole roll stiffness the water leaves (the ship turns over before that, from about a quarter of the water for a destroyer, " +
-                "because its centre of mass is already above the buoyancy points), 2.0 = twice as high, 0 = off (the game's). A ship that has lost its stability turns over, keel up.");
+                "2.0 = at FloodLimit it is raised by the whole roll stiffness the water leaves (the ship turns over before that, from about a quarter of the water for a destroyer, " +
+                "because its centre of mass is already above the buoyancy points), 1.0 = half as high, 0 = off (the game's). A ship that has lost its stability turns over, keel up.");
             _keepComEntry = Pcfg.Bind("Sinking", "KeepCentreOfMass", true,
                 "When a ship starts to sink the game puts its centre of mass at the hull origin ((0, 1, 0) if it has capsized): the centre of mass jumps, and with it " +
                 "every torque on the hull. On = the centre of mass stays where it was (with CapsizeFactor: where the water in the ship has raised it). Off = as in the game.");
