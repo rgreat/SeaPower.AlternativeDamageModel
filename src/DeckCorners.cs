@@ -846,7 +846,7 @@ namespace AlternativeDamageModel
             {
                 float m = meters[i];
                 if (float.IsNaN(m)) continue;
-                float s = Vector3.Distance(camPos, at[i]) * 0.012f;
+                float s = Vector3.Distance(camPos, at[i]) * 0.006f;
                 string text = (m >= 0f ? "+" : "-") + Math.Abs(m).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
                 float w = 0f; foreach (char ch in text) w += GlyphAdvance(ch);
                 Vector3 o = at[i] + up * (s * 0.6f) - right * (w * s * 0.5f);

@@ -157,7 +157,6 @@ namespace AlternativeDamageModel
                     s.Own[k] = perSec;
                     float amount = perSec * dt;
                     int at = k;
-                    var visited = new HashSet<int>();
                     for (int guard = 0; guard < total && amount > 1e-6f; guard++)
                     {
                         var fc = Fc(comp, n, at);
@@ -171,9 +170,8 @@ namespace AlternativeDamageModel
                             amount -= add;
                         }
                         if (amount <= 1e-6f) break;
-                        // this one is full: the lowest not-full neighbour of the full group around it
-                        visited.Add(at);
-                        int next = Lowest(comp, s, worldY, visited);
+                        // this one is full: on to its nearest not-full neighbour
+                        int next = Next(comp, s, worldY, at);
                         if (next < 0) break;
                         if (s.PassedTo[k] < 0) s.PassedTo[k] = next;
                         at = next;
@@ -183,22 +181,31 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("SubmergedFlooding: " + e.Message); }
         }
 
-        /// <summary>The lowest (by the deck point) not-full compartment next to any of the full, visited ones; -1 if none.</summary>
-        static int Lowest(object comp, State s, float[] worldY, HashSet<int> full)
+        /// <summary>Where the water of the full compartment <paramref name="from"/> goes: its own neighbours first (the lowest not-full one by the
+        /// deck point); when all of them are full too, theirs, and so on along the chain - the nearest not-full compartment, the lowest of those
+        /// equally near. -1 if there is none. (Each full compartment looks from itself, so both full compartments of a section feed their own
+        /// neighbours, not one common one.)</summary>
+        static int Next(object comp, State s, float[] worldY, int from)
         {
-            int n = s.Count, best = -1; float bestY = float.MaxValue;
-            foreach (int k in full)
+            int n = s.Count;
+            var seen = new HashSet<int> { from };
+            var frontier = new List<int> { from };
+            while (frontier.Count > 0)
             {
-                int side = k / n, l = k % n;
-                int[] nb = { l > 0 ? side * n + l - 1 : -1, l < n - 1 ? side * n + l + 1 : -1, (1 - side) * n + l };
-                foreach (int j in nb)
+                var cand = new List<int>();
+                foreach (int k in frontier)
                 {
-                    if (j < 0 || full.Contains(j)) continue;
-                    if (Full(Fc(comp, n, j))) { full.Add(j); return Lowest(comp, s, worldY, full); }   // full too: on along the chain
-                    if (worldY[j] < bestY) { bestY = worldY[j]; best = j; }
+                    int side = k / n, l = k % n;
+                    int[] nb = { l > 0 ? side * n + l - 1 : -1, l < n - 1 ? side * n + l + 1 : -1, (1 - side) * n + l };
+                    foreach (int j in nb) if (j >= 0 && seen.Add(j)) cand.Add(j);
                 }
+                int best = -1; float bestY = float.MaxValue;
+                foreach (int j in cand)
+                    if (!Full(Fc(comp, n, j)) && worldY[j] < bestY) { bestY = worldY[j]; best = j; }
+                if (best >= 0) return best;
+                frontier = cand;
             }
-            return best;
+            return -1;
         }
 
         /// <summary>Lines for the flooding arrow tooltips of section i, that side: why this compartment takes on water over the deck edge.</summary>
