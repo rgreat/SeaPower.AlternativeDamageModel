@@ -69,6 +69,20 @@ namespace AlternativeDamageModel
             if (!_ok) Trace("SubmergedFlooding: game members not found; flooding over the deck edge does nothing");
         }
 
+        static PropertyInfo _pDestroyed;
+        /// <summary>The ship is destroyed (ObjectBase.IsDestroyed): the game no longer samples the waves for it.</summary>
+        static bool IsDestroyed(object comp)
+        {
+            try
+            {
+                object bo = _fBase.GetValue(comp);
+                if (bo == null) return false;
+                if (_pDestroyed == null) _pDestroyed = bo.GetType().GetProperty("IsDestroyed", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                return _pDestroyed != null && (bool)_pDestroyed.GetValue(bo, null);
+            }
+            catch { return false; }
+        }
+
         static State Get(object comp)
         {
             State s;
@@ -236,6 +250,7 @@ namespace AlternativeDamageModel
                 if (comp == null || !IsEnabled()) return true;
                 Init(comp);
                 if (!_ok) return true;
+                if (IsDestroyed(comp)) return true;   // already destroyed: nothing more to wait for
                 var s = Get(comp);
                 if (s == null) return true;
                 int n = s.Count, total = 2 * n, count = 0;
@@ -295,12 +310,21 @@ namespace AlternativeDamageModel
                 if (dt <= 0f) return;
                 int n = s.Count, total = 2 * n;
                 Matrix4x4 ltw = s.P.ShipT.localToWorldMatrix;
+                bool destroyed = IsDestroyed(comp);
                 var worldY = new float[total];
                 for (int k = 0; k < total; k++)
                 {
                     var fc = Fc(comp, n, k);
                     worldY[k] = ltw.MultiplyPoint3x4(s.P.Points[s.Map[k]]).y;
                     float water = (float)_fWater.GetValue(fc);
+                    if (destroyed)
+                    {
+                        // the game stops sampling the waves for a destroyed ship (Compartments' wave job skips IsDestroyed): its water level stays as it was
+                        // at the moment of destruction - take the wave at the point ourselves
+                        Vector3 wp = ltw.MultiplyPoint3x4(s.P.Points[s.Map[k]]);
+                        float wv = DeckCorners.QueryWave(wp.x, wp.z);
+                        if (!float.IsNaN(wv)) { water = wv; _fWater.SetValue(fc, wv); }
+                    }
                     float depth = float.IsNaN(water) ? -1f : (water - worldY[k]) * UnityToMetre;
                     s.Depth[k] = depth;
                     s.Under[k] = depth > 0f ? s.Under[k] + dt : 0f;

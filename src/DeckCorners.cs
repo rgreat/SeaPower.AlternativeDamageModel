@@ -753,7 +753,7 @@ namespace AlternativeDamageModel
             return _sea;
         }
 
-        static float QueryWave(float x, float z)
+        public static float QueryWave(float x, float z)
         {
             if (_pOceanInstance == null || _mQueryWaves == null) return float.NaN;
             try
