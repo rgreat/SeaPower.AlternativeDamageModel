@@ -1307,8 +1307,35 @@ namespace AlternativeDamageModel
         /// Made anew only when the structure changes, the game rewrote the text, or force is set.
         /// </summary>
         static int _drawTrace;
-        static int _boxTrace;
+        static int _boxTrace, _widthTrace, _overTrace;
         static float BoxDrop = 0.25f;   // how far (× font size) the % boxes are moved down onto the text baseline
+
+        /// <summary>Diagnostics: the boxes of a row standing on top of each other (the box's right edge past the left edge of the next box).</summary>
+        static void CheckOverlap(TextBlock tb, Drawn d, List<Seg> segs)
+        {
+            try
+            {
+                if (tb.ActualWidth < 0.5f) return;
+                int prev = -1; float px = 0f, pw = 0f;
+                for (int i = 0; i < segs.Count; i++)
+                {
+                    var kid = segs[i].Box && i < d.Kids.Count ? d.Kids[i] : null;
+                    if (kid == null) continue;
+                    var pt = kid.TranslatePoint(new Point(0f, 0f), tb);
+                    float x = pt.X, w = kid.ActualWidth;
+                    if (prev >= 0 && x < px + pw - 0.5f)
+                    {
+                        _overTrace++;
+                        var sb = new System.Text.StringBuilder();
+                        for (int j = 0; j < segs.Count; j++) sb.Append(segs[j].Arrow ? "[arrow]" : segs[j].Box ? "<" + segs[j].Text + ">" : "'" + segs[j].Text + "'");
+                        Trace("DC boxes overlap: #" + prev + " x " + px.ToString("0.#") + " w " + pw.ToString("0.#") + " (set " + d.Kids[prev].Width.ToString("0.#") + "), #" + i + " x " + x.ToString("0.#") + " w " + w.ToString("0.#") + " (set " + kid.Width.ToString("0.#") + "); row w " + tb.ActualWidth.ToString("0.#") + ", font " + tb.FontSize.ToString("0.#") + "; " + sb);
+                        return;
+                    }
+                    prev = i; px = x; pw = w;
+                }
+            }
+            catch (Exception ex) { if (_overTrace < 25) { _overTrace++; Trace("DC overlap check: " + ex.Message); } }
+        }
 
         static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
         {
@@ -1330,9 +1357,20 @@ namespace AlternativeDamageModel
                         if (kid == null) continue;
                         if (kid.Text != n.Text)
                         {
+                            string was = kid.Text;
                             kid.Text = n.Text;
-                            // a fixed width from the text (not measured): the row's layout cannot lose it, and a changed text moves the next pieces at once
-                            try { kid.Width = BoxWidth(n.Text, tb); tb.InvalidateMeasure(); } catch { }
+                            // a measured fixed width: the row's layout cannot lose it; the container is given its child again so that the row
+                            // lays its inlines out anew (a changed size of the child alone did not move the next pieces)
+                            try
+                            {
+                                float w0 = kid.Width, w1 = BoxWidth(n.Text, tb);
+                                kid.Width = w1;
+                                var iuc = d.Inl[i] as InlineUIContainer;
+                                if (iuc != null && Math.Abs(w1 - w0) > 0.4f) { iuc.Child = null; iuc.Child = kid; }
+                                tb.InvalidateMeasure(); tb.InvalidateArrange();
+                                if (_widthTrace < 30) { _widthTrace++; Trace("DC box width: #" + i + " '" + was + "' -> '" + n.Text + "' width " + w0.ToString("0.#") + " -> " + w1.ToString("0.#") + ", font " + tb.FontSize.ToString("0.#") + ", reattached " + (iuc != null && Math.Abs(w1 - w0) > 0.4f)); }
+                            }
+                            catch (Exception ex) { if (_widthTrace < 30) { _widthTrace++; Trace("DC box width: " + ex.Message); } }
                         }
                         if (_boxTrace < 12 && !string.IsNullOrEmpty(kid.Text))
                         {
@@ -1356,6 +1394,7 @@ namespace AlternativeDamageModel
                     if (run.Text != n.Text) run.Text = n.Text;
                     if (n.Col.HasValue && !o.Col.Equals(n.Col)) run.Foreground = new SolidColorBrush(n.Col.Value);
                 }
+                if (_overTrace < 25) CheckOverlap(tb, d, segs);
                 d.Segs = segs; d.Shown = tb.Text;
                 return;
             }
