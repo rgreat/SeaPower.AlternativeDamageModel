@@ -73,7 +73,7 @@ namespace AlternativeDamageModel
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
-        ConfigEntry<bool> _unattendedEntry;
+        ConfigEntry<bool> _unattendedEntry, _keepComEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _smokeLenEntry, _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -356,6 +356,9 @@ namespace AlternativeDamageModel
                 "With this the centre of mass rises with the water in the ship (the stability falls the way the water does it in real life): " +
                 "1.0 = at FloodLimit it is raised by the whole roll stiffness the water leaves (the ship turns over before that, from about a quarter of the water for a destroyer, " +
                 "because its centre of mass is already above the buoyancy points), 2.0 = twice as high, 0 = off (the game's). A ship that has lost its stability turns over, keel up.");
+            _keepComEntry = Pcfg.Bind("Sinking", "KeepCentreOfMass", true,
+                "When a ship starts to sink the game puts its centre of mass at the hull origin ((0, 1, 0) if it has capsized): the centre of mass jumps, and with it " +
+                "every torque on the hull. On = the centre of mass stays where it was (with CapsizeFactor: where the water in the ship has raised it). Off = as in the game.");
             _bubblesEntry = Pcfg.Bind("Sinking", "BubblesStopMinutes", new Factor(10f),
                 "Minutes (game time, so time compression counts) after a ship starts to sink, when its sinking-bubbles effect stops emitting " +
                 "(the game never stops it while the wreck exists). Saves resources in long missions. 0 = never, as in the game.");
@@ -778,6 +781,7 @@ namespace AlternativeDamageModel
             SubmergedFlooding.Delay = Math.Max(0f, _deckFloodDelayEntry.Value.V);
             CapsizeFix.Factor = Math.Max(0f, _capsizeEntry.Value.V);
             BubblesOff.Minutes = Math.Max(0f, _bubblesEntry.Value.V);
+            CapsizeFix.KeepCom = _keepComEntry.Value;
             SubmergedFlooding.Rate = 0.1f * Math.Max(0f, _deckFloodSpeedEntry.Value.V);   // 1.0 = 0.1 % per second per metre
             TrimFlooding.Imbalance = 1f;   // FloodImbalanceEffect is switched off (hidden in the settings) until reworked; the key is still read so old profiles load
             _logFires = _logFiresEntry.Value;
@@ -1170,6 +1174,7 @@ namespace AlternativeDamageModel
                 Patch(harmony, tComp.GetMethod("RecallAllTeams", all), "TeamRecallPrefix", null, null, "Compartments.RecallAllTeams", ref ok, ref failed);
                 int okBefore = ok;
                 Patch(harmony, tComp.GetMethod("OnFixedUpdate", all), "TeamTickPrefix", null, null, "Compartments.OnFixedUpdate (teams)", ref ok, ref failed);
+                Patch(harmony, tComp.GetMethod("Sink", all), "SinkComPrefix", "SinkComPostfix", null, "Compartments.Sink (centre of mass)", ref ok, ref failed);
                 _trimFloodHooked = ok > okBefore;   // the game's trim sinking is replaced only when the flooding that replaces it runs
                 foreach (var name in new[] { "RepairFloodingRate", "RepairFire", "RepairFlooding", "RepairStructure", "RepairSystems" })
                     Patch(harmony, tComp.GetMethod(name, all), null, null, "TeamEffTranspiler", "Compartments." + name + " (effectiveness)", ref ok, ref failed);
@@ -1894,6 +1899,8 @@ namespace AlternativeDamageModel
         static bool TeamSendPrefix(object __instance, int index) { return DcTeams.SendPrefix(__instance, index); }
         static bool TeamReturnPrefix(object __instance, int index) { return DcTeams.ReturnPrefix(__instance, index); }
         static bool TeamRecallPrefix(object __instance) { return DcTeams.RecallPrefix(__instance); }
+        static void SinkComPrefix(object __instance, out object __state) { __state = CapsizeFix.BeforeSink(__instance); }
+        static void SinkComPostfix(object __instance, object __state) { CapsizeFix.AfterSink(__instance, __state); }
         static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); CapsizeFix.Tick(__instance); BubblesOff.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
 
         public static float TeamEffMul(float v) { return DcTeams.Eff(v); }

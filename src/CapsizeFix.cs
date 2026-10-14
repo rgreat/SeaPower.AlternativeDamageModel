@@ -20,6 +20,7 @@ namespace AlternativeDamageModel
         public static Func<bool> IsEnabled = () => false;
         public static Action<string> Trace = s => { };
         public static float Factor = 1f;     // [Sinking] CapsizeFactor; 0 = off
+        public static bool KeepCom = true;   // [Sinking] KeepCentreOfMass: Sink() does not reset the centre of mass
 
         static bool _init, _ok;
         static FieldInfo _fObp, _fVessel, _fCount, _fPort, _fSinking, _fCapsized, _fHeight, _fRb, _fCom, _fCompCom, _fFc, _fBase, _fMaxFlood, _fObject;
@@ -84,6 +85,50 @@ namespace AlternativeDamageModel
                 s.Last = rise;
             }
             catch (Exception e) { Trace("CapsizeFix: " + e.Message); }
+        }
+
+        /// <summary>
+        /// Prefix of Compartments.Sink: Sink() sets the rigidbody's centre of mass to the hull origin ((0, 1, 0) for a capsized ship) - a jump of the centre of mass
+        /// (and of every torque) at the moment the ship starts to sink. With KeepCom the centre of mass is remembered here and put back in AfterSink.
+        /// Returns the state for AfterSink (null = nothing to restore).
+        /// </summary>
+        public static object BeforeSink(object comp)
+        {
+            if (comp == null || !KeepCom || !IsEnabled()) return null;
+            Init(comp);
+            if (!_ok) return null;
+            try
+            {
+                if (_fVessel.GetValue(comp) == null || (bool)_fSinking.GetValue(comp)) return null;   // surface ships only; a second Sink() returns at once
+                var rb = Rb(comp);
+                if (rb == null) return null;
+                return _pRbCom.GetValue(rb, null);
+            }
+            catch (Exception e) { Trace("CapsizeFix.BeforeSink: " + e.Message); return null; }
+        }
+
+        public static void AfterSink(object comp, object state)
+        {
+            if (!(state is Vector3)) return;
+            try
+            {
+                var rb = Rb(comp);
+                if (rb == null) return;
+                var was = (Vector3)state;
+                var now = (Vector3)_pRbCom.GetValue(rb, null);
+                _pRbCom.SetValue(rb, was, null);
+                Trace("CapsizeFix: the ship starts to sink, the centre of mass stays " + was + " (the game set " + now + ")");
+            }
+            catch (Exception e) { Trace("CapsizeFix.AfterSink: " + e.Message); }
+        }
+
+        static object Rb(object comp)
+        {
+            var obp = _fObp.GetValue(comp);
+            if (_fRb == null) { var to = obp.GetType(); _fRb = to.GetField("_rigidbody", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); }
+            var rb = _fRb == null ? null : _fRb.GetValue(obp);
+            if (rb != null && _pRbCom == null) _pRbCom = rb.GetType().GetProperty("centerOfMass");
+            return _pRbCom == null ? null : rb;
         }
 
         static State Make(object comp)
