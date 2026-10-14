@@ -1295,6 +1295,21 @@ namespace AlternativeDamageModel
         /// </summary>
         static int _drawTrace;
 
+        /// <summary>True when an open arrow tooltip belongs to this text block (its arrow is inside it).</summary>
+        static bool TipOpenIn(TextBlock tb)
+        {
+            foreach (var o in OpenTips)
+            {
+                DependencyObject x = o.Owner;
+                for (int k = 0; x != null && k < 12; k++)
+                {
+                    if (ReferenceEquals(x, tb)) return true;
+                    x = Parent(x);
+                }
+            }
+            return false;
+        }
+
         static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
         {
             bool same = !force && d != null && ReferenceEquals(d.Tb, tb) && tb.Text == d.Shown && d.Segs.Count == segs.Count;
@@ -1305,6 +1320,9 @@ namespace AlternativeDamageModel
             }
             if (same)
             {
+                // changing a run's text makes the text block lay itself out again, and with it its arrows (the open tooltip jumps or
+                // closes and opens): while a tooltip of this row is open, its numbers are left as they are (the tooltip itself stays live)
+                if (TipOpenIn(tb)) { d.Shown = tb.Text; return; }
                 for (int i = 0; i < segs.Count; i++)
                 {
                     var o = d.Segs[i]; var n = segs[i];
@@ -1460,7 +1478,7 @@ namespace AlternativeDamageModel
                 var entry = new OpenTip { Tb = tb, Text = text, Owner = el };
                 el.ToolTipOpening += (s, e) =>
                 {
-                    try { tb.MinWidth = 0f; tb.MinHeight = 0f; tb.Text = text(); } catch { }
+                    try { tb.Text = text(); } catch { }
                     if (!OpenTips.Contains(entry)) OpenTips.Add(entry);
                 };
                 el.ToolTipClosing += (s, e) => OpenTips.Remove(entry);
@@ -1484,11 +1502,6 @@ namespace AlternativeDamageModel
                     if (o.Owner == null || !o.Owner.IsVisible || Parent(o.Owner) == null) { OpenTips.RemoveAt(k); continue; }
                     string t = o.Text();
                     if (o.Tb.Text != t) o.Tb.Text = t;
-                    // the open tooltip only grows, never shrinks: digits changing width (a wave moves a number) or a line coming and going
-                    // would resize it and make it jump around
-                    float w = (float)o.Tb.ActualWidth, h = (float)o.Tb.ActualHeight;
-                    if (w > o.Tb.MinWidth + 0.5f) o.Tb.MinWidth = w;
-                    if (h > o.Tb.MinHeight + 0.5f) o.Tb.MinHeight = h;
                 }
                 catch { OpenTips.RemoveAt(k); }
             }
