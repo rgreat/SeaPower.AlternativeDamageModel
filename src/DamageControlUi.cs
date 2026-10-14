@@ -1307,6 +1307,7 @@ namespace AlternativeDamageModel
         /// Made anew only when the structure changes, the game rewrote the text, or force is set.
         /// </summary>
         static int _drawTrace;
+        static float BoxDrop = 0.25f;   // how far (× font size) the % boxes are moved down onto the text baseline
 
         static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
         {
@@ -1355,6 +1356,14 @@ namespace AlternativeDamageModel
                 else if (s.Box)
                 {
                     kid = new TextBlock { Text = s.Text };
+                    // an InlineUIContainer's child stands with its bottom edge on the text baseline, so the % sat higher than the label next to it
+                    // (and took the default font): same font as the row, moved down by the descent
+                    try
+                    {
+                        kid.FontSize = tb.FontSize; kid.FontFamily = tb.FontFamily; kid.FontWeight = tb.FontWeight; kid.FontStyle = tb.FontStyle;
+                        kid.RenderTransform = new TranslateTransform(0f, (float)Math.Round(tb.FontSize * BoxDrop));
+                    }
+                    catch { }
                     if (s.Col.HasValue) kid.Foreground = new SolidColorBrush(s.Col.Value);
                     x = new InlineUIContainer(kid);
                 }
