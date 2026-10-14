@@ -340,18 +340,43 @@ namespace AlternativeDamageModel
             _shipRenderers = null; _shipOrigMaterials = null; _shipGhostMaterials = null; _shipWasEnabled = null;
         }
 
-        /// <summary>Standard-shader transparency (the way the game itself does it, OBJLoaderHelper.EnableMaterialTransparency) with alpha GhostAlpha.</summary>
-        static void MakeGhost(Material m)
+        static Shader _ghostShader;
+        static readonly HashSet<string> _ghostSeen = new HashSet<string>();
+        static readonly string[] TexProps = { "_MainTex", "_BaseMap", "_BaseColorMap", "_Albedo", "_Diffuse", "_AlbedoMap" };
+        static readonly string[] ColProps = { "_Color", "_BaseColor", "_Tint", "_Albedo_Color" };
+
+        /// <summary>
+        /// A transparent copy of the game's material. The ship shaders come from asset bundles and are not known to take alpha, so the copy is
+        /// built on a shader that is surely in the build and always blends ("Sprites/Default", which the game itself uses): the main texture and
+        /// colour of the original are copied, alpha is GhostAlpha. (Lighting is lost - this is a debug view.) Fallback: the old way, flipping
+        /// the original material into Standard-style transparency.
+        /// </summary>
+        static Material MakeGhost(Material src)
         {
-            if (m.HasProperty("_Mode")) m.SetFloat("_Mode", 3f);
-            if (m.HasProperty("_SrcBlend")) m.SetInt("_SrcBlend", 5);
-            if (m.HasProperty("_DstBlend")) m.SetInt("_DstBlend", 10);
-            if (m.HasProperty("_ZWrite")) m.SetInt("_ZWrite", 0);
-            m.DisableKeyword("_ALPHATEST_ON");
-            m.EnableKeyword("_ALPHABLEND_ON");
-            m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            m.renderQueue = 3000;
-            if (m.HasProperty("_Color")) { var c = m.color; c.a = GhostAlpha; m.color = c; }
+            string sh = src.shader != null ? src.shader.name : "?";
+            if (_ghostSeen.Add(sh)) Trace("Ghost model: material shader '" + sh + "'");
+            if (_ghostShader == null) _ghostShader = Shader.Find("Sprites/Default");
+            if (_ghostShader != null)
+            {
+                var m = new Material(_ghostShader);
+                foreach (var tp in TexProps)
+                    if (src.HasProperty(tp)) { var t = src.GetTexture(tp); if (t != null) { m.mainTexture = t; try { m.mainTextureScale = src.GetTextureScale(tp); m.mainTextureOffset = src.GetTextureOffset(tp); } catch { } break; } }
+                Color c = Color.white;
+                foreach (var cp in ColProps) if (src.HasProperty(cp)) { c = src.GetColor(cp); break; }
+                c.a = GhostAlpha;
+                m.color = c;
+                m.renderQueue = 3000;
+                return m;
+            }
+            var g = new Material(src);
+            if (g.HasProperty("_Mode")) g.SetFloat("_Mode", 3f);
+            if (g.HasProperty("_SrcBlend")) g.SetInt("_SrcBlend", 5);
+            if (g.HasProperty("_DstBlend")) g.SetInt("_DstBlend", 10);
+            if (g.HasProperty("_ZWrite")) g.SetInt("_ZWrite", 0);
+            g.DisableKeyword("_ALPHATEST_ON"); g.EnableKeyword("_ALPHABLEND_ON"); g.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            g.renderQueue = 3000;
+            if (g.HasProperty("_Color")) { var cc = g.color; cc.a = GhostAlpha; g.color = cc; }
+            return g;
         }
 
         static int _hideCheck;
@@ -392,8 +417,7 @@ namespace AlternativeDamageModel
                             for (int i = 0; i < orig.Length; i++)
                             {
                                 if (orig[i] == null) continue;
-                                ghost[i] = new Material(orig[i]);
-                                MakeGhost(ghost[i]);
+                                ghost[i] = MakeGhost(orig[i]);
                             }
                             r.sharedMaterials = ghost;
                         }

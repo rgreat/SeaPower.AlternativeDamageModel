@@ -519,3 +519,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 ## 2026-10-14: ShipModelView — Show / Translucent / Hide
 * `[General] HideShipModel` (bool) заменён на `ShipModelView` (строка Show | Translucent | Hide, по умолчанию Show; старый ключ остаётся orphan'ом и игнорируется). В окне (Debug → Visualisation) — выпадающий список (`Kind.Choice`, `Field.Options`, `ChoiceEditor`), применяется сразу (`_liveGlobals`).
 * `DeckCorners.ModelView` 0/1/2: Translucent — копии материалов с альфой 0.3 (см. запись выше), Hide — `Renderer.enabled = false` с запоминанием прежнего `.enabled`; смена режима пересоздаёт состояние (`_appliedView`).
+
+## 2026-10-14: Translucent — прозрачные копии на шейдере Sprites/Default
+* Правка шейдерных ключей Standard (`_Mode`, `_ALPHABLEND_ON`) на копии материала корабля не давала прозрачности: шейдеры кораблей из asset bundle'ов, вариант с blend может быть вырезан/не использоваться. Теперь `MakeGhost` строит материал на `Sprites/Default` (его игра сама использует, всегда блендит): копируются основная текстура (`_MainTex/_BaseMap/_BaseColorMap/_Albedo/…`, scale/offset) и цвет (`_Color/_BaseColor/_Tint`), альфа 0.3, очередь 3000. Освещения нет (отладочный вид). Резерв при отсутствии шейдера — прежний способ.
+  В trace (Debug) пишутся имена шейдеров материалов корабля: `Ghost model: material shader '…'`.
