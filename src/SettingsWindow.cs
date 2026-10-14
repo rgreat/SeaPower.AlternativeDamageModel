@@ -144,7 +144,7 @@ namespace AlternativeDamageModel
             Add(SK, "Sinking and wreck", "Sinking/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0);
             Add(SK, "Sinking and wreck", "Sinking/SinkPullFactor", "Sinking pull", "× the game's pull down (acceleration); 0 = none", Kind.Number, 0.1f, 0f, 3f);
             Add(SK, "Sinking and wreck", "Sinking/SinkPullRamp", "Sinking pull ramp", "depth over which it builds up; game 10, 0 = game", Kind.Number, 1f, 0f, 200f);
-            Add(SK, "Sinking and wreck", "Sinking/WreckDragFactor", "Wreck drag", "× the game's resistance to movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f);
+            Add(SK, "Sinking and wreck", "Sinking/WreckDragFactor", "Wreck drag", "× the game's resistance to the horizontal movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f);
             Add(SK, "Sinking and wreck", "Sinking/BubblesStopMinutes", "Stop bubbles after", "min after sinking starts; 0 = never", Kind.Number, 1f, 0f, 120f);
         }
 

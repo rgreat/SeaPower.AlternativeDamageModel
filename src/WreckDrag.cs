@@ -5,10 +5,11 @@ using System.Runtime.CompilerServices;
 namespace AlternativeDamageModel
 {
     /// <summary>
-    /// A destroyed ship slides on: the game sets the rigidbody's drag from the sea (Compartments.OnFixedUpdate: Lerp(outOfWaterDrag, submergedDrag, submerged volume))
-    /// and does not change it when the ship is destroyed. Here, after the game's call, the linear drag of a destroyed surface ship is multiplied by Factor
-    /// ([Sinking] WreckDragFactor, 5 by default) - the wreck loses its way sooner. The angular drag (capsizing, rolling) is not touched.
-    /// The game writes the drag again every tick; the value written here is remembered, so a tick in which the game did not write it is not multiplied twice.
+    /// A destroyed ship slides on: the game sets the rigidbody's drag from the sea (Compartments.OnFixedUpdate: Lerp(outOfWaterDrag, submergedDrag, submerged volume),
+    /// 25 for nearly every ship) and does not change it when the ship is destroyed. The drag of a wreck is made [Sinking] WreckDragFactor times stronger for the
+    /// HORIZONTAL movement only: after the game's call the horizontal velocity is divided once more by 1 + (Factor - 1) * drag * dt (the way Unity applies its own
+    /// damping). The vertical velocity is left alone: the linear drag is not raised - with drag 25 the speed of sinking is already only (pull / 25) and a higher
+    /// drag stopped a wreck full of water from sinking at all.
     /// </summary>
     static class WreckDrag
     {
@@ -18,9 +19,7 @@ namespace AlternativeDamageModel
 
         static bool _init, _ok, _traced;
         static FieldInfo _fObp, _fRb, _fVessel;
-        static PropertyInfo _pDrag;
-        sealed class State { public float Written = float.NaN; }
-        static readonly ConditionalWeakTable<object, State> States = new ConditionalWeakTable<object, State>();
+        static PropertyInfo _pDrag, _pVel;
 
         static void Init(object comp)
         {
@@ -34,7 +33,8 @@ namespace AlternativeDamageModel
                 _fRb = _fObp == null ? null : _fObp.FieldType.GetField("_rigidbody", all);
                 var tRb = _fRb == null ? null : _fRb.FieldType;
                 _pDrag = tRb == null ? null : (tRb.GetProperty("linearDamping") ?? tRb.GetProperty("drag"));
-                _ok = _fObp != null && _fVessel != null && _fRb != null && _pDrag != null;
+                _pVel = tRb == null ? null : (tRb.GetProperty("linearVelocity") ?? tRb.GetProperty("velocity"));
+                _ok = _fObp != null && _fVessel != null && _fRb != null && _pDrag != null && _pVel != null;
             }
             catch (Exception e) { Trace("WreckDrag.Init: " + e.Message); _ok = false; }
             if (!_ok) Trace("WreckDrag: game members not found; a destroyed ship keeps the game's drag");
@@ -43,7 +43,7 @@ namespace AlternativeDamageModel
         /// <summary>Postfix of Compartments.OnFixedUpdate.</summary>
         public static void Tick(object comp)
         {
-            if (comp == null || Math.Abs(Factor - 1f) < 1e-4f || !IsEnabled()) return;
+            if (comp == null || Factor <= 1.0001f || !IsEnabled()) return;
             Init(comp);
             if (!_ok) return;
             try
@@ -51,14 +51,11 @@ namespace AlternativeDamageModel
                 if (_fVessel.GetValue(comp) == null || !SubmergedFlooding.IsDestroyed(comp)) return;
                 var rb = _fRb.GetValue(_fObp.GetValue(comp));
                 if (rb == null) return;
-                State s;
-                if (!States.TryGetValue(comp, out s)) { s = new State(); States.Add(comp, s); }
-                float cur = Convert.ToSingle(_pDrag.GetValue(rb, null));
-                if (!float.IsNaN(s.Written) && Math.Abs(cur - s.Written) < 1e-6f) return;   // the game did not write it this tick
-                float v = cur * Factor;
-                _pDrag.SetValue(rb, v, null);
-                s.Written = v;
-                if (!_traced) { _traced = true; Trace("WreckDrag: destroyed ship's linear drag " + cur.ToString("0.###") + " -> " + v.ToString("0.###") + " (x" + Factor.ToString("0.##") + ")"); }
+                float drag = Convert.ToSingle(_pDrag.GetValue(rb, null));
+                float k = 1f + (Factor - 1f) * drag * UnityEngine.Time.fixedDeltaTime;
+                var v = (UnityEngine.Vector3)_pVel.GetValue(rb, null);
+                _pVel.SetValue(rb, new UnityEngine.Vector3(v.x / k, v.y, v.z / k), null);
+                if (!_traced) { _traced = true; Trace("WreckDrag: a destroyed ship's horizontal speed is damped x" + Factor.ToString("0.##") + " (drag " + drag.ToString("0.###") + ", vertical speed untouched)"); }
             }
             catch (Exception e) { Trace("WreckDrag: " + e.Message); }
         }

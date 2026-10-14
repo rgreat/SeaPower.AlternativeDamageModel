@@ -380,8 +380,8 @@ namespace AlternativeDamageModel
                 "The depth (Unity units below y = -2) over which that pull grows to its maximum, smoothly (no kink at either end). The game: 10 and a straight line. " +
                 "More = the pull builds up slower and softer. 0 = the game's.");
             _wreckDragEntry = Pcfg.Bind("Sinking", "WreckDragFactor", new Factor(5f),
-                "Resistance to the movement (the linear drag of the rigidbody) of a destroyed ship, times the game's value: the wreck loses its way sooner. " +
-                "1 = as in the game. The drag against turning (capsizing) is not changed.");
+                "Resistance to the HORIZONTAL movement of a destroyed ship, times the game's linear drag (25 for nearly every ship): the wreck loses its way sooner. " +
+                "1 = as in the game. Sinking (vertical movement) and turning (capsizing) are not slowed.");
             _bubblesEntry = Pcfg.Bind("Sinking", "BubblesStopMinutes", new Factor(10f),
                 "Minutes (game time, so time compression counts) after a ship starts to sink, when its sinking-bubbles effect stops emitting " +
                 "(the game never stops it while the wreck exists). Saves resources in long missions. 0 = never, as in the game.");
