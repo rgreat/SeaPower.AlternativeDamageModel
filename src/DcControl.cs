@@ -36,6 +36,7 @@ namespace AlternativeDamageModel
         /// <summary>Optimised Auto DC: a team with nothing to do waits where it is (no walk back to the reserve).</summary>
         public static Func<object, bool> StayWhenIdle = c => false;
         public static Action<string> Trace = s => { };
+        public static float LeakPump = 0.5f;      // [FireAndFlooding] LeakPumpShare: pumping out while plugging holes, × the pumping speed
         public static float CounterRate = 2f;     // [FireAndFlooding] CounterFloodSpeed: × the pumping speed
         public static float CounterLimit = 50f;   // [FireAndFlooding] CounterFloodLimit: water in one compartment, %, up to which it is let in
 
@@ -78,7 +79,8 @@ namespace AlternativeDamageModel
                 _growRate = tSc.GetField("_fireGrowRate", all);
                 _returnTeam = tComp.GetMethod("ReturnDCTeamToPool", all);
                 _sendTeam = tComp.GetMethod("SendDCTeamToCompartment", all);
-                Repairs[TaskLeak] = Caller(tComp.GetMethod("RepairFloodingRate", all));
+                _leakOrig = Caller(tComp.GetMethod("RepairFloodingRate", all));
+                Repairs[TaskLeak] = _leakOrig == null ? null : LeakWithPump;
                 Repairs[TaskFire] = Caller(tComp.GetMethod("RepairFire", all));
                 Repairs[TaskPump] = Caller(tComp.GetMethod("RepairFlooding", all));
                 Repairs[TaskHull] = Caller(tComp.GetMethod("RepairStructure", all));
@@ -161,7 +163,40 @@ namespace AlternativeDamageModel
         /// the end of this section is already up (a forward section with the bow up, an after one with the stern up). The middle section does not touch the trim.
         /// Pumps as the game does (teams × crew skill × PumpOutSpeed × dt, down to the side's minimum) and returns false when nothing may be pumped.
         /// </summary>
-        static bool PumpSafe(object comp, int i)
+        static bool PumpSafe(object comp, int i) { return PumpSafe(comp, i, 1f); }
+
+        static Func<object, int, bool> _leakOrig;
+        static bool _safeLeak;
+
+        /// <summary>Plugging holes (the game's RepairFloodingRate) and, at the same time, pumping out at LeakPump × the pumping speed (for a team ordered to counterflood: only where that does not worsen the list / trim).</summary>
+        static bool LeakWithPump(object comp, int i)
+        {
+            bool worked = _leakOrig(comp, i);
+            if (worked && LeakPump > 0f) { if (_safeLeak) PumpSafe(comp, i, LeakPump); else PumpFree(comp, i, LeakPump); }
+            return worked;
+        }
+
+        /// <summary>Pumping as the game does (the side with more water first), times share; no checks of the list / trim.</summary>
+        static void PumpFree(object comp, int i, float share)
+        {
+            try
+            {
+                var ports = _port.GetValue(comp) as Array; var stars = _star.GetValue(comp) as Array;
+                object fp = ports.GetValue(i), fs = stars.GetValue(i);
+                float wp = (float)_curFlood.GetValue(fp), ws = (float)_curFlood.GetValue(fs);
+                float dp = (float)_floodDelta.GetValue(fp, null), ds = (float)_floodDelta.GetValue(fs, null);
+                if (dp <= 1e-4f && ds <= 1e-4f) return;
+                bool port = dp >= ds;
+                var teams = _teams.GetValue(comp, null) as int[];
+                float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));
+                float dec = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null)) * share;
+                var f = port ? fp : fs; float cur = port ? wp : ws, d = port ? dp : ds;
+                _curFlood.SetValue(f, cur - Math.Min(d, dec));
+            }
+            catch (Exception e) { Trace("PumpFree: " + e.Message); }
+        }
+
+        static bool PumpSafe(object comp, int i, float share)
         {
             if (Repairs[TaskCounter] == null) return Repairs[TaskPump](comp, i);   // no way to tell: the game's pumping
             try
@@ -179,7 +214,7 @@ namespace AlternativeDamageModel
                 bool port = canPort && (!canStar || wp - minP >= ws - minS);
                 var teams = _teams.GetValue(comp, null) as int[];
                 float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));
-                float dec = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null));
+                float dec = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null)) * share;
                 var f = port ? fp : fs; float cur = port ? wp : ws, min = port ? minP : minS;
                 _curFlood.SetValue(f, Math.Max(min, cur - dec));
                 return true;
@@ -354,8 +389,13 @@ namespace AlternativeDamageModel
                 {
                     teams[i] = nRest;
                     int did = TaskIdle;
-                    foreach (var t in Orders[mode])
-                        if (t == TaskPump ? PumpSafe(comp, i) : Repairs[t](comp, i)) { did = t; break; }
+                    _safeLeak = true;
+                    try
+                    {
+                        foreach (var t in Orders[mode])
+                            if (t == TaskPump ? PumpSafe(comp, i) : Repairs[t](comp, i)) { did = t; break; }
+                    }
+                    finally { _safeLeak = false; }
                     for (int m = 0; m < nRest; m++) _did[_rest[m]] = did;
                 }
 

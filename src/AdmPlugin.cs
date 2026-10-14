@@ -59,7 +59,7 @@ namespace AlternativeDamageModel
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
-        ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _fireHullEntry;
+        ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
         ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _sinkPullEntry, _sinkRampEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
@@ -319,6 +319,9 @@ namespace AlternativeDamageModel
             _counterRateEntry = Pcfg.Bind("FireAndFlooding", "CounterFloodSpeed", new Factor(2f),
                 "Counterflooding (a team's task given by hand): how fast water is let into a compartment, times the pumping out speed. " +
                 "The water goes into the side opposite to the heel, or into the side with less water when the ship is upright.");
+            _leakPumpEntry = Pcfg.Bind("FireAndFlooding", "LeakPumpShare", new Factor(0.5f),
+                "While a team plugs the holes of a compartment (the Flooding Rate task) it pumps water out of it at the same time: this share of the pumping out speed " +
+                "(0.5 = half, 0 = off). A team ordered to counterflood pumps only from the side where that does not worsen the list and trim.");
             _counterLimitEntry = Pcfg.Bind("FireAndFlooding", "CounterFloodLimit", new Factor(50f),
                 "Counterflooding lets water into one side of a compartment only up to this % (the game's own limit of a compartment also holds).");
 
@@ -766,6 +769,7 @@ namespace AlternativeDamageModel
             _teamBlocksSpread = _teamBlocksSpreadEntry.Value;
             SubmergedFlooding.FireDecay = Math.Max(0f, _subFireEntry.Value.V);
             DcControl.CounterRate = Math.Max(0f, _counterRateEntry.Value.V);
+            DcControl.LeakPump = Math.Max(0f, _leakPumpEntry.Value.V);
             DcControl.CounterLimit = Math.Max(0f, _counterLimitEntry.Value.V);
             _fireHull = Math.Max(0f, _fireHullEntry.Value.V);
             _fireSpread = Clamp(_fireSpreadEntry.Value.V, 0f, 100f);
