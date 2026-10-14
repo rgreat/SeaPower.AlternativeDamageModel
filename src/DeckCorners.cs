@@ -337,7 +337,57 @@ namespace AlternativeDamageModel
                     try { if (_shipGhostMaterials[i] != null) foreach (var m in _shipGhostMaterials[i]) if (m != null) UnityEngine.Object.Destroy(m); } catch { }
                 }
             _hidingModel = false; _appliedView = 0;
+            ForgetOpaqueTextures();
             _shipRenderers = null; _shipOrigMaterials = null; _shipGhostMaterials = null; _shipWasEnabled = null;
+        }
+
+        // Ship albedo textures often carry something else in the alpha channel (gloss...), and Sprites/Default multiplies the colour by it -
+        // the ghost came out far more transparent than GhostAlpha. So each texture is copied once (<= 2048 px) with alpha 255; a texture with
+        // real cut-out (more than 2% of the pixels nearly transparent - rails, rigging, nets) keeps its alpha.
+        static readonly Dictionary<Texture, Texture> _opaqueTex = new Dictionary<Texture, Texture>();
+
+        static Texture OpaqueCopy(Texture t)
+        {
+            Texture done;
+            if (_opaqueTex.TryGetValue(t, out done)) return done;
+            Texture result = t;
+            try
+            {
+                int w = t.width, h = t.height;
+                while (w * h > 2048 * 2048) { w /= 2; h /= 2; }
+                if (w >= 1 && h >= 1)
+                {
+                    var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
+                    var prev = RenderTexture.active;
+                    try
+                    {
+                        Graphics.Blit(t, rt);
+                        RenderTexture.active = rt;
+                        var tex = new Texture2D(w, h, TextureFormat.RGBA32, true);
+                        tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+                        var px = tex.GetPixels32();
+                        int low = 0;
+                        for (int i = 0; i < px.Length; i++) if (px[i].a < 26) low++;
+                        if (low * 50 > px.Length) UnityEngine.Object.Destroy(tex);   // cut-out: leave the original
+                        else
+                        {
+                            for (int i = 0; i < px.Length; i++) px[i].a = 255;
+                            tex.SetPixels32(px); tex.Apply(true);
+                            result = tex;
+                        }
+                    }
+                    finally { RenderTexture.active = prev; RenderTexture.ReleaseTemporary(rt); }
+                }
+            }
+            catch (Exception e) { Trace("Ghost model texture: " + e.Message); }
+            _opaqueTex[t] = result;
+            return result;
+        }
+
+        static void ForgetOpaqueTextures()
+        {
+            foreach (var kv in _opaqueTex) if (kv.Value != null && kv.Value != kv.Key) UnityEngine.Object.Destroy(kv.Value);
+            _opaqueTex.Clear();
         }
 
         static Shader _ghostShader;
@@ -360,7 +410,7 @@ namespace AlternativeDamageModel
             {
                 var m = new Material(_ghostShader);
                 foreach (var tp in TexProps)
-                    if (src.HasProperty(tp)) { var t = src.GetTexture(tp); if (t != null) { m.mainTexture = t; try { m.mainTextureScale = src.GetTextureScale(tp); m.mainTextureOffset = src.GetTextureOffset(tp); } catch { } break; } }
+                    if (src.HasProperty(tp)) { var t = src.GetTexture(tp); if (t != null) { m.mainTexture = OpaqueCopy(t); try { m.mainTextureScale = src.GetTextureScale(tp); m.mainTextureOffset = src.GetTextureOffset(tp); } catch { } break; } }
                 Color c = Color.white;
                 foreach (var cp in ColProps) if (src.HasProperty(cp)) { c = src.GetColor(cp); break; }
                 c.a = GhostAlpha;
