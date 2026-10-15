@@ -612,3 +612,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: Limit Speed — на одном уровне с Auto DC
 * Кнопка перенесена из отдельной строки под Auto/Fire/Flooding в горизонтальную панель рядом с игровым переключателем Auto DC (окно не растёт по высоте). `PutBackAuto` вынимает игровое содержимое и из этой панели.
+
+## 2026-10-15: Limit Speed оформлен как Auto DC
+* Рядом с Auto DC: заголовок «Limit Speed» (шрифт и цвет заголовка игры) и под ним переключатель «Enabled»/«Disabled» тех же размеров, что у игрового (Padding/MinWidth/Height/Margin/FontSize копируются с него).
