@@ -882,7 +882,7 @@ namespace AlternativeDamageModel
                 if (label != null) { limTitle.Foreground = label.Foreground; limTitle.FontSize = label.FontSize; limTitle.Margin = label.Margin; }
                 var limBox = new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6f, 0f, 0f, 0f) };
                 limBox.Children.Add(limTitle); limBox.Children.Add(lim);
-                try { ToolTipService.SetToolTip(limBox, "On: the game cuts the ship's speed while there is flooding (10 kn with open holes, 10-25 kn by the water in the sections).\nOff: no cut, the ship keeps its ordered speed - and the water comes in faster."); } catch { }
+                try { ToolTipService.SetToolTip(limBox, "On: the game cuts the ship's speed while there is flooding (10 kn with open holes, 10-25 kn by the water in the sections).\nOff: no cut, the ship keeps its ordered speed - the water comes in faster and fires burn brighter."); } catch { }
                 lim.Click += (sender, e) => { DcControl.SetLimitSpeed(st.Comp, lim.IsChecked == true); lim.Content = lim.IsChecked == true ? "Enabled" : "Disabled"; };
                 if (autoRow != null) autoRow.Children.Add(limBox); else stack.Children.Add(limBox);
                 st.LimitButton = lim;
