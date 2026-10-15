@@ -604,3 +604,8 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 * `[Effects] ExtraSmokeEmitters` теперь задаёт число точек по длине: <25 м — 1 (весь корабль), <50 м — 2 (секции 0–2 и 3–4, позиции — носовая и кормовая точки из ini), <75 м — 3 (игровые, без изменений), ≥75 м — 5 (как раньше). `FireSmoke.CountFor`. Ключ `ExtraSmokeMinLength` и строка «On ships from» удалены.
 * Для 2 точек массивы эффектов длиной 3: игровой `UpdateFireState` для водоизмещения ≥900 т пишет `_currentFires[2]` (иначе IndexOutOfRange); `_firesCount` = 2, лишний слот не используется. Для 1 и 2 точек состояние огня считает `AfterUpdateFireState` (худшее по группе секций); `Sections` учитывает новые счётчики.
 * Не проверено в игре. Новые корабли (точки создаются при спавне).
+
+## 2026-10-15: кнопка Limit Speed
+* Карточка «DC Priority» (слева от профиля корабля) получила `ToggleButton` «Limit Speed» (по умолчанию включена, состояние на корабль: `DcControl.LimitSpeed/SetLimitSpeed`, `Ship.NoSpeedLimit`; не сохраняется в сейве). Неактивна, пока модель выключена.
+* Игра режет скорость затоплениями в `Compartments.UpdateWantedVelocityInKnots`: блок `if (WantedVelocityInKnots > 10f && !flag2)` (открытая пробоина — 10 уз; Minor — telegraph[5]; Moderate — 20/25; Severe — 10/15 по секциям). Транспилер `SpeedLimitTranspiler` вставляет `ldarg.0; call SpeedLimitOff(bool, object)` после загрузки `flag2` (`flag2 || (Model && !LimitSpeed)`) — то же условие, что у аварийного всплытия подлодки: блок пропускается. Ожидается 1 место, иначе Warn.
+* Не проверено в игре.

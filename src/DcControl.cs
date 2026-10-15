@@ -43,6 +43,7 @@ namespace AlternativeDamageModel
         sealed class Ship
         {
             public int Mode;
+            public bool NoSpeedLimit;   // "Limit Speed" off
             public readonly List<int>[] Pending = new List<int>[8];  // per compartment: tasks from a saved game, put on the teams there
         }
         static readonly ConditionalWeakTable<object, Ship> Ships = new ConditionalWeakTable<object, Ship>();
@@ -247,6 +248,20 @@ namespace AlternativeDamageModel
         {
             Ship s;
             return comp != null && Ships.TryGetValue(comp, out s) ? s.Mode : ModeAuto;
+        }
+
+        /// <summary>"Limit Speed" button: the game cuts the ship's speed by the flooding (10-25 kn). Default on; off = no cut.</summary>
+        public static bool LimitSpeed(object comp)
+        {
+            Ship s;
+            return comp == null || !Ships.TryGetValue(comp, out s) || !s.NoSpeedLimit;
+        }
+
+        public static void SetLimitSpeed(object comp, bool on)
+        {
+            if (comp == null) return;
+            Ships.GetOrCreateValue(comp).NoSpeedLimit = !on;
+            Trace("Limit Speed -> " + (on ? "on" : "off"));
         }
 
         public static void SetMode(object comp, int mode)

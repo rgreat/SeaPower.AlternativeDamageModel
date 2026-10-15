@@ -191,7 +191,7 @@ namespace AlternativeDamageModel
             public TextBlock Help;               // "Auto DC prioritizes threats in this order: ..."
             public Border Priority;              // our "DC Priority" card
             public Panel PriorityHost;           // the grid of the summary cards it was added to
-            public ToggleButton[] PriorityButtons;
+            public ToggleButton[] PriorityButtons; public ToggleButton LimitButton;
             public Extras X;                     // Fires row and the list / trim panel (DamageControlUi.Panels.cs)
             public string HelpOrig, HelpShown;
             public TextBlock HelpTitle;          // "Auto Damage Control Status" above it: folded into the same line
@@ -658,7 +658,7 @@ namespace AlternativeDamageModel
             {
                 RemoveExtras(st.X);
                 PutBackAuto(st);
-                st.Priority = null; st.PriorityHost = null; st.PriorityButtons = null; st.X = null;
+                st.Priority = null; st.PriorityHost = null; st.PriorityButtons = null; st.LimitButton = null; st.X = null;
                 return false;   // found again, the card added again
             }
             if (st.Cols == null) return false;
@@ -867,12 +867,18 @@ namespace AlternativeDamageModel
                     row.Children.Add(b);
                 }
                 stack.Children.Add(row);
+                var lim = new ToggleButton { Content = "Limit Speed", Padding = new Thickness(8f, 2f, 8f, 2f), Margin = new Thickness(0f, 4f, 0f, 0f), HorizontalAlignment = HorizontalAlignment.Center };
+                try { ToolTipService.SetToolTip(lim, "On: the game cuts the ship's speed while there is flooding (10 kn with open holes, 10-25 kn by the water in the sections).\nOff: no cut, the ship keeps its ordered speed - and the water comes in faster."); } catch { }
+                lim.Click += (sender, e) => { DcControl.SetLimitSpeed(st.Comp, lim.IsChecked == true); };
+                stack.Children.Add(lim);
+                st.LimitButton = lim;
                 box.Child = stack;
                 host.Children.Add(box);
                 st.Priority = box; st.PriorityHost = host; st.PriorityButtons = buttons;
 
                 try { st.X = AddExtras(view, grid, host, card, all); } catch (Exception e) { Trace("extras: " + e.Message); }
                 SyncPriority(buttons, DcControl.GetMode(comp));
+                RenderPriority(comp, st);
                 FitPicture(st);   // before the first frame: the picture is not shown at its 300 px limit and then pulled in
             }
             catch (Exception e) { Trace("priority card: " + e.Message); }
@@ -967,6 +973,7 @@ namespace AlternativeDamageModel
         static void RenderPriority(object comp, ViewState st)
         {
             if (st.PriorityButtons != null) SyncPriority(st.PriorityButtons, DcControl.GetMode(comp));
+            if (st.LimitButton != null) try { st.LimitButton.IsEnabled = ModelOn(); bool on = DcControl.LimitSpeed(comp); if (st.LimitButton.IsChecked != on) st.LimitButton.IsChecked = on; } catch { }
         }
 
         // ------------------------------------------------------------ the help line and its legend
@@ -2179,7 +2186,7 @@ namespace AlternativeDamageModel
             {
                 PutBackAuto(st);   // first: it takes the game's Auto DC content out of our card
                 if (st.Priority != null && st.PriorityHost != null) try { st.PriorityHost.Children.Remove(st.Priority); } catch { }
-                st.Priority = null; st.PriorityHost = null; st.PriorityButtons = null;
+                st.Priority = null; st.PriorityHost = null; st.PriorityButtons = null; st.LimitButton = null;
                 try { RemoveExtras(st.X); } catch (Exception e) { Trace("RemoveExtras: " + e.Message); }
                 st.X = null;
             }

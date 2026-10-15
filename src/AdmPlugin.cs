@@ -1182,6 +1182,7 @@ namespace AlternativeDamageModel
             if (tComp != null)
             {
                 Patch(harmony, tComp.GetMethod("RepairFire", all), null, null, "ExtinguishTranspiler", "Compartments.RepairFire", ref ok, ref failed);
+                Patch(harmony, tComp.GetMethod("UpdateWantedVelocityInKnots", all), null, null, "SpeedLimitTranspiler", "Compartments.UpdateWantedVelocityInKnots", ref ok, ref failed);
                 // unattended fires: when teams last fought each fire, and the growth every fire check
                 Patch(harmony, tComp.GetMethod("RepairFire", all), null, "FireFoughtPostfix", null, "Compartments.RepairFire (unattended)", ref ok, ref failed);
                 Patch(harmony, tComp.GetMethod("CheckFire", all), null, "CheckFirePostfix", null, "Compartments.CheckFire (unattended)", ref ok, ref failed);
@@ -1914,6 +1915,32 @@ namespace AlternativeDamageModel
                                            i + 2 < l.Count && l[i + 1].opcode == OpCodes.Mul &&   // IL: ldfld _floodingRate, mul, ldc.r4 0.5
                                            l[i + 2].opcode == OpCodes.Ldc_R4 && l[i + 2].operand is float && Math.Abs((float)l[i + 2].operand - 0.5f) < 1e-6f,
                             "FloodingMul", 1, "FloodingSpeed", true);
+        }
+
+        public static bool SpeedLimitOff(bool flag, object comp) { return flag || (Model && !DcControl.LimitSpeed(comp)); }
+
+        // Compartments.UpdateWantedVelocityInKnots: "if (WantedVelocityInKnots > 10f && !flag2)" - the cut of the speed by flooding (10-25 kn);
+        // the "Limit Speed" button off = treated like the submarine's emergency surfacing: no cut
+        static IEnumerable<CodeInstruction> SpeedLimitTranspiler(IEnumerable<CodeInstruction> ins)
+        {
+            var list = new List<CodeInstruction>(ins);
+            var m = typeof(AdmPlugin).GetMethod("SpeedLimitOff", BindingFlags.Static | BindingFlags.Public);
+            int n = 0;
+            for (int i = 0; i + 3 < list.Count; i++)
+            {
+                if (list[i].opcode == OpCodes.Ldc_R4 && list[i].operand is float && Math.Abs((float)list[i].operand - 10f) < 1e-6f &&
+                    (list[i + 1].opcode == OpCodes.Ble || list[i + 1].opcode == OpCodes.Ble_S || list[i + 1].opcode == OpCodes.Ble_Un || list[i + 1].opcode == OpCodes.Ble_Un_S) &&
+                    list[i + 2].opcode.Name.StartsWith("ldloc", StringComparison.Ordinal) &&
+                    (list[i + 3].opcode == OpCodes.Brtrue || list[i + 3].opcode == OpCodes.Brtrue_S))
+                {
+                    list.Insert(i + 3, new CodeInstruction(OpCodes.Call, m));
+                    list.Insert(i + 3, new CodeInstruction(OpCodes.Ldarg_0));
+                    n++; i += 4;
+                }
+            }
+            if (n != 1) Warn("SpeedLimit: " + n + " places patched, 1 expected (game updated?).");
+            Trace("SpeedLimit: " + n + " places patched");
+            return list;
         }
 
         // Compartments.RepairFire: teams * _crew._fireSeveretyRepair * _fireMult * dt
