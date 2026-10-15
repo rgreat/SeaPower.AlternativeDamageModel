@@ -628,3 +628,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: галочка «Show deck levels in 3D»
 * В карточке List/Trim/Level (под циферблатами; её подсказка — схема затоплений) — `CheckBox` «Show deck levels in 3D». Тултип Noesis не принимает клики, поэтому галочка на самой карточке. Состояние на корабль: `DeckCorners.Pin/IsPinned` (ключ — `Compartments`, `ConditionalWeakTable`); `DeckCorners.Tick` рисует точки, если `Model || схема открыта || UnitPinned()` (только для выбранного корабля, как и раньше). Не в сейве.
+
+## 2026-10-15: Advanced — DCTeamEffectiveness 0.3
+* `Release/Profiles/Advanced.cfg`: `DCTeamEffectiveness` 3.0 → 0.3 (опечатка в значении по умолчанию). Base Game — 1.0.
