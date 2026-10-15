@@ -587,3 +587,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 ## 2026-10-15: CapsizeFactor ослаблен вдвое, WreckDrag 3
 * `CapsizeFix`: подъём центра масс умножен на `RiseScale = 0.5` (влияние настройки вдвое слабее при том же значении; прежнее действие — `CapsizeFactor` 2.0). Значения в профилях не менялись (Advanced 1.0), описание ключа обновлено.
 * Advanced: `WreckDragFactor` 5 → 3 (Base Game 1). README — «3× by default».
+
+## 2026-10-15: из подсказки палубного притока убрано «(0.1 %/s per m)»
+* `SubmergedFlooding.Reasons`: «Deck edge N m under water: +x %/s[, full: goes to …]» — без скобок со ставкой на метр.

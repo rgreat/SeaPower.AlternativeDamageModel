@@ -455,12 +455,11 @@ namespace AlternativeDamageModel
                 if (!States.TryGetValue(comp, out s) || s.P == null) return list;
                 int k = (port ? 0 : s.Count) + i;
                 if (k < 0 || k >= 2 * s.Count) return list;
-                string r = Rate.ToString(Rate < 0.1f ? "0.00" : "0.0", System.Globalization.CultureInfo.InvariantCulture);
                 if (s.Depth[k] > 0f && s.Under[k] < Delay)
                     list.Add("Deck edge " + s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m under water for " + ((int)s.Under[k]) + " of " + ((int)Delay) + " s");
                 if (s.Own[k] > 0f)
                 {
-                    string t = "Deck edge " + s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m under water: +" + s.Own[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s (" + r + "%/s per m)";
+                    string t = "Deck edge " + s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m under water: +" + s.Own[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s";
                     if (s.PassedTo[k] >= 0) t += ", full: goes to " + Name(s, s.PassedTo[k], names);
                     list.Add(t);
                 }
