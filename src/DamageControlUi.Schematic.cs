@@ -145,8 +145,19 @@ namespace AlternativeDamageModel
                 var grid = x.SchemPanel as Grid;
                 if (grid != null)
                 {
-                    root.HorizontalAlignment = HorizontalAlignment.Left; root.VerticalAlignment = VerticalAlignment.Top;
-                    root.Margin = new Thickness(left, top, 0f, 0f);
+                    // anchored by its bottom edge: the height need not be known (a measured one came out too big)
+                    float panelH = grid.ActualHeight;
+                    root.HorizontalAlignment = HorizontalAlignment.Left;
+                    if (panelH > 10f)
+                    {
+                        root.VerticalAlignment = VerticalAlignment.Bottom;
+                        root.Margin = new Thickness(left, 0f, 0f, Math.Max(0f, panelH - at.Y + SchGap));
+                    }
+                    else
+                    {
+                        root.VerticalAlignment = VerticalAlignment.Top;
+                        root.Margin = new Thickness(left, top, 0f, 0f);
+                    }
                     Grid.SetRow(root, 0); Grid.SetColumn(root, 0);
                     Grid.SetRowSpan(root, Math.Max(1, grid.RowDefinitions.Count)); Grid.SetColumnSpan(root, Math.Max(1, grid.ColumnDefinitions.Count));
                 }
