@@ -631,3 +631,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: Advanced — DCTeamEffectiveness 0.3
 * `Release/Profiles/Advanced.cfg`: `DCTeamEffectiveness` 3.0 → 0.3 (опечатка в значении по умолчанию). Base Game — 1.0.
+
+## 2026-10-15: «Team on its way» — последней строкой вне Raises/Lowers
+* `OnIt(..., ref bool way)`: «Team on its way» больше не строка списка; выставляет `way`, и `FloodCause`/`FireCause` дописывают её одной последней строкой (без маркера) после «Lowers it». «Hurts hull, systems a little» → «Damages hull and systems».
