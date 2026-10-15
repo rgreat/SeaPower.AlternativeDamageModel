@@ -640,3 +640,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: тексты огня без точек
 * `FireCause`: как и остальные строки подсказок — без точек, Severe двумя строками: «Damages hull and systems» и «Spreads to adjacent sections».
+
+## 2026-10-15: подготовка к релизу
+* Проверено: все ключи `Pcfg.Bind` есть в обоих системных профилях (лишних нет); отладочные ключи в `UserConfig` выключены; опечатка в `_info.ini` («interace») исправлена; README (все три) дополнены про выбор борта откачки и галочку «Show deck levels in 3D». Версия `1.0.0`, `ApproximateVersion=0.8.4` без изменений. Сборка — 0 ошибок (3 безобидных предупреждения о неиспользуемых полях).
+* Пакет для Workshop: содержимое `Release/` (папка мода в игре называется `AlternativeDamageModel`).
