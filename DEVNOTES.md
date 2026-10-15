@@ -590,3 +590,12 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: из подсказки палубного притока убрано «(0.1 %/s per m)»
 * `SubmergedFlooding.Reasons`: «Deck edge N m under water: +x %/s[, full: goes to …]» — без скобок со ставкой на метр.
+
+## 2026-10-15: влияние скорости корабля на затопление и пожары; предел скорости заделки
+* Новый `SpeedEffect.cs`: таблица `[FireAndFlooding] SpeedEffect = "узлы=затопление/пожар, …"` (кусочно-линейная по точкам; скорость берётся по модулю; ниже первой точки — первая, выше последней — последняя). Скорость: `Compartments._baseObject.getVelocityInKnots()` (рефлексия; `FloodingCompartment`/`SystemCompartment` → поле `_compartments`).
+* Множитель затопления: пробоины (`FloodingMul(v, this)` — транспилер `FloodingSpeedTranspiler` теперь вставляет `ldarg.0` перед вызовом; ветка sinking по-прежнему не трогается), палубный приток/перелив (`SubmergedFlooding.Tick`: `Rate·depth·speedMul`) и старый приток по крену/дифференту (`TrimFlooding`, оба места). Множитель пожара: рост огня (`FlameUpMul(v, this)`). Выключенная модель — без эффекта.
+* По умолчанию: Base Game `0=1/1, 50=1/1`; Advanced `0=0.75/1, 10=1/1, 20=1.25/1.25, 30=2/1.5, 40=3/1.75, 50=5/2`.
+* Подсказки: «(faster: ship speed)» / «(slower: ship speed)» у строк Holes, Deck edge, Overflow и «Grows … by itself».
+* Окно настроек: `Kind.Speed` + `SpeedEditor` (3 строки: speed, knots / flooding rate / fire rate; только значения ≥ 0; «+»/«−» добавляют/убирают последнюю точку; точки сортируются при вводе), группа «Ship speed: effect on flooding and fire» на вкладке Damage Model. Поля профиля на вкладке Damage Model скрыты, пока модель выключена (`!adm && !f.Global`).
+* DC Teams: `[DamageControlTeams] MaxPlugSpeed` (узлы, 0 = без предела; Advanced 15, Base Game 0). Быстрее предела `LeakWithPump` возвращает false — команда работает по приоритету дальше; в подсказке затопления: «Ship too fast to plug holes: over N kn».
+* Не проверено в игре.

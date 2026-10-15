@@ -122,8 +122,9 @@ namespace AlternativeDamageModel
                 if (leak > 0f)
                 {
                     // the game: water += leak rate x 0.5 x the flooding speed per second (faster while sinking)
-                    float mul = AdmPlugin.FloodingMul(1f), inflow = mul * leak * 0.5f;
-                    Line(up, "Holes: +" + R(inflow) + "%/s" + (faster ? " (sinking: faster)" : ""));
+                    float sm = SpeedEffect.Flood(comp), mul = AdmPlugin.FloodingMul(1f) * sm, inflow = mul * leak * 0.5f;
+                    Line(up, "Holes: +" + R(inflow) + "%/s" + (faster ? " (sinking: faster)" : "") + (sm > 1.005f ? " (faster: ship speed)" : sm < 0.995f ? " (slower: ship speed)" : ""));
+                    if (SpeedEffect.TooFastToPlug(comp)) Line(up, "Ship too fast to plug holes: over " + SpeedEffect.MaxPlugKnots.ToString("0.#", CultureInfo.InvariantCulture) + " kn");
                     Line(up, OnIt(comp, i, plugging, "plugging (stops the leak)", inSec, fighting, "fire", rate > 0f));
                 }
                 else if (leakOther > 0f && plugging.Count > 0) Line(up, Who(plugging) + " plugging the other side");
@@ -182,7 +183,8 @@ namespace AlternativeDamageModel
 
                 var sb = new StringBuilder("Fire " + Pc(fire) + " (" + stage + "), " + Rate(rate));
                 double ago = c.FireHitT >= 0 ? Now() - c.FireHitT : -1;
-                if (grow > 0f) Line(sb, "Grows " + R(grow) + "%/s by itself");
+                float fm = SpeedEffect.Fire(comp);
+                if (grow > 0f) Line(sb, "Grows " + R(grow) + "%/s by itself" + (fm > 1.005f ? " (faster: ship speed)" : fm < 0.995f ? " (slower: ship speed)" : ""));
                 if (rate >= 0 && ago >= 0 && ago < 60) Line(sb, "Hit " + ((int)ago).ToString(CultureInfo.InvariantCulture) + " s ago");
                 Line(sb, OnIt(comp, i, fighting, rate >= 0 ? "fighting" : "putting out", inSec, plugging, "leak", rate > 0f));
                 if (fighting.Count == 0) Line(sb, "Only DC puts it out");

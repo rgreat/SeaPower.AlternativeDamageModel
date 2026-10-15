@@ -177,6 +177,7 @@ namespace AlternativeDamageModel
         /// <summary>Plugging holes (the game's RepairFloodingRate) and, at the same time, pumping out at LeakPump × the pumping speed (for a team ordered to counterflood: only where that does not worsen the list / trim).</summary>
         static bool LeakWithPump(object comp, int i)
         {
+            if (SpeedEffect.TooFastToPlug(comp)) return false;   // too fast: the team works by priority
             bool worked = _leakOrig(comp, i);
             if (worked && LeakPump > 0f) { if (_safeLeak) PumpSafe(comp, i, LeakPump); else PumpFree(comp, i, LeakPump); }
             return worked;

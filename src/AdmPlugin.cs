@@ -63,6 +63,8 @@ namespace AlternativeDamageModel
         ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
+        ConfigEntry<string> _speedEffectEntry;
+        ConfigEntry<Factor> _maxPlugEntry;
         ConfigEntry<string> _warTeamsEntry, _subTeamsEntry, _civTeamsEntry;
         static bool _logShips, _logFires;
         static bool _trimFloodHooked;
@@ -325,6 +327,11 @@ namespace AlternativeDamageModel
             _counterLimitEntry = Pcfg.Bind("FireAndFlooding", "CounterFloodLimit", new Factor(50f),
                 "Counterflooding lets water into one side of a compartment only up to this % (the game's own limit of a compartment also holds).");
 
+            _speedEffectEntry = Pcfg.Bind("FireAndFlooding", "SpeedEffect", "0=1/1, 50=1/1",
+                "How the ship's speed changes the growth of fires and the water coming in (through holes and over the deck edge): knots=flooding/fire multiplier, " +
+                "a broken line through the points. The speed is taken as an absolute value; below the first point and above the last the end multipliers hold.");
+            _maxPlugEntry = Pcfg.Bind("DamageControlTeams", "MaxPlugSpeed", new Factor(0f),
+                "A team cannot plug holes while the ship is faster than this, knots. 0 = no limit.");
             _warTeamsEntry = Pcfg.Bind("DamageControlTeams", "WarshipTeams", "0=1, 500=2, 1500=3, 5000=4, 20000=5",
                 "Damage control teams of a surface warship by displacement: tons=teams, from that many tons up. " +
                 "NumberOfDCTeams in a ship's ini still sets its own number.");
@@ -764,6 +771,8 @@ namespace AlternativeDamageModel
             SubmergedFlooding.FireDecay = Math.Max(0f, _subFireEntry.Value.V);
             DcControl.CounterRate = Math.Max(0f, _counterRateEntry.Value.V);
             DcControl.LeakPump = Math.Max(0f, _leakPumpEntry.Value.V);
+            SpeedEffect.Set(_speedEffectEntry.Value);
+            SpeedEffect.MaxPlugKnots = Math.Max(0f, _maxPlugEntry.Value.V);
             DcControl.CounterLimit = Math.Max(0f, _counterLimitEntry.Value.V);
             _fireHull = Math.Max(0f, _fireHullEntry.Value.V);
             _fireSpread = Clamp(_fireSpreadEntry.Value.V, 0f, 100f);
@@ -1187,6 +1196,7 @@ namespace AlternativeDamageModel
             DcTeams.IsTracking = () => Enabled;
             DcTeams.Info = Say;
             DcTeams.Trace = Trace;
+            SpeedEffect.Trace = Trace;
             if (tComp != null && DcTeams.Init(asm))
             {
                 DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; BubblesOff.Trace = Trace; BubblesOff.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
@@ -1852,8 +1862,10 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ speeds of fire and water
 
-        public static float FlameUpMul(float v) { return Model ? v * _flameUp : v; }
+        public static float FlameUpMul(float v, object sc) { return Model ? v * _flameUp * SpeedEffect.Fire(sc) : v; }
         public static float ExtinguishMul(float v) { return Model ? v * _extinguish : v; }
+        public static float FloodingMul(float v, object fc) { return Model ? v * _floodSpeed * SpeedEffect.Flood(fc) : v; }
+        /// <summary>Multiplier of the inflow through holes for the tooltips (the flooding speed and the ship's speed).</summary>
         public static float FloodingMul(float v) { return Model ? v * _floodSpeed : v; }
         public static float PumpOutMul(float v) { return Model ? v * _pumpOut : v; }
         public static float FireHullMul(float v) { return Model ? v * _fireHull : v; }
@@ -1866,13 +1878,13 @@ namespace AlternativeDamageModel
 
         /// <summary>Inserts "call mul" after every instruction that matches; warns when the count is not the expected one.</summary>
         static IEnumerable<CodeInstruction> MulAfter(IEnumerable<CodeInstruction> instructions, Func<List<CodeInstruction>, int, bool> match,
-                                                     string mul, int expected, string label)
+                                                     string mul, int expected, string label, bool withThis = false)
         {
             var list = new List<CodeInstruction>(instructions);
-            var m = typeof(AdmPlugin).GetMethod(mul, BindingFlags.Static | BindingFlags.Public);
+            var m = typeof(AdmPlugin).GetMethod(mul, BindingFlags.Static | BindingFlags.Public, null, withThis ? new[] { typeof(float), typeof(object) } : new[] { typeof(float) }, null);
             int n = 0;
             for (int i = 0; i < list.Count; i++)
-                if (match(list, i)) { list.Insert(i + 1, new CodeInstruction(OpCodes.Call, m)); i++; n++; }
+                if (match(list, i)) { list.Insert(i + 1, new CodeInstruction(OpCodes.Call, m)); if (withThis) list.Insert(i + 1, new CodeInstruction(OpCodes.Ldarg_0)); i += withThis ? 2 : 1; n++; }
             if (n != expected) Warn(label + ": " + n + " places patched, " + expected + " expected (game updated?).");
             Trace(label + ": " + n + " places patched");
             return list;
@@ -1893,7 +1905,7 @@ namespace AlternativeDamageModel
         // SystemCompartment.OnFixedUpdate: FireSeverity += _fireGrowRate * fixedDeltaTime
         static IEnumerable<CodeInstruction> FlameUpTranspiler(IEnumerable<CodeInstruction> ins)
         {
-            return MulAfter(ins, (l, i) => Field(l[i], "SystemCompartment", "_fireGrowRate") && i + 1 < l.Count && FixedDt(l[i + 1]), "FlameUpMul", 1, "FlameUpSpeed");
+            return MulAfter(ins, (l, i) => Field(l[i], "SystemCompartment", "_fireGrowRate") && i + 1 < l.Count && FixedDt(l[i + 1]), "FlameUpMul", 1, "FlameUpSpeed", true);
         }
 
         // FloodingCompartment.OnFixedUpdate: _currentFlooding += _shipFloodingCoefficient * _floodingRate * ... (normal and sinking)
@@ -1904,7 +1916,7 @@ namespace AlternativeDamageModel
             return MulAfter(ins, (l, i) => Field(l[i], "FloodingCompartment", "_floodingRate") && i >= 2 && Field(l[i - 2], "Globals", "_shipFloodingCoefficient") &&
                                            i + 2 < l.Count && l[i + 1].opcode == OpCodes.Mul &&   // IL: ldfld _floodingRate, mul, ldc.r4 0.5
                                            l[i + 2].opcode == OpCodes.Ldc_R4 && l[i + 2].operand is float && Math.Abs((float)l[i + 2].operand - 0.5f) < 1e-6f,
-                            "FloodingMul", 1, "FloodingSpeed");
+                            "FloodingMul", 1, "FloodingSpeed", true);
         }
 
         // Compartments.RepairFire: teams * _crew._fireSeveretyRepair * _fireMult * dt

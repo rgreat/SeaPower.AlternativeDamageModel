@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
 
         // ------------------------------------------------------------ what is shown
-        enum Kind { Number, Integer, Table, Bool, Choice }
+        enum Kind { Number, Integer, Table, Speed, Bool, Choice }
 
         sealed class Field
         {
@@ -91,6 +91,8 @@ namespace AlternativeDamageModel
             Add(G, "Damage model", AdmKey, "Alternative Damage Control", "applies at once", Kind.Bool, 0, 0, 0, true);
             Add(G, "Damage model", "General/FixHighTimeCompressionTrimError", "Fix trim compute error", "above 10x time compression", Kind.Bool, 0, 0, 0, true);
 
+            Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SpeedEffect", "Multipliers by speed", "", Kind.Speed, 0, 0, 0);
+
             Add(TDbg, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/LogHeel", "List, trim and buoyancy", "", Kind.Bool, 0, 0, 0, true);
@@ -127,6 +129,7 @@ namespace AlternativeDamageModel
             Add(DC, "Work and movement", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
             Add(DC, "Work and movement", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
             Add(DC, "Work and movement", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
+            Add(DC, "Work and movement", "DamageControlTeams/MaxPlugSpeed", "Max ship speed for plugging holes", "knots · 0 = no limit", Kind.Number, 1f, 0f, 100f);
             Add(DC, "Work and movement", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
             Add(DC, "Work and movement", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Knock-outs", "DamageControlTeams/HealTime", "Recovery time", "s + transfer back", Kind.Number, 10f, 0f, 1200f);
@@ -809,6 +812,8 @@ namespace AlternativeDamageModel
             string v;
             if (_game == null || !_game.Values.TryGetValue(f.Key, out v)) return "";
             if (f.Kind == Kind.Bool) return "game: " + (v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase) ? "on" : "off");
+            if (f.Kind == Kind.Speed) return "game: no effect";
+            if (f.Key == "DamageControlTeams/MaxPlugSpeed" && Num(v) == 0f) return "game: no limit";
             if (f.Kind == Kind.Table)
             {
                 var t = DcTeams.Parse(v);
@@ -851,6 +856,7 @@ namespace AlternativeDamageModel
             foreach (var f in Fields)
             {
                 if (f.Tab != Tabs[_tab]) continue;
+                if (!adm && f.Tab == TGen && !f.Global) continue;   // the damage model's own settings: only while it is on
                 string when = ShownWhen(f);
                 if (when != null && !IsOn(when)) continue;   // only while its switch is on
                 try
@@ -917,6 +923,7 @@ namespace AlternativeDamageModel
                 case Kind.Bool: editor = BoolEditor(f, mark, out refresh); break;
                 case Kind.Choice: editor = ChoiceEditor(f, mark, out refresh); break;
                 case Kind.Table: editor = TableEditor(f, mark, out refresh); break;
+                case Kind.Speed: editor = SpeedEditor(f, mark, out refresh); break;
                 default: editor = NumberEditor(f, mark, out refresh); break;
             }
             Grid.SetColumn(editor, 1);
@@ -1086,6 +1093,94 @@ namespace AlternativeDamageModel
                     save(); build();
                 };
                 del.Click += (o, e) => { if (list.Count > 1) { list.RemoveAt(list.Count - 1); save(); build(); } };
+                pm.Children.Add(add); pm.Children.Add(del);
+                host.Children.Add(pm);
+            };
+            build();
+            refresh = build;
+            return host;
+        }
+
+        static string N(float v) { return v.ToString("0.##", CultureInfo.InvariantCulture); }
+
+        /// <summary>"knots=flooding/fire" points as a table: speed on top, then the flooding and fire multipliers; + adds a point, − removes the last.</summary>
+        static FrameworkElement SpeedEditor(Field f, Action mark, out Action refresh)
+        {
+            var host = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            Action build = null;
+            build = () =>
+            {
+                host.Children.Clear();
+                var rows = SpeedEffect.Parse(Get(f));
+                var list = new List<float[]>();
+                if (rows != null) foreach (var r in rows) list.Add(new[] { r[0], r[1], r[2] });
+                while (list.Count < 2) list.Add(new[] { list.Count == 0 ? 0f : list[0][0] + 50f, list.Count == 0 ? 1f : list[0][1], list.Count == 0 ? 1f : list[0][2] });
+                var grid = new Grid();
+                for (int r = 0; r < 3; r++) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                string[] names = { "speed, knots", "flooding rate", "fire rate" };
+                for (int r = 0; r < 3; r++)
+                {
+                    var l = Text(names[r], CDim, 12f); l.Margin = new Thickness(0f, 0f, 6f, 0f); Grid.SetRow(l, r); grid.Children.Add(l);
+                }
+                Func<bool> save = () =>
+                {
+                    var before = new List<float[]>(list);
+                    list.Sort((a, b) => a[0].CompareTo(b[0]));
+                    bool moved = false;
+                    for (int q = 0; q < list.Count; q++) if (!ReferenceEquals(list[q], before[q])) moved = true;
+                    var parts = new List<string>();
+                    foreach (var r in list) parts.Add(N(r[0]) + "=" + N(r[1]) + "/" + N(r[2]));
+                    Set(f, string.Join(", ", parts.ToArray()));
+                    mark();
+                    return moved;
+                };
+                for (int i = 0; i < list.Count; i++)
+                {
+                    int k = i;
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    var boxes = new TextBox[3];
+                    for (int r = 0; r < 3; r++)
+                    {
+                        int c = r;
+                        var tb = Edit(N(list[k][c]), 52f);
+                        tb.Margin = new Thickness(0f, 1f, 2f, 1f);
+                        Grid.SetColumn(tb, k + 1); Grid.SetRow(tb, c);
+                        boxes[c] = tb; grid.Children.Add(tb);
+                    }
+                    Action commit = () =>
+                    {
+                        bool changed = false;
+                        for (int c = 0; c < 3; c++)
+                        {
+                            float v;
+                            if (!TryNum(boxes[c].Text, out v) || v < 0f) v = list[k][c];   // speeds and multipliers: 0 and up only
+                            v = Math.Min(v, c == 0 ? 999f : 100f);
+                            boxes[c].Text = N(v);
+                            if (Math.Abs(v - list[k][c]) > 1e-6f) { list[k][c] = v; changed = true; }
+                        }
+                        if (!changed) return;
+                        if (save()) build();   // rebuilt only when the points changed their order
+                    };
+                    foreach (var tb in boxes)
+                    {
+                        tb.LostFocus += (o, e) => commit();
+                        tb.KeyDown += (o, e) => { if (e.Key == Key.Return) { commit(); e.Handled = true; } };
+                    }
+                }
+                host.Children.Add(grid);
+                var pm = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(4f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center };
+                var add = new Button { Content = "+", Width = 24f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 1f, 0f, 1f) };
+                var del = new Button { Content = "−", Width = 24f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 1f, 0f, 1f), IsEnabled = list.Count > 2 };
+                try { ToolTipService.SetToolTip(add, "One more point"); ToolTipService.SetToolTip(del, "Remove the last point"); } catch { }
+                add.Click += (o, e) =>
+                {
+                    var last = list[list.Count - 1];
+                    float step = list.Count > 1 ? Math.Max(1f, last[0] - list[list.Count - 2][0]) : 10f;
+                    list.Add(new[] { last[0] + step, last[1], last[2] });
+                    save(); build();
+                };
+                del.Click += (o, e) => { if (list.Count > 2) { list.RemoveAt(list.Count - 1); save(); build(); } };
                 pm.Children.Add(add); pm.Children.Add(del);
                 host.Children.Add(pm);
             };

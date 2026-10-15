@@ -161,7 +161,7 @@ namespace AlternativeDamageModel
                         // the game's own method just added its flooding at its own rate - replace that delta with ours:
                         // a flat /10 (see the class doc comment), times the player's Speed (DeckFloodingSpeed)
                         float after = (float)_cur.GetValue(fc);
-                        _cur.SetValue(fc, before + (after - before) / 10f * Speed);
+                        _cur.SetValue(fc, before + (after - before) / 10f * Speed * SpeedEffect.Flood(comp));
                         break;
                     }
             }
@@ -228,7 +228,7 @@ namespace AlternativeDamageModel
                 float before = (float)_cur.GetValue(fc);
                 _addFlood.Invoke(fc, null);
                 float after = (float)_cur.GetValue(fc);
-                _cur.SetValue(fc, before + (after - before) / 10f * Speed);
+                _cur.SetValue(fc, before + (after - before) / 10f * Speed * SpeedEffect.Flood(comp));
             }
         }
 

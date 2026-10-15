@@ -340,10 +340,11 @@ namespace AlternativeDamageModel
                 }
                 if (FireDecay > 0f) PutOutFires(comp, s, dt);
                 if (Rate <= 0f) return;
+                float speedMul = SpeedEffect.Flood(comp);   // the ship's speed: faster or slower inflow
                 for (int k = 0; k < total; k++)
                 {
                     if (s.Under[k] < Delay || s.Depth[k] <= 0f) continue;
-                    float perSec = Rate * s.Depth[k];
+                    float perSec = Rate * s.Depth[k] * speedMul;
                     s.Own[k] = perSec;
                     float amount = perSec * dt;
                     int at = k;
@@ -457,13 +458,15 @@ namespace AlternativeDamageModel
                 if (k < 0 || k >= 2 * s.Count) return list;
                 if (s.Depth[k] > 0f && s.Under[k] < Delay)
                     list.Add("Deck edge " + s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m under water for " + ((int)s.Under[k]) + " of " + ((int)Delay) + " s");
+                float sm = SpeedEffect.Flood(comp);
+                string spd = sm > 1.005f ? " (faster: ship speed)" : sm < 0.995f ? " (slower: ship speed)" : "";
                 if (s.Own[k] > 0f)
                 {
-                    string t = "Deck edge " + s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m under water: +" + s.Own[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s";
+                    string t = "Deck edge " + s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m under water: +" + s.Own[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s" + spd;
                     if (s.PassedTo[k] >= 0) t += ", full: goes to " + Name(s, s.PassedTo[k], names);
                     list.Add(t);
                 }
-                if (s.GotFrom[k] >= 0) list.Add("Overflow from " + Name(s, s.GotFrom[k], names) + ": +" + s.Got[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s");
+                if (s.GotFrom[k] >= 0) list.Add("Overflow from " + Name(s, s.GotFrom[k], names) + ": +" + s.Got[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s" + spd);
             }
             catch (Exception e) { Trace("SubmergedFlooding.Reasons: " + e.Message); }
             return list;
