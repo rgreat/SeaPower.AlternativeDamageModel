@@ -176,6 +176,7 @@ namespace AlternativeDamageModel
 
         static Func<object, int, bool> _leakOrig, _pumpOrig;
         static FieldInfo _drainSide;
+        static bool _safeLeak;
 
         /// <summary>Pumping out (the game's RepairFlooding) starts from the side with more water above its minimum. The side changes to the other one
         /// when this one is at its minimum, or when the other has more water and the last change was at least SwitchEvery seconds of pumping ago.</summary>
