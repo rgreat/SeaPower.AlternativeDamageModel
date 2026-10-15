@@ -16,7 +16,7 @@ Water and fire in % with trend arrows. Their tooltips explain why: leaks, who is
 Water shown yellow / red while damage control can still get it out, grey when it cannot.
 Hull Damage and Flooding at the top right also show the overall % of the whole ship, e.g. Moderate (15%), nothing added at 0%; with Alternative Damage Control the hull damage words change at 25 / 50 / 75%.
 Weapon buttons of the selected unit's bottom panel are coloured by weapon state: part of that type inoperable - yellow, all of it - red (setting UI / ColorWeaponStatus).
-LIST / TRIM / LEVEL gauges; their tooltip is a plan of the ship with the water in every compartment. A check box under them, "Show deck levels in 3D", shows the ship's deck points in the 3D view all the time.
+LIST / TRIM / LEVEL gauges; their tooltip is a plan of the ship with the water in every compartment. A check box in that plan, "Show deck levels in 3D", shows the ship's deck points in the 3D view all the time.
 A legend behind the (i) next to the tab's name.
 [/olist]
 

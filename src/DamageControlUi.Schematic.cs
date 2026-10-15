@@ -17,7 +17,7 @@ namespace AlternativeDamageModel
         {
             public Border Root;
             public int Count;
-            public TextBlock Title, Limits;
+            public TextBlock Title, Limits; public CheckBox Pin;
             public Border[] Fill;          // [column * 2 + side]: port 0 (top), starboard 1 (bottom)
             public StackPanel[] Arrows;
             public TextBlock[] Value;
@@ -91,6 +91,9 @@ namespace AlternativeDamageModel
             root.Children.Add(cv);
             s.Limits = new TextBlock { FontSize = 10f, Foreground = new SolidColorBrush(CDim), Margin = new Thickness(0f, 4f, 0f, 0f) };
             root.Children.Add(s.Limits);
+            // the deck points of this ship in 3D, all the time (clicked: the panel is shown over the screen, not as a tooltip - tooltips take no clicks)
+            s.Pin = new CheckBox { Content = "Show deck levels in 3D", FontSize = 11f, Foreground = new SolidColorBrush(Color.FromRgb(230, 232, 235)), Margin = new Thickness(0f, 5f, 0f, 0f) };
+            root.Children.Add(s.Pin);
             s.Root = new Border { Child = root, Padding = new Thickness(6f, 4f, 6f, 6f), Background = new SolidColorBrush(Color.FromRgb(30, 33, 38)),
                                   BorderBrush = new SolidColorBrush(Color.FromRgb(70, 76, 86)), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(4f) };
             return s;
@@ -108,6 +111,58 @@ namespace AlternativeDamageModel
         /// <summary>Puts the schematic on the card (once per card and number of sections) and brings its levels up to date.</summary>
         static bool _schemOpen;   // the schematic tooltip is open
 
+        static Panel TopPanel(DependencyObject from)
+        {
+            Panel panel = null;
+            for (DependencyObject p = from; p != null; p = VisualTreeHelper.GetParent(p))
+            {
+                var pn = p as Panel;
+                bool itemsHost = false;
+                try { itemsHost = pn != null && pn.IsItemsHost; } catch { }
+                if (pn != null && !itemsHost && (pn is Grid || pn is Canvas)) panel = pn;
+            }
+            return panel;
+        }
+
+        /// <summary>The flooding plan under the list / trim card, in the screen's top panel (above everything), until the mouse leaves both.</summary>
+        static void ShowSchem(Extras x)
+        {
+            try
+            {
+                if (x.SchemShown || x.Schem == null || x.SchemPanel == null || x.ListCard == null) return;
+                var root = x.Schem.Root;
+                var old = VisualTreeHelper.GetParent(root) as Panel;
+                if (old != null) old.Children.Remove(root);
+                float w = root.ActualWidth > 10f ? root.ActualWidth : 252f;
+                var at = x.ListCard.TranslatePoint(new Point(0f, 0f), x.SchemPanel);
+                float left = Math.Max(0f, at.X + x.ListCard.ActualWidth - w), top = at.Y + x.ListCard.ActualHeight;
+                var grid = x.SchemPanel as Grid;
+                if (grid != null)
+                {
+                    root.HorizontalAlignment = HorizontalAlignment.Left; root.VerticalAlignment = VerticalAlignment.Top;
+                    root.Margin = new Thickness(left, top, 0f, 0f);
+                    Grid.SetRow(root, 0); Grid.SetColumn(root, 0);
+                    Grid.SetRowSpan(root, Math.Max(1, grid.RowDefinitions.Count)); Grid.SetColumnSpan(root, Math.Max(1, grid.ColumnDefinitions.Count));
+                }
+                else { Canvas.SetLeft(root, left); Canvas.SetTop(root, top); }
+                Panel.SetZIndex(root, 30000);
+                x.SchemPanel.Children.Add(root);
+                x.SchemShown = true; x.SchemOff = 0; _schemOpen = true;
+            }
+            catch (Exception e) { Trace("ShowSchem: " + e.Message); }
+        }
+
+        static void HideSchem(Extras x)
+        {
+            try
+            {
+                if (x == null) return;
+                if (x.Schem != null) { var pp = VisualTreeHelper.GetParent(x.Schem.Root) as Panel; if (pp != null) pp.Children.Remove(x.Schem.Root); }
+            }
+            catch (Exception e) { Trace("HideSchem: " + e.Message); }
+            x.SchemShown = false; x.SchemOff = 0; _schemOpen = false;
+        }
+
         static void RenderSchematic(object comp, Extras x, string[] names)
         {
             if (x.ListCard == null) return;
@@ -118,18 +173,42 @@ namespace AlternativeDamageModel
             if (_schemOpen) DeckCorners.WantedAt = UnityEngine.Time.unscaledTime;   // it is on the screen now (a tooltip of the card): the points follow it
             if (x.Schem == null || x.Schem.Count != count)
             {
-                x.Schem = BuildSchematic(count); _schemOpen = false;
+                HideSchem(x); x.Schem = BuildSchematic(count); _schemOpen = false;
+                var sch = x.Schem;
+                sch.Pin.Click += (o, e) => { DeckCorners.Pin(x.PinComp, sch.Pin.IsChecked == true); };
                 try
                 {
-                    ToolTipService.SetToolTip(x.ListCard, x.Schem.Root);
-                    ToolTipService.SetPlacement(x.ListCard, PlacementMode.Bottom);
-                    ToolTipService.SetShowDuration(x.ListCard, int.MaxValue);
-                    x.ListCard.ToolTipOpening += (o, e) => _schemOpen = true;
-                    x.ListCard.ToolTipClosing += (o, e) => _schemOpen = false;
+                    bool hooked = x.SchemPanel != null;
+                    if (!hooked) x.SchemPanel = TopPanel(x.ListCard);
+                    if (x.SchemPanel != null)
+                    {
+                        if (!hooked) {
+                        x.ListCard.MouseEnter += (o, e) => ShowSchem(x);
+                        x.ListCard.IsVisibleChanged += (o, e) => { if (!x.ListCard.IsVisible) HideSchem(x); };
+                        }
+                    }
+                    else   // no panel to put it in: the old tooltip (no clicks in it)
+                    {
+                        ToolTipService.SetToolTip(x.ListCard, x.Schem.Root);
+                        ToolTipService.SetPlacement(x.ListCard, PlacementMode.Bottom);
+                        ToolTipService.SetShowDuration(x.ListCard, int.MaxValue);
+                        x.ListCard.ToolTipOpening += (o, e) => _schemOpen = true;
+                        x.ListCard.ToolTipClosing += (o, e) => _schemOpen = false;
+                    }
                 }
-                catch (Exception e) { Trace("schematic tooltip: " + e.Message); }
+                catch (Exception e) { Trace("schematic panel: " + e.Message); }
             }
             var s = x.Schem;
+            x.PinComp = comp;
+            try { bool pinned = DeckCorners.IsPinned(comp); if (s.Pin.IsChecked != pinned) s.Pin.IsChecked = pinned; } catch { }
+            if (x.SchemShown)
+            {
+                // closed once the mouse has been off both the card and the panel for two checks in a row (4 a second)
+                bool over = false;
+                try { over = x.ListCard.IsMouseOver || s.Root.IsMouseOver; } catch { }
+                x.SchemOff = over ? 0 : x.SchemOff + 1;
+                if (x.SchemOff >= 2) HideSchem(x);
+            }
             var port = _compPort.GetValue(comp) as Array; var star = _compStar.GetValue(comp) as Array;
             if (port == null || star == null) return;
             Col[] cols = ReferenceEquals(_colsComp.Target, comp) ? _colsShown : null;
