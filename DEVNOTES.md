@@ -634,3 +634,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: «Team on its way» — последней строкой вне Raises/Lowers
 * `OnIt(..., ref bool way)`: «Team on its way» больше не строка списка; выставляет `way`, и `FloodCause`/`FireCause` дописывают её одной последней строкой (без маркера) после «Lowers it». «Hurts hull, systems a little» → «Damages hull and systems».
+
+## 2026-10-15: тексты про урон от огня
+* `FireCause`: Severe — «Damages hull and systems. Spreads to adjacent sections.»; Moderate и Minor — «Damages hull and systems».
