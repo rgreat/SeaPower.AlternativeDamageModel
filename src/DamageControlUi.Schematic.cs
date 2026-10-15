@@ -111,6 +111,8 @@ namespace AlternativeDamageModel
         /// <summary>Puts the schematic on the card (once per card and number of sections) and brings its levels up to date.</summary>
         static bool _schemOpen;   // the schematic tooltip is open
 
+        const float SchGap = 5f;   // between the plan and the list / trim card
+
         static Panel TopPanel(DependencyObject from)
         {
             Panel panel = null;
@@ -133,9 +135,13 @@ namespace AlternativeDamageModel
                 var root = x.Schem.Root;
                 var old = VisualTreeHelper.GetParent(root) as Panel;
                 if (old != null) old.Children.Remove(root);
-                float w = root.ActualWidth > 10f ? root.ActualWidth : 252f;
+                float w = root.ActualWidth, h = root.ActualHeight;
+                if (w < 10f || h < 10f) { try { root.Measure(new Size(10000f, 10000f)); w = root.DesiredSize.Width; h = root.DesiredSize.Height; } catch { } }
+                if (w < 10f) w = 252f;
+                if (h < 10f) h = 150f;
                 var at = x.ListCard.TranslatePoint(new Point(0f, 0f), x.SchemPanel);
-                float left = Math.Max(0f, at.X + x.ListCard.ActualWidth - w), top = at.Y + x.ListCard.ActualHeight;
+                // above the card, 5 px clear of it, centred on it
+                float left = Math.Max(0f, at.X + x.ListCard.ActualWidth / 2f - w / 2f), top = Math.Max(0f, at.Y - SchGap - h);
                 var grid = x.SchemPanel as Grid;
                 if (grid != null)
                 {
