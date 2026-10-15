@@ -1,39 +1,28 @@
 Alternative Damage Model - change list
 
-Changes since the Workshop version (build 20261011.0026), for Sea Power 0.8.4.
-Settings marked [Advanced] are on in the Advanced profile and off (or as in the game) in Base Game.
+Changes since the Workshop version (build 20261011.0026), for Sea Power 0.8.3-0.8.5.
+[Advanced] = on in the Advanced profile only.
 
 DAMAGE CONTROL TAB
-- Hull Damage and Flooding at the top right also show the overall % of the ship; the hull damage words change at 25 / 50 / 75%.
-- Hull integrity arrows are yellow / orange / red while the hull can still be welded, grey when it cannot be welded any further.
-- Weapon buttons of the bottom panel are coloured by weapon state: part of a type inoperable - yellow, all of it - red.
-- Tooltips of water and fire explain the cause: what raises the value and what lowers it, how fast water comes in through holes and over the deck edge, how fast teams pump, the effect of the ship's speed. A team on its way is said last. Only what changes the value is shown.
-- Tooltips on the % values. Arrows no longer flicker: smoothed trend with hysteresis; % values keep their place next to the text.
-- The team row of a section is lower and tighter; the ship's picture no longer changes the height of its row.
-- NEW: "Limit Speed" button next to Auto DC (on by default). Off removes the game's cut of the ship's speed by flooding.
-- NEW: new team task by hand - counterflooding (lets water into the side opposite to the heel; limit settable). Team menu entry "Auto" instead of "By priority".
-- Flooding plan (pointing at LIST / TRIM / LEVEL): shown above the gauges; shows the tilt left before a deck edge touches the sea; the limits caption is in two lines.
-- NEW: "Show deck levels in 3D" check box in the flooding plan: the ship's deck points are shown in the 3D view all the time.
+- Hull Damage and Flooding also show the overall % of the ship; weapon buttons are coloured by weapon state.
+- Tooltips of water and fire show what raises and what lowers the value (holes, deck-edge water, pumping, ship speed).
+- Arrows no longer flicker; the team row of a section is tighter.
+- NEW: "Limit Speed" button next to Auto DC: off removes the game's cut of the ship's speed by flooding.
+- NEW: counterflooding as a team task by hand.
+- Flooding plan: above the LIST / TRIM / LEVEL gauges, shows the tilt left before a deck edge touches the sea.
+- NEW: "Show deck levels in 3D" check box in the flooding plan.
 
 DAMAGE MODEL
-- Water over the deck edge: for ships with a complete hull collider each deck-edge point that stays under the sea (3 s, settable) floods its compartment; a full compartment passes the water on to its neighbours. It replaces the fast flooding from the LIST / TRIM red zones for these ships.
-- The red zones and scales of the LIST and TRIM gauges start where the first deck-edge point touches the flat sea, separately for port, starboard, stern and bow.
-- A ship sinks from flooding only when both central compartments (or at least 5 of 10) are under the sea.
-- Capsizing: the more water in the ship, the higher its centre of mass (setting "Centre of mass rise"): a flooded ship turns keel up. [Advanced]
-- Sinking: the centre of mass is not thrown to the hull origin when the ship starts to sink; a wreck loses its way sooner (setting "Wreck drag", horizontal only; 3x); the bubbles effect of a sunk ship stops after 10 minutes. [Advanced]
-- A destroyed ship's water level is followed by the mod (the game stops sampling the waves for it).
-- NEW: the ship's speed changes how fast water comes in and fires grow: a table of speed points (Settings -> Damage Model -> Ship speed). [Advanced: 0..50 knots, water x0.75..x5, fire x1..x2]
-- NEW: teams cannot plug holes above a set speed (DC Teams -> "Max ship speed for plugging holes"; [Advanced] 15 knots).
-- NEW: a team plugging holes also pumps out water (setting "Pumping while plugging holes"). [Advanced]
-- NEW: pumping starts from the side with more water and changes sides at most every 10 seconds, or when this side is at its minimum.
-- A fire does not spread into a section where a team is (setting "Team stops fire spread"); a section under the sea puts its fire out (setting "Fire under water"). [Advanced]
-- NEW: fire and smoke points by ship length: under 25 m one, under 50 m two, under 75 m three, from 75 m five.
+- Water over the deck edge floods compartments for ships with a complete hull collider; LIST / TRIM red zones start where a deck edge touches the sea.
+- A ship sinks from flooding only when its central compartments (or 5 of 10) are under the sea.
+- [Advanced] Flooded ships turn keel up (centre of mass rises with the water); wrecks lose their way sooner; bubbles stop after 10 minutes.
+- NEW: ship speed changes how fast water comes in and fires grow (table of speed points, Settings -> Damage Model).
+- NEW: teams cannot plug holes above a set speed ([Advanced] 15 knots).
+- NEW: plugging teams also pump out water; pumping starts from the side with more water.
+- [Advanced] A fire does not spread into a section with a team; a section under the sea puts its fire out.
+- NEW: fire and smoke points by ship length: <25 m 1, <50 m 2, <75 m 3, from 75 m 5.
 - Advanced defaults: team effectiveness 0.3, fire damage to the hull 0.1, flood imbalance effect 1.0.
 
 SETTINGS WINDOW
-- Drawn close cross; the window can be resized by its edges; wider, with a new "Sinking" tab and groups moved between tabs.
-- The reset button of a row restores the game's value (not the profile's).
-- Fixed: "Team stops fire spread" and similar switches went back to off when Apply was pressed.
-
-DEBUG (Settings -> Debug)
-- Deck point heights, hull collider overlay and ship model view (Show / Translucent / Hide) for the selected ship.
+- Resizable, wider, new "Sinking" tab; the reset button restores the game's value.
+- Fixed: "Team stops fire spread" and similar switches went back to off on Apply.
