@@ -637,3 +637,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: тексты про урон от огня
 * `FireCause`: Severe — «Damages hull and systems. Spreads to adjacent sections.»; Moderate и Minor — «Damages hull and systems».
+
+## 2026-10-15: тексты огня без точек
+* `FireCause`: как и остальные строки подсказок — без точек, Severe двумя строками: «Damages hull and systems» и «Spreads to adjacent sections».

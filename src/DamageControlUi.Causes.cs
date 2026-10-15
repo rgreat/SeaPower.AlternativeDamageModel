@@ -196,8 +196,8 @@ namespace AlternativeDamageModel
                 if (un >= 0) Line(sb, "Unattended " + ((int)un).ToString(CultureInfo.InvariantCulture) + " s: grows faster");
                 // the game: the hull burns at every stage (in proportion to the fire); systems take damage from time to time -
                 // a little while minor, more when moderate, most when severe; only a severe fire spreads
-                if (fire > 49.8f) Line(sb, "Damages hull and systems. Spreads to adjacent sections.");
-                else if (fire > 0f) Line(sb, "Damages hull and systems");
+                if (fire > 0f) Line(sb, "Damages hull and systems");
+                if (fire > 49.8f) Line(sb, "Spreads to adjacent sections");
                 if (way) sb.Append("\nTeam on its way");
                 return sb.ToString();
             }
