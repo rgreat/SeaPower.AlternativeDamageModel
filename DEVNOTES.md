@@ -599,3 +599,8 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 * Окно настроек: `Kind.Speed` + `SpeedEditor` (3 строки: speed, knots / flooding rate / fire rate; только значения ≥ 0; «+»/«−» добавляют/убирают последнюю точку; точки сортируются при вводе), группа «Ship speed: effect on flooding and fire» на вкладке Damage Model. Поля профиля на вкладке Damage Model скрыты, пока модель выключена (`!adm && !f.Global`).
 * DC Teams: `[DamageControlTeams] MaxPlugSpeed` (узлы, 0 = без предела; Advanced 15, Base Game 0). Быстрее предела `LeakWithPump` возвращает false — команда работает по приоритету дальше; в подсказке затопления: «Ship too fast to plug holes: over N kn».
 * Не проверено в игре.
+
+## 2026-10-15: число точек дыма по длине корабля
+* `[Effects] ExtraSmokeEmitters` теперь задаёт число точек по длине: <25 м — 1 (весь корабль), <50 м — 2 (секции 0–2 и 3–4, позиции — носовая и кормовая точки из ini), <75 м — 3 (игровые, без изменений), ≥75 м — 5 (как раньше). `FireSmoke.CountFor`. Ключ `ExtraSmokeMinLength` и строка «On ships from» удалены.
+* Для 2 точек массивы эффектов длиной 3: игровой `UpdateFireState` для водоизмещения ≥900 т пишет `_currentFires[2]` (иначе IndexOutOfRange); `_firesCount` = 2, лишний слот не используется. Для 1 и 2 точек состояние огня считает `AfterUpdateFireState` (худшее по группе секций); `Sections` учитывает новые счётчики.
+* Не проверено в игре. Новые корабли (точки создаются при спавне).

@@ -79,7 +79,7 @@ namespace AlternativeDamageModel
         ConfigEntry<bool> _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
-        ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _smokeLenEntry, _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
+        ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
         static bool _density = true;
         static bool _smoke = true;
         static bool _dumpXaml;
@@ -429,10 +429,8 @@ namespace AlternativeDamageModel
             _uiFireTwoDown = Cfg.Bind("UI", "FireTwoArrowsDownAt", new Factor(0.25f),
                 "Fire row: two arrows down when the fire is put out faster than this, in % of its maximum per second.");
             _smokeEntry = Cfg.Bind("Effects", "ExtraSmokeEmitters", true,
-                "Five fire and smoke points on a ship instead of the game's three: one per section, each showing its own section's fire " +
-                "(the game's end points show the worse of two sections). Ships spawned from now on.");
-            _smokeLenEntry = Cfg.Bind("Effects", "ExtraSmokeMinLength", new Factor(75f),
-                "Extra smoke points only on ships at least this long, metres.");
+                "Number of fire and smoke points by ship length instead of the game's three: under 25 m 1, under 50 m 2, under 75 m 3, from 75 m 5 " +
+                "(one per section, each showing its own section's fire). Ships spawned from now on.");
             _densityEntry = Cfg.Bind("Effects", "SmokeBySeverity", true,
                 "Fire looks by the fire's strength (share of its maximum) instead of the game's stages: small, moderate from " +
                 "SmokeModerateFrom, severe from SmokeSevereFrom (the game: 25% / 50%); the small fire's smoke grows from " +
@@ -778,7 +776,6 @@ namespace AlternativeDamageModel
             _fireSpread = Clamp(_fireSpreadEntry.Value.V, 0f, 100f);
             _unattended = _unattendedEntry.Value;
             _smoke = _smokeEntry.Value;
-            FireSmoke.MinLength = Math.Max(0f, _smokeLenEntry.Value.V);
             _density = _densityEntry.Value;
             FireSmoke.StartOpacity = Clamp(_densityMinEntry.Value.V, 0f, 100f) / 100f;
             FireSmoke.EndOpacity = Clamp(_densityEndEntry.Value.V, 0f, 100f) / 100f;

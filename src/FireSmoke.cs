@@ -10,12 +10,13 @@ using UnityEngine;
 namespace AlternativeDamageModel
 {
     /// <summary>
-    /// [Effects] ExtraSmokeEmitters: five fire / smoke points on a ship instead of the game's three.
+    /// [Effects] ExtraSmokeEmitters: the number of fire / smoke points by ship length instead of the game's three:
+    /// under 25 m 1 (the whole ship), under 50 m 2 (sections 0-2 and 3-4), under 75 m the game's three, from 75 m five (below).
     /// The game (Compartments): _firesCount = 3 effect points from the ship's ini, [Compartments] Compartment1..3FirePosition -
     /// the middle of the ship and the points between the two end sections at each end; UpdateFireState gives each point the worst
     /// fire of its sections (0+1, 2, 3+4), so one end point smokes for two sections at once. Every effect array, the fire decals
     /// and updateFireEffect / UpdateFireDecals go by _firesCount and _obp._compartmentEffectPositions.
-    /// Here, for ships longer than ExtraSmokeMinLength: after Compartments.Init the points become five - one per section - and
+    /// Here, for five points: after Compartments.Init the points become five - one per section - and
     /// _firesCount 5 (the arrays made again, empty); after UpdateFireState each point gets its own section's fire.
     /// The five points: the middle point is section 2; the end points lie 1.5 sections from it, so sections 1 and 3 are 2/3 of
     /// the way to them and sections 0 and 4 4/3 of the way (along the ship; height and side as the end point), never past 45% of
@@ -24,7 +25,6 @@ namespace AlternativeDamageModel
     static class FireSmoke
     {
         public static Func<bool> IsEnabled = () => false;
-        public static float MinLength = 100f;
         public static Func<bool> DensityOn = () => false;   // [Effects] SmokeBySeverity
         public static float StartOpacity = 0.1f;              // [Effects] SmokeStartOpacity: the small fire's smoke as the fire starts
         public static float EndOpacity = 1f;                // [Effects] SmokeEndOpacity: the small fire's smoke at ModerateFrom
@@ -76,6 +76,9 @@ namespace AlternativeDamageModel
             catch { return 0f; }
         }
 
+        /// <summary>Fire / smoke points by ship length: under 25 m 1, under 50 m 2, under 75 m 3 (the game's own), from 75 m 5.</summary>
+        public static int CountFor(float length) { return length < 25f ? 1 : length < 50f ? 2 : length < 75f ? 3 : 5; }
+
         /// <summary>Postfix of Compartments.Init.</summary>
         public static void AfterInit(object comp)
         {
@@ -86,7 +89,8 @@ namespace AlternativeDamageModel
                 var obp = _obp.GetValue(comp);
                 if (obp == null) return;
                 float len = Length(obp);
-                if (len < MinLength) return;
+                int target = CountFor(len);
+                if (target == 3) return;   // the game's own three
                 var pos = _positions.GetValue(obp) as Vector3[];
                 if (pos == null) return;
                 if (pos.Length == 3)
@@ -102,22 +106,27 @@ namespace AlternativeDamageModel
                         float k = Math.Min(1f, f);
                         return new Vector3(mid.x + (end.x - mid.x) * k, mid.y + (end.y - mid.y) * k, z);
                     };
-                    pos = new[] { along(fore, 4f / 3f), along(fore, 2f / 3f), mid, along(aft, 2f / 3f), along(aft, 4f / 3f) };
+                    if (target == 5) pos = new[] { along(fore, 4f / 3f), along(fore, 2f / 3f), mid, along(aft, 2f / 3f), along(aft, 4f / 3f) };
+                    else if (target == 2) pos = new[] { fore, aft };
+                    else pos = new[] { mid };
                     _positions.SetValue(obp, pos);
                 }
-                if (pos.Length != 5) return;
-                // the effect arrays for five points (none made yet: they are made when a fire first shows)
+                if (pos.Length != target) return;
+                // the effect arrays for the new number of points (none made yet: they are made when a fire first shows);
+                // two points: three slots - the game's UpdateFireState writes a third one for a heavier ship
+                int size = Math.Max(target, 3);
+                if (target == 1) size = 1;
                 foreach (var f in new[] { _currentFires, _fireDecal, _small, _moderate, _severe })
                 {
                     var old = f.GetValue(comp) as Array;
                     var et = old != null ? old.GetType().GetElementType() : f.FieldType.GetElementType();
-                    var arr = Array.CreateInstance(et, 5);
-                    if (old != null) Array.Copy(old, arr, Math.Min(old.Length, 5));
+                    var arr = Array.CreateInstance(et, size);
+                    if (old != null) Array.Copy(old, arr, Math.Min(old.Length, size));
                     f.SetValue(comp, arr);
                 }
-                _firesCount.SetValue(comp, 5);
+                _firesCount.SetValue(comp, target);
                 Five.Remove(comp); Five.Add(comp, new Mark());
-                Trace("fire smoke: 5 points (" + len.ToString("0") + " m)");
+                Trace("fire smoke: " + target + " points (" + len.ToString("0") + " m)");
             }
             catch (Exception e) { Trace("FireSmoke.AfterInit: " + e.Message); }
         }
@@ -338,7 +347,9 @@ namespace AlternativeDamageModel
         static void Sections(int count, float disp, int p, int n, out int from, out int to)
         {
             if (count == 5) { from = p; to = p; }
-            else if (count == 1 || disp < 159f) { from = 0; to = n - 1; }
+            else if (count == 1) { from = 0; to = n - 1; }
+            else if (count == 2) { if (p == 0) { from = 0; to = 2; } else { from = 3; to = 4; } }
+            else if (disp < 159f) { from = 0; to = n - 1; }
             else if (disp < 900f) { if (p == 0) { from = 0; to = 2; } else { from = 3; to = 4; } }
             else if (p == 0) { from = 0; to = 1; } else if (p == 1) { from = 2; to = 2; } else { from = 3; to = 4; }
         }
@@ -542,12 +553,28 @@ namespace AlternativeDamageModel
                 var sys = _sys.GetValue(comp) as Array;
                 if (fires == null || sys == null) return;
                 Mark m;
-                if (Five.TryGetValue(comp, out m) && (int)_firesCount.GetValue(comp) == 5)
-                    for (int i = 0; i < 5 && i < fires.Length && i < sys.Length; i++)
-                    {
-                        var sc = sys.GetValue(i);
-                        if (sc != null) fires.SetValue(_fireState.GetValue(sc, null), i);
-                    }
+                if (Five.TryGetValue(comp, out m))
+                {
+                    int count = (int)_firesCount.GetValue(comp);
+                    if (count == 5)
+                        for (int i = 0; i < 5 && i < fires.Length && i < sys.Length; i++)
+                        {
+                            var sc = sys.GetValue(i);
+                            if (sc != null) fires.SetValue(_fireState.GetValue(sc, null), i);
+                        }
+                    else if (count == 1 || count == 2)
+                        for (int p = 0; p < count && p < fires.Length; p++)
+                        {
+                            int from, to; Sections(count, 1000f, p, sys.Length, out from, out to);
+                            int worst = 0;
+                            for (int i = from; i <= to && i < sys.Length; i++)
+                            {
+                                var sc = sys.GetValue(i);
+                                if (sc != null) worst = Math.Max(worst, Convert.ToInt32(_fireState.GetValue(sc, null)));
+                            }
+                            fires.SetValue(Enum.ToObject(fires.GetType().GetElementType(), worst), p);
+                        }
+                }
                 if (DensityOn()) Restage(comp, sys, fires);
             }
             catch (Exception e) { Trace("FireSmoke.AfterUpdateFireState: " + e.Message); }

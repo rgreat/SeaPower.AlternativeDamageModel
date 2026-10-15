@@ -47,7 +47,6 @@ namespace AlternativeDamageModel
         {
             if (f.Group == ArrowsGroup) return UiKey;
             if (f.Key == "FireAndFlooding/UnattendedFireTime" || f.Key == "FireAndFlooding/UnattendedFireGrowthRate" || f.Key == "FireAndFlooding/UnattendedFireMaxGrowth") return UnattendedKey;
-            if (f.Key == "Effects/ExtraSmokeMinLength") return SmokeKey;
             if (f.Key == "Effects/SmokeStartOpacity" || f.Key == "Effects/SmokeEndOpacity" ||f.Key == "Effects/SmokeModerateFrom" || f.Key == "Effects/SmokeSevereFrom") return DensityKey;
             return null;
         }
@@ -80,8 +79,7 @@ namespace AlternativeDamageModel
             Add(D, ArrowsGroup, "UI/FireTwoArrowsUpAt", "Fire: two arrows up from", "% a second", Kind.Number, 0.1f, 0f, 20f, true);
             Add(D, ArrowsGroup, "UI/FireTwoArrowsDownAt", "Fire: two arrows down from", "% a second", Kind.Number, 0.05f, 0f, 20f, true);
 
-            Add(TFx, "Fire smoke", SmokeKey, "Extra smoke points", "5 instead of 3, one per section", Kind.Bool, 0, 0, 0, true);
-            Add(TFx, "Fire smoke", "Effects/ExtraSmokeMinLength", "On ships from", "m long", Kind.Number, 10f, 0f, 500f, true);
+            Add(TFx, "Fire smoke", SmokeKey, "Extra smoke points", "by length: <25 m 1, <50 m 2, <75 m 3, else 5", Kind.Bool, 0, 0, 0, true);
             Add(TFx, "Fire smoke", DensityKey, "Tune visuals", "instead of the game's stages", Kind.Bool, 0, 0, 0, true);
             Add(TFx, "Fire smoke", "Effects/SmokeStartOpacity", "Small fire: opacity at start", "% of the game's, fire at 0%", Kind.Number, 5f, 0f, 100f, true);
             Add(TFx, "Fire smoke", "Effects/SmokeEndOpacity", "Small fire: opacity at end", "% of the game's, at moderate", Kind.Number, 5f, 0f, 100f, true);
