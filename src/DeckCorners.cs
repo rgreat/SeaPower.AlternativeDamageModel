@@ -70,6 +70,14 @@ namespace AlternativeDamageModel
     {
         public static bool Model;                       // [General] ShowDeckCorners
         public static float WantedAt = -100f;           // the last time the flooding schematic was on the screen (it shows the points too)
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, object> Pinned = new System.Runtime.CompilerServices.ConditionalWeakTable<object, object>();
+        /// <summary>The "Show deck levels in 3D" check box of a ship's flooding card: its points are shown all the time (while it is selected).</summary>
+        public static void Pin(object comp, bool on) { if (comp == null) return; Pinned.Remove(comp); if (on) Pinned.Add(comp, comp); }
+        public static bool IsPinned(object comp) { object o; return comp != null && Pinned.TryGetValue(comp, out o); }
+        static bool UnitPinned()
+        {
+            try { return _unit != null && _pCompartments != null && IsPinned(_pCompartments.GetValue(_unit, null)); } catch { return false; }
+        }
         public static bool ShowCollider;                 // [General] ShowHullCollider
         public static int ModelView;                     // [General] ShipModelView: 0 Show, 1 Translucent, 2 Hide
         public static Action<string> Trace = s => { };
@@ -1026,7 +1034,7 @@ namespace AlternativeDamageModel
             if (!_ok) return;
             bool alive = (_unit as UnityEngine.Object) != null;
 
-            bool showLines = (Model || now - WantedAt < 0.6f) && alive && _points != null && _shipTransform != null && _lines != null && _lines.Length == _points.Length;
+            bool showLines = (Model || now - WantedAt < 0.6f || UnitPinned()) && alive && _points != null && _shipTransform != null && _lines != null && _lines.Length == _points.Length;
             SetActive(showLines);
             if (showLines)
             {

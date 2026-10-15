@@ -625,3 +625,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: смена борта откачки не чаще раза в 10 с
 * `DcControl.PumpMoreWater`: борт меняется, когда на текущем вода на минимуме, либо когда на другом воды больше и с прошлой смены прошло ≥ `SwitchEvery` = 10 с работы насоса (таймер на секцию, копится по `fixedDeltaTime` вызовов; старт — 99, т.е. первый выбор сразу по большей воде). `PumpFree` (откачка при заделке) следует тому же флагу. Подсказки снова читают реальный `_drainPortSide`.
+
+## 2026-10-15: галочка «Show deck levels in 3D»
+* В карточке List/Trim/Level (под циферблатами; её подсказка — схема затоплений) — `CheckBox` «Show deck levels in 3D». Тултип Noesis не принимает клики, поэтому галочка на самой карточке. Состояние на корабль: `DeckCorners.Pin/IsPinned` (ключ — `Compartments`, `ConditionalWeakTable`); `DeckCorners.Tick` рисует точки, если `Model || схема открыта || UnitPinned()` (только для выбранного корабля, как и раньше). Не в сейве.

@@ -19,7 +19,7 @@ namespace AlternativeDamageModel
         sealed class Extras
         {
             public Grid HullInner; public RowDefinition FireRowDef; public Grid FireRow; public TextBlock FireValue;
-            public Panel ListHost; public Border ListCard;
+            public Panel ListHost; public Border ListCard; public CheckBox PinBox; public object PinComp;
             public float[] Lim; public object LimComp; public Action<float, float> ListRed, TrimRed; public RotateTransform ListRot, TrimRot; public TextBlock ListVal, TrimVal;
             public Border LevelFill; public float LevelHeight; public TextBlock LevelVal;
             public FrameworkElement Res;                // where the game's brushes are looked up
@@ -223,7 +223,14 @@ namespace AlternativeDamageModel
                 rowp.Children.Add(trimDial);
                 rowp.Children.Add(new Border { Width = 8f });
                 rowp.Children.Add(LevelBar(x));
-                card.Child = rowp;
+                // under the gauges: the deck points of this ship in 3D, all the time
+                var pin = new CheckBox { Content = "Show deck levels in 3D", FontSize = 11f, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0f, 2f, 0f, 0f) };
+                try { ToolTipService.SetToolTip(pin, "Shows this ship's deck points in the 3D view (green: above the wave, red: under it) while it is selected."); } catch { }
+                pin.Click += (o, e) => { DeckCorners.Pin(x.PinComp, pin.IsChecked == true); };
+                x.PinBox = pin;
+                var colp = new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center };
+                colp.Children.Add(rowp); colp.Children.Add(pin);
+                card.Child = colp;
                 // its tooltip: the flooding schematic (RenderSchematic)
                 host.Children.Add(card);
                 x.ListHost = host; x.ListCard = card;
@@ -548,6 +555,7 @@ namespace AlternativeDamageModel
                 }
             }
 
+            if (x.PinBox != null) try { x.PinComp = comp; bool pinned = DeckCorners.IsPinned(comp); if (x.PinBox.IsChecked != pinned) x.PinBox.IsChecked = pinned; } catch { }
             try { RenderHullFlood(comp, x); } catch (Exception e) { Trace("RenderHullFlood: " + e.Message); }
 
             // list / trim from the hull's attitude, smoothed (game time; a paused game keeps them)
