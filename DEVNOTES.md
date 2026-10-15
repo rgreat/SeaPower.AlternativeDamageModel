@@ -609,3 +609,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 * Карточка «DC Priority» (слева от профиля корабля) получила `ToggleButton` «Limit Speed» (по умолчанию включена, состояние на корабль: `DcControl.LimitSpeed/SetLimitSpeed`, `Ship.NoSpeedLimit`; не сохраняется в сейве). Неактивна, пока модель выключена.
 * Игра режет скорость затоплениями в `Compartments.UpdateWantedVelocityInKnots`: блок `if (WantedVelocityInKnots > 10f && !flag2)` (открытая пробоина — 10 уз; Minor — telegraph[5]; Moderate — 20/25; Severe — 10/15 по секциям). Транспилер `SpeedLimitTranspiler` вставляет `ldarg.0; call SpeedLimitOff(bool, object)` после загрузки `flag2` (`flag2 || (Model && !LimitSpeed)`) — то же условие, что у аварийного всплытия подлодки: блок пропускается. Ожидается 1 место, иначе Warn.
 * Не проверено в игре.
+
+## 2026-10-15: Limit Speed — на одном уровне с Auto DC
+* Кнопка перенесена из отдельной строки под Auto/Fire/Flooding в горизонтальную панель рядом с игровым переключателем Auto DC (окно не растёт по высоте). `PutBackAuto` вынимает игровое содержимое и из этой панели.

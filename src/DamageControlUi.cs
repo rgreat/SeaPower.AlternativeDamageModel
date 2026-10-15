@@ -838,11 +838,14 @@ namespace AlternativeDamageModel
                 var stack = new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center };
 
                 // the game's Auto DC content, moved (its bindings come along: same view, same data context)
+                StackPanel autoRow = null;
                 var autoContent = card.Child as UIElement;
                 if (autoContent != null)
                 {
                     card.Child = null;
-                    stack.Children.Add(autoContent);
+                    autoRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                    autoRow.Children.Add(autoContent);   // "Limit Speed" joins it on the same level
+                    stack.Children.Add(autoRow);
                     card.Visibility = Visibility.Collapsed;
                     st.AutoCard = card; st.AutoContent = autoContent; st.AutoStack = stack;
                 }
@@ -867,10 +870,10 @@ namespace AlternativeDamageModel
                     row.Children.Add(b);
                 }
                 stack.Children.Add(row);
-                var lim = new ToggleButton { Content = "Limit Speed", Padding = new Thickness(8f, 2f, 8f, 2f), Margin = new Thickness(0f, 4f, 0f, 0f), HorizontalAlignment = HorizontalAlignment.Center };
+                var lim = new ToggleButton { Content = "Limit Speed", Padding = new Thickness(6f, 2f, 6f, 2f), Margin = new Thickness(6f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
                 try { ToolTipService.SetToolTip(lim, "On: the game cuts the ship's speed while there is flooding (10 kn with open holes, 10-25 kn by the water in the sections).\nOff: no cut, the ship keeps its ordered speed - and the water comes in faster."); } catch { }
                 lim.Click += (sender, e) => { DcControl.SetLimitSpeed(st.Comp, lim.IsChecked == true); };
-                stack.Children.Add(lim);
+                if (autoRow != null) autoRow.Children.Add(lim); else stack.Children.Add(lim);
                 st.LimitButton = lim;
                 box.Child = stack;
                 host.Children.Add(box);
@@ -939,7 +942,7 @@ namespace AlternativeDamageModel
                 if (st.AutoContent != null)
                 {
                     // out of our stack (known), else out of whatever holds it now (logical or visual parent)
-                    if (st.AutoStack != null) try { st.AutoStack.Children.Remove(st.AutoContent); } catch { }
+                    if (st.AutoStack != null) try { foreach (var ch in st.AutoStack.Children) { var ar = ch as StackPanel; if (ar != null) ar.Children.Remove(st.AutoContent); } st.AutoStack.Children.Remove(st.AutoContent); } catch { }
                     DependencyObject holder = null;
                     var fe = st.AutoContent as FrameworkElement;
                     try { if (fe != null) holder = fe.Parent; } catch { }
