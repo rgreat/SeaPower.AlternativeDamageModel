@@ -146,12 +146,12 @@ namespace AlternativeDamageModel
                 // ---- what lowers it (the teams' own speeds, whether or not they can beat the inflow)
                 if (pumping.Count > 0)
                 {
-                    bool now = delta >= deltaOther;   // the game pumps one side at a time
+                    bool now = drainPort == port || deltaOther <= 1e-4f;   // the game pumps one side at a time
                     // only what changes this side now: not while the other side is pumped first, not at the water's minimum
                     if (now && delta > 1e-4f) Line(down, Who(pumping) + " pumping out: \u2212" + R(pumping.Count * perTeam) + "%/s");
                 }
                 else Line(down, OnIt(comp, i, pumping, "pumping out", inSec, null, "", rate > 0f && delta > 1e-4f));
-                if (plugging.Count > 0 && DcControl.LeakPump > 0f && delta > 1e-4f && delta >= deltaOther)
+                if (plugging.Count > 0 && DcControl.LeakPump > 0f && delta > 1e-4f && (drainPort == port || deltaOther <= 1e-4f))
                     Line(down, Who(plugging) + " pump while plugging: \u2212" + R(plugging.Count * perTeam * DcControl.LeakPump) + "%/s");
 
                 var sb = new StringBuilder((port ? "Port" : "Starboard") + ": " + Pc(water) + ", " + Rate(rate));

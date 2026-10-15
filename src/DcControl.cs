@@ -177,8 +177,11 @@ namespace AlternativeDamageModel
         static Func<object, int, bool> _leakOrig, _pumpOrig;
         static FieldInfo _drainSide;
 
-        /// <summary>Pumping out (the game's RepairFlooding) from the side with more water above its minimum. The game keeps one side until it is
-        /// at its minimum and only then switches; here the side is chosen again every tick.</summary>
+        /// <summary>Pumping out (the game's RepairFlooding) starts from the side with more water above its minimum. The side changes to the other one
+        /// when this one is at its minimum, or when the other has more water and the last change was at least SwitchEvery seconds of pumping ago.</summary>
+        const float SwitchEvery = 10f;
+        static readonly ConditionalWeakTable<object, float[]> SideAge = new ConditionalWeakTable<object, float[]>();
+
         static bool PumpMoreWater(object comp, int i)
         {
             try
@@ -188,14 +191,21 @@ namespace AlternativeDamageModel
                 {
                     float dp = (float)_floodDelta.GetValue((_port.GetValue(comp) as Array).GetValue(i), null);
                     float ds = (float)_floodDelta.GetValue((_star.GetValue(comp) as Array).GetValue(i), null);
-                    if (dp > 1e-4f || ds > 1e-4f) arr[i] = dp >= ds;
+                    var age = SideAge.GetValue(comp, c => new float[] { 99f, 99f, 99f, 99f, 99f, 99f, 99f, 99f });
+                    age[i] += Convert.ToSingle(_fixedDt.GetValue(null, null));
+                    if (dp > 1e-4f || ds > 1e-4f)
+                    {
+                        bool cur = arr[i], want = cur;
+                        float dc = cur ? dp : ds, dother = cur ? ds : dp;
+                        if (dc <= 1e-4f) want = !cur;                                   // this side is at its minimum
+                        else if (dother > dc && age[i] >= SwitchEvery) want = !cur;     // the other has more water: not more often than SwitchEvery
+                        if (want != cur) { arr[i] = want; age[i] = 0f; }
+                    }
                 }
             }
             catch { }
             return _pumpOrig(comp, i);
         }
-
-        static bool _safeLeak;
 
         /// <summary>Plugging holes (the game's RepairFloodingRate) and, at the same time, pumping out at LeakPump × the pumping speed (for a team ordered to counterflood: only where that does not worsen the list / trim).</summary>
         static bool LeakWithPump(object comp, int i)
@@ -217,6 +227,8 @@ namespace AlternativeDamageModel
                 float dp = (float)_floodDelta.GetValue(fp, null), ds = (float)_floodDelta.GetValue(fs, null);
                 if (dp <= 1e-4f && ds <= 1e-4f) return;
                 bool port = dp >= ds;
+                var side = _drainSide == null ? null : _drainSide.GetValue(comp) as bool[];
+                if (side != null && i < side.Length) port = side[i] ? dp > 1e-4f : ds <= 1e-4f;   // the side the pumping works on (PumpMoreWater)
                 var teams = _teams.GetValue(comp, null) as int[];
                 float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));
                 float dec = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null)) * share;
