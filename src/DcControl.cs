@@ -83,7 +83,9 @@ namespace AlternativeDamageModel
                 _leakOrig = Caller(tComp.GetMethod("RepairFloodingRate", all));
                 Repairs[TaskLeak] = _leakOrig == null ? null : LeakWithPump;
                 Repairs[TaskFire] = Caller(tComp.GetMethod("RepairFire", all));
-                Repairs[TaskPump] = Caller(tComp.GetMethod("RepairFlooding", all));
+                _pumpOrig = Caller(tComp.GetMethod("RepairFlooding", all));
+                _drainSide = tComp.GetField("_drainPortSide", all);
+                Repairs[TaskPump] = _pumpOrig == null ? null : PumpMoreWater;
                 Repairs[TaskHull] = Caller(tComp.GetMethod("RepairStructure", all));
                 Repairs[TaskSystems] = Caller(tComp.GetMethod("RepairSystems", all));
                 Repairs[TaskCounter] = CounterFlood;
@@ -172,7 +174,27 @@ namespace AlternativeDamageModel
         /// </summary>
         static bool PumpSafe(object comp, int i) { return PumpSafe(comp, i, 1f); }
 
-        static Func<object, int, bool> _leakOrig;
+        static Func<object, int, bool> _leakOrig, _pumpOrig;
+        static FieldInfo _drainSide;
+
+        /// <summary>Pumping out (the game's RepairFlooding) from the side with more water above its minimum. The game keeps one side until it is
+        /// at its minimum and only then switches; here the side is chosen again every tick.</summary>
+        static bool PumpMoreWater(object comp, int i)
+        {
+            try
+            {
+                var arr = _drainSide == null ? null : _drainSide.GetValue(comp) as bool[];
+                if (arr != null && i < arr.Length)
+                {
+                    float dp = (float)_floodDelta.GetValue((_port.GetValue(comp) as Array).GetValue(i), null);
+                    float ds = (float)_floodDelta.GetValue((_star.GetValue(comp) as Array).GetValue(i), null);
+                    if (dp > 1e-4f || ds > 1e-4f) arr[i] = dp >= ds;
+                }
+            }
+            catch { }
+            return _pumpOrig(comp, i);
+        }
+
         static bool _safeLeak;
 
         /// <summary>Plugging holes (the game's RepairFloodingRate) and, at the same time, pumping out at LeakPump × the pumping speed (for a team ordered to counterflood: only where that does not worsen the list / trim).</summary>
