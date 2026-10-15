@@ -657,3 +657,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: ChangeList.txt
 * В корне добавлен `ChangeList.txt` (английский, для релиза); архив теперь включает README*.md/.txt/.BBCode.txt и ChangeList.txt.
+
+## 2026-10-15: выложено в Steam Workshop
+* Релиз выложен пользователем (сборка dll 20261015.0114, Release/ + README*, ChangeList.txt). Опорная версия для следующих ChangeList — эта.
