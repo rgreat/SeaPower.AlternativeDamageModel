@@ -1,0 +1,29 @@
+Alternative Damage Model - change list
+
+Version 1.0.0 (build 20261015, for Sea Power 0.8.4)
+
+Damage Control interface
+- Damage control teams as people: number by displacement, walking between sections, muster time, knock-outs (a team knocked out twice is lost).
+- Smarter Auto DC while transfers take time.
+- DC Priority for the whole ship: Auto, Fire first, Flooding first.
+- NEW: "Limit Speed" button next to Auto DC (on by default). Off removes the game's cut of the ship's speed by flooding.
+- Orders to single teams with Auto DC off: task, move, send to the reserve; counterflooding.
+- Detailed Damage Control tab: hull integrity of each side, one icon per team, water and fire in % with trend arrows.
+- Tooltips of water and fire explain why: what raises the value and what lowers it, who is plugging or pumping, speed effects.
+- LIST / TRIM / LEVEL gauges; pointing at them shows the flooding plan (above the card).
+- NEW: "Show deck levels in 3D" check box in the flooding plan: the ship's deck points are shown in the 3D view all the time.
+
+Damage model (Advanced profile)
+- Stronger hulls (factors per ship type and per ship), tunable side effects of hits, stronger systems.
+- No instant sinking from list or trim: water over the deck edge, centre of mass rising with the water, capsizing, wreck drag, bubbles stopped after 10 minutes.
+- Fire and flooding speeds; fires that nobody fights grow faster.
+- NEW: the ship's speed changes how fast water comes in (through holes and over the deck edge) and how fast fires grow: a table of speed points (Settings -> Damage Model -> Ship speed). Advanced: 0..50 knots, water x0.75..x5, fire x1..x2.
+- NEW: teams cannot plug holes above a set speed (DC Teams -> "Max ship speed for plugging holes"; Advanced 15 knots, 0 = no limit).
+- NEW: a team plugging holes also pumps out water (setting "Pumping while plugging holes").
+- NEW: pumping out starts from the side of a section with more water and changes sides at most every 10 seconds, or when this side is at its minimum.
+- NEW: fire and smoke points by ship length: under 25 m one, under 50 m two, under 75 m three, from 75 m five.
+- Team effectiveness 0.3 in the Advanced profile.
+
+Settings
+- Settings window (the gear next to (i)): profiles Base Game, Advanced and your own; changes apply at once. The reset button restores the game's value.
+- One switch turns the whole damage model off and on during a mission.

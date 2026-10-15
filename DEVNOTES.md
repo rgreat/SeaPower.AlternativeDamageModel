@@ -654,3 +654,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: схема над карточкой — привязка по нижнему краю
 * Высота по `Measure` выходила завышенной (панель висела ~25 px выше): в Grid панель теперь привязана нижним краем (`VerticalAlignment.Bottom`, нижний отступ = высота панели − Y карточки + 5), высота не нужна. Для Canvas — прежний расчёт по `DesiredSize`.
+
+## 2026-10-15: ChangeList.txt
+* В корне добавлен `ChangeList.txt` (английский, для релиза); архив теперь включает README*.md/.txt/.BBCode.txt и ChangeList.txt.
