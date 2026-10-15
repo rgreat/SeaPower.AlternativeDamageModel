@@ -615,3 +615,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-15: Limit Speed оформлен как Auto DC
 * Рядом с Auto DC: заголовок «Limit Speed» (шрифт и цвет заголовка игры) и под ним переключатель «Enabled»/«Disabled» тех же размеров, что у игрового (Padding/MinWidth/Height/Margin/FontSize копируются с него).
+
+## 2026-10-15: «Lowers it» — только то, что меняет эту сторону сейчас
+* `FloodCause`: строки откачки (и «pump while plugging») убраны, когда эта сторона сейчас не откачивается (игра качает одну сторону за раз — «the other side first») или вода уже на минимуме. Пометки «(the other side first)» / «(the water is at its minimum)» удалены.
