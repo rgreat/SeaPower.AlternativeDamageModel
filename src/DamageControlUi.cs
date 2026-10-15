@@ -1741,7 +1741,7 @@ namespace AlternativeDamageModel
                 var here = DcTeams.InSection(comp, i);
                 int number = k < here.Count ? here[k].Number : 0;
                 var sb = new StringBuilder(Dc(number) + ": " + TaskName(did));
-                if (forced[k] != TaskNone) sb.Append(forced[k] == did ? "\nTask by hand" : "\nBy hand: " + TaskName(forced[k]) + " (nothing to do)");
+                if (forced[k] != TaskNone) sb.Append(forced[k] == did ? "\nTask by hand" : "\nBy hand: " + TaskName(forced[k]) + (forced[k] == TaskLeak && SpeedEffect.TooFastToPlug(comp) ? " (speed is too fast)" : " (nothing to do)"));
                 if (k < here.Count)
                 {
                     if (here[k].Stay < 1e6f && DcTeams.TransfersOn) sb.Append("\nHere " + Clock(here[k].Stay));
