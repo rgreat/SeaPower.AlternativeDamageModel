@@ -6,7 +6,7 @@ namespace AlternativeDamageModel
 {
     /// <summary>
     /// A destroyed ship slides on: the game sets the rigidbody's drag from the sea (Compartments.OnFixedUpdate: Lerp(outOfWaterDrag, submergedDrag, submerged volume),
-    /// 25 for nearly every ship) and does not change it when the ship is destroyed. The drag of a wreck is made [Sinking] WreckDragFactor times stronger for the
+    /// 25 for nearly every ship) and does not change it when the ship is destroyed. The drag of a wreck is made [Effects] WreckDragFactor times stronger for the
     /// HORIZONTAL movement only: after the game's call the horizontal velocity is divided once more by 1 + (Factor - 1) * drag * dt (the way Unity applies its own
     /// damping). The vertical velocity is left alone: the linear drag is not raised - with drag 25 the speed of sinking is already only (pull / 25) and a higher
     /// drag stopped a wreck full of water from sinking at all.

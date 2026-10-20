@@ -26,9 +26,9 @@ namespace AlternativeDamageModel
 
         static readonly int[][] Orders =
         {
-            new[] { TaskLeak, TaskFire, TaskPump, TaskHull, TaskSystems },   // Auto: the game's order
-            new[] { TaskFire, TaskLeak, TaskPump, TaskHull, TaskSystems },   // fire first
-            new[] { TaskLeak, TaskPump, TaskFire, TaskHull, TaskSystems },   // flooding first
+            new[] { TaskLeak, TaskFire, TaskPump, TaskSystems, TaskHull },   // Auto (a growing fire goes first in DcAuto)
+            new[] { TaskFire, TaskLeak, TaskPump, TaskSystems, TaskHull },   // fire first
+            new[] { TaskLeak, TaskPump, TaskFire, TaskSystems, TaskHull },   // flooding first
         };
 
         public static Func<bool> IsEnabled = () => false;   // DC Priority, tasks by hand (the detailed view)

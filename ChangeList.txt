@@ -1,28 +1,13 @@
 Alternative Damage Model - change list
 
-Changes since the Workshop version (build 20261011.0026), for Sea Power 0.8.3-0.8.5.
+Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.8.5.
 [Advanced] = on in the Advanced profile only.
 
-DAMAGE CONTROL TAB
-- Hull Damage and Flooding also show the overall % of the ship; weapon buttons are coloured by weapon state.
-- Tooltips of water and fire show what raises and what lowers the value (holes, deck-edge water, pumping, ship speed).
-- Arrows no longer flicker; the team row of a section is tighter.
-- NEW: "Limit Speed" button next to Auto DC: off removes the game's cut of the ship's speed by flooding.
-- NEW: counterflooding as a team task by hand.
-- Flooding plan: above the LIST / TRIM / LEVEL gauges, shows the tilt left before a deck edge touches the sea.
-- NEW: "Show deck levels in 3D" check box in the flooding plan.
-
-DAMAGE MODEL
-- Water over the deck edge floods compartments for ships with a complete hull collider; LIST / TRIM red zones start where a deck edge touches the sea.
-- A ship sinks from flooding only when its central compartments (or 5 of 10) are under the sea.
-- [Advanced] Flooded ships turn keel up (centre of mass rises with the water); wrecks lose their way sooner; bubbles stop after 10 minutes.
-- NEW: ship speed changes how fast water comes in and fires grow (table of speed points, Settings -> Damage Model).
-- NEW: teams cannot plug holes above a set speed ([Advanced] 15 knots).
-- NEW: plugging teams also pump out water; pumping starts from the side with more water.
-- [Advanced] A fire does not spread into a section with a team; a section under the sea puts its fire out.
-- NEW: fire and smoke points by ship length: <25 m 1, <50 m 2, <75 m 3, from 75 m 5.
-- Advanced defaults: team effectiveness 0.3, fire damage to the hull 0.1, flood imbalance effect 1.0.
-
-SETTINGS WINDOW
-- Resizable, wider, new "Sinking" tab; the reset button restores the game's value.
-- Fixed: "Team stops fire spread" and similar switches went back to off on Apply.
+- Fixed: arrows of fires and flooding no longer slide onto the % text when a colour or a level changes.
+- Fixed: DC teams no longer go back to the reserve (or are taken off a section) while it still has hull or systems work.
+- Auto DC takes the fastest growing fire or leak first: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure (Fire / Flooding priority change the order of their group).
+- NEW: Flooding tab: list of ships that get no Deck Points (flooded by the old rules).
+- NEW: Hull tab: a ship without weapons can be counted as civilian [Advanced].
+- NEW: AI ships under 50 m ignore the speed limit from flooding (kamikaze) [Advanced].
+- Removed: "Centre of mass rise" (not needed).
+- "Keep centre of mass", "Wreck drag" and "Stop bubbles after" moved to the Effects tab and are global (not part of a profile); the Sinking tab is gone.

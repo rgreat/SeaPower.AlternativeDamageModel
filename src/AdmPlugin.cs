@@ -60,7 +60,7 @@ namespace AlternativeDamageModel
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _capsizeEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<int> _knockDeathEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _speedEffectEntry;
@@ -76,7 +76,7 @@ namespace AlternativeDamageModel
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
-        ConfigEntry<bool> _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
+        ConfigEntry<bool> _unarmedCivEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -84,6 +84,9 @@ namespace AlternativeDamageModel
         static bool _smoke = true;
         static bool _dumpXaml;
         static string _xamlDir;
+        ConfigEntry<string> _noDeckEntry;
+        static bool _unarmedCiv;
+        static HashSet<string> _noDeck = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         ConfigEntry<Factor> _mWarEntry, _mCivEntry, _mSubEntry, _shellVulnEntry, _fireVulnEntry, _floodVulnEntry,
                             _uiFloodOne, _uiFloodTwo, _uiFireOne, _uiFireTwoUp, _uiFireTwoDown;
         static bool _uiOn, _uiReady;
@@ -262,6 +265,10 @@ namespace AlternativeDamageModel
             _mWarEntry = Pcfg.Bind("HullIntegrity", "Warships", new Factor(2f),
                 "How many times stronger the hull of surface warships is than in the game. 1.0 = as in the game, 2.0 = twice as strong. " +
                 "Single ships get their own value in section [HullIntegrityPerShip], one line per ship: ini file name = multiplier (e.g. usn_bb_iowa = 3.0).");
+            _unarmedCivEntry = Pcfg.Bind("HullIntegrity", "UnarmedAsCivilian", false,
+                "A surface ship with no weapons (no guns, launchers or CIWS) is counted as a civilian ship: the civilian hull value and the civilian number of teams.");
+            _noDeckEntry = Pcfg.Bind("FireAndFlooding", "NoDeckPointsShips", "",
+                "Ships (ini file names, comma separated; edited in the settings window, Flooding tab) that get no Deck Points: they are flooded by the old, simpler rules, as a ship without a hull collider.");
             _mCivEntry = Pcfg.Bind("HullIntegrity", "CivilianShips", new Factor(2f),
                 "How many times stronger the hull of civilian ships (ini files civ_*) is than in the game. 1.0 = as in the game.");
             _mSubEntry = Pcfg.Bind("HullIntegrity", "Submarines", new Factor(1f),
@@ -330,6 +337,9 @@ namespace AlternativeDamageModel
             _speedEffectEntry = Pcfg.Bind("FireAndFlooding", "SpeedEffect", "0=1/1, 50=1/1",
                 "How the ship's speed changes the growth of fires and the water coming in (through holes and over the deck edge): knots=flooding/fire multiplier, " +
                 "a broken line through the points. The speed is taken as an absolute value; below the first point and above the last the end multipliers hold.");
+            _smallAiEntry = Pcfg.Bind("FireAndFlooding", "SmallAiNoSpeedLimit", false,
+                "AI ships (not the player's own) shorter than 50 m do not slow down from flooding: the game's cut of speed by holes and water is off for them " +
+                "(they keep going, like kamikazes). The \"Limit Speed\" button of your own ships is separate.");
             _maxPlugEntry = Pcfg.Bind("DamageControlTeams", "MaxPlugSpeed", new Factor(0f),
                 "A team cannot plug holes while the ship is faster than this, knots. 0 = no limit.");
             _warTeamsEntry = Pcfg.Bind("DamageControlTeams", "WarshipTeams", "0=1, 500=2, 1500=3, 5000=4, 20000=5",
@@ -372,18 +382,13 @@ namespace AlternativeDamageModel
             _levelLimitEntry = Pcfg.Bind("Sinking", "FloodLimit", new Factor(Limits.LevelFull),
                 "Water in the whole ship, % (the average of its compartments), from which it sinks, as in the game (game: 40; submarines keep the game's 50). " +
                 "Also the full scale of the LEVEL gauge.");
-            _capsizeEntry = Pcfg.Bind("Sinking", "CapsizeFactor", new Factor(1f),
-                "Centre of mass rise (capsizing). The game never moves the ship's centre of mass, so a flooded ship keeps its stability and, once sunk, lies on its side. " +
-                "With this the centre of mass rises with the water in the ship (the stability falls the way the water does it in real life): " +
-                "2.0 = at FloodLimit it is raised by the whole roll stiffness the water leaves (the ship turns over before that, from about a quarter of the water for a destroyer, " +
-                "because its centre of mass is already above the buoyancy points), 1.0 = half as high, 0 = off (the game's). A ship that has lost its stability turns over, keel up.");
-            _keepComEntry = Pcfg.Bind("Sinking", "KeepCentreOfMass", true,
+            _keepComEntry = Cfg.Bind("Effects", "KeepCentreOfMass", true,
                 "When a ship starts to sink the game puts its centre of mass at the hull origin ((0, 1, 0) if it has capsized): the centre of mass jumps, and with it " +
-                "every torque on the hull. On = the centre of mass stays where it was (with CapsizeFactor: where the water in the ship has raised it). Off = as in the game.");
-            _wreckDragEntry = Pcfg.Bind("Sinking", "WreckDragFactor", new Factor(5f),
+                "every torque on the hull. On = the centre of mass stays where it was. Off = as in the game.");
+            _wreckDragEntry = Cfg.Bind("Effects", "WreckDragFactor", new Factor(3f),
                 "Resistance to the HORIZONTAL movement of a destroyed ship, times the game's linear drag (25 for nearly every ship): the wreck loses its way sooner. " +
                 "1 = as in the game. Sinking (vertical movement) and turning (capsizing) are not slowed.");
-            _bubblesEntry = Pcfg.Bind("Sinking", "BubblesStopMinutes", new Factor(10f),
+            _bubblesEntry = Cfg.Bind("Effects", "BubblesStopMinutes", new Factor(10f),
                 "Minutes (game time, so time compression counts) after a ship starts to sink, when its sinking-bubbles effect stops emitting " +
                 "(the game never stops it while the wreck exists). Saves resources in long missions. 0 = never, as in the game.");
             _deckFloodDelayEntry = Pcfg.Bind("Sinking", "DeckFloodingDelay", new Factor(3f),
@@ -770,6 +775,12 @@ namespace AlternativeDamageModel
             DcControl.CounterRate = Math.Max(0f, _counterRateEntry.Value.V);
             DcControl.LeakPump = Math.Max(0f, _leakPumpEntry.Value.V);
             SpeedEffect.Set(_speedEffectEntry.Value);
+            SpeedEffect.SmallAiFree = _smallAiEntry.Value;
+            _unarmedCiv = _unarmedCivEntry.Value;
+            var nd = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var n in (_noDeckEntry.Value ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)) { var t = n.Trim(); if (t.Length > 0) nd.Add(t); }
+            _noDeck = nd;
+            DeckCorners.NoPoints = c => { HullState hs; return _noDeck.Count > 0 && c != null && Hulls.TryGetValue(c, out hs) && hs.Ini != null && _noDeck.Contains(hs.Ini); };
             SpeedEffect.MaxPlugKnots = Math.Max(0f, _maxPlugEntry.Value.V);
             DcControl.CounterLimit = Math.Max(0f, _counterLimitEntry.Value.V);
             _fireHull = Math.Max(0f, _fireHullEntry.Value.V);
@@ -807,7 +818,6 @@ namespace AlternativeDamageModel
             Limits.LevelFull = Clamp(_levelLimitEntry.Value.V, 5f, 100f);
             TrimFlooding.Speed = Math.Max(0f, _deckFloodSpeedEntry.Value.V);
             SubmergedFlooding.Delay = Math.Max(0f, _deckFloodDelayEntry.Value.V);
-            CapsizeFix.Factor = Math.Max(0f, _capsizeEntry.Value.V);
             BubblesOff.Minutes = Math.Max(0f, _bubblesEntry.Value.V);
             CapsizeFix.KeepCom = _keepComEntry.Value;
             WreckDrag.Factor = Math.Max(0f, _wreckDragEntry.Value.V);
@@ -1355,6 +1365,7 @@ namespace AlternativeDamageModel
                 var bo = _fCompBase.GetValue(comp);
                 bool isSub = bo != null && _tSubmarine != null && _tSubmarine.IsInstanceOfType(bo);
                 bool isCiv = (bool)_pObpCivilian.GetValue(obp, null);
+                if (Model && _unarmedCiv && !isCiv && !isSub && !HasWeapons(obp)) isCiv = true;   // no weapons: not a warship
                 float dispT = 0f; int teamsIni = -1;
                 try
                 {
@@ -1394,6 +1405,25 @@ namespace AlternativeDamageModel
                 if (!_warnedHull) { _warnedHull = true; Warn("ApplyHull failed: " + e.Message); }
                 Trace("ApplyHull: " + e);
             }
+        }
+
+        /// <summary>A gun, launcher, CIWS or hardpoint among the ship's systems (chaff is not a weapon). True when the list cannot be read.</summary>
+        static bool HasWeapons(object obp)
+        {
+            try
+            {
+                if (_fObpSystems == null) _fObpSystems = obp.GetType().GetField("_systems", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var list = _fObpSystems == null ? null : _fObpSystems.GetValue(obp) as IEnumerable;
+                if (list == null) return true;
+                foreach (var sys in list)
+                    for (var t = sys == null ? null : sys.GetType(); t != null; t = t.BaseType)
+                    {
+                        string n = t.Name;
+                        if (n == "WeaponSystemGun" || n == "WeaponSystemLauncher" || n == "WeaponSystemCIWS" || n == "WeaponSystemHardpoint") return true;
+                    }
+                return false;
+            }
+            catch { return true; }
         }
 
         static bool HasRole(IEnumerable roles, string name)
@@ -1917,7 +1947,7 @@ namespace AlternativeDamageModel
                             "FloodingMul", 1, "FloodingSpeed", true);
         }
 
-        public static bool SpeedLimitOff(bool flag, object comp) { return flag || (Model && !DcControl.LimitSpeed(comp)); }
+        public static bool SpeedLimitOff(bool flag, object comp) { return flag || (Model && (!DcControl.LimitSpeed(comp) || SpeedEffect.NoCutFor(comp))); }
 
         // Compartments.UpdateWantedVelocityInKnots: "if (WantedVelocityInKnots > 10f && !flag2)" - the cut of the speed by flooding (10-25 kn);
         // the "Limit Speed" button off = treated like the submarine's emergency surfacing: no cut
@@ -1977,7 +2007,7 @@ namespace AlternativeDamageModel
         static void WreckDragPostfix(object __instance) { WreckDrag.Tick(__instance); }
         static void SinkComPrefix(object __instance, out object __state) { __state = CapsizeFix.BeforeSink(__instance); }
         static void SinkComPostfix(object __instance, object __state) { CapsizeFix.AfterSink(__instance, __state); }
-        static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); CapsizeFix.Tick(__instance); BubblesOff.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
+        static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); BubblesOff.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
 
         public static float TeamEffMul(float v) { return DcTeams.Eff(v); }
 

@@ -16,6 +16,31 @@ namespace AlternativeDamageModel
 
         public static float[] Knots = { 0f, 50f }, FloodMul = { 1f, 1f }, FireMul = { 1f, 1f };
         public static float MaxPlugKnots;   // 0 = no limit
+        public static bool SmallAiFree;     // [FireAndFlooding] SmallAiNoSpeedLimit: AI ships under SmallAiLength do not slow down from flooding
+        public const float SmallAiLength = 50f;
+
+        static FieldInfo _fBaseObj; static PropertyInfo _pControllable; static bool _initAi;
+
+        /// <summary>A ship under 50 m that nobody controls (an AI ship: an enemy or an ally of the player) while the setting is on: the game's cut of speed by flooding is not applied.</summary>
+        public static bool NoCutFor(object comp)
+        {
+            if (!SmallAiFree || comp == null) return false;
+            try
+            {
+                if (!_initAi)
+                {
+                    _initAi = true;
+                    _fBaseObj = comp.GetType().GetField("_baseObject", All);
+                    _pControllable = _fBaseObj == null ? null : _fBaseObj.FieldType.GetProperty("IsControllable", All);
+                }
+                if (_fBaseObj == null || _pControllable == null) return false;
+                var bo = _fBaseObj.GetValue(comp);
+                if (bo == null || (bool)_pControllable.GetValue(bo, null)) return false;   // the player's own ship
+                float len = DcTeams.ShipLength(comp);
+                return len > 0f && len < SmallAiLength;
+            }
+            catch (Exception e) { Trace("SpeedEffect.NoCutFor: " + e.Message); return false; }
+        }
 
         /// <summary>"0=0.75/1, 10=1/1, ..." - speed, knots = flooding multiplier / fire multiplier. Null when nothing usable.</summary>
         public static float[][] Parse(string s)

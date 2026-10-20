@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
 
         const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
         const string TFx = "Effects";
-        static readonly string[] Tabs = { TUi, TFx, TGen, TDbg, "Hull", "Systems", "Fire", "Flooding", "Sinking", "DC Teams" };
+        static readonly string[] Tabs = { TUi, TFx, TGen, TDbg, "Hull", "Systems", "Fire", "Flooding", "DC Teams" };
         const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
         /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
         static bool LiveKey(string key) { return key == AdmKey || key == UiKey; }
@@ -70,7 +70,7 @@ namespace AlternativeDamageModel
 
         static SettingsWindow()
         {
-            const string H = "Hull", FF = "Fire", DC = "DC Teams", S = "Flooding", SK = "Sinking", D = TUi, G = TGen;
+            const string H = "Hull", FF = "Fire", DC = "DC Teams", S = "Flooding", D = TUi, G = TGen;
             Add(D, "Damage Control tab", UiKey, "Detailed view", "applies at once", Kind.Bool, 0, 0, 0, true);
             Add(D, "Bottom panel", "UI/ColorWeaponStatus", "Weapon status colours", "yellow: part inoperable, red: all", Kind.Bool, 0, 0, 0, true);
             Add(D, ArrowsGroup, "UI/FloodingOneArrowAt", "Water: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
@@ -91,6 +91,8 @@ namespace AlternativeDamageModel
 
             Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SpeedEffect", "Multipliers by speed", "", Kind.Speed, 0, 0, 0);
 
+            Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SmallAiNoSpeedLimit", "No speed limit for small AI ships", "AI ships under 50 m: no cut of speed by flooding", Kind.Bool, 0, 0, 0);
+
             Add(TDbg, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/LogHeel", "List, trim and buoyancy", "", Kind.Bool, 0, 0, 0, true);
@@ -102,6 +104,7 @@ namespace AlternativeDamageModel
 
             Add(H, "Hull integrity", "HullIntegrity/Warships", "Warships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/CivilianShips", "Civilian ships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
+            Add(H, "Hull integrity", "HullIntegrity/UnarmedAsCivilian", "Ships without weapons", "count them as civilian", Kind.Bool, 0, 0, 0);
             Add(H, "Hull integrity", "HullIntegrity/Submarines", "Submarines", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullShellVulnerability", "Gun shells", "", Kind.Number, 0.1f, 0.1f, 10f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFireVulnerability", "Fires", "", Kind.Number, 0.1f, 0.1f, 10f);
@@ -141,10 +144,9 @@ namespace AlternativeDamageModel
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
             Add(S, "Sinking from", "Sinking/FloodLimit", "Water in the ship", "% of the hull", Kind.Number, 1f, 5f, 100f);
-            Add(SK, "Capsizing", "Sinking/CapsizeFactor", "Centre of mass rise", "× · rises with the water in the ship; 0 = off", Kind.Number, 0.1f, 0f, 5f);
-            Add(SK, "Sinking and wreck", "Sinking/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0);
-            Add(SK, "Sinking and wreck", "Sinking/WreckDragFactor", "Wreck drag", "× the game's resistance to the horizontal movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f);
-            Add(SK, "Sinking and wreck", "Sinking/BubblesStopMinutes", "Stop bubbles after", "min after sinking starts; 0 = never", Kind.Number, 1f, 0f, 120f);
+            Add(TFx, "Sinking and wreck", "Effects/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0, true);
+            Add(TFx, "Sinking and wreck", "Effects/WreckDragFactor", "Wreck drag", "× the game's resistance to the horizontal movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f, true);
+            Add(TFx, "Sinking and wreck", "Effects/BubblesStopMinutes", "Stop bubbles after", "min after sinking starts; 0 = never", Kind.Number, 1f, 0f, 120f, true);
         }
 
         // ------------------------------------------------------------ colours (the game's dark panels)
@@ -883,6 +885,7 @@ namespace AlternativeDamageModel
             }
             if (Tabs[_tab] == "Hull") ShipRows();
             if (Tabs[_tab] == "Systems") ModuleRows();
+            if (Tabs[_tab] == "Flooding") NoDeckRows();
             UpdateHeader();
         }
 
@@ -950,6 +953,7 @@ namespace AlternativeDamageModel
                 var en = key == null || key.StartsWith("#") ? null : Entry(key);
                 string d = en != null && en.Description != null ? en.Description.Description : "";
                 if (key == null || key == "#ships") d = "Ships with their own hull multiplier, chosen from the game's ships (or by ini file name): how many times stronger than in the game; replaces the class value, is not multiplied by it.";
+                else if (key == "#nodeck") d = "Ships that get no Deck Points (Flooding): water over the deck edge is not calculated for them, the old simpler rules are used, as for a ship without a hull collider. Picked from the game's ships or by ini file name.";
                 else if (key == "#modules") d = "Module types (modules.ini) with their own Integrity, set explicitly in place of modules.ini's (the game's value is put in when a type is picked); the Integrity multiplier above does not apply to them. The game's own adjustments keep their proportion: types marked \"× tonnage\" (amber) grow with the ship's displacement - point at one for its final values -, and a ship's own value for a system is changed in the same ratio.";
                 _help.Inlines.Clear();
                 var r = new Run(label); r.FontWeight = FontWeight.Bold; r.Foreground = B(CText);
@@ -1194,6 +1198,89 @@ namespace AlternativeDamageModel
             MapRows("Single ships - × game, instead of the class value", p => p.Ships, ShipNames.Display, ShipNames.Filter, ShipNames.ToIni,
                     "+ Add ship", "a ship from the list, or its ini file name", "Remove: the ship takes the class value again", "#ships",
                     n => "", n => 2f, 0.5f, 0.1f, 20f);
+        }
+
+        const string NoDeckKey = "FireAndFlooding/NoDeckPointsShips";
+
+        static List<string> NoDeckList()
+        {
+            string v;
+            var l = new List<string>();
+            if (_work != null && _work.Values.TryGetValue(NoDeckKey, out v) && v != null)
+                foreach (var n in v.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)) { var t = n.Trim(); if (t.Length > 0 && !l.Contains(t)) l.Add(t); }
+            l.Sort(StringComparer.OrdinalIgnoreCase);
+            return l;
+        }
+
+        static void NoDeckSet(List<string> l)
+        {
+            _work.Values[NoDeckKey] = string.Join(", ", l.ToArray());
+            BecomeOwn(); ShowTab(_tab);
+        }
+
+        /// <summary>Flooding tab: ships that get no Deck Points (flooded by the old, simpler rules). The same list editor as Hull: Single ships.</summary>
+        static void NoDeckRows()
+        {
+            _body.Children.Add(GroupTitle("Ships without Deck Points - flooded by the old rules, as with no hull collider"));
+            foreach (var name in NoDeckList())
+            {
+                string nm = name;
+                var g = RowGrid();
+                var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f) };
+                var lab = Text(ShipNames.Display(nm), CText);
+                lab.VerticalAlignment = VerticalAlignment.Center;
+                try { ToolTipService.SetToolTip(lab, nm); } catch { }
+                g.Children.Add(lab);
+                var rm = new Button { Content = Cross(8f), Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right,
+                                      HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
+                try { ToolTipService.SetToolTip(rm, "Remove: the ship gets Deck Points again"); } catch { }
+                rm.Click += (o, e) => { var l = NoDeckList(); l.RemoveAll(x => string.Equals(x, nm, StringComparison.OrdinalIgnoreCase)); NoDeckSet(l); };
+                Grid.SetColumn(rm, 3); g.Children.Add(rm);
+                Hover(outer, ShipNames.Display(nm), "#nodeck");
+                _body.Children.Add(outer);
+            }
+            var ag = RowGrid();
+            var aouter = new Border { Child = ag, Padding = new Thickness(12f, 4f, 6f, 8f) };
+            var nameBox = new ComboBox { IsEditable = true, Width = 190f, MinHeight = 24f, HorizontalAlignment = HorizontalAlignment.Left, StaysOpenOnEdit = true };
+            Action<string> fill = f =>
+            {
+                nameBox.Items.Clear();
+                foreach (var it in ShipNames.Filter(f, 300)) nameBox.Items.Add(it);
+            };
+            fill("");
+            string lastFilter = "";
+            nameBox.KeyUp += (o, e) =>
+            {
+                if (e.Key == Key.Return || e.Key == Key.Up || e.Key == Key.Down) return;
+                string t = nameBox.Text ?? "";
+                if (t == lastFilter) return;
+                lastFilter = t;
+                fill(t);
+                nameBox.Text = t;
+                try { var tb = nameBox.Template.FindName("PART_EditableTextBox", nameBox) as TextBox; if (tb != null) tb.CaretIndex = t.Length; } catch { }
+                nameBox.IsDropDownOpen = nameBox.Items.Count > 0 && t.Length > 0;
+            };
+            nameBox.GotFocus += (o, e) => Typing(true);
+            nameBox.LostFocus += (o, e) => Typing(false);
+            ag.Children.Add(nameBox);
+            var err = Text("", CErr, 11f); err.Margin = new Thickness(8f, 0f, 0f, 0f);
+            var addB = new Button { Content = "+ Add ship", Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(8f, 0f, 0f, 0f), MinHeight = 24f };
+            addB.Click += (o, e) =>
+            {
+                string n = ShipNames.ToIni((nameBox.SelectedItem as string ?? nameBox.Text ?? "").Trim());
+                if (n.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) n = n.Substring(0, n.Length - 4);
+                if (n.Length == 0) { err.Text = "a ship from the list, or its ini file name"; return; }
+                string bad = AdmPlugin.BadKey(n);
+                if (bad != null) { err.Text = bad; return; }
+                var l = NoDeckList();
+                if (!l.Exists(x => string.Equals(x, n, StringComparison.OrdinalIgnoreCase))) l.Add(n);
+                NoDeckSet(l);
+            };
+            var asp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            asp.Children.Add(addB); asp.Children.Add(err);
+            Grid.SetColumn(asp, 1); ag.Children.Add(asp);
+            Hover(aouter, "Add ship", "#nodeck");
+            _body.Children.Add(aouter);
         }
 
         static void ModuleRows()

@@ -8,7 +8,7 @@ namespace AlternativeDamageModel
     /// <summary>
     /// The sinking-bubbles effect (ini [Particles] SinkingBubblesEffect): the game spawns it on the hull once, in Compartments.Sink(), and never ends it
     /// while the wreck exists. Here, N game minutes after the sink started (time compression counts), its particle systems stop emitting
-    /// (the particles already in the water fade out), which saves the particle load of long missions. Setting [Sinking] BubblesStopMinutes; 0 = never (the game's).
+    /// (the particles already in the water fade out), which saves the particle load of long missions. Setting [Effects] BubblesStopMinutes; 0 = never (the game's).
     /// </summary>
     static class BubblesOff
     {

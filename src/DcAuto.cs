@@ -10,8 +10,8 @@ namespace AlternativeDamageModel
     /// Auto DC that keeps the walking down (replaces Compartments.CheckDCTeamsAllocation while the mod is on and transfers take
     /// time - [DamageControlTeams] TransferSpeed or MusterTime not 0). The game sends every free team, one per tick, to the single worst
     /// section and recalls all of them every minute; with walking teams that keeps them on the move all the time. Here, every 2 s:
-    ///  1. every section's work is rated in the order of the ship's DC Priority (Auto: leak > fire > water > hull > systems;
-    ///     Fire first; Flooding first). Hull counts from 5% to restore, systems from medium damage. Fire and water are watched
+    ///  1. every section's work is rated in the order of the ship's DC Priority (Auto: fire rate > leak rate > fires > flooding > systems > hull;
+    ///     Fire: fire rate > fires > leak rate > flooding > ...; Flooding: leak rate > flooding > fire rate > fires > ...). Hull counts from 5% to restore, systems from medium damage. Fire and water are watched
     ///     for how fast they grow (smoothed over ~10 s), as well as for how bad they are;
     ///  2. each section with work wants one team; a section with fire or flooding wants one more if it is bad (leak rate ≥ 0.5,
     ///     fire ≥ 50% of its maximum, water ≥ 33%) and one more again if it grows fast (fire ≥ 0.5% of its maximum a second,
@@ -93,18 +93,19 @@ namespace AlternativeDamageModel
         static float F(object v) { try { return Convert.ToSingle(v); } catch { return 0f; } }
 
         const int Leak = DcControl.TaskLeak, Fire = DcControl.TaskFire, Pump = DcControl.TaskPump, Hull = DcControl.TaskHull, Systems = DcControl.TaskSystems;
+        const int FireRate = 100;   // not a task: the fire's growth (Fire Rate) ranks above the fire's size (Fires)
 
         static int[] Order(int mode)
         {
             switch (mode)
             {
-                case DcControl.ModeFire: return new[] { Fire, Leak, Pump, Hull, Systems };
-                case DcControl.ModeFlooding: return new[] { Leak, Pump, Fire, Hull, Systems };
-                default: return new[] { Leak, Fire, Pump, Hull, Systems };
+                case DcControl.ModeFire: return new[] { FireRate, Fire, Leak, Pump, Systems, Hull };
+                case DcControl.ModeFlooding: return new[] { Leak, Pump, FireRate, Fire, Systems, Hull };
+                default: return new[] { FireRate, Leak, Fire, Pump, Systems, Hull };
             }
         }
 
-        sealed class Need { public int Section, Rank, Want; public float Size; public bool Urgent; }
+        sealed class Need { public int Section, Rank, Want; public bool ByRate; public float Size; public bool Urgent; }
 
         /// <summary>Prefix of CheckDCTeamsAllocation (Auto DC): false = done here.</summary>
         public static bool Allocate(object comp)
@@ -124,6 +125,9 @@ namespace AlternativeDamageModel
                 int mode = DcControl.GetMode(comp);
                 var order = Order(mode);
 
+                var counts = _teams.GetValue(comp, null) as int[];
+                if (counts == null) return false;
+
                 // 1. the work in each section
                 var needs = new List<Need>();
                 var holds = new bool[count];   // fire / flooding work that keeps its teams there
@@ -135,6 +139,7 @@ namespace AlternativeDamageModel
                     float sev = F(_severity.GetValue(sc, null)), max = F(_maxSev.GetValue(sc)), grow = F(_grow.GetValue(sc));
                     float fire = max > 0f ? sev / max : 0f;
                     float water = Math.Max(F(_floodDelta.GetValue(p, null)), F(_floodDelta.GetValue(s, null)));
+                    bool onSite = i < counts.Length && counts[i] > 0;   // a team there finishes what the game would still repair
                     float hull = Math.Max(Pct(_intDelta.GetValue(p, null), _maxInt.GetValue(p)), Pct(_intDelta.GetValue(s, null), _maxInt.GetValue(s)));
 
                     // growth, smoothed
@@ -160,7 +165,7 @@ namespace AlternativeDamageModel
                                 int cur = Convert.ToInt32(_curDmg.GetValue(b, null));
                                 bool destroyed = cur == 4;   // DamageType.Destroyed
                                 if ((bool)_repairable.GetValue(b, null) && (!destroyed || (bool)_always.GetValue(b)) &&
-                                    Convert.ToInt32(_bigDmg.GetValue(b, null)) <= cur && cur >= 2) { systems = true; break; }   // from medium damage
+                                    Convert.ToInt32(_bigDmg.GetValue(b, null)) <= cur && cur >= (onSite ? 1 : 2)) { systems = true; break; }   // from medium damage; light too where a team works already
                             }
                             catch { }
                         }
@@ -182,16 +187,17 @@ namespace AlternativeDamageModel
                         switch (kind)
                         {
                             case Leak: has = hasLeak; size = leak; break;
+                            case FireRate: has = grow > 0f; size = grow; break;
                             case Fire: has = hasFire; size = fire; break;
                             case Pump: has = hasWater; size = water; break;
-                            case Hull: has = hull >= HullMin; size = hull; break;
+                            case Hull: has = hull >= HullMin || (onSite && hull > 0.01f); size = hull; break;
                             default: has = systems; size = 1f; break;
                         }
                         if (!has) continue;
                         work[i] = true;
                         if (ship.Seen[i] <= 0) ship.Seen[i] = now;
                         if (now - ship.Seen[i] >= Debounce)
-                            needs.Add(new Need { Section = i, Rank = r, Size = size, Want = 1 + extra, Urgent = urgent });
+                            needs.Add(new Need { Section = i, Rank = r, Size = size, Want = 1 + extra, Urgent = urgent, ByRate = kind == FireRate || kind == Leak });
                         break;
                     }
                     if (!work[i]) ship.Seen[i] = 0;
@@ -202,8 +208,6 @@ namespace AlternativeDamageModel
 
                 // teams: where they are, and where the walking ones are going
                 var teams = DcTeams.Snapshot(comp);
-                var counts = _teams.GetValue(comp, null) as int[];
-                if (counts == null) return false;
                 int pool = counts.Length > 5 ? counts[5] : 0;
                 var here = new int[count]; var coming = new int[count];
                 var minStay = new float[count];
@@ -220,6 +224,7 @@ namespace AlternativeDamageModel
                 needs.Sort((a, b) =>
                 {
                     if (a.Rank != b.Rank) return a.Rank.CompareTo(b.Rank);
+                    if (a.ByRate && b.ByRate) return b.Size.CompareTo(a.Size);   // the fastest growing first
                     bool sa = here[a.Section] + coming[a.Section] > 0, sb = here[b.Section] + coming[b.Section] > 0;
                     if (sa != sb) return sa ? -1 : 1;
                     return b.Size.CompareTo(a.Size);

@@ -190,9 +190,14 @@ namespace AlternativeDamageModel
 
         /// <summary>Deck points of any ship (unit = SeaPower.ObjectBase); null if the feature did not start or the ship is not ready yet
         /// (tried again next time). A ship without usable points gets an object with Exact = false (kept).</summary>
+        /// <summary>Ships the user took off the Deck Points (the settings window): treated like a ship with no hull collider.</summary>
+        public static Func<object, bool> NoPoints = c => false;
+        static readonly ShipPoints _noPoints = new ShipPoints { Hull = new List<Component>() };
+
         public static ShipPoints PointsOf(object unit)
         {
             if (!_ok || unit == null) return null;
+            try { if (NoPoints(_pCompartments.GetValue(unit, null))) return _noPoints; } catch { }
             ShipPoints sp;
             if (_shipPoints.TryGetValue(unit, out sp)) return sp;
             bool keep;

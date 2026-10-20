@@ -758,9 +758,9 @@ namespace AlternativeDamageModel
         static readonly string[] PriorityNames = { "Auto", "Fire", "Flooding" };
         static readonly string[] PriorityTips =
         {
-            "Auto: the game's order - Flooding Rate > Fire > Flooding > Structure > Systems.",
-            "Fire first: Fire > Flooding Rate > Flooding > Structure > Systems. Auto DC sends free teams to the worst fire first.",
-            "Flooding first: Flooding Rate > Flooding > Fire > Structure > Systems. Auto DC sends free teams to leaks, then to water.",
+            "Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. The fastest growing fire or leak first.",
+            "Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. Auto DC sends free teams to the worst fire first.",
+            "Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. Auto DC sends free teams to leaks, then to water.",
         };
 
         /// <summary>
@@ -995,8 +995,8 @@ namespace AlternativeDamageModel
         static readonly string[] OrderText =
         {
             null,   // Auto: the game's own text
-            "DC Priority: Fire - teams take threats in this order: Fire > Flooding Rate > Flooding > Structure > Systems",
-            "DC Priority: Flooding - teams take threats in this order: Flooding Rate > Flooding > Fire > Structure > Systems",
+            "DC Priority: Fire - teams take threats in this order: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure",
+            "DC Priority: Flooding - teams take threats in this order: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure",
         };
 
         /// <summary>
@@ -1398,23 +1398,25 @@ namespace AlternativeDamageModel
             try
             {
                 if (tb.ActualWidth < 0.5f) return false;
-                int prev = -1; float px = 0f, pw = 0f;
+                int prev = -1; float px = 0f, pw = 0f; float ptol = 0f;
                 for (int i = 0; i < segs.Count; i++)
                 {
-                    var kid = segs[i].Box && i < d.Kids.Count ? d.Kids[i] : null;
+                    FrameworkElement kid = null; float tol = 0.5f;
+                    if (segs[i].Box && i < d.Kids.Count) kid = d.Kids[i];
+                    else if (segs[i].Arrow && i < d.Inl.Count) { var iu = d.Inl[i] as InlineUIContainer; kid = iu != null ? iu.Child as FrameworkElement : null; tol = 3.5f; }
                     if (kid == null) continue;
                     var pt = kid.TranslatePoint(new Point(0f, 0f), tb);
                     float x = pt.X, w = kid.ActualWidth;
-                    if (prev >= 0 && x < px + pw - 0.5f)
+                    if (prev >= 0 && x < px + pw - Math.Max(tol, ptol))
                     {
                         if (_overTrace >= 25) return true;
                         _overTrace++;
                         var sb = new System.Text.StringBuilder();
                         for (int j = 0; j < segs.Count; j++) sb.Append(segs[j].Arrow ? "[arrow]" : segs[j].Box ? "<" + segs[j].Text + ">" : "'" + segs[j].Text + "'");
-                        Trace("DC boxes overlap: #" + prev + " x " + px.ToString("0.#") + " w " + pw.ToString("0.#") + " (set " + d.Kids[prev].Width.ToString("0.#") + "), #" + i + " x " + x.ToString("0.#") + " w " + w.ToString("0.#") + " (set " + kid.Width.ToString("0.#") + "); row w " + tb.ActualWidth.ToString("0.#") + ", font " + tb.FontSize.ToString("0.#") + "; " + sb);
+                        Trace("DC pieces overlap: #" + prev + " x " + px.ToString("0.#") + " w " + pw.ToString("0.#") + ", #" + i + " x " + x.ToString("0.#") + " w " + w.ToString("0.#") + "; row w " + tb.ActualWidth.ToString("0.#") + ", font " + tb.FontSize.ToString("0.#") + "; " + sb);
                         return true;
                     }
-                    prev = i; px = x; pw = w;
+                    prev = i; px = x; pw = w; ptol = tol;
                 }
             }
             catch (Exception ex) { if (_overTrace < 25) { _overTrace++; Trace("DC overlap check: " + ex.Message); } }
@@ -1429,11 +1431,17 @@ namespace AlternativeDamageModel
                 var o = d.Segs[i]; var n = segs[i];
                 if (o.Arrow != n.Arrow || o.Box != n.Box || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue))) same = false;
             }
+            // a box whose width changes (9% -> 10%) moves the pieces after it: the row is made anew, not patched (an arrow stayed on the number)
+            for (int i = 0; same && i < segs.Count; i++)
+            {
+                if (!segs[i].Box || i >= d.Kids.Count || d.Kids[i] == null || d.Kids[i].Text == segs[i].Text) continue;
+                try { if (Math.Abs(BoxWidth(segs[i].Text, tb) - d.Kids[i].Width) > 0.4f) same = false; } catch { }
+            }
             // the inlines of a row sometimes keep stale positions (a box standing on top of the next one) until the row is made anew:
             // found by the positions of the boxes, the row is rebuilt (at most once a second per row)
             int healed = d != null ? d.Healed : 0;
             bool heal = false;
-            if (same && Environment.TickCount - healed > 1000 && CheckOverlap(tb, d, segs)) { same = false; heal = true; healed = Environment.TickCount; if (_healTrace < 20) { _healTrace++; Trace("DC row: boxes overlap, the row is rebuilt"); } }
+            if (same && Environment.TickCount - healed > 300 && CheckOverlap(tb, d, segs)) { same = false; heal = true; healed = Environment.TickCount; if (_healTrace < 20) { _healTrace++; Trace("DC row: boxes overlap, the row is rebuilt"); } }
             if (same)
             {
                 for (int i = 0; i < segs.Count; i++)
