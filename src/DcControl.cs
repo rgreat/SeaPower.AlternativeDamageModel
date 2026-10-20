@@ -43,6 +43,7 @@ namespace AlternativeDamageModel
         sealed class Ship
         {
             public int Mode;
+            public bool LimitInit;
             public bool NoSpeedLimit;   // "Limit Speed" off
             public readonly List<int>[] Pending = new List<int>[8];  // per compartment: tasks from a saved game, put on the teams there
         }
@@ -288,14 +289,19 @@ namespace AlternativeDamageModel
         /// <summary>"Limit Speed" button: the game cuts the ship's speed by the flooding (10-25 kn). Default on; off = no cut.</summary>
         public static bool LimitSpeed(object comp)
         {
-            Ship s;
-            return comp == null || !Ships.TryGetValue(comp, out s) || !s.NoSpeedLimit;
+            if (comp == null) return true;
+            var s = Ships.GetOrCreateValue(comp);
+            // the start value, set once when the ship is first asked (the game's first speed update after the spawn): a small AI ship starts with
+            // the button off ([FireAndFlooding] SmallAiNoSpeedLimit); after that it is the button's own state
+            if (!s.LimitInit) { s.LimitInit = true; if (SpeedEffect.NoCutFor(comp)) { s.NoSpeedLimit = true; Trace("Limit Speed: off from the start (small AI ship)"); } }
+            return !s.NoSpeedLimit;
         }
 
         public static void SetLimitSpeed(object comp, bool on)
         {
             if (comp == null) return;
-            Ships.GetOrCreateValue(comp).NoSpeedLimit = !on;
+            var sh = Ships.GetOrCreateValue(comp);
+            sh.LimitInit = true; sh.NoSpeedLimit = !on;
             Trace("Limit Speed -> " + (on ? "on" : "off"));
         }
 

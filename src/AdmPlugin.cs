@@ -1943,7 +1943,7 @@ namespace AlternativeDamageModel
                             "FloodingMul", 1, "FloodingSpeed", true);
         }
 
-        public static bool SpeedLimitOff(bool flag, object comp) { return flag || (Model && (!DcControl.LimitSpeed(comp) || SpeedEffect.NoCutFor(comp))); }
+        public static bool SpeedLimitOff(bool flag, object comp) { return flag || (Model && !DcControl.LimitSpeed(comp)); }
 
         // Compartments.UpdateWantedVelocityInKnots: "if (WantedVelocityInKnots > 10f && !flag2)" - the cut of the speed by flooding (10-25 kn);
         // the "Limit Speed" button off = treated like the submarine's emergency surfacing: no cut

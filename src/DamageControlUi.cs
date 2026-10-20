@@ -1381,7 +1381,7 @@ namespace AlternativeDamageModel
         static Seg Arr_(bool up, int n, Color col, Func<string> why) { return new Seg { Arrow = true, Up = up, N = n, Col = col, Why = why }; }
 
         /// <summary>What a row's inlines are now.</summary>
-        sealed class Drawn { public TextBlock Tb; public List<Seg> Segs; public List<Inline> Inl; public List<TextBlock> Kids; public string Shown; public int Healed; }
+        sealed class Drawn { public TextBlock Tb; public List<Seg> Segs; public List<Inline> Inl; public List<TextBlock> Kids; public string Shown; public int Healed; public int Probe, ProbeNo; public string Before, Why; }
 
         /// <summary>
         /// Writes a row. While the pieces are the same kind (same arrows, same colours of the arrows), only the texts and colours of the
@@ -1423,13 +1423,40 @@ namespace AlternativeDamageModel
             return false;
         }
 
+        static int _probeTrace;
+
+        /// <summary>Diagnostics: where the row's pieces stand now ("index kind x/width/height", x from the row's left edge).</summary>
+        static string Pieces(TextBlock tb, Drawn d)
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                sb.Append("row ").Append(tb.ActualWidth.ToString("0.#")).Append('x').Append(tb.ActualHeight.ToString("0.#")).Append(" font ").Append(tb.FontSize.ToString("0.#")).Append(" |");
+                for (int i = 0; i < d.Segs.Count; i++)
+                {
+                    FrameworkElement el = null; string k = "run";
+                    if (d.Segs[i].Box) { el = d.Kids[i]; k = "box'" + d.Segs[i].Text + "'"; }
+                    else if (d.Segs[i].Arrow) { var iu = d.Inl[i] as InlineUIContainer; el = iu != null ? iu.Child as FrameworkElement : null; k = "arrow" + d.Segs[i].N + (d.Segs[i].Up ? "^" : "v"); }
+                    sb.Append(' ').Append(i).Append(' ').Append(k);
+                    if (el != null)
+                    {
+                        var pt = el.TranslatePoint(new Point(0f, 0f), tb);
+                        sb.Append(' ').Append(pt.X.ToString("0.#")).Append('/').Append(el.ActualWidth.ToString("0.#")).Append('/').Append(el.ActualHeight.ToString("0.#"));
+                    }
+                    sb.Append(';');
+                }
+            }
+            catch (Exception ex) { sb.Append(" (").Append(ex.Message).Append(')'); }
+            return sb.ToString();
+        }
+
         static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
         {
             bool same = !force && d != null && ReferenceEquals(d.Tb, tb) && tb.Text == d.Shown && d.Segs.Count == segs.Count;
             for (int i = 0; same && i < segs.Count; i++)
             {
                 var o = d.Segs[i]; var n = segs[i];
-                if (o.Arrow != n.Arrow || o.Box != n.Box || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue || !o.Col.Equals(n.Col)))) same = false;
+                if (o.Arrow != n.Arrow || o.Box != n.Box || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue))) same = false;
             }
             // a box whose width changes (9% -> 10%) moves the pieces after it: the row is made anew, not patched (an arrow stayed on the number)
             for (int i = 0; same && i < segs.Count; i++)
@@ -1442,8 +1469,25 @@ namespace AlternativeDamageModel
             int healed = d != null ? d.Healed : 0;
             bool heal = false;
             if (same && Environment.TickCount - healed > 300 && CheckOverlap(tb, d, segs)) { same = false; heal = true; healed = Environment.TickCount; if (_healTrace < 20) { _healTrace++; Trace("DC row: boxes overlap, the row is rebuilt"); } }
+            if (same && d.Probe > 0 && _probeTrace < 60)
+            {
+                d.Probe--; _probeTrace++;
+                Trace("DC probe after colour change (" + d.Why + ") +" + (++d.ProbeNo) + " t=" + Environment.TickCount + "\n   was: " + d.Before + "\n   now: " + Pieces(tb, d));
+            }
             if (same)
             {
+                string probeWhy = null;
+                for (int i = 0; i < segs.Count; i++)
+                {
+                    var o = d.Segs[i]; var n = segs[i];
+                    if (!n.Arrow && n.Col.HasValue && !o.Col.Equals(n.Col)) probeWhy = (probeWhy ?? "") + "#" + i + (n.Box ? " box '" : " run '") + (n.Text ?? "").Trim() + "' " + o.Col + " -> " + n.Col + " ";
+                }
+                if (probeWhy != null && _probeTrace < 60)
+                {
+                    d.Before = Pieces(tb, d); d.Why = probeWhy; d.Probe = 3; d.ProbeNo = 0;
+                    _probeTrace++;
+                    Trace("DC colour change in place: " + probeWhy + " t=" + Environment.TickCount + "\n   before: " + d.Before);
+                }
                 for (int i = 0; i < segs.Count; i++)
                 {
                     var o = d.Segs[i]; var n = segs[i];
