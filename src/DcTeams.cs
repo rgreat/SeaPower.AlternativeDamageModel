@@ -187,7 +187,7 @@ namespace AlternativeDamageModel
 
         /// <summary>Multiplier of every damage control work rate (Repair* methods, after the crew's rate is read).</summary>
         public static float WorkMul = 1f;       // set around one section's repair calls (DcControl): teams working amid a fire they do not fight
-        public static float FirePenalty;        // [FireAndFlooding] FireWorkPenalty / 100
+        public static float FireWorkEff = 1f;   // [FireAndFlooding] FireWorkEfficiency / 100 (1 = off)
         public static float Eff(float v) { return IsEnabled() ? v * Effectiveness * WorkMul : v; }
 
         // ------------------------------------------------------------ helpers

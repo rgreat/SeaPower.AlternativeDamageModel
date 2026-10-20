@@ -85,7 +85,7 @@ namespace AlternativeDamageModel
         static bool _dumpXaml;
         static string _xamlDir;
         ConfigEntry<string> _noDeckEntry;
-        ConfigEntry<Factor> _reopenEntry, _reopenLimitEntry, _fullLevelEntry, _fullFireEntry, _firePenaltyEntry;
+        ConfigEntry<Factor> _reopenEntry, _reopenLimitEntry, _fullLevelEntry, _fullFireEntry, _fireEffEntry;
         ConfigEntry<bool> _fullSystemsEntry;
         static HashSet<string> _noDeck = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         ConfigEntry<Factor> _mWarEntry, _mCivEntry, _mSubEntry, _shellVulnEntry, _fireVulnEntry, _floodVulnEntry,
@@ -276,8 +276,8 @@ namespace AlternativeDamageModel
                 "A fully flooded section: its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.");
             _fullFireEntry = Pcfg.Bind("FireAndFlooding", "FullFloodFireDecay", new Factor(10f),
                 "A fully flooded section puts its fire out: % of the maximum fire per second. 0 = off.");
-            _firePenaltyEntry = Pcfg.Bind("FireAndFlooding", "FireWorkPenalty", new Factor(75f),
-                "Damage control teams in a section with a fire that are not fighting it work this % less effectively. 0 = off.");
+            _fireEffEntry = Pcfg.Bind("FireAndFlooding", "FireWorkEfficiency", new Factor(75f),
+                "Damage control teams in a section with a fire that are not fighting it work at this % of their effectiveness. 100 = off.");
             _noDeckEntry = Pcfg.Bind("FireAndFlooding", "NoDeckPointsShips", "",
                 "Ships (ini file names, comma separated; edited in the settings window, Flooding tab) that get no Deck Points: they are flooded by the old, simpler rules, as a ship without a hull collider.");
             _mCivEntry = Pcfg.Bind("HullIntegrity", "CivilianShips", new Factor(2f),
@@ -792,7 +792,7 @@ namespace AlternativeDamageModel
             SectionEffects.FullLevel = Math.Max(0f, Math.Min(100f, _fullLevelEntry.Value.V));
             SectionEffects.SystemsOut = _fullSystemsEntry.Value;
             SectionEffects.FireDecay = Math.Max(0f, _fullFireEntry.Value.V);
-            DcTeams.FirePenalty = Math.Max(0f, Math.Min(100f, _firePenaltyEntry.Value.V)) / 100f;
+            DcTeams.FireWorkEff = Math.Max(0f, Math.Min(100f, _fireEffEntry.Value.V)) / 100f;
             var nd = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var n in (_noDeckEntry.Value ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)) { var t = n.Trim(); if (t.Length > 0) nd.Add(t); }
             _noDeck = nd;

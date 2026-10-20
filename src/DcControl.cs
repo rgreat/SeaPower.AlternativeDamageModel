@@ -480,13 +480,13 @@ namespace AlternativeDamageModel
             return false;
         }
         /// <summary>
-        /// One task's repair call for a section. Teams that do not fight the fire in a section where one burns work FirePenalty less effectively
+        /// One task's repair call for a section. Teams that do not fight the fire in a section where one burns work at FireWorkEff of their effectiveness
         /// (DcTeams.WorkMul, read by the multiplier that DCTeamEffectiveness uses).
         /// </summary>
         static bool Work(int task, object comp, int i, Func<object, int, bool> call)
         {
             float mul = 1f;
-            if (task != TaskFire && DcTeams.FirePenalty > 0f && FireIn(comp, i)) mul = 1f - DcTeams.FirePenalty;
+            if (task != TaskFire && DcTeams.FireWorkEff < 1f && FireIn(comp, i)) mul = DcTeams.FireWorkEff;
             DcTeams.WorkMul = mul;
             try { return call != null ? call(comp, i) : Repairs[task](comp, i); }
             finally { DcTeams.WorkMul = 1f; }

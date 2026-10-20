@@ -114,7 +114,7 @@ namespace AlternativeDamageModel
             Add(FF, "Fire", "FireAndFlooding/FireHullDamageSpeed", "Fire damage to the hull", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireSpreadPercent", "Fire spread chance", "% per fire check (10 s)", Kind.Number, 0.005f, 0f, 100f);
             Add(FF, "Unattended fire", UnattendedKey, "Grows when nobody fights it", "", Kind.Bool, 0, 0, 0);
-            Add(FF, "Fire and damage control", "FireAndFlooding/FireWorkPenalty", "Work amid fire", "% less effective without fighting the fire", Kind.Number, 5f, 0f, 100f);
+            Add(FF, "Fire and damage control", "FireAndFlooding/FireWorkEfficiency", "Work amid fire", "% effectiveness without fighting the fire · 100 = off", Kind.Number, 5f, 0f, 100f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireTime", "Unattended after", "s without a team", Kind.Number, 10f, 0f, 1200f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireGrowthRate", "Growth added", "% of max growth per fire check (10 s)", Kind.Number, 0.05f, 0f, 100f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireMaxGrowth", "Maximum growth rate", "% of max fire a second", Kind.Number, 0.1f, 0f, 100f);
