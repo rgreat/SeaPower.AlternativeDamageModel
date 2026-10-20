@@ -721,10 +721,16 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The game's own value of a setting (what the "game:" column shows): the entry's default for global keys, the Base Game profile for the rest.</summary>
+        /// <summary>Settings the game has no counterpart of (not "game: x" but the mod's own default).</summary>
+        static bool ModOnly(string key)
+        {
+            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" || key == "FireAndFlooding/FullFloodLevel";
+        }
+
         static bool GameValue(Field f, out string v)
         {
             v = null;
-            if (f.Global || f.Key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal))
+            if (f.Global || ModOnly(f.Key))
             {
                 var e = Entry(f.Key);
                 if (e == null) return false;
@@ -809,7 +815,7 @@ namespace AlternativeDamageModel
                 var e = Entry(f.Key);
                 return e == null ? "" : "default: " + TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType).Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off");
             }
-            if (f.Key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal))
+            if (ModOnly(f.Key))
             {   // not in the game: the mod's own default
                 var ue = Entry(f.Key);
                 return ue == null ? "" : "default: " + TomlTypeConverter.ConvertToString(ue.DefaultValue, ue.SettingType).Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off");
