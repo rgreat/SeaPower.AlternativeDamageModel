@@ -1461,6 +1461,7 @@ namespace AlternativeDamageModel
             // a box whose width changes (9% -> 10%) moves the pieces after it: the row is made anew, not patched (an arrow stayed on the number)
             for (int i = 0; same && i < segs.Count; i++)
             {
+                if (!segs[i].Arrow && !segs[i].Box && i < d.Kids.Count && d.Kids[i] != null && d.Kids[i].Text != segs[i].Text) { same = false; break; }   // a separator in the group changes its width
                 if (!segs[i].Box || i >= d.Kids.Count || d.Kids[i] == null || d.Kids[i].Text == segs[i].Text) continue;
                 try { if (Math.Abs(BoxWidth(segs[i].Text, tb) - d.Kids[i].Width) > 0.4f) same = false; } catch { }
             }
@@ -1531,7 +1532,16 @@ namespace AlternativeDamageModel
                         continue;
                     }
                     var run = d.Inl[i] as Run;
-                    if (run == null) continue;
+                    if (run == null)
+                    {
+                        var rk = i < d.Kids.Count ? d.Kids[i] : null;   // a separator inside the group
+                        if (rk != null)
+                        {
+                            if (rk.Text != n.Text) rk.Text = n.Text;
+                            if (n.Col.HasValue && !o.Col.Equals(n.Col)) rk.Foreground = new SolidColorBrush(n.Col.Value);
+                        }
+                        continue;
+                    }
                     if (run.Text != n.Text) run.Text = n.Text;
                     if (n.Col.HasValue && !o.Col.Equals(n.Col)) run.Foreground = new SolidColorBrush(n.Col.Value);
                 }
@@ -1547,45 +1557,54 @@ namespace AlternativeDamageModel
             il.Clear();
             var inl = new List<Inline>(segs.Count);
             var kids = new List<TextBlock>(segs.Count);
+            // From the first % box to the end of the row everything goes into ONE inline container, in a horizontal panel: the text block
+            // places a single piece (after the label), and the % boxes, separators and arrows stand side by side by the panel's own layout.
+            // (Pieces placed one by one by the text block sometimes stood on top of each other, or moved by a pixel, in the traces.)
+            int g0 = -1;
+            for (int j = 0; j < segs.Count && g0 < 0; j++) if (segs[j].Box) g0 = j;
             for (int si = 0; si < segs.Count; si++)
             {
                 var s = segs[si];
                 Inline x;
                 TextBlock kid = null;
-                if (s.Arrow) x = Arrow(s.Up, s.N, s.Col.Value, s.Why);
-                else if (s.Box)
+                if (g0 >= 0 && si == g0)
                 {
-                    kid = new TextBlock { Text = s.Text };
-                    // an InlineUIContainer's child stands with its bottom edge on the text baseline, so the % sat higher than the label next to it:
-                    // moved down by the descent with a negative bottom margin (part of the layout; no font or render transform set on the child -
-                    // with those the pieces of the row sometimes lost their width and stood on top of each other)
-                    try { float fs = tb.FontSize > 1f ? tb.FontSize : 14f; kid.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); kid.Width = BoxWidth(s.Text, tb); } catch { }
-                    if (s.Col.HasValue) kid.Foreground = new SolidColorBrush(s.Col.Value);
-                    if (s.Why != null) LiveTip(kid, s.Why);   // the percent explains itself too (when nothing moves there is no arrow)
-                    // the arrow that follows the % goes into the same inline container, next to it in a panel: the text block no longer has to place
-                    // the two pieces side by side (it sometimes put the arrow on top of the %, found in the traces)
-                    Inline arrowInl = null; FrameworkElement arrowEl = null;
-                    if (si + 1 < segs.Count && segs[si + 1].Arrow)
+                    float fs = tb.FontSize > 1f ? tb.FontSize : 14f;
+                    var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
+                    float h = 0f;
+                    var gInl = new List<Inline>(); var gKids = new List<TextBlock>();
+                    for (int j = g0; j < segs.Count; j++)
                     {
-                        var a = segs[si + 1];
-                        arrowInl = Arrow(a.Up, a.N, a.Col.Value, a.Why);
-                        var aiu = arrowInl as InlineUIContainer;
-                        arrowEl = aiu != null ? aiu.Child as FrameworkElement : null;
-                        if (arrowEl != null) aiu.Child = null;
+                        var t = segs[j];
+                        if (t.Arrow)
+                        {
+                            var ai = Arrow(t.Up, t.N, t.Col.Value, t.Why);
+                            var aiu = ai as InlineUIContainer;
+                            FrameworkElement el = aiu != null ? aiu.Child as FrameworkElement : null;
+                            if (el != null) aiu.Child = null;
+                            else el = new TextBlock { Text = " " + new string(t.Up ? '+' : '-', t.N), Foreground = new SolidColorBrush(t.Col.Value) };
+                            el.VerticalAlignment = VerticalAlignment.Bottom;
+                            panel.Children.Add(el);
+                            gInl.Add(ai); gKids.Add(null);
+                            continue;
+                        }
+                        var k = new TextBlock { Text = t.Text, VerticalAlignment = VerticalAlignment.Bottom };
+                        // the child of an inline container stands with its bottom edge on the baseline: all texts are moved down by the descent
+                        try { k.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); if (t.Box) k.Width = BoxWidth(t.Text, tb); } catch { }
+                        if (t.Col.HasValue) k.Foreground = new SolidColorBrush(t.Col.Value);
+                        if (t.Box && t.Why != null) LiveTip(k, t.Why);
+                        if (h <= 0f) { try { k.Measure(new Size(float.PositiveInfinity, float.PositiveInfinity)); h = k.DesiredSize.Height; } catch { } }
+                        panel.Children.Add(k);
+                        gInl.Add(null); gKids.Add(k);
                     }
-                    if (arrowEl != null)
-                    {
-                        kid.VerticalAlignment = VerticalAlignment.Bottom; arrowEl.VerticalAlignment = VerticalAlignment.Bottom;
-                        var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
-                        panel.Children.Add(kid); panel.Children.Add(arrowEl);
-                        x = new InlineUIContainer(panel);
-                        il.Add(x); inl.Add(x); kids.Add(kid);
-                        inl.Add(arrowInl); kids.Add(null);   // the arrow's own entry stays for the comparisons; it is not in the text block
-                        si++;
-                        continue;
-                    }
-                    x = new InlineUIContainer(kid);
+                    if (h > 0f) panel.Height = h;   // the same height whatever the arrows: the row does not change its height when they come and go
+                    x = new InlineUIContainer(panel);
+                    il.Add(x);
+                    inl.Add(x); kids.Add(gKids[0]);
+                    for (int j = 1; j < gInl.Count; j++) { inl.Add(gInl[j]); kids.Add(gKids[j]); }
+                    break;
                 }
+                if (s.Arrow) x = Arrow(s.Up, s.N, s.Col.Value, s.Why);
                 else
                 {
                     var r = new Run(s.Text);
