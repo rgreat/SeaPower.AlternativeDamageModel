@@ -964,7 +964,8 @@ namespace AlternativeDamageModel
             if (old != null && !old.SameAs(prof))
             {
                 string own = prof.BuiltIn ? CustomName : prof.Name;
-                WriteProfileFile(UserFile(own), old.Copy(own));
+                var oc = old.Copy(own); oc.Parent = prof.BuiltIn ? prof.Name : prof.Parent;
+                WriteProfileFile(UserFile(own), oc);
                 prof = LoadProfile(own) ?? prof;
                 Say("Settings from the .cfg kept as profile \"" + own + "\".");
             }

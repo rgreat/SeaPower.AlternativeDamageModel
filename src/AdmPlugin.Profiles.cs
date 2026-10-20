@@ -16,13 +16,14 @@ namespace AlternativeDamageModel
     {
         public string Name;
         public bool BuiltIn;
+        public string Parent;   // the profile this one was made from: its values stand in for the keys this file lacks (null / not found: the Base Game profile)
         public SortedDictionary<string, string> Values = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public SortedDictionary<string, string> Ships = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public SortedDictionary<string, string> Modules = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // [SystemTypeIntegrity]: module type = its Integrity
 
         public Profile Copy(string name)
         {
-            var p = new Profile { Name = name, BuiltIn = false };
+            var p = new Profile { Name = name, BuiltIn = false, Parent = BuiltIn ? Name : Parent };
             foreach (var kv in Values) p.Values[kv.Key] = kv.Value;
             foreach (var kv in Ships) p.Ships[kv.Key] = kv.Value;
             foreach (var kv in Modules) p.Modules[kv.Key] = kv.Value;
@@ -213,7 +214,9 @@ namespace AlternativeDamageModel
         /// A profile by name; null when there is no such profile. Built-in ones come from Profiles/name.cfg next to the dll (the
         /// files are the defaults); a value missing there (or no file) falls back to the code's default, with a warning in the log.
         /// </summary>
-        public Profile LoadProfile(string name)
+        public Profile LoadProfile(string name) { return LoadProfile(name, 0); }
+
+        Profile LoadProfile(string name, int depth)
         {
             if (string.IsNullOrEmpty(name)) return null;
             if (IsBuiltIn(name))
@@ -234,9 +237,39 @@ namespace AlternativeDamageModel
             string file = UserFile(name);
             if (!File.Exists(file)) return null;
             var own = new Profile { Name = Path.GetFileNameWithoutExtension(file), BuiltIn = false };
-            foreach (var e in _profileEntries) own.Values[Key(e.Definition)] = TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType);
+            own.Parent = ReadParentName(file);
+            // the keys this file lacks (a setting added in a newer release) come from the profile it was made from; if that one is gone - from the game's (Base Game)
+            Profile basis = null;
+            if (!string.IsNullOrEmpty(own.Parent) && depth < 3 && !string.Equals(own.Parent, own.Name, StringComparison.OrdinalIgnoreCase)) basis = LoadProfile(own.Parent, depth + 1);
+            if (basis == null) basis = LoadProfile(BaseGameName, depth + 1);
+            if (basis != null)
+            {
+                foreach (var kv in basis.Values) own.Values[kv.Key] = kv.Value;
+                foreach (var kv in basis.Ships) own.Ships[kv.Key] = kv.Value;
+                foreach (var kv in basis.Modules) own.Modules[kv.Key] = kv.Value;
+            }
+            else foreach (var e in _profileEntries) own.Values[Key(e.Definition)] = TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType);
             ReadProfileFile(file, own);
             return own;
+        }
+
+        /// <summary>The "Parent = name" line of a profile file's [Profile] section, or null.</summary>
+        static string ReadParentName(string file)
+        {
+            try
+            {
+                string section = "";
+                foreach (var raw in File.ReadAllLines(file))
+                {
+                    string line = raw.Trim();
+                    if (line.StartsWith("[") && line.EndsWith("]")) { section = line.Substring(1, line.Length - 2).Trim(); continue; }
+                    if (!string.Equals(section, "Profile", StringComparison.OrdinalIgnoreCase)) continue;
+                    int eq = line.IndexOf('=');
+                    if (eq > 0 && line.Substring(0, eq).Trim().Equals("Parent", StringComparison.OrdinalIgnoreCase)) { string v = line.Substring(eq + 1).Trim(); return v.Length == 0 ? null : v; }
+                }
+            }
+            catch { }
+            return null;
         }
 
         /// <summary>A setting in a format of an older build (converted by ConvertOld).</summary>
@@ -306,6 +339,7 @@ namespace AlternativeDamageModel
                         if (Factor.TryParse(v, out f) && f.V > 0f) p.Modules[k] = f.ToString();
                         continue;
                     }
+                    if (string.Equals(section, "Profile", StringComparison.OrdinalIgnoreCase)) continue;   // Parent: read by ReadParentName
                     string key = section + "/" + k;
                     if (p.Values.ContainsKey(key)) { p.Values[key] = v; if (read != null) read.Add(key); }   // only settings that exist
                 }
@@ -319,6 +353,8 @@ namespace AlternativeDamageModel
             sb.Append("## Alternative Damage Model - settings profile \"").Append(p.Name).Append("\"").AppendLine();
             sb.Append("## Chosen in the game: Unit Status -> Damage Control -> the gear next to (i), or [General] Profile in AlternativeDamageModel.cfg.").AppendLine();
             sb.Append("## Edits made here while the game runs are picked up at once when this profile is in use.").AppendLine();
+            if (!p.BuiltIn && !string.IsNullOrEmpty(p.Parent))
+                sb.AppendLine().Append("[Profile]").AppendLine().Append("## The profile this one was made from: its values are used for settings this file does not have.").AppendLine().Append("Parent = ").Append(p.Parent).AppendLine();
             foreach (var sec in ProfileSections)
             {
                 sb.AppendLine().Append('[').Append(sec).Append(']').AppendLine();
@@ -420,12 +456,13 @@ namespace AlternativeDamageModel
                 {
                     // a built-in profile with other values: they are the player's own now
                     string own = prof == null ? name : CustomName;
-                    WriteProfileFile(UserFile(own), cur.Copy(own));
+                    var oc = cur.Copy(own); oc.Parent = prof == null ? null : prof.Name;
+                    WriteProfileFile(UserFile(own), oc);
                     if (_profileEntry.Value != own) { _reloading = true; try { _profileEntry.Value = own; } finally { _reloading = false; } SaveConfig(); }
                     _profWatch.Set(UserFile(own));
                     Say("Settings differ from profile " + (prof == null ? "?" : prof.Name) + ": kept as profile \"" + own + "\".");
                 }
-                else WriteProfileFile(UserFile(prof.Name), cur.Copy(prof.Name));
+                else { var pc = cur.Copy(prof.Name); pc.Parent = prof.Parent; WriteProfileFile(UserFile(prof.Name), pc); }
             }
             catch (Exception e) { Warn("Profile check failed: " + e.Message); }
         }

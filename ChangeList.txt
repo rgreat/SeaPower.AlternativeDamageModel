@@ -14,3 +14,4 @@ Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.
 - NEW (Flooding tab) [Advanced]: fire in a section reopens plugged leaks (0.5% of the largest leak a second at fire 100%, up to 50% of it).
 - NEW (Flooding tab) [Advanced]: a section flooded above 75% loses its systems (inoperable, no repair) and its fire is put out (10% a second).
 - NEW (Fire tab) [Advanced]: teams in a burning section that do not fight the fire work at 75% effectiveness.
+- Own profiles (Custom) remember the profile they were made from; settings a profile does not have yet take the values of that parent profile (Base Game if it is gone).
