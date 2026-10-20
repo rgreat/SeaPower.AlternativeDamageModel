@@ -137,11 +137,6 @@ namespace AlternativeDamageModel
             Add(DC, "Knock-outs", "DamageControlTeams/HealTimeSpread", "Recovery spread", "± s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Knock-outs", "DamageControlTeams/KnockoutsToDeath", "Knock-outs to death", "0 = never", Kind.Integer, 1f, 0f, 9f);
 
-            Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLeaks", "Fire reopens leaks", "% of the largest leak a second at fire 100% · 0 = off", Kind.Number, 0.1f, 0f, 20f);
-            Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLimit", "Reopened up to", "% of the largest leak", Kind.Number, 5f, 0f, 100f);
-            Add(S, "Full flooding", "FireAndFlooding/FullFloodLevel", "Full flooding from", "% of water in a section", Kind.Number, 5f, 0f, 100f);
-            Add(S, "Full flooding", "FireAndFlooding/FullFloodSystems", "Systems out of order", "no repair while flooded", Kind.Bool, 0, 0, 0);
-            Add(S, "Full flooding", "FireAndFlooding/FullFloodFireDecay", "Fire put out", "% a second · 0 = off", Kind.Number, 1f, 0f, 100f);
             Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingDelay", "Time under water", "s before water over the deck starts", Kind.Number, 0.5f, 0f, 60f);
@@ -149,6 +144,10 @@ namespace AlternativeDamageModel
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
             Add(S, "Sinking from", "Sinking/FloodLimit", "Water in the ship", "% of the hull", Kind.Number, 1f, 5f, 100f);
+            Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLeaks", "Fire reopens leaks", "% of the largest leak a second at fire 100% · 0 = off", Kind.Number, 0.1f, 0f, 20f);
+            Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLimit", "Reopened up to", "% of the largest leak", Kind.Number, 5f, 0f, 100f);
+            Add(S, "Full flooding", "FireAndFlooding/FullFloodSystems", "Systems out of order", "no repair while flooded", Kind.Bool, 0, 0, 0);
+            Add(S, "Full flooding", "FireAndFlooding/FullFloodFireDecay", "Fire put out", "% a second · 0 = off", Kind.Number, 1f, 0f, 100f);
             Add(TFx, "Sinking and wreck", "Effects/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0, true);
             Add(TFx, "Sinking and wreck", "Effects/WreckDragFactor", "Wreck drag", "× the game's resistance to the horizontal movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f, true);
             Add(TFx, "Sinking and wreck", "Effects/BubblesStopMinutes", "Stop bubbles after", "min after sinking starts; 0 = never", Kind.Number, 1f, 0f, 120f, true);
@@ -724,7 +723,7 @@ namespace AlternativeDamageModel
         /// <summary>Settings the game has no counterpart of (not "game: x" but the mod's own default).</summary>
         static bool ModOnly(string key)
         {
-            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" || key == "FireAndFlooding/FullFloodLevel";
+            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit";
         }
 
         static bool GameValue(Field f, out string v)

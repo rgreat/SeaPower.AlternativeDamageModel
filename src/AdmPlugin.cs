@@ -85,7 +85,7 @@ namespace AlternativeDamageModel
         static bool _dumpXaml;
         static string _xamlDir;
         ConfigEntry<string> _noDeckEntry;
-        ConfigEntry<Factor> _reopenEntry, _reopenLimitEntry, _fullLevelEntry, _fullFireEntry, _fireEffEntry;
+        ConfigEntry<Factor> _reopenEntry, _reopenLimitEntry, _fullFireEntry, _fireEffEntry;
         ConfigEntry<bool> _fullSystemsEntry;
         static HashSet<string> _noDeck = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         ConfigEntry<Factor> _mWarEntry, _mCivEntry, _mSubEntry, _shellVulnEntry, _fireVulnEntry, _floodVulnEntry,
@@ -270,10 +270,8 @@ namespace AlternativeDamageModel
                 "A burning section opens its plugged leaks again: % of the largest leak the section has had, per second at fire 100% (less at a smaller fire). 0 = off.");
             _reopenLimitEntry = Pcfg.Bind("FireAndFlooding", "FireReopenLimit", new Factor(50f),
                 "A leak reopened by fire grows back up to this % of the largest leak the section has had.");
-            _fullLevelEntry = Pcfg.Bind("FireAndFlooding", "FullFloodLevel", new Factor(75f),
-                "A section counts as fully flooded when its water is above this % (the mean of its two sides).");
-            _fullSystemsEntry = Pcfg.Bind("FireAndFlooding", "FullFloodSystems", false,
-                "A fully flooded section: its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.");
+            _fullSystemsEntry = Pcfg.Bind("FireAndFlooding", "FullFloodSystems", true,
+                "A fully flooded section (water above 75%): its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.");
             _fullFireEntry = Pcfg.Bind("FireAndFlooding", "FullFloodFireDecay", new Factor(10f),
                 "A fully flooded section puts its fire out: % of the maximum fire per second. 0 = off.");
             _fireEffEntry = Pcfg.Bind("FireAndFlooding", "FireWorkEfficiency", new Factor(75f),
@@ -789,7 +787,6 @@ namespace AlternativeDamageModel
             SpeedEffect.SmallAiFree = _smallAiEntry.Value;
             SectionEffects.ReopenRate = Math.Max(0f, _reopenEntry.Value.V);
             SectionEffects.ReopenLimit = Math.Max(0f, Math.Min(100f, _reopenLimitEntry.Value.V));
-            SectionEffects.FullLevel = Math.Max(0f, Math.Min(100f, _fullLevelEntry.Value.V));
             SectionEffects.SystemsOut = _fullSystemsEntry.Value;
             SectionEffects.FireDecay = Math.Max(0f, _fullFireEntry.Value.V);
             DcTeams.FireWorkEff = Math.Max(0f, Math.Min(100f, _fireEffEntry.Value.V)) / 100f;

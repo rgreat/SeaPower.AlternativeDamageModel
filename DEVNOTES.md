@@ -708,3 +708,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-20 (9): колонка «game:» у настроек без аналога в игре
 * `FireReopenLimit` и `FullFloodLevel` показывали «game: 50/75» (значение Base Game профиля); теперь, как у `Unattended*`, — «default: …» (`ModOnly(key)` в SettingsWindow).
+
+## 2026-10-20 (10): Flooding — порядок групп, FullFloodLevel убран
+* Группы «Fire and leaks» и «Full flooding» перенесены под «Sinking from»; настройка `FullFloodLevel` удалена: «полностью затопленная секция» — константа `SectionEffects.FullLevel` = 75 % (среднее двух бортов). `FullFloodSystems` по умолчанию true (и в коде как запасное значение, и в Advanced.cfg).
+* Откуда берутся значения по умолчанию: профили `Profiles/*.cfg` (по умолчанию `Advanced`); значения в коде (`Bind`) — только запасные для отсутствующего файла/ключа; пока используется встроенный профиль, .cfg на каждом старте следует его файлу. Если значения менялись вручную, они сохраняются как профиль «Custom» и новые ключи туда попадают со значениями из кода.

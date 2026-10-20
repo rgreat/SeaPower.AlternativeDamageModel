@@ -10,8 +10,8 @@ namespace AlternativeDamageModel
     ///  1. Fire reopens leaks. The largest leak each side of a section has had is remembered ([FireAndFlooding] FireReopenLeaks); while the
     ///     section burns, a plugged leak grows back by FireReopenLeaks % of that largest leak a second at fire 100% (less at a smaller fire),
     ///     up to FireReopenLimit % of it. The game's own increases (damage) are never lowered.
-    ///  2. A fully flooded section (water from FullFloodLevel %, the mean of its two sides) loses its systems: each is brought down to the
-    ///     severe damage level and made inoperable, and kept there while the water stays above the level (so repairs do nothing;
+    ///  2. A fully flooded section (water above 75%, the mean of its two sides) loses its systems: each is brought down to the
+    ///     severe damage level and made inoperable, and kept there while the water stays above 75% (so repairs do nothing;
     ///     <see cref="Locked"/> tells the teams not to try).
     ///  3. A fully flooded section puts its fire out: FullFloodFireDecay % of the maximum fire a second, and the fire stops growing.
     /// </summary>
@@ -22,7 +22,7 @@ namespace AlternativeDamageModel
 
         public static float ReopenRate;      // [FireAndFlooding] FireReopenLeaks: % of the largest leak a second at fire 100%; 0 = off
         public static float ReopenLimit = 50f;   // [FireAndFlooding] FireReopenLimit: % of the largest leak
-        public static float FullLevel = 75f;     // [FireAndFlooding] FullFloodLevel: % of water in a section
+        public const float FullLevel = 75f;     // a section is fully flooded above this % of water (the mean of its two sides)
         public static bool SystemsOut;           // [FireAndFlooding] FullFloodSystems
         public static float FireDecay;           // [FireAndFlooding] FullFloodFireDecay: % of the maximum fire a second; 0 = off
 
