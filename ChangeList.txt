@@ -7,7 +7,7 @@ Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.
 - Fixed: DC teams no longer go back to the reserve (or are taken off a section) while it still has hull or systems work.
 - Auto DC takes the fastest growing fire or leak first: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure (Fire / Flooding priority change the order of their group).
 - NEW: Flooding tab: list of ships that get no Deck Points (flooded by the old rules).
-- NEW: Hull tab: a ship without weapons can be counted as civilian [Advanced].
+- A surface ship without weapons is counted as civilian (hull value, number of teams).
 - NEW: AI ships under 50 m ignore the speed limit from flooding (kamikaze) [Advanced].
 - Removed: "Centre of mass rise" (not needed).
 - "Keep centre of mass", "Wreck drag" and "Stop bubbles after" moved to the Effects tab and are global (not part of a profile); the Sinking tab is gone.

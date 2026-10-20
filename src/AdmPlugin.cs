@@ -76,7 +76,7 @@ namespace AlternativeDamageModel
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
-        ConfigEntry<bool> _unarmedCivEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
+        ConfigEntry<bool> _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -85,7 +85,6 @@ namespace AlternativeDamageModel
         static bool _dumpXaml;
         static string _xamlDir;
         ConfigEntry<string> _noDeckEntry;
-        static bool _unarmedCiv;
         static HashSet<string> _noDeck = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         ConfigEntry<Factor> _mWarEntry, _mCivEntry, _mSubEntry, _shellVulnEntry, _fireVulnEntry, _floodVulnEntry,
                             _uiFloodOne, _uiFloodTwo, _uiFireOne, _uiFireTwoUp, _uiFireTwoDown;
@@ -265,8 +264,6 @@ namespace AlternativeDamageModel
             _mWarEntry = Pcfg.Bind("HullIntegrity", "Warships", new Factor(2f),
                 "How many times stronger the hull of surface warships is than in the game. 1.0 = as in the game, 2.0 = twice as strong. " +
                 "Single ships get their own value in section [HullIntegrityPerShip], one line per ship: ini file name = multiplier (e.g. usn_bb_iowa = 3.0).");
-            _unarmedCivEntry = Pcfg.Bind("HullIntegrity", "UnarmedAsCivilian", false,
-                "A surface ship with no weapons (no guns, launchers or CIWS) is counted as a civilian ship: the civilian hull value and the civilian number of teams.");
             _noDeckEntry = Pcfg.Bind("FireAndFlooding", "NoDeckPointsShips", "",
                 "Ships (ini file names, comma separated; edited in the settings window, Flooding tab) that get no Deck Points: they are flooded by the old, simpler rules, as a ship without a hull collider.");
             _mCivEntry = Pcfg.Bind("HullIntegrity", "CivilianShips", new Factor(2f),
@@ -776,7 +773,6 @@ namespace AlternativeDamageModel
             DcControl.LeakPump = Math.Max(0f, _leakPumpEntry.Value.V);
             SpeedEffect.Set(_speedEffectEntry.Value);
             SpeedEffect.SmallAiFree = _smallAiEntry.Value;
-            _unarmedCiv = _unarmedCivEntry.Value;
             var nd = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var n in (_noDeckEntry.Value ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)) { var t = n.Trim(); if (t.Length > 0) nd.Add(t); }
             _noDeck = nd;
@@ -1365,7 +1361,7 @@ namespace AlternativeDamageModel
                 var bo = _fCompBase.GetValue(comp);
                 bool isSub = bo != null && _tSubmarine != null && _tSubmarine.IsInstanceOfType(bo);
                 bool isCiv = (bool)_pObpCivilian.GetValue(obp, null);
-                if (Model && _unarmedCiv && !isCiv && !isSub && !HasWeapons(obp)) isCiv = true;   // no weapons: not a warship
+                if (Model && !isCiv && !isSub && !HasWeapons(obp)) isCiv = true;   // no weapons: not a warship
                 float dispT = 0f; int teamsIni = -1;
                 try
                 {

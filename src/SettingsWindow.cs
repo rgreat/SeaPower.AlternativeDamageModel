@@ -104,7 +104,6 @@ namespace AlternativeDamageModel
 
             Add(H, "Hull integrity", "HullIntegrity/Warships", "Warships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/CivilianShips", "Civilian ships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
-            Add(H, "Hull integrity", "HullIntegrity/UnarmedAsCivilian", "Ships without weapons", "count them as civilian", Kind.Bool, 0, 0, 0);
             Add(H, "Hull integrity", "HullIntegrity/Submarines", "Submarines", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullShellVulnerability", "Gun shells", "", Kind.Number, 0.1f, 0.1f, 10f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFireVulnerability", "Fires", "", Kind.Number, 0.1f, 0.1f, 10f);
