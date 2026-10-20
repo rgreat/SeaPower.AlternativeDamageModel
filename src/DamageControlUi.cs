@@ -1507,7 +1507,7 @@ namespace AlternativeDamageModel
                                 float w0 = kid.Width, w1 = BoxWidth(n.Text, tb);
                                 kid.Width = w1;
                                 var iuc = d.Inl[i] as InlineUIContainer;
-                                if (iuc != null && Math.Abs(w1 - w0) > 0.4f) { iuc.Child = null; iuc.Child = kid; }
+                                if (iuc != null && ReferenceEquals(iuc.Child, kid) && Math.Abs(w1 - w0) > 0.4f) { iuc.Child = null; iuc.Child = kid; }
                                 tb.InvalidateMeasure(); tb.InvalidateArrange();
                                 if (_widthTrace < 30) { _widthTrace++; Trace("DC box width: #" + i + " '" + was + "' -> '" + n.Text + "' width " + w0.ToString("0.#") + " -> " + w1.ToString("0.#") + ", font " + tb.FontSize.ToString("0.#") + ", reattached " + (iuc != null && Math.Abs(w1 - w0) > 0.4f)); }
                             }
@@ -1547,8 +1547,9 @@ namespace AlternativeDamageModel
             il.Clear();
             var inl = new List<Inline>(segs.Count);
             var kids = new List<TextBlock>(segs.Count);
-            foreach (var s in segs)
+            for (int si = 0; si < segs.Count; si++)
             {
+                var s = segs[si];
                 Inline x;
                 TextBlock kid = null;
                 if (s.Arrow) x = Arrow(s.Up, s.N, s.Col.Value, s.Why);
@@ -1561,6 +1562,28 @@ namespace AlternativeDamageModel
                     try { float fs = tb.FontSize > 1f ? tb.FontSize : 14f; kid.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); kid.Width = BoxWidth(s.Text, tb); } catch { }
                     if (s.Col.HasValue) kid.Foreground = new SolidColorBrush(s.Col.Value);
                     if (s.Why != null) LiveTip(kid, s.Why);   // the percent explains itself too (when nothing moves there is no arrow)
+                    // the arrow that follows the % goes into the same inline container, next to it in a panel: the text block no longer has to place
+                    // the two pieces side by side (it sometimes put the arrow on top of the %, found in the traces)
+                    Inline arrowInl = null; FrameworkElement arrowEl = null;
+                    if (si + 1 < segs.Count && segs[si + 1].Arrow)
+                    {
+                        var a = segs[si + 1];
+                        arrowInl = Arrow(a.Up, a.N, a.Col.Value, a.Why);
+                        var aiu = arrowInl as InlineUIContainer;
+                        arrowEl = aiu != null ? aiu.Child as FrameworkElement : null;
+                        if (arrowEl != null) aiu.Child = null;
+                    }
+                    if (arrowEl != null)
+                    {
+                        kid.VerticalAlignment = VerticalAlignment.Bottom; arrowEl.VerticalAlignment = VerticalAlignment.Bottom;
+                        var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
+                        panel.Children.Add(kid); panel.Children.Add(arrowEl);
+                        x = new InlineUIContainer(panel);
+                        il.Add(x); inl.Add(x); kids.Add(kid);
+                        inl.Add(arrowInl); kids.Add(null);   // the arrow's own entry stays for the comparisons; it is not in the text block
+                        si++;
+                        continue;
+                    }
                     x = new InlineUIContainer(kid);
                 }
                 else
