@@ -156,7 +156,7 @@ namespace AlternativeDamageModel
                     holds[i] = mode == DcControl.ModeFire ? hasFire : mode == DcControl.ModeFlooding ? hasLeak || hasWater : hasLeak || hasFire || hasWater;
 
                     bool systems = false;
-                    var list = _systems.GetValue(sc) as IEnumerable;
+                    var list = SectionEffects.Locked(comp, i) ? null : _systems.GetValue(sc) as IEnumerable;   // a flooded section's systems cannot be repaired
                     if (list != null)
                         foreach (var b in list)
                         {

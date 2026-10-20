@@ -114,6 +114,7 @@ namespace AlternativeDamageModel
             Add(FF, "Fire", "FireAndFlooding/FireHullDamageSpeed", "Fire damage to the hull", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireSpreadPercent", "Fire spread chance", "% per fire check (10 s)", Kind.Number, 0.005f, 0f, 100f);
             Add(FF, "Unattended fire", UnattendedKey, "Grows when nobody fights it", "", Kind.Bool, 0, 0, 0);
+            Add(FF, "Fire and damage control", "FireAndFlooding/FireWorkPenalty", "Work amid fire", "% less effective without fighting the fire", Kind.Number, 5f, 0f, 100f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireTime", "Unattended after", "s without a team", Kind.Number, 10f, 0f, 1200f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireGrowthRate", "Growth added", "% of max growth per fire check (10 s)", Kind.Number, 0.05f, 0f, 100f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireMaxGrowth", "Maximum growth rate", "% of max fire a second", Kind.Number, 0.1f, 0f, 100f);
@@ -136,6 +137,11 @@ namespace AlternativeDamageModel
             Add(DC, "Knock-outs", "DamageControlTeams/HealTimeSpread", "Recovery spread", "± s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Knock-outs", "DamageControlTeams/KnockoutsToDeath", "Knock-outs to death", "0 = never", Kind.Integer, 1f, 0f, 9f);
 
+            Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLeaks", "Fire reopens leaks", "% of the largest leak a second at fire 100% · 0 = off", Kind.Number, 0.1f, 0f, 20f);
+            Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLimit", "Reopened up to", "% of the largest leak", Kind.Number, 5f, 0f, 100f);
+            Add(S, "Full flooding", "FireAndFlooding/FullFloodLevel", "Full flooding from", "% of water in a section", Kind.Number, 5f, 0f, 100f);
+            Add(S, "Full flooding", "FireAndFlooding/FullFloodSystems", "Systems out of order", "no repair while flooded", Kind.Bool, 0, 0, 0);
+            Add(S, "Full flooding", "FireAndFlooding/FullFloodFireDecay", "Fire put out", "% a second · 0 = off", Kind.Number, 1f, 0f, 100f);
             Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingDelay", "Time under water", "s before water over the deck starts", Kind.Number, 0.5f, 0f, 60f);

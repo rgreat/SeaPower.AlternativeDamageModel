@@ -11,3 +11,6 @@ Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.
 - NEW: AI ships under 50 m ignore the speed limit from flooding (kamikaze) [Advanced].
 - Removed: "Centre of mass rise" (not needed).
 - "Keep centre of mass", "Wreck drag" and "Stop bubbles after" moved to the Effects tab and are global (not part of a profile); the Sinking tab is gone.
+- NEW (Flooding tab) [Advanced]: fire in a section reopens plugged leaks (0.5% of the largest leak a second at fire 100%, up to 50% of it).
+- NEW (Flooding tab) [Advanced]: a section flooded above 75% loses its systems (inoperable, no repair) and its fire is put out (10% a second).
+- NEW (Fire tab) [Advanced]: teams in a burning section that do not fight the fire work 75% less effectively.

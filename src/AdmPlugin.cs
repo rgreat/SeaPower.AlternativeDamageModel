@@ -85,6 +85,8 @@ namespace AlternativeDamageModel
         static bool _dumpXaml;
         static string _xamlDir;
         ConfigEntry<string> _noDeckEntry;
+        ConfigEntry<Factor> _reopenEntry, _reopenLimitEntry, _fullLevelEntry, _fullFireEntry, _firePenaltyEntry;
+        ConfigEntry<bool> _fullSystemsEntry;
         static HashSet<string> _noDeck = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         ConfigEntry<Factor> _mWarEntry, _mCivEntry, _mSubEntry, _shellVulnEntry, _fireVulnEntry, _floodVulnEntry,
                             _uiFloodOne, _uiFloodTwo, _uiFireOne, _uiFireTwoUp, _uiFireTwoDown;
@@ -264,6 +266,18 @@ namespace AlternativeDamageModel
             _mWarEntry = Pcfg.Bind("HullIntegrity", "Warships", new Factor(2f),
                 "How many times stronger the hull of surface warships is than in the game. 1.0 = as in the game, 2.0 = twice as strong. " +
                 "Single ships get their own value in section [HullIntegrityPerShip], one line per ship: ini file name = multiplier (e.g. usn_bb_iowa = 3.0).");
+            _reopenEntry = Pcfg.Bind("FireAndFlooding", "FireReopenLeaks", new Factor(0.5f),
+                "A burning section opens its plugged leaks again: % of the largest leak the section has had, per second at fire 100% (less at a smaller fire). 0 = off.");
+            _reopenLimitEntry = Pcfg.Bind("FireAndFlooding", "FireReopenLimit", new Factor(50f),
+                "A leak reopened by fire grows back up to this % of the largest leak the section has had.");
+            _fullLevelEntry = Pcfg.Bind("FireAndFlooding", "FullFloodLevel", new Factor(75f),
+                "A section counts as fully flooded when its water is above this % (the mean of its two sides).");
+            _fullSystemsEntry = Pcfg.Bind("FireAndFlooding", "FullFloodSystems", false,
+                "A fully flooded section: its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.");
+            _fullFireEntry = Pcfg.Bind("FireAndFlooding", "FullFloodFireDecay", new Factor(10f),
+                "A fully flooded section puts its fire out: % of the maximum fire per second. 0 = off.");
+            _firePenaltyEntry = Pcfg.Bind("FireAndFlooding", "FireWorkPenalty", new Factor(75f),
+                "Damage control teams in a section with a fire that are not fighting it work this % less effectively. 0 = off.");
             _noDeckEntry = Pcfg.Bind("FireAndFlooding", "NoDeckPointsShips", "",
                 "Ships (ini file names, comma separated; edited in the settings window, Flooding tab) that get no Deck Points: they are flooded by the old, simpler rules, as a ship without a hull collider.");
             _mCivEntry = Pcfg.Bind("HullIntegrity", "CivilianShips", new Factor(2f),
@@ -773,6 +787,12 @@ namespace AlternativeDamageModel
             DcControl.LeakPump = Math.Max(0f, _leakPumpEntry.Value.V);
             SpeedEffect.Set(_speedEffectEntry.Value);
             SpeedEffect.SmallAiFree = _smallAiEntry.Value;
+            SectionEffects.ReopenRate = Math.Max(0f, _reopenEntry.Value.V);
+            SectionEffects.ReopenLimit = Math.Max(0f, Math.Min(100f, _reopenLimitEntry.Value.V));
+            SectionEffects.FullLevel = Math.Max(0f, Math.Min(100f, _fullLevelEntry.Value.V));
+            SectionEffects.SystemsOut = _fullSystemsEntry.Value;
+            SectionEffects.FireDecay = Math.Max(0f, _fullFireEntry.Value.V);
+            DcTeams.FirePenalty = Math.Max(0f, Math.Min(100f, _firePenaltyEntry.Value.V)) / 100f;
             var nd = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var n in (_noDeckEntry.Value ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)) { var t = n.Trim(); if (t.Length > 0) nd.Add(t); }
             _noDeck = nd;
@@ -1203,7 +1223,7 @@ namespace AlternativeDamageModel
             SpeedEffect.Trace = Trace;
             if (tComp != null && DcTeams.Init(asm))
             {
-                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; BubblesOff.Trace = Trace; BubblesOff.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
+                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; SectionEffects.Trace = Trace; SectionEffects.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; BubblesOff.Trace = Trace; BubblesOff.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
                 SettingsWindow.Warn = Warn; SettingsWindow.Info = Say;
                 if (!DcAuto.Init(asm)) Warn("Optimised Auto DC: game members not found; the game's Auto DC is used.");
                 DcControl.StayWhenIdle = c => DcAuto.Ok && DcTeams.TransfersOn && DcTeams.Active(c) && DcAuto.AnyWork(c);
@@ -2003,7 +2023,7 @@ namespace AlternativeDamageModel
         static void WreckDragPostfix(object __instance) { WreckDrag.Tick(__instance); }
         static void SinkComPrefix(object __instance, out object __state) { __state = CapsizeFix.BeforeSink(__instance); }
         static void SinkComPostfix(object __instance, object __state) { CapsizeFix.AfterSink(__instance, __state); }
-        static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); BubblesOff.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
+        static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); SectionEffects.Tick(__instance); BubblesOff.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
 
         public static float TeamEffMul(float v) { return DcTeams.Eff(v); }
 
