@@ -293,7 +293,7 @@ namespace AlternativeDamageModel
             var s = Ships.GetOrCreateValue(comp);
             // the start value, set once when the ship is first asked (the game's first speed update after the spawn): a small AI ship starts with
             // the button off ([FireAndFlooding] SmallAiNoSpeedLimit); after that it is the button's own state
-            if (!s.LimitInit) { s.LimitInit = true; bool free = SpeedEffect.NoCutFor(comp); if (free) s.NoSpeedLimit = true; Trace("Limit Speed start value: " + (free ? "off (small AI ship)" : "on") + " [" + SpeedEffect.LastInfo + "]"); }
+            if (!s.LimitInit) { bool free = SpeedEffect.NoCutFor(comp); if (free) s.NoSpeedLimit = true; if (!SpeedEffect.LastInfo.StartsWith("error")) { s.LimitInit = true; Trace("Limit Speed start value: " + (free ? "off (small AI ship)" : "on") + " [" + SpeedEffect.LastInfo + "]"); } }
             return !s.NoSpeedLimit;
         }
 
