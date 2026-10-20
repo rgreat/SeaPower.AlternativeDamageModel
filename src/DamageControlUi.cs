@@ -1429,7 +1429,7 @@ namespace AlternativeDamageModel
             for (int i = 0; same && i < segs.Count; i++)
             {
                 var o = d.Segs[i]; var n = segs[i];
-                if (o.Arrow != n.Arrow || o.Box != n.Box || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue))) same = false;
+                if (o.Arrow != n.Arrow || o.Box != n.Box || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue || !o.Col.Equals(n.Col)))) same = false;
             }
             // a box whose width changes (9% -> 10%) moves the pieces after it: the row is made anew, not patched (an arrow stayed on the number)
             for (int i = 0; same && i < segs.Count; i++)

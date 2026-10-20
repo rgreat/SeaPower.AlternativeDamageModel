@@ -91,7 +91,7 @@ namespace AlternativeDamageModel
 
             Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SpeedEffect", "Multipliers by speed", "", Kind.Speed, 0, 0, 0);
 
-            Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SmallAiNoSpeedLimit", "No speed limit for small AI ships", "AI ships under 50 m: no cut of speed by flooding", Kind.Bool, 0, 0, 0);
+            Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SmallAiNoSpeedLimit", "Small AI: no limit", "AI ships < 50 m: no speed cut", Kind.Bool, 0, 0, 0);
 
             Add(TDbg, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
