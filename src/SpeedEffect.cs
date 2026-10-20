@@ -22,10 +22,10 @@ namespace AlternativeDamageModel
         static FieldInfo _fBaseObj; static PropertyInfo _pPlayer; static bool _initAi;
 
         /// <summary>A ship under 50 m that nobody controls (an AI ship: an enemy or an ally of the player) while the setting is on: the game's cut of speed by flooding is not applied.</summary>
-        public static string LastInfo = "";
+        public static bool Failed;   // the last NoCutFor could not tell (asked again next time)
         public static bool NoCutFor(object comp)
         {
-            LastInfo = "setting " + (SmallAiFree ? "on" : "off");
+            Failed = false;
             if (!SmallAiFree || comp == null) return false;
             try
             {
@@ -39,11 +39,10 @@ namespace AlternativeDamageModel
                 var bo = _fBaseObj.GetValue(comp);
                 bool ctl = bo != null && (bool)_pPlayer.GetValue(bo, null);
                 float len = DcTeams.ShipLength(comp);
-                LastInfo += ", player side " + ctl + ", length " + len.ToString("0.#") + " m";
                 if (bo == null || ctl) return false;   // the player's own ship
                 return len > 0f && len < SmallAiLength;
             }
-            catch (Exception e) { LastInfo = "error: " + e.Message; Trace("SpeedEffect.NoCutFor: " + e.Message); return false; }
+            catch (Exception e) { Failed = true; Trace("SpeedEffect.NoCutFor: " + e.Message); return false; }
         }
 
         /// <summary>"0=0.75/1, 10=1/1, ..." - speed, knots = flooding multiplier / fire multiplier. Null when nothing usable.</summary>

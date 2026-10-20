@@ -697,3 +697,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-20 (6): Small AI — признак «AI»
 * В игре `ObjectBase._isControllable` по умолчанию `true` (ставится false лишь для особых случаев), поэтому враги считались «управляемыми», и стартовое значение не менялось. Теперь «AI-корабль» = не сторона игрока (`ObjectBase.IsPlayerObject == false`: враги и союзники). Если при первом обращении произошла ошибка (например, ещё нет taskforce), старт повторяется при следующем обращении.
+
+## 2026-10-20 (7): убран трейс Limit Speed
+* Small AI проверен пользователем («все ок»); убраны `SpeedEffect.LastInfo` и трейс `Limit Speed start value`, остался флаг `SpeedEffect.Failed` (повтор при ошибке).
