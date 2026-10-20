@@ -1441,7 +1441,7 @@ namespace AlternativeDamageModel
                     if (el != null)
                     {
                         var pt = el.TranslatePoint(new Point(0f, 0f), tb);
-                        sb.Append(' ').Append(pt.X.ToString("0.#")).Append('/').Append(el.ActualWidth.ToString("0.#")).Append('/').Append(el.ActualHeight.ToString("0.#"));
+                        sb.Append(' ').Append(pt.X.ToString("0.#")).Append('/').Append(el.ActualWidth.ToString("0.#")).Append('/').Append(el.ActualHeight.ToString("0.#")).Append(" y ").Append(pt.Y.ToString("0.##"));
                     }
                     sb.Append(';');
                 }
@@ -1597,7 +1597,14 @@ namespace AlternativeDamageModel
                         panel.Children.Add(k);
                         gInl.Add(null); gKids.Add(k);
                     }
-                    if (h > 0f) panel.Height = h;   // the same height whatever the arrows: the row does not change its height when they come and go
+                    if (h > 0f)
+                    {
+                        // whole pixels only: a fractional height (14.4) put the row on a pixel boundary that changed by one when a colour was repainted
+                        float drop = (float)Math.Round(fs * BoxDrop), th = (float)Math.Round(h + drop);
+                        foreach (var c in panel.Children) { var tk = c as TextBlock; if (tk != null && tk.Margin.Bottom < 0f) tk.Height = th; }
+                        panel.Height = th - drop;   // the same height whatever the arrows: the row does not change its height when they come and go
+                    }
+                    try { panel.UseLayoutRounding = true; } catch { }
                     x = new InlineUIContainer(panel);
                     il.Add(x);
                     inl.Add(x); kids.Add(gKids[0]);
