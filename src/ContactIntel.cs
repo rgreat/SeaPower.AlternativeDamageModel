@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
         public static Func<bool> IsEnabled = () => false;
 
-        public struct Info { public int Fire, Flood, Hull, Engine; public bool Guess, Seen, Ident, Sinking, Dead; public int EtaMin; public string Cause, Via; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine + (Guess ? "?" : "") : "") : null; } } }
+        public struct Info { public int Fire, Flood, Hull, Engine; public bool Guess, Seen, Ident, Sinking, Dead; public int EtaMin; public string Cause, Via, Attitude; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine + (Guess ? "?" : "") : "") : null; } } }
 
         // ------------------------------------------------------------ reflection
 
@@ -210,6 +210,7 @@ namespace AlternativeDamageModel
                 info.Seen = seen; info.Ident = ident; info.Sinking = sinking; info.Dead = dead;
                 info.EtaMin = !sinking && soon && minutes < 1e6 ? Math.Max(1, (int)Math.Ceiling(minutes)) : 0;
                 info.Cause = cause;
+                info.Attitude = seen ? Attitude(obj) : "";
                 info.Via = seen ? (ident ? "visual observation" : "visual observation, not identified") : sonar ? "sonar (engine noise)" : radar ? "radar track (estimate)" : "";
                 return info;
             }
@@ -217,23 +218,25 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The steady rate (per second) of a value over the window: the MEDIAN of the rates between neighbouring samples. A hit is one or
-        /// two jumps among dozens of intervals - it does not move the median; what goes on all the time (water coming in, fire eating
-        /// the hull) does. So the forecast does not jump at every hit, only follows the damage that goes on by itself.
+        /// The rate (per second) of a value over the window WITHOUT the direct damage of hits: the intervals between samples with a hit in
+        /// them (and 2 seconds after) are left out, the rest is averaged. What is left is the damage that goes on by itself (water
+        /// coming in, fire eating the hull). Less than 10 seconds of such intervals: no rate.
         /// </summary>
-        static double Rate(Hist h, List<float> v)
+        static double Rate(Hist h, List<float> v, List<double> hits)
         {
             int n = h.T.Count;
-            if (n < 6) return 0;
-            var r = new List<double>();
+            if (n < 2) return 0;
+            double sum = 0, dts = 0;
             for (int i = 1; i < n; i++)
             {
                 double dt = h.T[i] - h.T[i - 1];
-                if (dt >= 0.2) r.Add((v[i] - v[i - 1]) / dt);
+                if (dt < 0.2) continue;
+                bool hit = false;
+                foreach (var t in hits) if (t >= h.T[i - 1] - 0.5 && t <= h.T[i] + 2.0) { hit = true; break; }
+                if (hit) continue;
+                sum += v[i] - v[i - 1]; dts += dt;
             }
-            if (r.Count < 5) return 0;
-            r.Sort();
-            return r.Count % 2 == 1 ? r[r.Count / 2] : (r[r.Count / 2 - 1] + r[r.Count / 2]) / 2.0;
+            return dts < 10.0 ? 0 : sum / dts;
         }
 
         // ---- saved games: "time,flood,hull|..." (the samples of the trend: after loading the forecast goes on, it does not start over)
@@ -296,7 +299,9 @@ namespace AlternativeDamageModel
             double span = h.T.Count < 2 ? 0 : h.T[h.T.Count - 1] - h.T[0];
             if (!sinking && span >= MinSpan)
             {
-                double rf = Rate(h, h.Flood), rh = Rate(h, h.Hull);   // % a second, only what goes on steadily
+                var hits = new List<double>();
+                try { var comp = _oCompartments.GetValue(obj, null); foreach (var r in HitLog.Records(comp)) hits.Add(r.Time); } catch { }
+                double rf = Rate(h, h.Flood, hits), rh = Rate(h, h.Hull, hits);   // % a second, without the hits themselves
                 float limit = _tSub != null && _tSub.IsInstanceOfType(obj) ? 50f : Limits.LevelFull;
                 double ef = rf > 0.0005 ? (limit - flood) / rf : double.MaxValue, eh = rh < -0.0005 ? (hull - 10f) / -rh : double.MaxValue;
                 eta = Math.Min(ef, eh);
@@ -329,6 +334,35 @@ namespace AlternativeDamageModel
                 sub = cause;
             }
             catch (Exception e) { Trace("ContactIntel.Forecast: " + e.Message); }
+        }
+
+        // ---- list and trim, in words (for what is seen from a distance): smoothed over a few seconds of game time (the rolling on the waves is not a list)
+
+        sealed class Att { public double T = -1; public float Roll, Pitch; }
+        static readonly ConditionalWeakTable<object, Att> Atts = new ConditionalWeakTable<object, Att>();
+
+        /// <summary>"list to port" / "heavy list to starboard", "trim by the bow" ...; "" when there is nothing noticeable.</summary>
+        public static string Attitude(object obj)
+        {
+            try
+            {
+                var c = obj as UnityEngine.Component;
+                if (c == null) return "";
+                var a = Atts.GetOrCreateValue(obj);
+                var e = c.transform.localEulerAngles;
+                Func<float, float> ang = x => { x %= 360f; if (x > 180f) x -= 360f; else if (x < -180f) x += 360f; return x; };
+                float roll = ang(e.z), pitch = ang(e.x);
+                double t = Now();
+                if (a.T < 0 || t < a.T) { a.Roll = roll; a.Pitch = pitch; }
+                else if (t > a.T) { float k = 1f - (float)Math.Exp(-(t - a.T) / 3.0); a.Roll += (roll - a.Roll) * k; a.Pitch += (pitch - a.Pitch) * k; }
+                a.T = t;
+                var parts = new List<string>();
+                float ar = Math.Abs(a.Roll), ap = Math.Abs(a.Pitch);
+                if (ar >= 4f) parts.Add((ar >= 12f ? "heavy " : "") + "list to " + (a.Roll > 0 ? "port" : "starboard"));   // +z: port side down
+                if (ap >= 1.5f) parts.Add((ap >= 4f ? "heavy " : "") + "trim by the " + (a.Pitch > 0 ? "bow" : "stern"));   // +x: the bow down
+                return string.Join(", ", parts.ToArray());
+            }
+            catch { return ""; }
         }
 
         /// <summary>The fires' total strength: the sum over the sections of their fire in % of the section's own maximum (100 = one section burning at full).</summary>

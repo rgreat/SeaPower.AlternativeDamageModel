@@ -243,14 +243,16 @@ namespace AlternativeDamageModel
             p.Forecast.Visibility = fc.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             p.Forecast.Foreground = ContactIntelBrush(sev);
             SetText(p.Via, string.IsNullOrEmpty(i.Via) ? "" : "Source: " + i.Via);
-            bool any = i.Any;
+            string att = i.Attitude ?? "";
+            bool any = i.Any || att.Length > 0;
             SetText(p.Empty, any ? "" : i.Seen ? "No damage visible" : "No data: not in direct sight");
             p.Empty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
             int[] lv = { i.Fire, i.Flood, i.Hull, i.Engine };
+            if (lv[1] == 0 && att.Length > 0) lv[1] = 1;   // only the attitude is seen: the water icon, yellow
             string[] txt =
             {
                 lv[0] > 0 ? "Fire: " + FireWords[Math.Min(lv[0], 3)] : "",
-                lv[1] > 0 ? "Flooding: " + WaterWords[Math.Min(lv[1], 4)] : "",
+                i.Flood > 0 ? "Flooding: " + WaterWords[Math.Min(i.Flood, 4)] + (att.Length > 0 ? ", " + att : "") : att.Length > 0 ? "Attitude: " + att : "",
                 lv[2] > 0 ? "Hull: " + HullWords[Math.Min(lv[2], 4)] : "",
                 lv[3] > 0 ? (lv[3] >= 4 ? "Engine: dead in the water" : "Engine: part of propulsion lost") + (i.Guess ? " ?" : "") : ""
             };
