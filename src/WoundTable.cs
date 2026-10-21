@@ -56,7 +56,7 @@ namespace AlternativeDamageModel
         // what the table shows first (the ship's / ammunition's ini name or a part of the shown name); mods' ships are found by name,
         // gaps are filled from the game's data by size / power
         static readonly string[] WantShips = { "wp_pb_zhuk", "knm_fs_sleipner", "wp_skr_krivak1", "usn_cg_ticonderoga", "wp_rkr_kirov", "usn_cvn_nimitz" };
-        static readonly string[] WantAmmo = { "usn_cal_35mm", "wp_cal_57mm", "usn_cal_76mm", "wp_cal_100mm", "usn_cal_127mm", "usn_mk-82", "usn_rgm-84c", "wp_53-65K", "wp_ss-n-19" };
+        static readonly string[] WantAmmo = { "wp_cal_37mm", "wp_cal_57mm", "usn_cal_76mm", "wp_cal_100mm", "usn_cal_127mm", "usn_mk-82", "usn_rgm-84c", "wp_53-65K", "wp_ss-n-19" };
 
         static Border Cell(string s, Color c, bool bold, TextAlignment al, int row, int col, Color? bg = null, float fs = 12f)
         {
