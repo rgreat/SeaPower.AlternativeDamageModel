@@ -95,9 +95,9 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("HitLog: " + e.Message); }
         }
 
-        // ---- saved games: "ammunition|ammunition|...#time,ammo,section,flags|..." (flags: 1 port, 2 stopped by armour, 4 explosion)
+        // ---- saved games: "ammunition|ammunition|.../time,ammo,section,flags|..." (flags: 1 port, 2 stopped by armour, 4 explosion)
 
-        static string Clean(string a) { return (a ?? "?").Replace('|', '/').Replace('#', ' ').Replace(',', ' ').Replace(';', ' ').Replace('=', ' ').Trim(); }
+        static string Clean(string a) { return (a ?? "?").Replace('|', '-').Replace('/', '-').Replace('#', ' ').Replace(',', ' ').Replace(';', ' ').Replace('=', ' ').Trim(); }
 
         public static string Save(object comps)
         {
@@ -115,7 +115,7 @@ namespace AlternativeDamageModel
                 body.Append(r.Time.ToString("0.#", CultureInfo.InvariantCulture)).Append(',').Append(i).Append(',').Append(r.Section).Append(',')
                     .Append((r.Port ? 1 : 0) | (r.Armor ? 2 : 0) | (r.Blast ? 4 : 0));
             }
-            sb.Append(string.Join("|", names.ToArray())).Append('#').Append(body);
+            sb.Append(string.Join("|", names.ToArray())).Append('/').Append(body);
             return sb.ToString();
         }
 
@@ -123,7 +123,7 @@ namespace AlternativeDamageModel
         {
             try
             {
-                int hash = text.IndexOf('#');
+                int hash = text.IndexOf('/');   // not '#': the game's ini reader takes the rest of the line after it for a comment
                 if (hash < 0) return;
                 var names = text.Substring(0, hash).Split('|');
                 var list = new List<Rec>();
