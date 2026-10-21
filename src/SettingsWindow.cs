@@ -991,7 +991,7 @@ namespace AlternativeDamageModel
                 line.Children.Add(box);
             }
             return new Border { Child = line, Background = B(CPanel), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(3f),
-                                Margin = new Thickness(12f, 8f, 12f, 2f), Padding = new Thickness(4f, 2f, 4f, 2f), HorizontalAlignment = HorizontalAlignment.Left };
+                                Margin = new Thickness(12f, 8f, 12f, 6f), Padding = new Thickness(4f, 2f, 4f, 2f), HorizontalAlignment = HorizontalAlignment.Left };
         }
 
         static Border _page;
