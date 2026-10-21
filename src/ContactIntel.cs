@@ -337,10 +337,11 @@ namespace AlternativeDamageModel
 
         // ---- list and trim, in words (for what is seen from a distance): smoothed over a few seconds of game time (the rolling on the waves is not a list)
 
-        sealed class Att { public double T = -1; public float Roll, Pitch; }
+        sealed class Att { public List<double> T = new List<double>(); public List<float> Roll = new List<float>(), Pitch = new List<float>(); }
         static readonly ConditionalWeakTable<object, Att> Atts = new ConditionalWeakTable<object, Att>();
 
-        /// <summary>"list to port" / "heavy list to starboard", "trim by the bow" ...; "" when there is nothing noticeable.</summary>
+        /// <summary>"list to port" / "heavy list to starboard", "trim by the bow" ...; "" when there is nothing noticeable.
+        /// The angles are averaged over the whole observation window (Window, 90 s): waves are slow too, and the mean of a rolling ship is its list.</summary>
         public static string Attitude(object obj)
         {
             try
@@ -350,15 +351,19 @@ namespace AlternativeDamageModel
                 var a = Atts.GetOrCreateValue(obj);
                 var e = c.transform.localEulerAngles;
                 Func<float, float> ang = x => { x %= 360f; if (x > 180f) x -= 360f; else if (x < -180f) x += 360f; return x; };
-                float roll = ang(e.z), pitch = ang(e.x);
                 double t = Now();
-                if (a.T < 0 || t < a.T) { a.Roll = roll; a.Pitch = pitch; }
-                else if (t > a.T) { float k = 1f - (float)Math.Exp(-(t - a.T) / 3.0); a.Roll += (roll - a.Roll) * k; a.Pitch += (pitch - a.Pitch) * k; }
-                a.T = t;
+                int n = a.T.Count;
+                if (n > 0 && (t < a.T[n - 1] || t - a.T[n - 1] > 30.0)) { a.T.Clear(); a.Roll.Clear(); a.Pitch.Clear(); n = 0; }   // time went back (load) or a long gap
+                if (n == 0 || t - a.T[n - 1] >= 0.5) { a.T.Add(t); a.Roll.Add(ang(e.z)); a.Pitch.Add(ang(e.x)); }
+                while (a.T.Count > 2 && t - a.T[0] > Window) { a.T.RemoveAt(0); a.Roll.RemoveAt(0); a.Pitch.RemoveAt(0); }
+                if (a.T[a.T.Count - 1] - a.T[0] < MinSpan) return "";   // too short to tell a list from a wave
+                float sr = 0f, sp = 0f;
+                for (int i = 0; i < a.T.Count; i++) { sr += a.Roll[i]; sp += a.Pitch[i]; }
+                float roll = sr / a.T.Count, pitch = sp / a.T.Count;
                 var parts = new List<string>();
-                float ar = Math.Abs(a.Roll), ap = Math.Abs(a.Pitch);
-                if (ar >= 4f) parts.Add((ar >= 12f ? "heavy " : "") + "list to " + (a.Roll > 0 ? "port" : "starboard"));   // +z: port side down
-                if (ap >= 1.5f) parts.Add((ap >= 4f ? "heavy " : "") + "trim by the " + (a.Pitch > 0 ? "bow" : "stern"));   // +x: the bow down
+                float ar = Math.Abs(roll), ap = Math.Abs(pitch);
+                if (ar >= 4f) parts.Add((ar >= 12f ? "heavy " : "") + "list to " + (roll > 0 ? "port" : "starboard"));   // +z: port side down
+                if (ap >= 1.5f) parts.Add((ap >= 4f ? "heavy " : "") + "trim by the " + (pitch > 0 ? "bow" : "stern"));   // +x: the bow down
                 return string.Join(", ", parts.ToArray());
             }
             catch { return ""; }
