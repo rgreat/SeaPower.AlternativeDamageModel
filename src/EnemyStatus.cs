@@ -151,7 +151,7 @@ namespace AlternativeDamageModel
 
         sealed class Card
         {
-            public Grid Root; public TextBlock Title, Empty, Forecast;
+            public Grid Root; public TextBlock Title, Empty, Forecast, Via;
             public Noesis.Path[] Icons = new Noesis.Path[4]; public TextBlock[] Texts = new TextBlock[4]; public StackPanel[] Rows = new StackPanel[4];
             public StackPanel Body; public float Next;
         }
@@ -216,6 +216,8 @@ namespace AlternativeDamageModel
                 p.Body.Children.Add(row);
             }
             stack.Children.Add(p.Body);
+            p.Via = new TextBlock { FontSize = 12f, Foreground = DamageControlUi.ResBrush(view, "Brush.Foreground.Highlight", Color.FromRgb(160, 166, 174)), Margin = new Thickness(0f, 12f, 0f, 0f) };
+            stack.Children.Add(p.Via);
             p.Root.Children.Add(stack);
             host.Children.Add(p.Root);
             return p;
@@ -235,11 +237,12 @@ namespace AlternativeDamageModel
             SetText(p.Title, "Damage State — " + NameOf(_vehicle));
             string fc = ""; int sev = 0;
             if (i.Sinking) { fc = "Sinking"; sev = 2; }
-            else if (i.Seen && i.Ident && i.EtaMin > 0) { int m = (i.EtaMin + 4) / 5 * 5; fc = "Sinks in ~" + m + " min"; sev = i.EtaMin <= 20 ? 2 : 1; }
+            else if (i.Seen && i.Ident && i.EtaMin > 0) { int m = (i.EtaMin + 4) / 5 * 5; fc = "Sinks in ~" + m + " min" + (string.IsNullOrEmpty(i.Cause) ? "" : " (" + i.Cause + ")"); sev = i.EtaMin <= 20 ? 2 : 1; }
             else if (i.Seen && !i.Ident && i.EtaMin > 0) { fc = "Sinking soon"; sev = 1; }
             SetText(p.Forecast, fc);
             p.Forecast.Visibility = fc.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             p.Forecast.Foreground = ContactIntelBrush(sev);
+            SetText(p.Via, string.IsNullOrEmpty(i.Via) ? "" : "Source: " + i.Via);
             bool any = i.Any;
             SetText(p.Empty, any ? "" : i.Seen ? "No damage visible" : "No data: not in direct sight");
             p.Empty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;

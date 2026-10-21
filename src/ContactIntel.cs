@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
         public static Func<bool> IsEnabled = () => false;
 
-        public struct Info { public int Fire, Flood, Hull, Engine; public bool Guess, Seen, Ident, Sinking, Dead; public int EtaMin; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine + (Guess ? "?" : "") : "") : null; } } }
+        public struct Info { public int Fire, Flood, Hull, Engine; public bool Guess, Seen, Ident, Sinking, Dead; public int EtaMin; public string Cause, Via; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine + (Guess ? "?" : "") : "") : null; } } }
 
         // ------------------------------------------------------------ reflection
 
@@ -172,7 +172,7 @@ namespace AlternativeDamageModel
                 float prop = Propulsion(comp);
 
                 // the trend, for the forecast
-                double eta = Trend(obj, sinking, flood, hull);
+                string cause; double eta = Trend(obj, sinking, flood, hull, out cause);
                 double minutes = eta / 60.0;
                 bool soon = sinking || minutes <= 90.0;
                 bool doomed = sinking || minutes <= 20.0;
@@ -209,27 +209,31 @@ namespace AlternativeDamageModel
                 else info.Doomed = false;
                 info.Seen = seen; info.Ident = ident; info.Sinking = sinking; info.Dead = dead;
                 info.EtaMin = !sinking && soon && minutes < 1e6 ? Math.Max(1, (int)Math.Ceiling(minutes)) : 0;
+                info.Cause = cause;
+                info.Via = seen ? (ident ? "visual observation" : "visual observation, not identified") : sonar ? "sonar (engine noise)" : radar ? "radar track (estimate)" : "";
                 return info;
             }
             catch (Exception e) { Trace("ContactIntel.Of: " + e.Message); return none; }
         }
 
         /// <summary>
-        /// The rate (per second) of a value over the window, but only a steady one: the smaller of the rate over the whole window and
-        /// over its later half (a hit a minute ago is a jump, not a trend - it would be extrapolated for ever).
+        /// The steady rate (per second) of a value over the window: the MEDIAN of the rates between neighbouring samples. A hit is one or
+        /// two jumps among dozens of intervals - it does not move the median; what goes on all the time (water coming in, fire eating
+        /// the hull) does. So the forecast does not jump at every hit, only follows the damage that goes on by itself.
         /// </summary>
         static double Rate(Hist h, List<float> v)
         {
             int n = h.T.Count;
-            if (n < 2) return 0;
-            double all = (v[n - 1] - v[0]) / (h.T[n - 1] - h.T[0]);
-            double mid = (h.T[0] + h.T[n - 1]) / 2.0;
-            int k = 0; while (k < n - 1 && h.T[k] < mid) k++;
-            double rec = h.T[n - 1] - h.T[k] > 1.0 ? (v[n - 1] - v[k]) / (h.T[n - 1] - h.T[k]) : 0;
-            // the same sign and the smaller in size
-            if (all > 0 && rec > 0) return Math.Min(all, rec);
-            if (all < 0 && rec < 0) return Math.Max(all, rec);
-            return 0;
+            if (n < 6) return 0;
+            var r = new List<double>();
+            for (int i = 1; i < n; i++)
+            {
+                double dt = h.T[i] - h.T[i - 1];
+                if (dt >= 0.2) r.Add((v[i] - v[i - 1]) / dt);
+            }
+            if (r.Count < 5) return 0;
+            r.Sort();
+            return r.Count % 2 == 1 ? r[r.Count / 2] : (r[r.Count / 2 - 1] + r[r.Count / 2]) / 2.0;
         }
 
         // ---- saved games: "time,flood,hull|..." (the samples of the trend: after loading the forecast goes on, it does not start over)
@@ -278,8 +282,9 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>Game seconds to sinking by the trend of the last minute (flooding to its limit, hull to 10%); double.MaxValue - none.</summary>
-        static double Trend(object obj, bool sinking, float flood, float hull)
+        static double Trend(object obj, bool sinking, float flood, float hull, out string cause)
         {
+            cause = "";
             double eta = double.MaxValue;
             var h = History.GetOrCreateValue(obj);
             double now = Now();
@@ -293,8 +298,9 @@ namespace AlternativeDamageModel
             {
                 double rf = Rate(h, h.Flood), rh = Rate(h, h.Hull);   // % a second, only what goes on steadily
                 float limit = _tSub != null && _tSub.IsInstanceOfType(obj) ? 50f : Limits.LevelFull;
-                if (rf > 0.0005) eta = Math.Min(eta, (limit - flood) / rf);
-                if (rh < -0.0005) eta = Math.Min(eta, (hull - 10f) / -rh);
+                double ef = rf > 0.0005 ? (limit - flood) / rf : double.MaxValue, eh = rh < -0.0005 ? (hull - 10f) / -rh : double.MaxValue;
+                eta = Math.Min(ef, eh);
+                cause = ef <= eh ? "flooding" : "hull damage";
             }
             return eta;
         }
@@ -314,19 +320,13 @@ namespace AlternativeDamageModel
                 bool sinking = (bool)_cSinking.GetValue(comp);
                 float flood = Convert.ToSingle(_cFlood.GetValue(comp, null)), hull = Convert.ToSingle(_cInt.GetValue(comp, null));
                 if (sinking) { main = "Sinking"; sev = 2; return; }
-                double eta = Trend(obj, false, flood, hull);
+                string cause; double eta = Trend(obj, false, flood, hull, out cause);
                 if (eta == double.MaxValue) return;
                 double min = eta / 60.0;
                 if (min > 90.0) return;
                 main = "Sinks in ~" + Math.Max(1, (int)Math.Ceiling(min)) + " min";
                 sev = min <= 20.0 ? 2 : 1;
-                // the cause: the one that gets there sooner
-                var h = History.GetOrCreateValue(obj);
-                double span = h.T[h.T.Count - 1] - h.T[0];
-                float limit = _tSub != null && _tSub.IsInstanceOfType(obj) ? 50f : Limits.LevelFull;
-                double rf = span > 0 ? Rate(h, h.Flood) : 0, rh = span > 0 ? Rate(h, h.Hull) : 0;
-                double ef = rf > 0.0005 ? (limit - flood) / rf : double.MaxValue, eh = rh < -0.0005 ? (hull - 10f) / -rh : double.MaxValue;
-                sub = ef <= eh ? "flooding" : "hull damage";
+                sub = cause;
             }
             catch (Exception e) { Trace("ContactIntel.Forecast: " + e.Message); }
         }
