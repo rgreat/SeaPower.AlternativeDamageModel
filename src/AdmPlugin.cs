@@ -75,7 +75,7 @@ namespace AlternativeDamageModel
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
-        ConfigEntry<bool> _healthOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
+        ConfigEntry<bool> _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -380,6 +380,8 @@ namespace AlternativeDamageModel
                 "Multiplier of the wound a team gets when a hit takes it out of its section (the game's knock-out: only in a hit section with " +
                 "integrity under 50%, the chance is the damage x (1 - integrity), at most 20%). One knock-out = 50 points, as the old " +
                 "'two knock-outs = dead' on a 1000 t ship. The team walks to the reserve wounded.");
+            _fatigueOnEntry = Pcfg.Bind("DamageControlTeams", "FatigueEnabled", true,
+                "Team fatigue on: working builds it up, the reserve takes it away, a tired team works at half speed. Off = no fatigue; its settings are hidden.");
             _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(0f),
                 "Minutes of work in a section until a team is tired; then it works at half speed. The reserve takes fatigue away as fast as " +
                 "work builds it up. Shown in the team's hint; a tired team's icon is highlighted. 0 = no fatigue.");
@@ -836,7 +838,7 @@ namespace AlternativeDamageModel
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);
             DcTeams.FireWound = Math.Max(0f, _fireWoundEntry.Value.V);
             DcTeams.HitWound = Math.Max(0f, _hitWoundEntry.Value.V);
-            DcTeams.FatigueMin = Math.Max(0f, _fatigueEntry.Value.V);
+            DcTeams.FatigueMin = _fatigueOnEntry.Value ? Math.Max(0f, _fatigueEntry.Value.V) : 0f;
             Limits.ListFull = Clamp(_listLimitEntry.Value.V, 5f, 69f);
             Limits.TrimFull = Clamp(_trimLimitEntry.Value.V, 1f, 30f);
             Limits.TrimRefLength = Math.Max(0f, _trimLengthEntry.Value.V);

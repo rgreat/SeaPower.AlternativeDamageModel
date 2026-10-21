@@ -38,7 +38,7 @@ namespace AlternativeDamageModel
         const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
         const string TFx = "Effects";
         static readonly string[] Tabs = { TUi, TFx, TGen, TDbg, "Hull", "Systems", "Fire", "Flooding", "DC Teams" };
-        const string HealthKey = "DamageControlTeams/TeamHealthEnabled";
+        const string HealthKey = "DamageControlTeams/TeamHealthEnabled", FatigueKey = "DamageControlTeams/FatigueEnabled";
         const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
         /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
         static bool LiveKey(string key) { return key == AdmKey || key == UiKey; }
@@ -47,7 +47,6 @@ namespace AlternativeDamageModel
         static string ShownWhen(Field f)
         {
             if (f.Group == ArrowsGroup) return UiKey;
-            if (f.Group == "Health" && f.Key != HealthKey) return HealthKey;
             if (f.Key == "FireAndFlooding/UnattendedFireTime" || f.Key == "FireAndFlooding/UnattendedFireGrowthRate" || f.Key == "FireAndFlooding/UnattendedFireMaxGrowth") return UnattendedKey;
             if (f.Key == "Effects/SmokeStartOpacity" || f.Key == "Effects/SmokeEndOpacity" ||f.Key == "Effects/SmokeModerateFrom" || f.Key == "Effects/SmokeSevereFrom") return DensityKey;
             return null;
@@ -124,23 +123,24 @@ namespace AlternativeDamageModel
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/WarshipTeams", "Warships", "", Kind.Table, 0, 0, 0);
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/SubmarineTeams", "Submarines", "", Kind.Table, 0, 0, 0);
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/CivilianTeams", "Civilian ships", "", Kind.Table, 0, 0, 0);
-            Add(DC, "Work and movement", "DamageControlTeams/DCTeamEffectiveness", "Team effectiveness", "× game", Kind.Number, 0.1f, 0.05f, 5f);
-            Add(DC, "Work and movement", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
-            Add(DC, "Work and movement", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
-            Add(DC, "Work and movement", "FireAndFlooding/SubmergedFireDecay", "Fire under water", "% per second per metre under water; 0 = off", Kind.Number, 0.5f, 0f, 20f);
-            Add(DC, "Work and movement", "FireAndFlooding/TeamBlocksFireSpread", "Team stops fire spread", "fire does not spread into a section with a team", Kind.Bool, 0, 0, 0);
-            Add(DC, "Work and movement", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
-            Add(DC, "Work and movement", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
-            Add(DC, "Work and movement", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
-            Add(DC, "Work and movement", "DamageControlTeams/MaxPlugSpeed", "Max ship speed for plugging holes", "knots · 0 = no limit", Kind.Number, 1f, 0f, 100f);
-            Add(DC, "Movement", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
-            Add(DC, "Movement", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
-            Add(DC, "Health", "DamageControlTeams/TeamHealthEnabled", "Team health", "wounds, recovery, slower work when wounded", Kind.Bool, 0, 0, 0);
-            Add(DC, "Health", "DamageControlTeams/TeamHealth", "Max health", "× by displacement", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Work", "DamageControlTeams/DCTeamEffectiveness", "Team effectiveness", "× game", Kind.Number, 0.1f, 0.05f, 5f);
+            Add(DC, "Work", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Work", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Work", "FireAndFlooding/SubmergedFireDecay", "Fire under water", "% per second per metre under water; 0 = off", Kind.Number, 0.5f, 0f, 20f);
+            Add(DC, "Work", "FireAndFlooding/TeamBlocksFireSpread", "Team stops fire spread", "fire does not spread into a section with a team", Kind.Bool, 0, 0, 0);
+            Add(DC, "Work", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
+            Add(DC, "Work", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
+            Add(DC, "Work", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
+            Add(DC, "Work", "DamageControlTeams/MaxPlugSpeed", "Max ship speed for plugging holes", "knots · 0 = no limit", Kind.Number, 1f, 0f, 100f);
+            Add(DC, "Work", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
+            Add(DC, "Work", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
+            Add(DC, "Switches", "DamageControlTeams/TeamHealthEnabled", "Team health", "wounds and recovery; off = the Health page is hidden", Kind.Bool, 0, 0, 0);
+            Add(DC, "Switches", "DamageControlTeams/FatigueEnabled", "Team fatigue", "off = the Fatigue page is hidden", Kind.Bool, 0, 0, 0);
+            Add(DC, "Health", "DamageControlTeams/TeamHealth", "Max health", "× (by ship displacement)", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/HealthRegen", "Reserve recovery", "% health per second", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/HitWound", "Hit wounds", "× knock-out wound", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Fatigue", "DamageControlTeams/FatigueMinutes", "Fatigue after", "min of work · 0 = off", Kind.Number, 1f, 0f, 240f);
+            Add(DC, "Fatigue", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
 
             Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
@@ -726,20 +726,42 @@ namespace AlternativeDamageModel
 
         /// <summary>The game's own value of a setting (what the "game:" column shows): the entry's default for global keys, the Base Game profile for the rest.</summary>
         /// <summary>Settings the game has no counterpart of (not "game: x" but the mod's own default).</summary>
-        static readonly string[] Subs = { "Teams", "Work", "Health" };
+        static readonly string[] Subs = { "Count", "Work", "Health", "Fatigue" };
         static int _sub;
-        /// <summary>The DC Teams tab is split by kind of option: which part a row belongs to.</summary>
+        /// <summary>The DC Teams tab is split by kind of option: which page a row is on (-1 = the switches above the pages).</summary>
         static int SubOf(Field f)
         {
-            if (f.Group.StartsWith("Number of teams", StringComparison.Ordinal) || f.Group == "Movement") return 0;
-            if (f.Group == "Health" || f.Group == "Fatigue") return 2;
+            if (f.Group == "Switches") return -1;
+            if (f.Group.StartsWith("Number of teams", StringComparison.Ordinal)) return 0;
+            if (f.Group == "Health") return 2;
+            if (f.Group == "Fatigue") return 3;
             return 1;
+        }
+
+        static bool SubShown(int sub) { return sub == 2 ? IsOn(HealthKey) : sub == 3 ? IsOn(FatigueKey) : true; }
+
+        // column widths of the rows (stars: the first columns grow with the window too); set per tab from its texts
+        static float _wLabel = 200f, _wGame = 124f;
+
+        static void FitColumns(string tab)
+        {
+            float lab = 150f, game = 70f;
+            foreach (var f in Fields)
+            {
+                if (f.Tab != tab) continue;
+                if (tab == "DC Teams" && (SubOf(f) != _sub && SubOf(f) != -1)) continue;
+                lab = Math.Max(lab, f.Label.Length * 7.3f + 22f);
+                string g = null;
+                try { g = GameText(f); } catch { }
+                if (g != null) foreach (var line in g.Split('\n')) game = Math.Max(game, line.Length * 6.3f + 10f);
+            }
+            _wLabel = Math.Min(280f, lab); _wGame = Math.Min(150f, game);
         }
 
         static bool ModOnly(string key)
         {
             return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
-                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
+                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
                    key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes";
         }
 
@@ -879,11 +901,17 @@ namespace AlternativeDamageModel
             string group = null;
             bool ui = UiOn();
             bool dcTab = Tabs[_tab] == "DC Teams";
-            if (dcTab) _body.Children.Add(SubBar());
+            if (dcTab && !SubShown(_sub)) _sub = 1;
+            FitColumns(Tabs[_tab]);
+            if (dcTab)
+            {
+                foreach (var sw in Fields) if (sw.Tab == "DC Teams" && SubOf(sw) == -1) _body.Children.Add(Row(sw));
+                _body.Children.Add(SubBar());
+            }
             foreach (var f in Fields)
             {
                 if (f.Tab != Tabs[_tab]) continue;
-                if (dcTab && SubOf(f) != _sub) continue;
+                if (dcTab && SubOf(f) != _sub) continue;   // (the switches are above the pages)
                 if (!adm && f.Tab == TGen && !f.Global) continue;   // the damage model's own settings: only while it is on
                 string when = ShownWhen(f);
                 if (when != null && !IsOn(when)) continue;   // only while its switch is on
@@ -922,6 +950,7 @@ namespace AlternativeDamageModel
             var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 8f, 12f, 2f) };
             for (int i = 0; i < Subs.Length; i++)
             {
+                if (!SubShown(i)) continue;
                 int idx = i;
                 var tb = new Border { Child = Text(Subs[i], i == _sub ? CText : CDim), Padding = new Thickness(10f, 3f, 10f, 3f), Margin = new Thickness(0f, 0f, 4f, 0f),
                                       CornerRadius = new CornerRadius(3f), Background = B(i == _sub ? CPanel : Color.FromArgb(0, 0, 0, 0)), BorderBrush = B(CLine),
@@ -941,9 +970,9 @@ namespace AlternativeDamageModel
         static Grid RowGrid()
         {
             var g = new Grid { Margin = new Thickness(0f), Background = B(Color.FromArgb(0, 0, 0, 0)) };
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200f) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(124f) });   // "game: 2 by tonnage" on one line
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(_wLabel, GridUnitType.Star), MinWidth = _wLabel });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300f, GridUnitType.Star), MinWidth = 150f });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(_wGame, GridUnitType.Star), MinWidth = _wGame });
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30f) });
             return g;
         }
@@ -1071,6 +1100,7 @@ namespace AlternativeDamageModel
                     return;
                 }
                 Set(f, v); mark();
+                if (f.Key == HealthKey || f.Key == FatigueKey) { ShowTab(_tab); return; }
                 foreach (var other in Fields) if (ShownWhen(other) == f.Key) { ShowTab(_tab); break; }   // rows that show / hide with it
             };
             refresh = () => cb.IsChecked = Get(f).Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
