@@ -60,7 +60,7 @@ namespace AlternativeDamageModel
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _woundThresholdEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _speedEffectEntry;
         ConfigEntry<Factor> _maxPlugEntry;
@@ -380,13 +380,11 @@ namespace AlternativeDamageModel
                 "A team in a burning section that is not fighting the fire loses this much of its full health a second at fire 100% " +
                 "(less at a lower fire level).");
             _hitWoundEntry = Pcfg.Bind("DamageControlTeams", "HitWound", new Factor(1f),
-                "Multiplier of the wound a team gets when a hit takes it out of its section (the game's knock-out: only in a hit section with " +
-                "integrity under 50%, the chance is the damage x (1 - integrity), at most 20%). The wound is the warhead power of the ammunition " +
-                "(0..196, half of the game's ammunition under 25) x this, in points of the team's health (2..200 by displacement). The team walks to the reserve wounded.");
-            _woundThresholdEntry = Pcfg.Bind("DamageControlTeams", "WoundThreshold", new Factor(50f),
-                "Is a team wounded by a hit that takes it out of its section? A random roll 0-100 is scaled by the warhead power against the team's health " +
-                "(the bigger the ship, the less likely; the stronger the warhead, the more likely). A roll under this value = no wound; above it the wound " +
-                "grows from 0 to the whole warhead power (x Hit wounds) at 100.");
+                "Multiplier of the strength of a wound: at most the warhead power of the ammunition (0..196, half of the game's ammunition under 25) x this, " +
+                "in points of the team's health (2..200 by displacement). A wounded team walks to the reserve.");
+            _woundChanceEntry = Pcfg.Bind("DamageControlTeams", "WoundChance", new Factor(1f),
+                "Multiplier of the chance that a hit wounds a team it takes out of its section. The chance itself grows with the warhead power and falls " +
+                "with the ship's size (the team's health); even the weakest hit has a small one. 0 = never.");
             _fatigueOnEntry = Pcfg.Bind("DamageControlTeams", "FatigueEnabled", true,
                 "Team fatigue on: working builds it up, the reserve takes it away, a tired team works at half speed. Off = no fatigue; its settings are hidden.");
             _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(60f),
@@ -855,7 +853,7 @@ namespace AlternativeDamageModel
             DcTeams.HealthMul = _healthOnEntry.Value ? Math.Max(0f, _healthEntry.Value.V) : 0f;
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);
             DcTeams.FireWound = Math.Max(0f, _fireWoundEntry.Value.V);
-            DcTeams.WoundThreshold = Math.Max(0f, Math.Min(99f, _woundThresholdEntry.Value.V));
+            DcTeams.WoundChance = Math.Max(0f, _woundChanceEntry.Value.V);
             DcTeams.HitWound = Math.Max(0f, _hitWoundEntry.Value.V);
             DcTeams.FatigueRecover = Math.Max(0f, _fatigueRecoverEntry.Value.V);
             DcTeams.ExhaustedMin = Math.Max(Math.Max(0f, _fatigueEntry.Value.V), Math.Max(0f, _exhaustEntry.Value.V));   // never below 'Tired after'
