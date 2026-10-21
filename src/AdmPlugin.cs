@@ -389,7 +389,7 @@ namespace AlternativeDamageModel
                 "Minutes of work until a team is exhausted, the second level of fatigue (at most: fatigue stops growing there). Not above 'Tired after' = no second level.");
             _speedRestedEntry = Pcfg.Bind("DamageControlTeams", "SpeedRested", new Factor(100f),
                 "Work speed of a rested team, % (the starting point of the fatigue curve). The speed falls in a straight line from here to the tired level.");
-            _speedTiredEntry = Pcfg.Bind("DamageControlTeams", "SpeedTired", new Factor(50f),
+            _speedTiredEntry = Pcfg.Bind("DamageControlTeams", "SpeedTired", new Factor(75f),
                 "Work speed of a team that has just become tired, %. Between the tired and the exhausted level the speed falls in a straight line.");
             _speedExhaustEntry = Pcfg.Bind("DamageControlTeams", "SpeedExhausted", new Factor(25f),
                 "Work speed of an exhausted team, %; it stays there while the team keeps working.");

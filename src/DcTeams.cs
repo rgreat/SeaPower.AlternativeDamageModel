@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
         public static float FatigueRecover = 100f; // % of the build-up speed the reserve takes fatigue away at
         public static float FatigueMin = 0f;      // minutes of work until tired; 0 = off
         public static float ExhaustedMin = 120f;  // minutes of work until exhausted (the second level); not above FatigueMin = no second level
-        public static float SpeedRested = 1f, SpeedTired = 0.5f, SpeedExhausted = 0.25f;   // work speed of a rested / tired / exhausted team; linear between the levels
+        public static float SpeedRested = 1f, SpeedTired = 0.75f, SpeedExhausted = 0.25f;   // work speed of a rested / tired / exhausted team; linear between the levels
         public const float MinWoundEff = 0.25f;   // a wounded team works at its health, but not below this
         const float HitHp = 50f;                  // one knock-out takes this much of the 100 of a 1000 t ship (two knock-outs killed a team before)
 

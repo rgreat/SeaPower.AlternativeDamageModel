@@ -762,3 +762,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (13): «Resting»
 * Заголовок карточки резерва: «Resting» при включённой усталости (`FatigueMin > 0`), иначе «In reserve»; флаг в сигнатуре карточки.
+
+## 2026-10-21 (14): SpeedTired по умолчанию 75
+* Кривая по умолчанию: 100% > 75% (tired, 60 мин) > 25% (exhausted, 120 мин).
