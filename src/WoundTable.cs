@@ -88,17 +88,18 @@ namespace AlternativeDamageModel
                     return root;
                 }
                 root.Children.Add(new TextBlock { Text = "Chance that one hit wounds a team", Foreground = new SolidColorBrush(cText), FontSize = 14f, FontWeight = FontWeight.Bold });
-                root.Children.Add(new TextBlock { Text = "% per hit, with the Max health and Wound chance now set; rows: ammunition (warhead power), columns: ships (displacement, team health)",
+                root.Children.Add(new TextBlock { Text = "% per hit, with the Max health and Wound chance now set. Over 100 = the warhead beats the team with a margin (the margin is what a lower Wound chance eats first)",
                                                   Foreground = new SolidColorBrush(cDim), FontSize = 11f, Margin = new Thickness(0f, 2f, 0f, 8f) });
                 var g = new Grid();
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 for (int i = 0; i < ships.Count; i++) g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                for (int i = 0; i < ammo.Count + 5; i++) g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                for (int i = 0; i < ammo.Count + 4; i++) g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 var lt = Cell("Displacement, t", cDim, false, TextAlignment.Left, 2, 0, null, 11f); Grid.SetColumnSpan(lt, 2); g.Children.Add(lt);
                 var lh = Cell("Team health, HP", cDim, false, TextAlignment.Left, 3, 0, null, 11f); Grid.SetColumnSpan(lh, 2); g.Children.Add(lh);
-                g.Children.Add(Cell("Ammunition", cDim, false, TextAlignment.Left, 4, 0, null, 11f));
-                g.Children.Add(Cell("Power", cDim, false, TextAlignment.Center, 4, 1, null, 11f));
+                // the column titles sit in the row of the ship names (no empty row of their own)
+                var ca = Cell("Ammunition", cDim, false, TextAlignment.Left, 1, 0, null, 11f); ca.VerticalAlignment = VerticalAlignment.Bottom; g.Children.Add(ca);
+                var cp = Cell("Power", cDim, false, TextAlignment.Center, 1, 1, null, 11f); cp.VerticalAlignment = VerticalAlignment.Bottom; g.Children.Add(cp);
                 for (int c = 0; c < ships.Count; c++)
                 {
                     float hp = DcTeams.MaxHpFor(ships[c].Tons);
@@ -113,14 +114,14 @@ namespace AlternativeDamageModel
                 for (int r = 0; r < ammo.Count; r++)
                 {
                     Color zebra = r % 2 == 0 ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(0, 0, 0, 0);
-                    g.Children.Add(Cell(ammo[r].Name, cText, false, TextAlignment.Left, r + 5, 0, zebra));
-                    g.Children.Add(Cell(Fmt(ammo[r].Power), cDim, false, TextAlignment.Center, r + 5, 1, zebra));
+                    g.Children.Add(Cell(ammo[r].Name, cText, false, TextAlignment.Left, r + 4, 0, zebra));
+                    g.Children.Add(Cell(Fmt(ammo[r].Power), cDim, false, TextAlignment.Center, r + 4, 1, zebra));
                     for (int c = 0; c < ships.Count; c++)
                     {
                         double p = DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons)) * 100.0;
                         // a heat background: the more chance the stronger the red; the text stays white
                         int a = (int)Math.Round(Math.Min(1.0, p / 100.0) * 170.0);
-                        g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Center, r + 5, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
+                        g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Center, r + 4, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
                     }
                 }
                 root.Children.Add(g);

@@ -387,12 +387,11 @@ namespace AlternativeDamageModel
                 "Multiplier of the strength of a wound: at most the warhead power of the ammunition (0..196, half of the game's ammunition under 25) x this, " +
                 "in points of the team's health (1..100 by displacement). A wounded team walks to the reserve.");
             _woundChanceEntry = Pcfg.Bind("DamageControlTeams", "WoundChance", new Factor(1f),
-                "Multiplier of the chance that a hit wounds a team (0.5 = half as likely, 2 = twice, at most 100%). Step 1 (only while Wounds at any hull integrity is off) - the game decides whether a hit takes a team out of its section at all " +
-                "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod rolls the wound: a random number " +
-                "0-100 x (0.5 + warhead power / the team's health); from 50 up the team is wounded (with Wounds at any hull integrity off a team that was not wounded still leaves the section), " +
-                "and the wound grows up to the whole warhead power (x Wound strength). A stronger warhead raises the roll. A bigger ship lowers it: " +
-                "its teams are tougher (more health), and its compartments are bigger, so a hit is less likely to land where the team is. " +
-                "Even the weakest hit has a small chance. This multiplier then scales that chance. Example, warhead 25: against 12 health about 81%, against 29 about 63%, against 100 about 33%. 0 = never wounded.");
+                "Multiplier of the chance that a hit wounds a team (0.5 = half as likely, 2 = twice; the result is at most 100%). Step 1 (only while Wounds at any hull integrity is off) - the game decides whether a hit takes a team out of its section at all " +
+                "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod decides the wound: the chance is 2q / (1 + q), q = warhead power / the team's health " +
+                "(100% when they are equal, up to 200% for a far stronger warhead), times this multiplier, at most 100% (with Wounds at any hull integrity off a team that was not wounded still leaves the section). " +
+                "A stronger warhead raises the chance. A bigger ship lowers it: its teams are tougher (more health), and its compartments are bigger, so a hit is less likely to land where the team is. " +
+                "Even the weakest hit has a small chance. Example, warhead 25: against 12 health 135% (sure), against 29 about 93%, against 100 about 40%. 0 = never wounded.");
             _fatigueOnEntry = Pcfg.Bind("DamageControlTeams", "FatigueEnabled", true,
                 "Team fatigue on: working builds it up, the reserve takes it away, a tired team works at half speed. Off = no fatigue; its settings are hidden.");
             _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(60f),

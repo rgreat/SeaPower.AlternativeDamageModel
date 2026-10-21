@@ -34,7 +34,6 @@ namespace AlternativeDamageModel
         public static float RegenRate = 0.5f;     // % of the full health a second in the reserve
         public static float FireWound = 1f;       // % of the full health a second at fire 100% (a team that does not fight it)
         public static float WoundChance = 1f;     // x the chance of a wound
-        const float Threshold = 50f;              // the wound roll (0..100) below this = no wound
         public static float HitWound = 1f;        // x the warhead power of the hit = the wound in points
         static readonly System.Random Rnd = new System.Random();
         public static bool AnyIntegrity = true;   // a hit on a section wounds its teams at any integrity (not only the game's under 50%)
@@ -259,13 +258,15 @@ namespace AlternativeDamageModel
             return (float)Math.Max(1.0, Math.Round(hp));
         }
 
-        /// <summary>The chance (0..1) that a hit of the given power wounds a team of the given health: the roll passes 50.</summary>
+        /// <summary>
+        /// The chance that a hit of the given power wounds a team of the given health, before the limit of 100%: 2q / (1 + q) x WoundChance, q = power / health.
+        /// 100% when the warhead equals the team's health, up to 200% for a far stronger one - the margin keeps a sure wound sure while the multiplier is below 1.
+        /// </summary>
         public static double WoundOdds(float power, float hp)
         {
-            double wc = WoundChance;
-            if (wc <= 0.0 || hp <= 0f) return 0.0;
+            if (WoundChance <= 0.0 || hp <= 0f || power <= 0f) return 0.0;
             double q = power / hp;
-            return Math.Max(0.0, Math.Min(1.0, q / (0.5 + q) * wc));
+            return 2.0 * q / (1.0 + q) * WoundChance;
         }
 
         // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound
@@ -278,16 +279,14 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The wound of a team hit by a warhead of this power, as a part of its full health (0 = not wounded). A random roll 0..100 is scaled by
-        /// (0.5 + power / health): the bigger the ship, the smaller; the bigger the warhead, the larger - even the weakest hit has a small chance. The chance is
-        /// also multiplied by WoundChance (a plain multiplier of the probability). Under 50 there is no wound, above it the wound grows from 0 to the whole power (x HitWound) at 100.
+        /// The wound of a team hit by a warhead of this power, as a part of its full health (0 = not wounded). The chance is 2q / (1 + q) x WoundChance (q = power / health; the bigger the ship, the smaller;
+        /// the bigger the warhead, the larger - even the weakest hit has a small chance); the wound is a random part of the power (x HitWound), at most the whole.
         /// </summary>
         static float WoundOf(object comp, float power)
         {
             float max = MaxHp(comp);
             if (max <= 0f || power <= 0f) return 0f;
-            // the chance of a wound: q / (0.5 + q) (the roll 0..100 x (0.5 + q) passes 50), times WoundChance; then the strength
-            // is a random part of the range above 50 that this roll could reach
+            // the chance of a wound: 2q / (1 + q) x WoundChance (WoundOdds, over 100% = sure); the strength is a random part of the range up to 2q
             double q = power / max;
             if (Rnd.NextDouble() >= WoundOdds(power, max)) return 0f;
             double strength = Rnd.NextDouble() * Math.Min(1.0, 2.0 * q);
