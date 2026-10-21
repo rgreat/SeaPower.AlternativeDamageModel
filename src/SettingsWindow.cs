@@ -112,7 +112,7 @@ namespace AlternativeDamageModel
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFireVulnerability", "Fires", "", Kind.Number, 0.1f, 0.1f, 10f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFloodingVulnerability", "Flooding", "", Kind.Number, 0.1f, 0.1f, 10f);
 
-            Add("Systems", "Systems", "Systems/NoEngineTeamEffectiveness", "DC teams without engines", "% effectiveness · not systems repair · 100 = off", Kind.Number, 5f, 0f, 100f);
+            Add("Systems", "Systems", "Systems/NoEngineTeamEffectiveness", "DC efficiency without engines", "% effectiveness · not systems repair · 100 = off", Kind.Number, 5f, 0f, 100f);
             Add("Systems", "Systems", "Systems/Integrity", "Integrity", "× game", Kind.Number, 0.1f, 0.1f, 20f);
             Add(FF, "Fire", "FireAndFlooding/FlameUpSpeed", "Fire growth", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireHullDamageSpeed", "Fire damage to the hull", "× game", Kind.Number, 0.1f, 0f, 10f);

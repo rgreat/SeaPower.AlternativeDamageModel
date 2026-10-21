@@ -624,7 +624,7 @@ namespace AlternativeDamageModel
                 ContactIntel.Forecast(comp, out fm, out fs, out fv);
                 SetText(x.FcMain, fm); SetText(x.FcSub, fs.Length == 0 ? "" : "(" + fs + ")");
                 float em = DcTeams.EngineMulOf(comp);
-                SetText(x.FcWarn, em < 1f ? "Engines out: DC teams at " + Math.Round(em * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "");
+                SetText(x.FcWarn, em < 1f ? "Engine out: DC efficiency " + Math.Round(em * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "");
                 SetBrush(x.FcMain, fv >= 2 ? BCritical : fv == 1 ? BHeavy : StageBrush(x.Res, 0));
             }
             try { RenderHullFlood(comp, x); } catch (Exception e) { Trace("RenderHullFlood: " + e.Message); }

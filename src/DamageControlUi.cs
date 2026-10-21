@@ -1812,7 +1812,7 @@ namespace AlternativeDamageModel
             if (engMul < 1f)
             {
                 if (sb.Length > 0) sb.Append('\n');
-                sb.Append("Engines out: ").Append(Math.Round(engMul * 100f).ToString("0", CultureInfo.InvariantCulture)).Append("% effectiveness (not systems repair)");
+                sb.Append("Engine out: ").Append(Math.Round(engMul * 100f).ToString("0", CultureInfo.InvariantCulture)).Append("% effectiveness (not systems repair)");
             }
             return sb.Length > 0 ? sb.ToString() : null;
         }

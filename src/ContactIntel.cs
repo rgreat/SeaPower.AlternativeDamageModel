@@ -33,7 +33,7 @@ namespace AlternativeDamageModel
         static FieldInfo _vObject;
         static PropertyInfo _vSensors, _vObserved, _vIdentified, _vDormant, _rpValue;
         static PropertyInfo _oCompartments, _oDestroyed, _cFlood, _cInt, _oPlayer;
-        static FieldInfo _cBase, _cSys, _cCount, _scMax, _oTaskforce, _cSinking, _cFires, _cProp, _cImmobile, _cMaxInt, _gPlayerTf;
+        static FieldInfo _oPower, _cBase, _cSys, _cCount, _scMax, _oTaskforce, _cSinking, _cFires, _cProp, _cImmobile, _cMaxInt, _gPlayerTf;
         static PropertyInfo _sInoperable, _sDamage, _scSev;
         static MethodInfo _oSpeed;
         static PropertyInfo _gameTime;
@@ -69,6 +69,7 @@ namespace AlternativeDamageModel
                 _cFires = tComp.GetField("_currentFires", all);
                 _cProp = tComp.GetField("_propulsionSystems", all);
                 _cImmobile = tComp.GetField("_immobile", all);
+                _oPower = tObj.GetField("_powerSystemInUse", all);
                 _sInoperable = tSys.GetProperty("Inoperable", all);
                 _sDamage = tSys.GetProperty("CurrentDamageType", all);
                 _cBase = tComp.GetField("_baseObject", all); _cSys = tComp.GetField("_systemCompartments", all); _cCount = tComp.GetField("_compartmentsCount", all);
@@ -381,11 +382,18 @@ namespace AlternativeDamageModel
             catch { return ""; }
         }
 
-        /// <summary>None of the ship's engines works (all propulsion out, or the ship is immobile).</summary>
+        /// <summary>The ship's engine (the power system in use: the Engine module, not the propulsion / screws) is out of order: inoperable or destroyed.</summary>
         public static bool EngineOut(object comp)
         {
-            if (!_ok || comp == null) return false;
-            try { return Propulsion(comp) <= 0.01f || (_cImmobile != null && (bool)_cImmobile.GetValue(comp)); }
+            if (!_ok || comp == null || _oPower == null || _cBase == null) return false;
+            try
+            {
+                var obj = _cBase.GetValue(comp);
+                var ps = obj == null ? null : _oPower.GetValue(obj);
+                if (ps == null) return false;
+                if (_sInoperable != null && Flag(_sInoperable.GetValue(ps, null))) return true;
+                return _sDamage != null && Convert.ToInt32(_sDamage.GetValue(ps, null)) >= 4;   // DamageType.Destroyed
+            }
             catch { return false; }
         }
 

@@ -308,7 +308,7 @@ namespace AlternativeDamageModel
                 "How fast a fire eats the hull of its section (integrity of both its compartments). 1.0 = as in the game. " +
                 "Damage to the systems in the section is not changed.");
             _noEngineEntry = Pcfg.Bind("Systems", "NoEngineTeamEffectiveness", new Factor(50f),
-                "Damage control teams while the ship has no working engines (all propulsion out): their effectiveness in % (fires, leaks, water, hull; repair of systems is not " +
+                "Damage control efficiency while the ship's engine (the Engine module in use, not the propulsion) is out of order: the teams' effectiveness in % (fires, leaks, water, hull; repair of systems is not " +
                 "affected). Shown in the teams' hints and in the Forecast line of the Damage Control tab. 100 = off.");
             _sysIntEntry = Pcfg.Bind("Systems", "Integrity", new Factor(1f),
                 "How many times stronger the systems of ships and submarines are than in the game (weapons, sensors, engines, magazines... - " +
