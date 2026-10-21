@@ -88,7 +88,7 @@ namespace AlternativeDamageModel
                     return root;
                 }
                 root.Children.Add(new TextBlock { Text = "Chance that one hit wounds a team", Foreground = new SolidColorBrush(cText), FontSize = 14f, FontWeight = FontWeight.Bold });
-                root.Children.Add(new TextBlock { Text = "% per hit, with the Max health and Wound chance now set. Over 100 = the warhead beats the team with a margin (the margin is what a lower Wound chance eats first)",
+                root.Children.Add(new TextBlock { Text = "% per hit, with the Max health and Wound chance now set. The chance (over 100% for a far stronger warhead) is multiplied by Wound chance, then limited to 100",
                                                   Foreground = new SolidColorBrush(cDim), FontSize = 11f, Margin = new Thickness(0f, 2f, 0f, 8f) });
                 var g = new Grid();
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -118,7 +118,7 @@ namespace AlternativeDamageModel
                     g.Children.Add(Cell(Fmt(ammo[r].Power), cDim, false, TextAlignment.Center, r + 4, 1, zebra));
                     for (int c = 0; c < ships.Count; c++)
                     {
-                        double p = DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons)) * 100.0;
+                        double p = Math.Min(100.0, DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons)) * 100.0);   // the multiplier first, then the limit of 100%
                         // a heat background: the more chance the stronger the red; the text stays white
                         int a = (int)Math.Round(Math.Min(1.0, p / 100.0) * 170.0);
                         g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Center, r + 4, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
