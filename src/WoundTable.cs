@@ -94,35 +94,63 @@ namespace AlternativeDamageModel
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 for (int i = 0; i < ships.Count; i++) g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                for (int i = 0; i < ammo.Count + 1; i++) g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                g.Children.Add(Cell("Ammunition", cDim, false, TextAlignment.Left, 0, 0, null, 11f));
-                g.Children.Add(Cell("Power", cDim, false, TextAlignment.Right, 0, 1, null, 11f));
+                for (int i = 0; i < ammo.Count + 5; i++) g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                var lt = Cell("Displacement, t", cDim, false, TextAlignment.Left, 2, 0, null, 11f); Grid.SetColumnSpan(lt, 2); g.Children.Add(lt);
+                var lh = Cell("Team health, HP", cDim, false, TextAlignment.Left, 3, 0, null, 11f); Grid.SetColumnSpan(lh, 2); g.Children.Add(lh);
+                g.Children.Add(Cell("Ammunition", cDim, false, TextAlignment.Left, 4, 0, null, 11f));
+                g.Children.Add(Cell("Power", cDim, false, TextAlignment.Right, 4, 1, null, 11f));
                 for (int c = 0; c < ships.Count; c++)
                 {
                     float hp = DcTeams.MaxHpFor(ships[c].Tons);
-                    var h = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8f, 3f, 8f, 3f), MinWidth = 70f };
-                    h.Children.Add(new TextBlock { Text = ships[c].Name, Foreground = new SolidColorBrush(cText), FontSize = 12f, FontWeight = FontWeight.Bold, TextAlignment = TextAlignment.Right, TextWrapping = TextWrapping.Wrap, MaxWidth = 110f });
-                    h.Children.Add(new TextBlock { Text = Fmt(ships[c].Tons) + " t · HP " + Fmt(hp), Foreground = new SolidColorBrush(cDim), FontSize = 11f, TextAlignment = TextAlignment.Right });
-                    Grid.SetRow(h, 0); Grid.SetColumn(h, c + 2);
-                    g.Children.Add(h);
+                    var img = Profile(ships[c].Ini);
+                    if (img != null) { Grid.SetRow(img, 0); Grid.SetColumn(img, c + 2); g.Children.Add(img); }
+                    var nm = new TextBlock { Text = ships[c].Name, Foreground = new SolidColorBrush(cText), FontSize = 12f, FontWeight = FontWeight.Bold, TextAlignment = TextAlignment.Right,
+                                             TextWrapping = TextWrapping.Wrap, MaxWidth = 110f, Margin = new Thickness(8f, 2f, 8f, 2f), VerticalAlignment = VerticalAlignment.Bottom };
+                    Grid.SetRow(nm, 1); Grid.SetColumn(nm, c + 2); g.Children.Add(nm);
+                    g.Children.Add(Cell(Fmt(ships[c].Tons), cDim, false, TextAlignment.Right, 2, c + 2, null, 11f));
+                    g.Children.Add(Cell(Fmt(hp), cDim, false, TextAlignment.Right, 3, c + 2, null, 11f));
                 }
                 for (int r = 0; r < ammo.Count; r++)
                 {
                     Color zebra = r % 2 == 0 ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(0, 0, 0, 0);
-                    g.Children.Add(Cell(ammo[r].Name, cText, false, TextAlignment.Left, r + 1, 0, zebra));
-                    g.Children.Add(Cell(Fmt(ammo[r].Power), cDim, false, TextAlignment.Right, r + 1, 1, zebra));
+                    g.Children.Add(Cell(ammo[r].Name, cText, false, TextAlignment.Left, r + 5, 0, zebra));
+                    g.Children.Add(Cell(Fmt(ammo[r].Power), cDim, false, TextAlignment.Right, r + 5, 1, zebra));
                     for (int c = 0; c < ships.Count; c++)
                     {
                         double p = DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons)) * 100.0;
                         // a heat background: the more chance the stronger the red; the text stays white
                         int a = (int)Math.Round(Math.Min(1.0, p / 100.0) * 170.0);
-                        g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Right, r + 1, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
+                        g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Right, r + 5, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
                     }
                 }
                 root.Children.Add(g);
             }
             catch (Exception e) { SettingsWindow.Trace("WoundTable: " + e.Message); }
             return root;
+        }
+
+        /// <summary>The ship's profile picture of the game's encyclopedia (ui/profiles/&lt;ini&gt;.png), small; null when there is none.</summary>
+        static Image Profile(string ini)
+        {
+            try
+            {
+                Type t = null;
+                foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    if (a.GetName().Name != "Seapower-Scripts") continue;
+                    foreach (var x in a.GetTypes()) if (x.Name == "IniToProfileConverter") { t = x; break; }
+                }
+                if (t == null) return null;
+                const BindingFlags bf = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+                var cache = t.GetProperty("Profiles", bf).GetValue(null, null);
+                var load = t.GetMethod("LoadUnitArt", bf);
+                string key = (ini ?? "").ToLowerInvariant().Replace("/", "_");
+                if (key.EndsWith(".ini", StringComparison.Ordinal)) key = key.Substring(0, key.Length - 4);
+                var tex = load.Invoke(null, new object[] { cache, "ui/profiles", key, (int?)0 }) as ImageSource;
+                if (tex == null) return null;
+                return new Image { Source = tex, Height = 30f, MaxWidth = 110f, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(8f, 4f, 8f, 0f) };
+            }
+            catch (Exception e) { SettingsWindow.Trace("WoundTable image " + ini + ": " + e.Message); return null; }
         }
 
         static string Fmt(float v)

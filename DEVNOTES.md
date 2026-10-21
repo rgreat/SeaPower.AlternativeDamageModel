@@ -831,3 +831,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 ### 2026-10-21 (34): таблица Wound chance — список пользователя, без автодобавок
 - Корабли: wp_pb_zhuk, knm_fs_sleipner, wp_skr_krivak1, usn_cg_ticonderoga, wp_rkr_kirov, usn_cvn_nimitz. Боеприпасы: wp_cal_37mm, wp_cal_57mm, usn_cal_76mm, wp_cal_100mm, usn_cal_127mm, usn_mk-82, usn_rgm-84c, wp_53-65K, wp_ss-n-19.
 - Автодобавка по размеру убрана; ненайденное пишется в лог. Мощность боеприпаса берётся прямо по ini (`AmmunitionParameters.GetShared(ini)._warheadPower`), имя — из `AmmunitionData` (иначе ini-имя).
+
+### 2026-10-21 (35): таблица Wound chance — картинки профилей
+- Над названием корабля — профиль из энциклопедии (`IniToProfileConverter.LoadUnitArt(Profiles, "ui/profiles", ini, 0)` через рефлексию, кэш игры). Тоннаж и HP — отдельные строки таблицы под названием, цифры выровнены по столбцам кораблей.
+- Заметка: Wound chance — множитель к броску (roll·(0.5+q)·WC), а не к вероятности: шанс = max(0, 1 − 0.5/((0.5+q)·WC)). При WC=0.5 шанс 0, пока q=сила/здоровье ≤ 0.5 — это порог, а не пропорциональное снижение.
