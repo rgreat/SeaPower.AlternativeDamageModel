@@ -380,8 +380,8 @@ namespace AlternativeDamageModel
         static readonly string[] Shapes = {
             "M4,0 C5,2 7,3 7,5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5 C1,3.5 2,3 2.5,1.5 C3,2.5 3.5,2 4,0 Z",   // fire
             "M4,0 C5,2 7,4 7,5.5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5.5 C1,4 3,2 4,0 Z",                      // water drop
-            "M0,2 L8,2 L6.5,7 L1.5,7 Z",                                                                 // hull
-            "M1,2.5 H3 V1 H5 V2.5 H7 V7 H1 Z" };                                                        // engine
+            "M12,1.5 L20.5,4.5 V11 C20.5,16 17,20 12,22.5 C7,20 3.5,16 3.5,11 V4.5 Z",   // hull: a shield
+            "M6,9 H9 V7 H8 V5.5 H14 V7 H13 V9 H17 L18.5,11 H20 V9.5 H22 V16.5 H20 V15 H18.5 L17,17 H8 L6,15 H3.5 V11 H6 Z" };   // engine: a block with an intake, a flywheel and a shaft
 
         static void SetNote(Canvas cv, Info info)
         {
@@ -404,7 +404,7 @@ namespace AlternativeDamageModel
                 for (int k = 0; k < 4; k++)
                     tb.Children.Add(new Noesis.Path
                     {
-                        Data = Geometry.Parse(Shapes[k]), Width = 13f, Height = 13f, Margin = new Thickness(1.5f, 0f, 1.5f, 0f), Stretch = Stretch.Uniform,
+                        Data = Geometry.Parse(Shapes[k]), Width = 15f, Height = 15f, Margin = new Thickness(1.5f, 0f, 1.5f, 0f), Stretch = Stretch.Uniform,
                         Stroke = Outlines[k], StrokeThickness = 1.3f
                     });
                 tb.Children.Add(new TextBlock { Text = "?", FontSize = 11f, FontWeight = FontWeight.Bold, Margin = new Thickness(0f, -2f, 0f, 0f), Foreground = Levels[1] });
