@@ -88,7 +88,7 @@ namespace AlternativeDamageModel
                     return root;
                 }
                 root.Children.Add(new TextBlock { Text = "Chance that one hit wounds a team", Foreground = new SolidColorBrush(cText), FontSize = 14f, FontWeight = FontWeight.Bold });
-                root.Children.Add(new TextBlock { Text = "% per hit, with the Max health and Wound chance now set. The chance (over 100% for a far stronger warhead) is multiplied by Wound chance, then limited to 100",
+                root.Children.Add(new TextBlock { Text = "% per hit, with the Max health and Wound chance now set. The chance is multiplied by Wound chance, then limited to 100",
                                                   Foreground = new SolidColorBrush(cDim), FontSize = 11f, Margin = new Thickness(0f, 2f, 0f, 8f) });
                 var g = new Grid();
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
