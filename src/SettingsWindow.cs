@@ -472,6 +472,7 @@ namespace AlternativeDamageModel
 
             _body = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 6f, 0f, 6f) };
             var scroll = _scroll = new ScrollViewer { Content = _body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+            scroll.SizeChanged += (o, e) => FitPage();
             var settingsArea = new Border { Child = scroll, Background = B(CCard), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 0f) };
             main.Children.Add(settingsArea);
 
@@ -909,7 +910,11 @@ namespace AlternativeDamageModel
                 _body.Children.Add(SwitchPanel());
                 _body.Children.Add(SubBar());
                 var page = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 0f, 0f, 6f) };
-                _body.Children.Add(new Border { Child = page, Background = B(CPanel), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 6f), MinHeight = 120f });
+                var frame = new Border { Child = page, Background = B(CPanel), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 6f), MinHeight = 120f };
+                _body.Children.Add(frame);
+                _page = frame;
+                frame.Loaded += (o, e) => FitPage();
+                frame.LayoutUpdated += (o, e) => FitPage();
                 rowHost = page;
             }
             foreach (var f in Fields)
@@ -967,6 +972,22 @@ namespace AlternativeDamageModel
             }
             return new Border { Child = line, Background = B(CPanel), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(3f),
                                 Margin = new Thickness(12f, 8f, 12f, 2f), Padding = new Thickness(4f, 2f, 4f, 2f), HorizontalAlignment = HorizontalAlignment.Left };
+        }
+
+        static Border _page;
+
+        /// <summary>The page panel of the DC Teams tab reaches the bottom of the settings area (the area scrolls, so its height is set from the area's).</summary>
+        static void FitPage()
+        {
+            try
+            {
+                if (_page == null || _scroll == null || _body == null || _page.Parent == null) return;
+                var pt = _page.TranslatePoint(new Point(0f, 0f), _body);
+                float h = (float)_scroll.ActualHeight - pt.Y - 6f - 12f;
+                float use = Math.Max(120f, h);
+                if (Math.Abs(_page.MinHeight - use) > 0.5f) _page.MinHeight = use;
+            }
+            catch { }
         }
 
         static FrameworkElement SubBar()
