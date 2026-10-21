@@ -968,7 +968,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 ### 2026-10-21 (71): команды DC без двигателей — −50% эффективности (кроме ремонта систем)
 - Опция `[Systems] NoEngineTeamEffectiveness` (Factor, %, Advanced 50, Base Game 100 = выкл; вкладка Systems, «DC teams without engines»; ModOnly). `DcTeams.EngineEff`.
 - `ContactIntel.EngineOut(comp)`: весь Propulsion ≤0.01 или `_immobile`. `DcTeams.EngineMulOf(comp)`; `DcTeams.ShipMul` ставится в начале `DcTeams.Tick` (prefix OnFixedUpdate того же корабля, ремонты идут внутри него); `DcTeams.Eff` множит на него, `EffSys` без него: транспилер `RepairSystems` вызывает `TeamEffMulSys`, остальные Repair* — `TeamEffMul`.
-- UI: `HealthNote(comp, …)` — строка «Engines out: 50% effectiveness (not systems repair)» и «Efficiency» с учётом штрафа; Causes — эффективность списка команд (кроме Systems); карточка Forecast — оранжевый `FcWarn` «Engines out: DC teams at 50%».
+- UI: `HealthNote(comp, …)` — строка «Engines out: 50% effectiveness (except systems repair)» и «Efficiency» с учётом штрафа; Causes — эффективность списка команд (кроме Systems); карточка Forecast — оранжевый `FcWarn` «Engines out: DC teams at 50%».
 
 ### 2026-10-21 (72): «Engine» штрафа DC — это Engine, а не Propulsion
 - Правка к 71: опция переименована «DC efficiency without engines». `ContactIntel.EngineOut` теперь смотрит `ObjectBase._powerSystemInUse` (PowerSystem, модуль Engine): `Inoperable` или `CurrentDamageType` = Destroyed. Раньше (ошибочно) — `_propulsionSystems` (VesselPropulsionSystem, винты) и `_immobile`. Иконка двигателя на карте по-прежнему считает Propulsion + `_immobile`, как игра.

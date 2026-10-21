@@ -212,7 +212,7 @@ namespace AlternativeDamageModel
         public static float Eff(float v) { return IsEnabled() ? v * Effectiveness * WorkMul * ShipMul : v; }
         /// <summary>The same without the engine penalty: the repair of systems.</summary>
         public static float EffSys(float v) { return IsEnabled() ? v * Effectiveness * WorkMul : v; }
-        public static float EngineEff = 1f;     // [Systems] NoEngineTeamEffectiveness / 100: the teams' effectiveness (not systems repair) while the ship's engine is out of order (the Engine module, not the propulsion); 1 = off
+        public static float EngineEff = 1f;     // [Systems] NoEngineTeamEffectiveness / 100: the teams' effectiveness (except systems repair) while the ship's engine is out of order (the Engine module, not the propulsion); 1 = off
         public static Func<object, bool> EngineOut = c => false;
         public static float ShipMul = 1f;       // of the ship that is ticking now (Tick): its engine penalty
         /// <summary>The engine penalty of a ship's teams: EngineEff while none of its engines works, else 1.</summary>
