@@ -263,8 +263,8 @@ namespace AlternativeDamageModel
         {
             double wc = WoundChance;
             if (wc <= 0.0 || hp <= 0f) return 0.0;
-            double k = (0.5 + power / hp) * wc;
-            return Math.Max(0.0, Math.Min(1.0, 1.0 - 0.5 / k));
+            double q = power / hp;
+            return Math.Max(0.0, Math.Min(1.0, q / (0.5 + q) * wc));
         }
 
         // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound
@@ -278,16 +278,18 @@ namespace AlternativeDamageModel
 
         /// <summary>
         /// The wound of a team hit by a warhead of this power, as a part of its full health (0 = not wounded). A random roll 0..100 is scaled by
-        /// (0.5 + power / health): the bigger the ship, the smaller; the bigger the warhead, the larger - even the weakest hit has a small chance. It is
-        /// also multiplied by WoundChance. Under 50 there is no wound, above it the wound grows from 0 to the whole power (x HitWound) at 100.
+        /// (0.5 + power / health): the bigger the ship, the smaller; the bigger the warhead, the larger - even the weakest hit has a small chance. The chance is
+        /// also multiplied by WoundChance (a plain multiplier of the probability). Under 50 there is no wound, above it the wound grows from 0 to the whole power (x HitWound) at 100.
         /// </summary>
         static float WoundOf(object comp, float power)
         {
             float max = MaxHp(comp);
             if (max <= 0f || power <= 0f) return 0f;
-            double roll = Math.Min(100.0, Rnd.NextDouble() * 100.0 * (0.5 + power / max) * WoundChance);
-            if (roll < Threshold) return 0f;
-            double strength = (roll - Threshold) / (100.0 - Threshold);
+            // the chance of a wound: q / (0.5 + q) (the roll 0..100 x (0.5 + q) passes 50), times WoundChance; then the strength
+            // is a random part of the range above 50 that this roll could reach
+            double q = power / max;
+            if (Rnd.NextDouble() >= WoundOdds(power, max)) return 0f;
+            double strength = Rnd.NextDouble() * Math.Min(1.0, 2.0 * q);
             return (float)(power * HitWound * strength / max);
         }
 
