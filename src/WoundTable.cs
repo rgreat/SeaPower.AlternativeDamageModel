@@ -41,7 +41,7 @@ namespace AlternativeDamageModel
                     try
                     {
                         var kt = kv.GetType();
-                        string ini = kt.GetProperty("Key").GetValue(kv, null) as string;
+                        string ini = kt.GetProperty("Key").GetValue(kv, null) as string; if (ini != null && ini.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) ini = ini.Substring(0, ini.Length - 4);
                         var val = kt.GetProperty("Value").GetValue(kv, null);
                         if (string.IsNullOrEmpty(ini) || val == null) continue;
                         string name = val.GetType().GetProperty("DisplayedName").GetValue(val, null) as string;
@@ -82,7 +82,7 @@ namespace AlternativeDamageModel
 
         // what the table shows first (the ship's / ammunition's ini name or a part of the shown name); mods' ships are found by name,
         // gaps are filled from the game's data by size / power
-        static readonly string[] WantShips = { "libelle", "sleipnir", "krivak1", "minegumo" };
+        static readonly string[] WantShips = { "wp_pt_libelle", "knm_fs_sleipner", "wp_skr_krivak1", "jmsdf_dd_minegumo" };
         static readonly string[] WantAmmo = { "wp_cal_23mm", "wp_cal_57mm", "wp_cal_76mm", "wp_cal_100mm", "usn_mk-82", "usn_agm-84d", "wp_53-65K", "wp_ss-n-19", "wp_fab-9000_m54" };
 
         static Border Cell(string s, Color c, bool bold, TextAlignment al, int row, int col, Color? bg = null, float fs = 12f)
@@ -100,7 +100,7 @@ namespace AlternativeDamageModel
             foreach (var w in want)
             {
                 T f = default(T); bool found = false;
-                foreach (var x in all) if (string.Equals(id(x), w, StringComparison.OrdinalIgnoreCase)) { f = x; found = true; break; }
+                foreach (var x in all) if (id(x).StartsWith(w + "|", StringComparison.OrdinalIgnoreCase)) { f = x; found = true; break; }
                 if (!found) foreach (var x in all) if (id(x).IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0) { f = x; found = true; break; }
                 if (found && !r.Contains(f)) r.Add(f);
             }
