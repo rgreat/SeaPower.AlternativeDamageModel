@@ -1786,10 +1786,13 @@ namespace AlternativeDamageModel
             {
                 if (sb.Length > 0) sb.Append('\n');
                 int lv = DcTeams.FatigueLevel(fatigue);
-                sb.Append("Fatigue ").Append(Clock((float)fatigue)).Append(" of ").Append(Clock(DcTeams.FatigueLimit))
-                  .Append(DcTeams.ExhaustedLimit > 0f ? " / " + Clock(DcTeams.ExhaustedLimit) : "")
-                  .Append("\nWork speed ").Append(Math.Round(DcTeams.FatigueMul(fatigue) * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%')
-                  .Append(lv == 2 ? " (exhausted)" : lv == 1 ? " (tired)" : "");
+                float full = DcTeams.ExhaustedLimit > 0f ? DcTeams.ExhaustedLimit : 2f * DcTeams.FatigueLimit;   // where fatigue stops growing = 100%
+                var inside = new List<string>();
+                if (lv > 0) inside.Add(lv == 2 ? "exhausted" : "tired");
+                if (fatigue > 1f) inside.Add("rest " + (DcTeams.FatigueRecover > 0f ? Clock((float)fatigue * 100f / DcTeams.FatigueRecover) : "never"));
+                sb.Append("Fatigue ").Append(Math.Round(Math.Min(1.0, fatigue / full) * 100.0).ToString("0", CultureInfo.InvariantCulture)).Append('%')
+                  .Append(inside.Count > 0 ? " (" + string.Join(", ", inside.ToArray()) + ")" : "")
+                  .Append("\nEfficiency ").Append(Math.Round(DcTeams.EffOf(health, fatigue) * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%');
             }
             return sb.Length > 0 ? sb.ToString() : null;
         }
@@ -1850,7 +1853,7 @@ namespace AlternativeDamageModel
                         case DcTeams.St.Pool:
                             return dc + "free, in reserve" + (kn != null ? "\n" + kn : "") +
                                    (DcTeams.Wounded(v.Health) && DcTeams.RegenRate > 0f ? "\nHealed in " + Clock((1f - v.Health) / (DcTeams.RegenRate / 100f)) : "") +
-                                   (v.Fatigue > 1f && DcTeams.IsEnabled() && DcTeams.FatigueMin > 0f ? "\nRested in " + (DcTeams.FatigueRecover > 0f ? Clock((float)v.Fatigue * 100f / DcTeams.FatigueRecover) : "never") : "");
+                                   "";
                         default:
                             return dc + SectionName(names, v.Section);
                     }

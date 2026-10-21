@@ -248,6 +248,13 @@ namespace AlternativeDamageModel
         public static bool Tired(double fatigue) { return FatigueLevel(fatigue) >= 1; }
 
         /// <summary>How well a team works now: its health (not below MinWoundEff) and, when tired, half of that.</summary>
+        public static float EffOf(float health, double fatigue)
+        {
+            if (!IsEnabled()) return 1f;
+            float e = Wounded(health) ? Math.Max(MinWoundEff, health) : 1f;
+            return FatigueMin > 0f ? e * FatigueMul(fatigue) : e;
+        }
+
         public static float TeamEff(Team t)
         {
             if (t == null || !IsEnabled()) return 1f;
