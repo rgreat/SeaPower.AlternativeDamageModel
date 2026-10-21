@@ -774,3 +774,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (17): ресайз окна настроек
 * `ResizeHandle`: во время перетаскивания края MouseMove (и колесо, правая кнопка) помечаются Handled — события дальше не идут.
+
+## 2026-10-21 (18): переименование
+* «Reserve recovery» -> «Recovery speed in reserve» (HealthRegen).

@@ -137,7 +137,7 @@ namespace AlternativeDamageModel
             Add(DC, "Switches", "DamageControlTeams/TeamHealthEnabled", "Team health", "wounds and recovery; off = the Health page is hidden", Kind.Bool, 0, 0, 0);
             Add(DC, "Switches", "DamageControlTeams/FatigueEnabled", "Team fatigue", "off = the Fatigue page is hidden", Kind.Bool, 0, 0, 0);
             Add(DC, "Health", "DamageControlTeams/TeamHealth", "Max health", "× (by ship displacement)", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Health", "DamageControlTeams/HealthRegen", "Reserve recovery", "% health per second", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Health", "DamageControlTeams/HealthRegen", "Recovery speed in reserve", "% health per second", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Wounds", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Wounds", "DamageControlTeams/HitWound", "Hit wounds", "× knock-out wound", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
