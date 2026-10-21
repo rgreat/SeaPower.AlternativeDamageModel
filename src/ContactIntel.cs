@@ -404,7 +404,7 @@ namespace AlternativeDamageModel
                 for (int k = 0; k < 4; k++)
                     tb.Children.Add(new Noesis.Path
                     {
-                        Data = Geometry.Parse(Shapes[k]), Width = k == 3 ? 19f : 15f, Height = k == 3 ? 19f : 15f, Margin = new Thickness(1f, 0f, 1f, 0f), Stretch = Stretch.Uniform,
+                        Data = Geometry.Parse(Shapes[k]), Width = k == 3 ? 17f : 15f, Height = k == 3 ? 17f : 15f, Margin = new Thickness(1f, 0f, 1f, 0f), Stretch = Stretch.Uniform,
                         VerticalAlignment = VerticalAlignment.Center, Stroke = Outlines[k], StrokeThickness = k == 3 ? 1f : 1.3f, StrokeLineJoin = PenLineJoin.Round
                     });
                 tb.Children.Add(new TextBlock { Text = "?", FontSize = 11f, FontWeight = FontWeight.Bold, Margin = new Thickness(0f, -2f, 0f, 0f), Foreground = Levels[1] });
