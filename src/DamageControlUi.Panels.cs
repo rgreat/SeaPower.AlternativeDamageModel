@@ -339,7 +339,7 @@ namespace AlternativeDamageModel
             int free = counts != null && counts.Length > 5 ? counts[5] : 0;
             bool manual = Manual(comp);
             var sb = new System.Text.StringBuilder();
-            foreach (var t in teams) sb.Append(t.State).Append(':').Append(t.Section).Append(':').Append(t.Ref.GetHashCode()).Append(':').Append((int)(t.Health * 10f)).Append(DcTeams.Tired(t.Fatigue) ? 'T' : 't').Append(' ');
+            foreach (var t in teams) sb.Append(t.State).Append(':').Append(t.Section).Append(':').Append(t.Ref.GetHashCode()).Append(':').Append((int)(t.Health * 10f)).Append(DcTeams.FatigueLevel(t.Fatigue)).Append(' ');
             sb.Append('|').Append(free).Append(manual ? 'm' : 'a');
             string sig = sb.ToString();
 

@@ -141,6 +141,10 @@ namespace AlternativeDamageModel
             Add(DC, "Health", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/HitWound", "Hit wounds", "× knock-out wound", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Fatigue", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
+            Add(DC, "Fatigue", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);
+            Add(DC, "Fatigue", "DamageControlTeams/SpeedRested", "Speed: rested", "% of normal", Kind.Number, 5f, 0f, 200f);
+            Add(DC, "Fatigue", "DamageControlTeams/SpeedTired", "Speed: tired", "% of normal", Kind.Number, 5f, 0f, 200f);
+            Add(DC, "Fatigue", "DamageControlTeams/SpeedExhausted", "Speed: exhausted", "% of normal", Kind.Number, 5f, 0f, 200f);
             Add(DC, "Fatigue", "DamageControlTeams/FatigueRecovery", "Recovery speed", "% of the fatigue speed", Kind.Number, 10f, 0f, 1000f);
 
             Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
@@ -763,7 +767,8 @@ namespace AlternativeDamageModel
         static bool ModOnly(string key)
         {
             return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
-                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
+                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/ExhaustedMinutes" ||
+                   key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
                    key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes";
         }
 
@@ -819,8 +824,22 @@ namespace AlternativeDamageModel
             {
                 _work.Values[f.Key] = v;
                 BecomeOwn();
+                KeepLevels(f.Key);
             }
             UpdateHeader();
+        }
+
+        /// <summary>"Exhausted after" is never below "Tired after": the other value follows when one is moved past it.</summary>
+        static void KeepLevels(string key)
+        {
+            const string T = "DamageControlTeams/FatigueMinutes", X = "DamageControlTeams/ExhaustedMinutes";
+            if (key != T && key != X) return;
+            string a, b;
+            if (!_work.Values.TryGetValue(T, out a) || !_work.Values.TryGetValue(X, out b)) return;
+            float ta, xb;
+            if (!float.TryParse(a, NumberStyles.Float, CultureInfo.InvariantCulture, out ta) || !float.TryParse(b, NumberStyles.Float, CultureInfo.InvariantCulture, out xb) || xb >= ta) return;
+            _work.Values[X] = a;   // exhausted = tired (the one moved: exhausted too low, or tired too high)
+            ShowTab(_tab);
         }
 
         static void BecomeOwn()

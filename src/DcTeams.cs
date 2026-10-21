@@ -36,7 +36,8 @@ namespace AlternativeDamageModel
         public static float HitWound = 1f;        // x the wound of one knock-out
         public static float FatigueRecover = 100f; // % of the build-up speed the reserve takes fatigue away at
         public static float FatigueMin = 0f;      // minutes of work until tired; 0 = off
-        public const float TiredEff = 0.5f;       // a tired team works at this part of its speed
+        public static float ExhaustedMin = 120f;  // minutes of work until exhausted (the second level); not above FatigueMin = no second level
+        public static float SpeedRested = 1f, SpeedTired = 0.5f, SpeedExhausted = 0.25f;   // work speed of a rested / tired / exhausted team; linear between the levels
         public const float MinWoundEff = 0.25f;   // a wounded team works at its health, but not below this
         const float HitHp = 50f;                  // one knock-out takes this much of the 100 of a 1000 t ship (two knock-outs killed a team before)
 
@@ -206,6 +207,27 @@ namespace AlternativeDamageModel
 
         public static bool HealthOn { get { return HealthMul > 0f; } }
         public static float FatigueLimit { get { return FatigueMin * 60f; } }
+        public static float ExhaustedLimit { get { return ExhaustedMin * 60f > FatigueMin * 60f ? ExhaustedMin * 60f : 0f; } }   // 0 = no second level
+
+        /// <summary>The work speed the fatigue allows: rested at 0, tired at the first level, exhausted at the second; linear between.</summary>
+        public static float FatigueMul(double f)
+        {
+            float t1 = FatigueLimit, t2 = ExhaustedLimit;
+            if (t1 <= 0f) return 1f;
+            if (f <= 0) return SpeedRested;
+            if (f < t1) return SpeedRested + (SpeedTired - SpeedRested) * (float)(f / t1);
+            if (t2 <= 0f) return SpeedTired;
+            if (f < t2) return SpeedTired + (SpeedExhausted - SpeedTired) * (float)((f - t1) / (t2 - t1));
+            return SpeedExhausted;
+        }
+
+        /// <summary>0 = fresh, 1 = tired, 2 = exhausted.</summary>
+        public static int FatigueLevel(double f)
+        {
+            if (!IsEnabled() || FatigueMin <= 0f) return 0;
+            if (ExhaustedLimit > 0f && f >= ExhaustedLimit) return 2;
+            return f >= FatigueLimit ? 1 : 0;
+        }
 
         /// <summary>The ship's team health in points: 100 at 1000 t, growing with the square root of the displacement, x TeamHealth.</summary>
         public static float MaxHp(object comp)
@@ -218,21 +240,25 @@ namespace AlternativeDamageModel
         public static bool Wounded(Team t) { return Wounded(t.Health); }
         public static bool Tired(Team t) { return Tired(t.Fatigue); }
         public static bool Wounded(float health) { return IsEnabled() && HealthOn && health < 0.995f; }
-        public static bool Tired(double fatigue) { return IsEnabled() && FatigueMin > 0f && fatigue >= FatigueLimit; }
+        public static bool Tired(double fatigue) { return FatigueLevel(fatigue) >= 1; }
 
         /// <summary>How well a team works now: its health (not below MinWoundEff) and, when tired, half of that.</summary>
         public static float TeamEff(Team t)
         {
             if (t == null || !IsEnabled()) return 1f;
             float e = Wounded(t) ? Math.Max(MinWoundEff, t.Health) : 1f;
-            return Tired(t) ? e * TiredEff : e;
+            return IsEnabled() && FatigueMin > 0f ? e * FatigueMul(t.Fatigue) : e;
         }
 
         /// <summary>" (Wounded)" / " (Tired)" / " (Wounded, Tired)" for the teams that work slower because of it; "" when none.</summary>
-        public static string Status(Team t)
+        public static string Status(Team t) { return StatusOf(t.Health, t.Fatigue); }
+
+        public static string StatusOf(float health, double fatigue)
         {
-            bool w = Wounded(t), f = Tired(t);
-            return w && f ? "Wounded, Tired" : w ? "Wounded" : f ? "Tired" : "";
+            bool w = Wounded(health);
+            int lv = FatigueLevel(fatigue);
+            string f = lv == 2 ? "Exhausted" : lv == 1 ? "Tired" : "";
+            return w && f.Length > 0 ? "Wounded, " + f : w ? "Wounded" : f;
         }
 
         /// <summary>Team health and fatigue, every tick: fire wounds, reserve recovery, work builds fatigue.</summary>
@@ -248,7 +274,7 @@ namespace AlternativeDamageModel
                 }
                 else if (t.State == St.InSection)
                 {
-                    if (lim > 0f && t.Doing != DcControl.TaskNone && t.Doing != DcControl.TaskIdle) t.Fatigue = Math.Min(2.0 * lim, t.Fatigue + dt);
+                    if (lim > 0f && t.Doing != DcControl.TaskNone && t.Doing != DcControl.TaskIdle) t.Fatigue = Math.Min(ExhaustedLimit > 0f ? ExhaustedLimit : 2.0 * lim, t.Fatigue + dt);
                     if (HealthOn && FireWound > 0f && t.Doing != DcControl.TaskFire && t.Section >= 0 && t.Section < 5)
                     {
                         float fire = DcControl.FireLevel(comp, t.Section);

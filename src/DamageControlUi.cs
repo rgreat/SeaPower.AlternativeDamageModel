@@ -1690,8 +1690,8 @@ namespace AlternativeDamageModel
             var coming = moving.FindAll(v => v.Section == i);
             var sb = new StringBuilder();
             sb.Append(n).Append(manual ? 'm' : 'a');
-            for (int k = 0; k < n; k++) { sb.Append(':').Append(actual[k]).Append('/').Append(forced[k]); var tk = refs[k] as DcTeams.Team; if (tk != null) sb.Append('h').Append((int)(tk.Health * 10f)).Append(DcTeams.Tired(tk) ? 'T' : 't'); }
-            foreach (var v in coming) sb.Append('>').Append(v.Ref.GetHashCode()).Append((int)(v.Health * 10f)).Append(DcTeams.Tired(v.Fatigue) ? 'T' : 't');
+            for (int k = 0; k < n; k++) { sb.Append(':').Append(actual[k]).Append('/').Append(forced[k]); var tk = refs[k] as DcTeams.Team; if (tk != null) sb.Append('h').Append((int)(tk.Health * 10f)).Append(DcTeams.FatigueLevel(tk.Fatigue)); }
+            foreach (var v in coming) sb.Append('>').Append(v.Ref.GetHashCode()).Append((int)(v.Health * 10f)).Append(DcTeams.FatigueLevel(v.Fatigue));
             string sig = sb.ToString();
             if (c.TeamsSig != null && MenusOpen()) return;   // an open menu would close with its icon
             if (!NeedsRender(tb, sig, c.TeamsSig, c.TeamsShown)) return;
@@ -1785,7 +1785,11 @@ namespace AlternativeDamageModel
             if (DcTeams.IsEnabled() && DcTeams.FatigueMin > 0f)
             {
                 if (sb.Length > 0) sb.Append('\n');
-                sb.Append("Fatigue ").Append(Clock(Math.Min(fatigue, DcTeams.FatigueLimit))).Append(" of ").Append(Clock(DcTeams.FatigueLimit)).Append(DcTeams.Tired(fatigue) ? " (tired: half speed)" : "");
+                int lv = DcTeams.FatigueLevel(fatigue);
+                sb.Append("Fatigue ").Append(Clock((float)fatigue)).Append(" of ").Append(Clock(DcTeams.FatigueLimit))
+                  .Append(DcTeams.ExhaustedLimit > 0f ? " / " + Clock(DcTeams.ExhaustedLimit) : "")
+                  .Append("\nWork speed ").Append(Math.Round(DcTeams.FatigueMul(fatigue) * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%')
+                  .Append(lv == 2 ? " (exhausted)" : lv == 1 ? " (tired)" : "");
             }
             return sb.Length > 0 ? sb.ToString() : null;
         }
@@ -1846,7 +1850,7 @@ namespace AlternativeDamageModel
                         case DcTeams.St.Pool:
                             return dc + "free, in reserve" + (kn != null ? "\n" + kn : "") +
                                    (DcTeams.Wounded(v.Health) && DcTeams.RegenRate > 0f ? "\nHealed in " + Clock((1f - v.Health) / (DcTeams.RegenRate / 100f)) : "") +
-                                   (DcTeams.Tired(v.Fatigue) && DcTeams.FatigueMin > 0f ? "\nRested in " + (DcTeams.FatigueRecover > 0f ? Clock((float)(v.Fatigue - DcTeams.FatigueLimit) * 100f / DcTeams.FatigueRecover) : "never") : "");
+                                   (v.Fatigue > 1f && DcTeams.IsEnabled() && DcTeams.FatigueMin > 0f ? "\nRested in " + (DcTeams.FatigueRecover > 0f ? Clock((float)v.Fatigue * 100f / DcTeams.FatigueRecover) : "never") : "");
                         default:
                             return dc + SectionName(names, v.Section);
                     }
@@ -2219,8 +2223,10 @@ namespace AlternativeDamageModel
             var cv = (Canvas)Icon(task);
             var t = teamRef as DcTeams.Team;
             if (t == null || t.State == DcTeams.St.Dead) return cv;
-            if (DcTeams.Tired(t))
-                cv.Children.Insert(0, new Path { Data = new StreamGeometry("M0,0 L16,0 L16,16 L0,16 Z"), Fill = new SolidColorBrush(Color.FromArgb(150, 232, 168, 40)) });
+            int tired = DcTeams.FatigueLevel(t.Fatigue);
+            if (tired > 0)
+                cv.Children.Insert(0, new Path { Data = new StreamGeometry("M0,0 L16,0 L16,16 L0,16 Z"),
+                                                 Fill = new SolidColorBrush(tired == 2 ? Color.FromArgb(160, 225, 90, 50) : Color.FromArgb(150, 232, 168, 40)) });
             if (DcTeams.Wounded(t))
             {
                 float h = Math.Max(0f, Math.Min(1f, t.Health)), w = 16f * h;

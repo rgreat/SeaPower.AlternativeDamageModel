@@ -66,7 +66,7 @@ namespace AlternativeDamageModel
         static List<string> Doing(object comp, int i, int task, out int inSection)
         {
             var list = new Names();
-            bool w = false, f = false; float eff = 0f;
+            bool w = false; int lv = 0; float eff = 0f;
             inSection = 0;
             try
             {
@@ -81,10 +81,10 @@ namespace AlternativeDamageModel
                     {
                         list.Add(k < here.Count ? Dc(here[k].Number) : "a team");
                         if (k >= here.Count) eff += 1f;
-                        if (k < here.Count) { eff += DcTeams.TeamEff(here[k].Ref as DcTeams.Team); w |= DcTeams.Wounded(here[k].Health); f |= DcTeams.Tired(here[k].Fatigue); }
+                        if (k < here.Count) { eff += DcTeams.TeamEff(here[k].Ref as DcTeams.Team); w |= DcTeams.Wounded(here[k].Health); lv = Math.Max(lv, DcTeams.FatigueLevel(here[k].Fatigue)); }
                     }
                 list.Eff = eff;
-                list.Mood = w && f ? "Wounded, Tired" : w ? "Wounded" : f ? "Tired" : "";
+                list.Mood = (w ? "Wounded" : "") + (w && lv > 0 ? ", " : "") + (lv == 2 ? "Exhausted" : lv == 1 ? "Tired" : "");
             }
             catch (Exception e) { Trace("Doing: " + e.Message); }
             return list;

@@ -747,3 +747,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (8): Recovery speed усталости, Tired after = 60
 * `FatigueRecovery` (% скорости накопления; 100 по умолчанию): в резерве усталость убывает `dt·FatigueRecover/100`; подсказка «Rested in» учитывает его. `FatigueMinutes` по умолчанию 60 (код и профили).
+
+## 2026-10-21 (9): второй уровень усталости и кривая скорости
+* Уровни: Tired after (60 мин), Exhausted after (120 мин; не меньше Tired — зажим в `AdmPlugin` и `KeepLevels` в окне; равны = второго уровня нет). Скорость `FatigueMul`: SpeedRested (100
