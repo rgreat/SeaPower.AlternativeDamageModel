@@ -212,6 +212,11 @@ namespace AlternativeDamageModel
         /// <summary>The work speed the fatigue allows: rested at 0, tired at the first level, exhausted at the second; linear between.</summary>
         public static float FatigueMul(double f)
         {
+            return Math.Max(SpeedExhausted, FatigueCurve(f));   // fatigue never takes the speed below the exhausted one
+        }
+
+        static float FatigueCurve(double f)
+        {
             float t1 = FatigueLimit, t2 = ExhaustedLimit;
             if (t1 <= 0f) return 1f;
             if (f <= 0) return SpeedRested;
@@ -248,7 +253,7 @@ namespace AlternativeDamageModel
             if (t == null || !IsEnabled()) return 1f;
             float e = Wounded(t) ? Math.Max(MinWoundEff, t.Health) : 1f;
             if (FatigueMin <= 0f) return e;
-            return Math.Max(SpeedExhausted, e * FatigueMul(t.Fatigue));   // wounds and fatigue together never take a team below the exhausted speed
+            return e * FatigueMul(t.Fatigue);   // wounds and fatigue are separate multipliers
         }
 
         /// <summary>" (Wounded)" / " (Tired)" / " (Wounded, Tired)" for the teams that work slower because of it; "" when none.</summary>
