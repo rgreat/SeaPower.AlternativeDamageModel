@@ -240,8 +240,8 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The ship's team health in points, 2..200 by displacement (x TeamHealth): 200 is a ship with a crew of 1000 and more (about 30000 t and up),
-        /// below that it falls with the crew, which grows roughly as displacement^0.6: 1000 t = 24, 4000 t = 57, 10000 t = 101.
+        /// The ship's team health in points, 1..100 by displacement (x TeamHealth, rounded to whole points, at least 1): 100 is a ship with a crew of 1000 and more (about 30000 t and up),
+        /// below that it falls with the crew, which grows roughly as displacement^0.6: 1000 t = 12, 4000 t = 29, 10000 t = 50.
         /// A hit wounds a team by the warhead power of the ammunition (the game's ammunition: 0..196, half of it under 25).
         /// </summary>
         public static float MaxHp(object comp)
@@ -254,8 +254,9 @@ namespace AlternativeDamageModel
         /// <summary>The team health of a ship of the given displacement (tons), with the Max health multiplier.</summary>
         public static float MaxHpFor(float tons)
         {
-            double hp = 200.0 * Math.Pow(Math.Max(1.0, tons) / 30000.0, 0.62);
-            return (float)Math.Max(2.0, Math.Min(200.0, hp)) * HealthMul;
+            double hp = 100.0 * Math.Pow(Math.Max(1.0, tons) / 30000.0, 0.62);
+            hp = Math.Max(1.0, Math.Min(100.0, hp)) * HealthMul;
+            return (float)Math.Max(1.0, Math.Round(hp));
         }
 
         /// <summary>The chance (0..1) that a hit of the given power wounds a team of the given health: the roll passes 50.</summary>

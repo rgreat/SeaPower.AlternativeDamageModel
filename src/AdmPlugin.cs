@@ -375,7 +375,7 @@ namespace AlternativeDamageModel
                 "The teams rest in the central compartment: a hit on it can wound a team waiting in the reserve (the chance is the game's for a " +
                 "team knocked out in a hit section: damage x (1 - integrity), only under 50% integrity). A wounded resting team stays in the reserve.");
             _healthEntry = Pcfg.Bind("DamageControlTeams", "TeamHealth", new Factor(1f),
-                "Health of a damage control team, a multiplier of its maximum, which is 2..200 points by the ship's displacement (200 = a crew of 1000 and more, about 30000 t; " +
+                "Health of a damage control team, a multiplier of its maximum, which is 1..100 points by the ship's displacement (100 = a crew of 1000 and more, about 30000 t; " +
                 "1000 t = 24, 10000 t = 101). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
                 "(as much as their health, not below 25%). 0 = teams are never wounded (a hit still takes a team out of its section).");
             _regenEntry = Pcfg.Bind("DamageControlTeams", "HealthRegen", new Factor(0.5f),
@@ -385,14 +385,14 @@ namespace AlternativeDamageModel
                 "(less at a lower fire level).");
             _hitWoundEntry = Pcfg.Bind("DamageControlTeams", "HitWound", new Factor(1f),
                 "Multiplier of the strength of a wound: at most the warhead power of the ammunition (0..196, half of the game's ammunition under 25) x this, " +
-                "in points of the team's health (2..200 by displacement). A wounded team walks to the reserve.");
+                "in points of the team's health (1..100 by displacement). A wounded team walks to the reserve.");
             _woundChanceEntry = Pcfg.Bind("DamageControlTeams", "WoundChance", new Factor(1f),
                 "Multiplier of the chance that a hit wounds a team (0.5 = half as likely, 2 = twice, at most 100%). Step 1 (only while Wounds at any hull integrity is off) - the game decides whether a hit takes a team out of its section at all " +
                 "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod rolls the wound: a random number " +
                 "0-100 x (0.5 + warhead power / the team's health); from 50 up the team is wounded (with Wounds at any hull integrity off a team that was not wounded still leaves the section), " +
                 "and the wound grows up to the whole warhead power (x Wound strength). A stronger warhead raises the roll. A bigger ship lowers it: " +
                 "its teams are tougher (more health), and its compartments are bigger, so a hit is less likely to land where the team is. " +
-                "Even the weakest hit has a small chance. This multiplier then scales that chance. Example, warhead 25: against 24 health about 67%, against 57 about 47%, against 200 about 20%. 0 = never wounded.");
+                "Even the weakest hit has a small chance. This multiplier then scales that chance. Example, warhead 25: against 12 health about 81%, against 29 about 63%, against 100 about 33%. 0 = never wounded.");
             _fatigueOnEntry = Pcfg.Bind("DamageControlTeams", "FatigueEnabled", true,
                 "Team fatigue on: working builds it up, the reserve takes it away, a tired team works at half speed. Off = no fatigue; its settings are hidden.");
             _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(60f),

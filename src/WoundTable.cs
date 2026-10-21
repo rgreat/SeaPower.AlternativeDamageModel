@@ -98,29 +98,29 @@ namespace AlternativeDamageModel
                 var lt = Cell("Displacement, t", cDim, false, TextAlignment.Left, 2, 0, null, 11f); Grid.SetColumnSpan(lt, 2); g.Children.Add(lt);
                 var lh = Cell("Team health, HP", cDim, false, TextAlignment.Left, 3, 0, null, 11f); Grid.SetColumnSpan(lh, 2); g.Children.Add(lh);
                 g.Children.Add(Cell("Ammunition", cDim, false, TextAlignment.Left, 4, 0, null, 11f));
-                g.Children.Add(Cell("Power", cDim, false, TextAlignment.Right, 4, 1, null, 11f));
+                g.Children.Add(Cell("Power", cDim, false, TextAlignment.Center, 4, 1, null, 11f));
                 for (int c = 0; c < ships.Count; c++)
                 {
                     float hp = DcTeams.MaxHpFor(ships[c].Tons);
                     var img = Profile(ships[c].Ini);
                     if (img != null) { Grid.SetRow(img, 0); Grid.SetColumn(img, c + 2); g.Children.Add(img); }
-                    var nm = new TextBlock { Text = ships[c].Name, Foreground = new SolidColorBrush(cText), FontSize = 12f, FontWeight = FontWeight.Bold, TextAlignment = TextAlignment.Right,
+                    var nm = new TextBlock { Text = ships[c].Name, Foreground = new SolidColorBrush(cText), FontSize = 12f, FontWeight = FontWeight.Bold, TextAlignment = TextAlignment.Center,
                                              TextWrapping = TextWrapping.Wrap, MaxWidth = 110f, Margin = new Thickness(8f, 2f, 8f, 2f), VerticalAlignment = VerticalAlignment.Bottom };
                     Grid.SetRow(nm, 1); Grid.SetColumn(nm, c + 2); g.Children.Add(nm);
-                    g.Children.Add(Cell(Fmt(ships[c].Tons), cDim, false, TextAlignment.Right, 2, c + 2, null, 11f));
-                    g.Children.Add(Cell(Fmt(hp), cDim, false, TextAlignment.Right, 3, c + 2, null, 11f));
+                    g.Children.Add(Cell(Fmt(ships[c].Tons), cDim, false, TextAlignment.Center, 2, c + 2, null, 11f));
+                    g.Children.Add(Cell(Fmt(hp), cDim, false, TextAlignment.Center, 3, c + 2, null, 11f));
                 }
                 for (int r = 0; r < ammo.Count; r++)
                 {
                     Color zebra = r % 2 == 0 ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(0, 0, 0, 0);
                     g.Children.Add(Cell(ammo[r].Name, cText, false, TextAlignment.Left, r + 5, 0, zebra));
-                    g.Children.Add(Cell(Fmt(ammo[r].Power), cDim, false, TextAlignment.Right, r + 5, 1, zebra));
+                    g.Children.Add(Cell(Fmt(ammo[r].Power), cDim, false, TextAlignment.Center, r + 5, 1, zebra));
                     for (int c = 0; c < ships.Count; c++)
                     {
                         double p = DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons)) * 100.0;
                         // a heat background: the more chance the stronger the red; the text stays white
                         int a = (int)Math.Round(Math.Min(1.0, p / 100.0) * 170.0);
-                        g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Right, r + 5, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
+                        g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Center, r + 5, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
                     }
                 }
                 root.Children.Add(g);
@@ -148,7 +148,7 @@ namespace AlternativeDamageModel
                 if (key.EndsWith(".ini", StringComparison.Ordinal)) key = key.Substring(0, key.Length - 4);
                 var tex = load.Invoke(null, new object[] { cache, "ui/profiles", key, (int?)0 }) as ImageSource;
                 if (tex == null) return null;
-                return new Image { Source = tex, Height = 30f, MaxWidth = 110f, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(8f, 4f, 8f, 0f) };
+                return new Image { Source = tex, Height = 30f, MaxWidth = 110f, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(8f, 4f, 8f, 0f) };
             }
             catch (Exception e) { SettingsWindow.Trace("WoundTable image " + ini + ": " + e.Message); return null; }
         }
