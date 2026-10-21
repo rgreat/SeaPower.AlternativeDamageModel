@@ -13,77 +13,50 @@ namespace AlternativeDamageModel
     /// </summary>
     static class WoundTable
     {
-        const int Ships = 6, Ammo = 9;
-
         class Am { public string Ini, Name; public float Power; }
 
-        static List<Am> _ammo;      // all warhead ammunition, by power; read once
+        static MethodInfo _shared; static FieldInfo _wp; static IEnumerable _ammoData;
 
-        static List<Am> LoadAmmo()
+        /// <summary>An ammunition by its ini name: the power from the game's own parameters, the name as the game shows it.</summary>
+        static Am FindAmmo(string ini)
         {
-            if (_ammo != null && _ammo.Count > 0) return _ammo;
-            _ammo = new List<Am>();
             try
             {
-                var prov = ShipNames.Provider();
-                if (prov == null) return _ammo;
-                var data = prov.GetType().GetProperty("AmmunitionData").GetValue(prov, null) as IEnumerable;
-                if (data == null) return _ammo;
-                Type tAp = null;
-                foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
-                    if (a.GetName().Name == "Seapower-Scripts") { tAp = a.GetType("AmmunitionParameters"); if (tAp == null) foreach (var t in a.GetTypes()) if (t.Name == "AmmunitionParameters") { tAp = t; break; } }
-                var shared = tAp == null ? null : tAp.GetMethod("GetShared", BindingFlags.Static | BindingFlags.Public);
-                var fp = tAp == null ? null : tAp.GetField("_warheadPower");
-                if (shared == null || fp == null) return _ammo;
-                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var kv in data)
+                if (_shared == null)
                 {
-                    try
+                    foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+                    {
+                        if (a.GetName().Name != "Seapower-Scripts") continue;
+                        foreach (var t in a.GetTypes()) if (t.Name == "AmmunitionParameters") { _shared = t.GetMethod("GetShared", BindingFlags.Static | BindingFlags.Public); _wp = t.GetField("_warheadPower"); break; }
+                    }
+                    var prov = ShipNames.Provider();
+                    if (prov != null) _ammoData = prov.GetType().GetProperty("AmmunitionData").GetValue(prov, null) as IEnumerable;
+                }
+                if (_shared == null || _wp == null) return null;
+                var ap = _shared.Invoke(null, new object[] { ini });
+                if (ap == null) return null;
+                float p = Convert.ToSingle(_wp.GetValue(ap));
+                string name = null;
+                if (_ammoData != null)
+                    foreach (var kv in _ammoData)
                     {
                         var kt = kv.GetType();
-                        string ini = kt.GetProperty("Key").GetValue(kv, null) as string; if (ini != null && ini.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) ini = ini.Substring(0, ini.Length - 4);
+                        string k = kt.GetProperty("Key").GetValue(kv, null) as string;
+                        if (k != null && k.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) k = k.Substring(0, k.Length - 4);
+                        if (!string.Equals(k, ini, StringComparison.OrdinalIgnoreCase)) continue;
                         var val = kt.GetProperty("Value").GetValue(kv, null);
-                        if (string.IsNullOrEmpty(ini) || val == null) continue;
-                        string name = val.GetType().GetProperty("DisplayedName").GetValue(val, null) as string;
-                        if (string.IsNullOrEmpty(name)) name = ini;
-                        name = name.Trim();
-                        if (!seen.Add(name)) continue;
-                        var ap = shared.Invoke(null, new object[] { ini });
-                        float p = ap == null ? 0f : Convert.ToSingle(fp.GetValue(ap));
-                        if (p > 0.05f) _ammo.Add(new Am { Ini = ini, Name = name, Power = p });
+                        if (val != null) name = val.GetType().GetProperty("DisplayedName").GetValue(val, null) as string;
+                        break;
                     }
-                    catch { }
-                }
-                _ammo.Sort((a, b) => a.Power.CompareTo(b.Power));
+                return new Am { Ini = ini, Name = string.IsNullOrEmpty(name) ? ini : name.Trim(), Power = p };
             }
-            catch (Exception e) { SettingsWindow.Trace("WoundTable ammo: " + e.Message); }
-            return _ammo;
-        }
-
-        /// <summary>'n' items spread evenly along the log of the value, from the first to the last (distinct ones).</summary>
-        static List<T> Spread<T>(List<T> sorted, int n, Func<T, double> val)
-        {
-            var r = new List<T>();
-            if (sorted.Count == 0) return r;
-            if (sorted.Count <= n) return new List<T>(sorted);
-            double lo = Math.Log(Math.Max(1e-3, val(sorted[0]))), hi = Math.Log(Math.Max(1e-3, val(sorted[sorted.Count - 1])));
-            int last = -1;
-            for (int i = 0; i < n; i++)
-            {
-                double target = lo + (hi - lo) * i / (n - 1);
-                int best = 0; double bd = double.MaxValue;
-                for (int j = 0; j < sorted.Count; j++) { double d = Math.Abs(Math.Log(Math.Max(1e-3, val(sorted[j]))) - target); if (d < bd) { bd = d; best = j; } }
-                if (best <= last) best = last + 1;
-                if (best >= sorted.Count) break;
-                r.Add(sorted[best]); last = best;
-            }
-            return r;
+            catch (Exception e) { SettingsWindow.Trace("WoundTable ammo " + ini + ": " + e.Message); return null; }
         }
 
         // what the table shows first (the ship's / ammunition's ini name or a part of the shown name); mods' ships are found by name,
         // gaps are filled from the game's data by size / power
-        static readonly string[] WantShips = { "wp_pt_libelle", "knm_fs_sleipner", "wp_skr_krivak1", "jmsdf_dd_minegumo" };
-        static readonly string[] WantAmmo = { "wp_cal_23mm", "wp_cal_57mm", "wp_cal_76mm", "wp_cal_100mm", "usn_mk-82", "usn_agm-84d", "wp_53-65K", "wp_ss-n-19", "wp_fab-9000_m54" };
+        static readonly string[] WantShips = { "wp_pb_zhuk", "knm_fs_sleipner", "wp_skr_krivak1", "usn_cg_ticonderoga", "wp_rkr_kirov", "usn_cvn_nimitz" };
+        static readonly string[] WantAmmo = { "usn_cal_35mm", "wp_cal_57mm", "usn_cal_76mm", "wp_cal_100mm", "usn_cal_127mm", "usn_mk-82", "usn_rgm-84c", "wp_53-65K", "wp_ss-n-19" };
 
         static Border Cell(string s, Color c, bool bold, TextAlignment al, int row, int col, Color? bg = null, float fs = 12f)
         {
@@ -94,24 +67,6 @@ namespace AlternativeDamageModel
             return b;
         }
 
-        static List<T> Pick<T>(List<T> all, string[] want, Func<T, string> id, Func<T, double> val, int n)
-        {
-            var r = new List<T>();
-            foreach (var w in want)
-            {
-                T f = default(T); bool found = false;
-                foreach (var x in all) if (id(x).StartsWith(w + "|", StringComparison.OrdinalIgnoreCase)) { f = x; found = true; break; }
-                if (!found) foreach (var x in all) if (id(x).IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0) { f = x; found = true; break; }
-                if (found && !r.Contains(f)) r.Add(f);
-            }
-            if (r.Count < n)
-            {
-                foreach (var x in Spread(all, n, val)) { if (r.Count >= n) break; if (!r.Contains(x)) r.Add(x); }
-            }
-            r.Sort((x, y) => val(x).CompareTo(val(y)));
-            return r;
-        }
-
         public static FrameworkElement Build()
         {
             var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(10f) };
@@ -119,9 +74,14 @@ namespace AlternativeDamageModel
             try
             {
                 var all = ShipNames.Sizes();
-                var ships = Pick(all, WantShips, x => x.Ini + "|" + x.Name, x => x.Tons, Ships);
-                var am = LoadAmmo();
-                var ammo = Pick(am, WantAmmo, x => x.Ini + "|" + x.Name, x => x.Power, Ammo);
+                var ships = new List<ShipNames.ShipSize>();
+                foreach (var w in WantShips)
+                {
+                    var f = all.Find(x => string.Equals(x.Ini, w, StringComparison.OrdinalIgnoreCase) || string.Equals(x.Ini, w + ".ini", StringComparison.OrdinalIgnoreCase));
+                    if (f != null) ships.Add(f); else SettingsWindow.Trace("WoundTable: ship not found: " + w);
+                }
+                var ammo = new List<Am>();
+                foreach (var w in WantAmmo) { var f = FindAmmo(w); if (f != null) ammo.Add(f); else SettingsWindow.Trace("WoundTable: ammo not found: " + w); }
                 if (ships.Count == 0 || ammo.Count == 0)
                 {
                     root.Children.Add(Cell("No game data yet.", cDim, false, TextAlignment.Left, 0, 0));

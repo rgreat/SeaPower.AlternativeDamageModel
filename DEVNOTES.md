@@ -827,3 +827,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ### 2026-10-21 (33): таблица Wound chance — точные имена
 - Исправлено: Sleipner в игре — `knm_fs_sleipner` (раньше искал «sleipnir» и не находил). Список пожеланий теперь по точным ini-именам; совпадение по началу «ini|имя», затем по части имени; у ключей боеприпасов отрезается «.ini».
+
+### 2026-10-21 (34): таблица Wound chance — список пользователя, без автодобавок
+- Корабли: wp_pb_zhuk, knm_fs_sleipner, wp_skr_krivak1, usn_cg_ticonderoga, wp_rkr_kirov, usn_cvn_nimitz. Боеприпасы: usn_cal_35mm, wp_cal_57mm, usn_cal_76mm, wp_cal_100mm, usn_cal_127mm, usn_mk-82, usn_rgm-84c, wp_53-65K, wp_ss-n-19.
+- Автодобавка по размеру убрана; ненайденное пишется в лог. Мощность боеприпаса берётся прямо по ini (`AmmunitionParameters.GetShared(ini)._warheadPower`), имя — из `AmmunitionData` (иначе ini-имя).
