@@ -33,7 +33,7 @@ namespace AlternativeDamageModel
         static FieldInfo _vObject;
         static PropertyInfo _vSensors, _vObserved, _vIdentified, _vDormant, _rpValue;
         static PropertyInfo _oCompartments, _oDestroyed, _cFlood, _cInt, _oPlayer;
-        static FieldInfo _cSys, _cCount, _scMax, _oTaskforce, _cSinking, _cFires, _cProp, _cImmobile, _cMaxInt, _gPlayerTf;
+        static FieldInfo _cBase, _cSys, _cCount, _scMax, _oTaskforce, _cSinking, _cFires, _cProp, _cImmobile, _cMaxInt, _gPlayerTf;
         static PropertyInfo _sInoperable, _sDamage, _scSev;
         static MethodInfo _oSpeed;
         static PropertyInfo _gameTime;
@@ -71,7 +71,7 @@ namespace AlternativeDamageModel
                 _cImmobile = tComp.GetField("_immobile", all);
                 _sInoperable = tSys.GetProperty("Inoperable", all);
                 _sDamage = tSys.GetProperty("CurrentDamageType", all);
-                _cSys = tComp.GetField("_systemCompartments", all); _cCount = tComp.GetField("_compartmentsCount", all);
+                _cBase = tComp.GetField("_baseObject", all); _cSys = tComp.GetField("_systemCompartments", all); _cCount = tComp.GetField("_compartmentsCount", all);
                 var tSc = asm.GetType("SeaPower.SystemCompartment");
                 _scSev = tSc.GetProperty("FireSeverity", all); _scMax = tSc.GetField("_maxFireSeverity", all);
                 _oSpeed = tObj.GetMethod("getVelocityInKnots", all);
@@ -159,23 +159,7 @@ namespace AlternativeDamageModel
                 float prop = Propulsion(comp);
 
                 // the trend, for the forecast
-                double eta = double.MaxValue;
-                var h = History.GetOrCreateValue(obj);
-                double now = Now();
-                if (h.T.Count == 0 || now - h.T[h.T.Count - 1] >= 1.0)
-                {
-                    h.T.Add(now); h.Flood.Add(flood); h.Hull.Add(hull);
-                    while (h.T.Count > 2 && now - h.T[1] > Window) { h.T.RemoveAt(0); h.Flood.RemoveAt(0); h.Hull.RemoveAt(0); }
-                }
-                double span = h.T.Count < 2 ? 0 : h.T[h.T.Count - 1] - h.T[0];
-                if (!sinking && span >= MinSpan)
-                {
-                    double rf = (h.Flood[h.Flood.Count - 1] - h.Flood[0]) / span;   // % a second
-                    double rh = (h.Hull[h.Hull.Count - 1] - h.Hull[0]) / span;
-                    float limit = _tSub != null && _tSub.IsInstanceOfType(obj) ? 50f : Limits.LevelFull;
-                    if (rf > 0.0005) eta = Math.Min(eta, (limit - flood) / rf);
-                    if (rh < -0.0005) eta = Math.Min(eta, (hull - 10f) / -rh);
-                }
+                double eta = Trend(obj, sinking, flood, hull);
                 double minutes = eta / 60.0;
                 bool soon = sinking || minutes <= 90.0;
                 bool doomed = sinking || minutes <= 20.0;
@@ -213,6 +197,61 @@ namespace AlternativeDamageModel
                 return info.Any || info.Doomed ? info : none;
             }
             catch (Exception e) { Trace("ContactIntel.Of: " + e.Message); return none; }
+        }
+
+        /// <summary>Game seconds to sinking by the trend of the last minute (flooding to its limit, hull to 10%); double.MaxValue - none.</summary>
+        static double Trend(object obj, bool sinking, float flood, float hull)
+        {
+            double eta = double.MaxValue;
+            var h = History.GetOrCreateValue(obj);
+            double now = Now();
+            if (h.T.Count == 0 || now - h.T[h.T.Count - 1] >= 1.0)
+            {
+                h.T.Add(now); h.Flood.Add(flood); h.Hull.Add(hull);
+                while (h.T.Count > 2 && now - h.T[1] > Window) { h.T.RemoveAt(0); h.Flood.RemoveAt(0); h.Hull.RemoveAt(0); }
+            }
+            double span = h.T.Count < 2 ? 0 : h.T[h.T.Count - 1] - h.T[0];
+            if (!sinking && span >= MinSpan)
+            {
+                double rf = (h.Flood[h.Flood.Count - 1] - h.Flood[0]) / span;   // % a second
+                double rh = (h.Hull[h.Hull.Count - 1] - h.Hull[0]) / span;
+                float limit = _tSub != null && _tSub.IsInstanceOfType(obj) ? 50f : Limits.LevelFull;
+                if (rf > 0.0005) eta = Math.Min(eta, (limit - flood) / rf);
+                if (rh < -0.0005) eta = Math.Min(eta, (hull - 10f) / -rh);
+            }
+            return eta;
+        }
+
+        /// <summary>
+        /// The sinking forecast of an own ship for the Damage Control tab: the main line and a cause line;
+        /// sev 0 - nothing to fear, 1 - will sink in over 20 minutes, 2 - within 20 minutes, sinking or lost.
+        /// </summary>
+        public static void Forecast(object comp, out string main, out string sub, out int sev)
+        {
+            main = "Stable"; sub = ""; sev = 0;
+            try
+            {
+                var obj = _cBase == null ? null : _cBase.GetValue(comp);
+                if (obj == null) return;
+                if (_oDestroyed != null && (bool)_oDestroyed.GetValue(obj, null)) { main = "Lost"; sev = 2; return; }
+                bool sinking = (bool)_cSinking.GetValue(comp);
+                float flood = Convert.ToSingle(_cFlood.GetValue(comp, null)), hull = Convert.ToSingle(_cInt.GetValue(comp, null));
+                if (sinking) { main = "Sinking"; sev = 2; return; }
+                double eta = Trend(obj, false, flood, hull);
+                if (eta == double.MaxValue) return;
+                double min = eta / 60.0;
+                if (min > 90.0) return;
+                main = "Sinks in ~" + Math.Max(1, (int)Math.Ceiling(min)) + " min";
+                sev = min <= 20.0 ? 2 : 1;
+                // the cause: the one that gets there sooner
+                var h = History.GetOrCreateValue(obj);
+                double span = h.T[h.T.Count - 1] - h.T[0];
+                float limit = _tSub != null && _tSub.IsInstanceOfType(obj) ? 50f : Limits.LevelFull;
+                double rf = span > 0 ? (h.Flood[h.Flood.Count - 1] - h.Flood[0]) / span : 0, rh = span > 0 ? (h.Hull[h.Hull.Count - 1] - h.Hull[0]) / span : 0;
+                double ef = rf > 0.0005 ? (limit - flood) / rf : double.MaxValue, eh = rh < -0.0005 ? (hull - 10f) / -rh : double.MaxValue;
+                sub = ef <= eh ? "flooding" : "hull damage";
+            }
+            catch (Exception e) { Trace("ContactIntel.Forecast: " + e.Message); }
         }
 
         /// <summary>The fires' total strength: the sum over the sections of their fire in % of the section's own maximum (100 = one section burning at full).</summary>

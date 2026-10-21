@@ -25,6 +25,7 @@ namespace AlternativeDamageModel
             public FrameworkElement Res;                // where the game's brushes are looked up
             public double T = -1; public float List, Trim;
             public string FireSig;
+            public TextBlock FcMain, FcSub;               // the forecast card (summary column 3)
             public Border HullCard;                      // the card of Hull Damage / Flooding / Fires: its tooltip is the list of hits
             public TextBlock HullVal, FloodVal; public bool HullColored;   // the game's "Hull Damage" / "Flooding" values: we add (NN%)
             // "Damage Control Teams" / "Teams Knocked Out": the game's value (and the first card's "Available / Total") hidden, ours shown
@@ -252,6 +253,25 @@ namespace AlternativeDamageModel
             // ---- team cards: free teams and knocked-out teams as icons (each team is shown once on the tab:
             //      free ones here, the others in their sections)
             try { AddTeamCards(summary, x); } catch (Exception e) { Trace("team cards: " + e.Message); }
+
+            // ---- the sinking forecast: the empty middle of the summary row
+            try
+            {
+                var fc = new Border
+                {
+                    Background = styleCard.Background, BorderBrush = styleCard.BorderBrush, BorderThickness = styleCard.BorderThickness,
+                    Padding = new Thickness(6f, 4f, 6f, 4f), Margin = new Thickness(0f, 0f, 6f, 0f)
+                };
+                Grid.SetColumn(fc, 3);
+                var sp = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                sp.Children.Add(new TextBlock { Text = "Forecast", FontSize = 12f, HorizontalAlignment = HorizontalAlignment.Center, Foreground = Res(view, "Brush.Foreground.Highlight", Color.FromRgb(214, 218, 222)) });
+                x.FcMain = new TextBlock { Text = "Stable", FontSize = 20f, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0f, 2f, 0f, 0f) };
+                x.FcSub = new TextBlock { Text = "", FontSize = 12f, HorizontalAlignment = HorizontalAlignment.Center, Foreground = Res(view, "Brush.Foreground.Highlight", Color.FromRgb(214, 218, 222)) };
+                sp.Children.Add(x.FcMain); sp.Children.Add(x.FcSub);
+                fc.Child = sp;
+                Add(x, summary, fc);
+            }
+            catch (Exception e) { Trace("forecast card: " + e.Message); }
 
             // ---- list / trim card: right of the ship's profile picture (under "Hull Damage / Flooding / Fires")
             if (host != null)
@@ -594,6 +614,13 @@ namespace AlternativeDamageModel
                 }
             }
 
+            if (x.FcMain != null)
+            {
+                string fm, fs; int fv;
+                ContactIntel.Forecast(comp, out fm, out fs, out fv);
+                SetText(x.FcMain, fm); SetText(x.FcSub, fs);
+                SetBrush(x.FcMain, fv >= 2 ? BCritical : fv == 1 ? BHeavy : StageBrush(x.Res, 0));
+            }
             try { RenderHullFlood(comp, x); } catch (Exception e) { Trace("RenderHullFlood: " + e.Message); }
 
             // list / trim from the hull's attitude, smoothed (game time; a paused game keeps them)
