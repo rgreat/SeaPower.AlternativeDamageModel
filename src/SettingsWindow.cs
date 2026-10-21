@@ -136,10 +136,10 @@ namespace AlternativeDamageModel
             Add(DC, "Movement", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Switches", "DamageControlTeams/TeamHealthEnabled", "Team health", "wounds and recovery; off = the Health page is hidden", Kind.Bool, 0, 0, 0);
             Add(DC, "Switches", "DamageControlTeams/FatigueEnabled", "Team fatigue", "off = the Fatigue page is hidden", Kind.Bool, 0, 0, 0);
-            Add(DC, "Health", "DamageControlTeams/TeamHealth", "Max health", "× (by ship displacement)", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Health", "DamageControlTeams/TeamHealth", "Max health", "× (1-100 by displacement)", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/HealthRegen", "Recovery speed in reserve", "% health per second", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Wounds", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Wounds", "DamageControlTeams/HitWound", "Hit wounds", "× knock-out wound", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Wounds", "DamageControlTeams/HitWound", "Hit wounds", "× warhead power", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Wounds", "DamageControlTeams/HitsInReserve", "Hits in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
             Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
             Add(DC, "Time", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);

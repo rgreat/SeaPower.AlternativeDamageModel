@@ -33,7 +33,7 @@ namespace AlternativeDamageModel
         public static float HealthMul = 1f;       // [DamageControlTeams] TeamHealth: x the maximum health; 0 = no wounds
         public static float RegenRate = 0.5f;     // % of the full health a second in the reserve
         public static float FireWound = 1f;       // % of the full health a second at fire 100% (a team that does not fight it)
-        public static float HitWound = 1f;        // x the wound of one knock-out
+        public static float HitWound = 1f;        // x the warhead power of the hit = the wound in points
         static readonly System.Random Rnd = new System.Random();
         public static bool ReserveHits = true;    // hits on the central compartment (the resting place) wound the teams in the reserve
         public static float FatigueRecover = 100f; // % of the build-up speed the reserve takes fatigue away at
@@ -41,7 +41,7 @@ namespace AlternativeDamageModel
         public static float ExhaustedMin = 120f;  // minutes of work until exhausted (the second level); not above FatigueMin = no second level
         public static float SpeedRested = 1f, SpeedTired = 0.75f, SpeedExhausted = 0.25f;   // work speed of a rested / tired / exhausted team; linear between the levels
         public const float MinWoundEff = 0.25f;   // a wounded team works at its health, but not below this
-        const float HitHp = 50f;                  // one knock-out takes this much of the 100 of a 1000 t ship (two knock-outs killed a team before)
+        const float DefaultHit = 25f;             // warhead power taken when the hit's own is unknown (the median of the game's ammunition)
 
         /// <summary>Transfers take time (TransferSpeed or MusterTime not 0): walking teams, no recall, the optimised Auto DC.</summary>
         public static bool TransfersOn { get { return Speed > 0f || Muster > 0f; } }
@@ -236,16 +236,38 @@ namespace AlternativeDamageModel
             return f >= FatigueLimit ? 1 : 0;
         }
 
-        /// <summary>The ship's team health in points: 100 at 1000 t, growing with the square root of the displacement (a boat's team is a few people: at least 10), x TeamHealth.</summary>
+        /// <summary>
+        /// The ship's team health in points, 1..100 by displacement (x TeamHealth): 100 is a ship with a crew of 1000 and more (about 30000 t and up),
+        /// below that it falls with the crew, which grows roughly as displacement^0.6: 1000 t = 12, 4000 t = 28, 10000 t = 50.
+        /// A hit wounds a team by the warhead power of the ammunition (the game's ammunition: 0..196, half of it under 25).
+        /// </summary>
         public static float MaxHp(object comp)
         {
             StrongBox<float> d;
             float tons = comp != null && Disp.TryGetValue(comp, out d) && d.Value > 0f ? d.Value : 1000f;
-            return Math.Max(10f, 100f * (float)Math.Sqrt(tons / 1000f)) * HealthMul;
+            double hp = 100.0 * Math.Pow(Math.Max(1.0, tons) / 30000.0, 0.62);
+            return (float)Math.Max(1.0, Math.Min(100.0, hp)) * HealthMul;
+        }
+
+        // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound
+        static readonly ConditionalWeakTable<object, StrongBox<float>> LastHit = new ConditionalWeakTable<object, StrongBox<float>>();
+        public static void NoteHit(object comp, float power)
+        {
+            if (comp == null || power <= 0f) return;
+            var b = LastHit.GetOrCreateValue(comp);
+            if (power > b.Value) b.Value = power;
+        }
+
+        static float TakeHit(object comp)
+        {
+            StrongBox<float> b;
+            if (!LastHit.TryGetValue(comp, out b) || b.Value <= 0f) return DefaultHit;
+            float v = b.Value; b.Value = 0f;
+            return v;
         }
 
         /// <summary>A hit on the central compartment with this chance (%) wounds one team resting in the reserve (ReserveHits).</summary>
-        public static void ReserveHit(object comp, float chancePct)
+        public static void ReserveHit(object comp, float chancePct, float power)
         {
             if (!_ok || comp == null || !ReserveHits || !HealthOn || !IsEnabled() || chancePct <= 0f) return;
             Ship s;
@@ -253,7 +275,7 @@ namespace AlternativeDamageModel
             var pool = s.Teams.FindAll(x => x.State == St.Pool);
             if (pool.Count == 0 || Rnd.NextDouble() * 100.0 >= chancePct) return;
             var t = pool[Rnd.Next(pool.Count)];
-            t.Health -= HitHp * HitWound / MaxHp(comp);
+            t.Health -= power * HitWound / MaxHp(comp);
             if (t.Health <= 0f)
             {
                 var counts = Counts(comp);
@@ -648,7 +670,7 @@ namespace AlternativeDamageModel
                         taken++;
                         int from = hit.Section;
                         Leave(hit);
-                        float wound = HealthOn ? HitHp * HitWound / MaxHp(comp) : 0f;
+                        float wound = HealthOn ? TakeHit(comp) * HitWound / MaxHp(comp) : 0f;
                         hit.Health -= wound;
                         if (HealthOn && hit.Health <= 0f) { hit.State = St.Dead; hit.Health = 0f; Trace("DC team dead (section " + from + ")"); }
                         else

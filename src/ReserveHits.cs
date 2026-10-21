@@ -16,7 +16,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
 
         static bool _init, _ok;
-        static FieldInfo _fImpact, _fSecondary, _fImpactComp, _fCompObp, _fTaskforce, _fEnemy, _fReduction;
+        static FieldInfo _fWeaponType, _fAp, _fPower, _fDmgMul, _fImpact, _fSecondary, _fImpactComp, _fCompObp, _fTaskforce, _fEnemy, _fReduction;
         static PropertyInfo _pCivilian, _pIntegrity;
         static MethodInfo _mFlooding;
         static readonly BindingFlags All = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -35,6 +35,8 @@ namespace AlternativeDamageModel
                 var asm = blastzone.GetType().Assembly;
                 _fImpact = Field(blastzone.GetType(), "_unitImpactData");
                 _fSecondary = Field(blastzone.GetType(), "_isSecondaryExplosion");
+                _fWeaponType = Field(blastzone.GetType(), "_weaponType");
+                _fAp = Field(blastzone.GetType(), "_ap");
                 var tImpact = asm.GetType("SeaPower.ImpactData");
                 _fImpactComp = tImpact == null ? null : Field(tImpact, "_compartments");
                 _fCompObp = Field(comps.GetType(), "_obp");
@@ -51,10 +53,30 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("ReserveHits.Init: " + e.Message); }
         }
 
+        /// <summary>The power of the hit as the game takes it for the knock-out chance: the warhead power x damage multiplier for a projectile, else the damage.</summary>
+        static float Power(object blastzone, float damage)
+        {
+            try
+            {
+                var wt = _fWeaponType == null ? null : _fWeaponType.GetValue(blastzone);
+                if (wt != null && wt.ToString() == "Projectile" && _fAp != null)
+                {
+                    var ap = _fAp.GetValue(blastzone);
+                    if (ap != null)
+                    {
+                        if (_fPower == null) { _fPower = Field(ap.GetType(), "_warheadPower"); _fDmgMul = Field(ap.GetType(), "_damageMultiplier"); }
+                        if (_fPower != null && _fDmgMul != null) return Convert.ToSingle(_fPower.GetValue(ap)) * Convert.ToSingle(_fDmgMul.GetValue(ap));
+                    }
+                }
+            }
+            catch { }
+            return damage;
+        }
+
         /// <summary>Postfix of Blastzone.ProcessCompartmentHit(hitObject, hc, blockedByMainArmor, damage).</summary>
         public static void Postfix(object __instance, object[] __args)
         {
-            if (!Enabled || !DcTeams.HealthOn || !DcTeams.IsEnabled() || __args == null || __args.Length < 4) return;
+            if (!DcTeams.HealthOn || !DcTeams.IsEnabled() || __args == null || __args.Length < 4) return;
             try
             {
                 var hitObject = __args[0];
@@ -77,13 +99,16 @@ namespace AlternativeDamageModel
                 map = _fImpact.GetValue(__instance) as IDictionary;
                 if (map == null || !map.Contains(hitObject)) return;
                 var comps = _fImpactComp.GetValue(map[hitObject]);
-                if (comps == null || number != 3) return;                  // the central compartment of five
+                if (comps == null) return;
                 if ((bool)_fSecondary.GetValue(__instance)) return;        // the game: no knock-outs by secondary explosions
+                float power = Power(__instance, Convert.ToSingle(__args[3]));
+                DcTeams.NoteHit(comps, power);                              // the wound of a team knocked out in a hit section
+                if (!Enabled || number != 3) return;                        // the central compartment of five
                 var fc = _mFlooding.Invoke(comps, new object[] { number, parts[1] == "port" });
                 if (fc == null) return;
                 float integ = Convert.ToSingle(_pIntegrity.GetValue(fc, null));
                 if (integ >= 50f) return;
-                float chance = Convert.ToSingle(__args[3]) * (1f - integ / 100f);
+                float chance = power * (1f - integ / 100f);
                 bool enemy = _fTaskforce != null && _fEnemy != null && ReferenceEquals(_fTaskforce.GetValue(hitObject), _fEnemy.GetValue(null));
                 if (enemy)
                 {
@@ -92,7 +117,7 @@ namespace AlternativeDamageModel
                     chance = Math.Min(chance, civ ? 40f : 20f);
                 }
                 else if (_fReduction != null) chance -= chance * Convert.ToSingle(_fReduction.GetValue(null));
-                DcTeams.ReserveHit(comps, chance);
+                DcTeams.ReserveHit(comps, chance, power);
             }
             catch (Exception e) { Trace("ReserveHits: " + e.Message); }
         }
