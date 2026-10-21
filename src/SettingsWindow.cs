@@ -736,19 +736,20 @@ namespace AlternativeDamageModel
 
         /// <summary>The game's own value of a setting (what the "game:" column shows): the entry's default for global keys, the Base Game profile for the rest.</summary>
         /// <summary>Settings the game has no counterpart of (not "game: x" but the mod's own default).</summary>
-        static readonly string[] Subs = { "Count", "Work", "Health", "Fatigue" };
+        static readonly string[] Subs = { "Count", "Movement", "Work", "Health", "Fatigue" };
         static int _sub;
         /// <summary>The DC Teams tab is split by kind of option: which page a row is on (-1 = the switches above the pages).</summary>
         static int SubOf(Field f)
         {
             if (f.Group == "Switches") return -1;
             if (f.Group.StartsWith("Number of teams", StringComparison.Ordinal)) return 0;
-            if (f.Group == "Health" || f.Group == "Wounds") return 2;
-            if (f.Group == "Time" || f.Group == "Efficiency") return 3;
-            return 1;
+            if (f.Group == "Movement") return 1;
+            if (f.Group == "Health" || f.Group == "Wounds") return 3;
+            if (f.Group == "Time" || f.Group == "Efficiency") return 4;
+            return 2;
         }
 
-        static bool SubShown(int sub) { return sub == 2 ? IsOn(HealthKey) : sub == 3 ? IsOn(FatigueKey) : true; }
+        static bool SubShown(int sub) { return sub == 3 ? IsOn(HealthKey) : sub == 4 ? IsOn(FatigueKey) : true; }
 
         // column widths of the rows (stars: the first columns grow with the window too); set per tab from its texts
         static float _wLabel = 200f, _wGame = 124f;
@@ -927,7 +928,7 @@ namespace AlternativeDamageModel
             bool ui = UiOn();
             bool dcTab = Tabs[_tab] == "DC Teams";
             Panel rowHost = _body;
-            if (dcTab && !SubShown(_sub)) _sub = 1;
+            if (dcTab && !SubShown(_sub)) _sub = 2;
             FitColumns(Tabs[_tab]);
             if (dcTab)
             {
