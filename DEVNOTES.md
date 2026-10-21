@@ -820,3 +820,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 - В окне настроек после текста «Wound chance» значок (i) (тот же `InfoIcon`, что в заголовке панели DC; `InfoIcon`/`HeaderIcon` теперь internal). Подсказка — таблица, считается при наведении (`WoundTable.Build`).
 - Данные из игры (с модами): корабли — `ShipNames.Sizes()` (`UnitData`, поле `_displacement`), боеприпасы — `UnitMetadataProvider.AmmunitionData` + `AmmunitionParameters.GetShared(ini)._warheadPower` (читается один раз, дубли по отображаемому имени убираются).
 - Выбор: 6 кораблей и 9 боеприпасов, равномерно по логарифму водоизмещения / мощности боеголовки. Ячейка = `DcTeams.WoundOdds(power, MaxHpFor(tons))` в %, с текущими Max health и Wound chance. Формулы вынесены в `DcTeams.MaxHpFor`, `DcTeams.WoundOdds`.
+
+### 2026-10-21 (32): таблица Wound chance — дизайн и выбор
+- Столбцы/строки теперь берутся по списку пожеланий (`WantShips`: Libelle, Sleipnir, Krivak, Minegumo; `WantAmmo`: 23/57/76/100 мм, Mk-82, AGM-84D, торпеда 53-65K, P-700, FAB-9000), поиск по ini-имени или части имени (моды находятся по имени); недостающее добирается равномерно по логарифму из данных игры.
+- Дизайн: отдельный столбец Power, зебра, тепловая заливка ячеек по шансу, имена кораблей переносятся (без обрезки). `ShipNames.Sizes()` возвращает `ShipSize{Ini,Name,Tons}`.

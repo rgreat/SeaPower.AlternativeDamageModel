@@ -15,7 +15,7 @@ namespace AlternativeDamageModel
     {
         const int Ships = 6, Ammo = 9;
 
-        class Am { public string Name; public float Power; }
+        class Am { public string Ini, Name; public float Power; }
 
         static List<Am> _ammo;      // all warhead ammunition, by power; read once
 
@@ -50,7 +50,7 @@ namespace AlternativeDamageModel
                         if (!seen.Add(name)) continue;
                         var ap = shared.Invoke(null, new object[] { ini });
                         float p = ap == null ? 0f : Convert.ToSingle(fp.GetValue(ap));
-                        if (p > 0.05f) _ammo.Add(new Am { Name = name, Power = p });
+                        if (p > 0.05f) _ammo.Add(new Am { Ini = ini, Name = name, Power = p });
                     }
                     catch { }
                 }
@@ -80,51 +80,83 @@ namespace AlternativeDamageModel
             return r;
         }
 
-        static TextBlock Cell(string s, Color c, bool bold, TextAlignment al, int row, int col)
+        // what the table shows first (the ship's / ammunition's ini name or a part of the shown name); mods' ships are found by name,
+        // gaps are filled from the game's data by size / power
+        static readonly string[] WantShips = { "libelle", "sleipnir", "krivak1", "minegumo" };
+        static readonly string[] WantAmmo = { "wp_cal_23mm", "wp_cal_57mm", "wp_cal_76mm", "wp_cal_100mm", "usn_mk-82", "usn_agm-84d", "wp_53-65K", "wp_ss-n-19", "wp_fab-9000_m54" };
+
+        static Border Cell(string s, Color c, bool bold, TextAlignment al, int row, int col, Color? bg = null, float fs = 12f)
         {
-            var t = new TextBlock { Text = s, Foreground = new SolidColorBrush(c), FontSize = 12f, TextAlignment = al,
-                                    FontWeight = bold ? FontWeight.Bold : FontWeight.Normal, Margin = new Thickness(6f, 1f, 6f, 1f), TextTrimming = TextTrimming.CharacterEllipsis };
-            Grid.SetRow(t, row); Grid.SetColumn(t, col);
-            return t;
+            var t = new TextBlock { Text = s, Foreground = new SolidColorBrush(c), FontSize = fs, TextAlignment = al, VerticalAlignment = VerticalAlignment.Center,
+                                    FontWeight = bold ? FontWeight.Bold : FontWeight.Normal, Margin = new Thickness(8f, 3f, 8f, 3f) };
+            var b = new Border { Child = t, Background = new SolidColorBrush(bg ?? Color.FromArgb(0, 0, 0, 0)) };
+            Grid.SetRow(b, row); Grid.SetColumn(b, col);
+            return b;
         }
 
-        static string Short(string s, int n) { return s.Length <= n ? s : s.Substring(0, n - 1) + "…"; }
+        static List<T> Pick<T>(List<T> all, string[] want, Func<T, string> id, Func<T, double> val, int n)
+        {
+            var r = new List<T>();
+            foreach (var w in want)
+            {
+                T f = default(T); bool found = false;
+                foreach (var x in all) if (string.Equals(id(x), w, StringComparison.OrdinalIgnoreCase)) { f = x; found = true; break; }
+                if (!found) foreach (var x in all) if (id(x).IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0) { f = x; found = true; break; }
+                if (found && !r.Contains(f)) r.Add(f);
+            }
+            if (r.Count < n)
+            {
+                foreach (var x in Spread(all, n, val)) { if (r.Count >= n) break; if (!r.Contains(x)) r.Add(x); }
+            }
+            r.Sort((x, y) => val(x).CompareTo(val(y)));
+            return r;
+        }
 
         public static FrameworkElement Build()
         {
-            var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8f) };
-            Color cText = Color.FromRgb(225, 228, 232), cDim = Color.FromRgb(150, 156, 164);
+            var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(10f) };
+            Color cText = Color.FromRgb(225, 228, 232), cDim = Color.FromRgb(140, 148, 158);
             try
             {
-                var ships = Spread(ShipNames.Sizes(), Ships, k => k.Value);
-                var ammo = Spread(LoadAmmo(), Ammo, a => a.Power);
+                var all = ShipNames.Sizes();
+                var ships = Pick(all, WantShips, x => x.Ini + "|" + x.Name, x => x.Tons, Ships);
+                var am = LoadAmmo();
+                var ammo = Pick(am, WantAmmo, x => x.Ini + "|" + x.Name, x => x.Power, Ammo);
                 if (ships.Count == 0 || ammo.Count == 0)
                 {
                     root.Children.Add(Cell("No game data yet.", cDim, false, TextAlignment.Left, 0, 0));
                     return root;
                 }
-                var head = new TextBlock { Text = "Chance that one hit wounds a team, % (Max health and Wound chance as set)", Foreground = new SolidColorBrush(cText), FontSize = 12f, FontWeight = FontWeight.Bold, Margin = new Thickness(6f, 0f, 6f, 4f) };
-                root.Children.Add(head);
+                root.Children.Add(new TextBlock { Text = "Chance that one hit wounds a team", Foreground = new SolidColorBrush(cText), FontSize = 14f, FontWeight = FontWeight.Bold });
+                root.Children.Add(new TextBlock { Text = "% per hit, with the Max health and Wound chance now set; rows: ammunition (warhead power), columns: ships (displacement, team health)",
+                                                  Foreground = new SolidColorBrush(cDim), FontSize = 11f, Margin = new Thickness(0f, 2f, 0f, 8f) });
                 var g = new Grid();
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 for (int i = 0; i < ships.Count; i++) g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                for (int i = 0; i < ammo.Count + 2; i++) g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                g.Children.Add(Cell("Warhead power \\ team health", cDim, false, TextAlignment.Left, 0, 0));
+                for (int i = 0; i < ammo.Count + 1; i++) g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                g.Children.Add(Cell("Ammunition", cDim, false, TextAlignment.Left, 0, 0, null, 11f));
+                g.Children.Add(Cell("Power", cDim, false, TextAlignment.Right, 0, 1, null, 11f));
                 for (int c = 0; c < ships.Count; c++)
                 {
-                    float hp = DcTeams.MaxHpFor(ships[c].Value);
-                    g.Children.Add(Cell(Short(ships[c].Key, 16), cText, true, TextAlignment.Right, 0, c + 1));
-                    g.Children.Add(Cell(Fmt(ships[c].Value) + " t, HP " + Fmt(hp), cDim, false, TextAlignment.Right, 1, c + 1));
+                    float hp = DcTeams.MaxHpFor(ships[c].Tons);
+                    var h = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8f, 3f, 8f, 3f), MinWidth = 70f };
+                    h.Children.Add(new TextBlock { Text = ships[c].Name, Foreground = new SolidColorBrush(cText), FontSize = 12f, FontWeight = FontWeight.Bold, TextAlignment = TextAlignment.Right, TextWrapping = TextWrapping.Wrap, MaxWidth = 110f });
+                    h.Children.Add(new TextBlock { Text = Fmt(ships[c].Tons) + " t · HP " + Fmt(hp), Foreground = new SolidColorBrush(cDim), FontSize = 11f, TextAlignment = TextAlignment.Right });
+                    Grid.SetRow(h, 0); Grid.SetColumn(h, c + 2);
+                    g.Children.Add(h);
                 }
                 for (int r = 0; r < ammo.Count; r++)
                 {
-                    g.Children.Add(Cell(Short(ammo[r].Name, 24) + "  " + Fmt(ammo[r].Power), cText, false, TextAlignment.Left, r + 2, 0));
+                    Color zebra = r % 2 == 0 ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(0, 0, 0, 0);
+                    g.Children.Add(Cell(ammo[r].Name, cText, false, TextAlignment.Left, r + 1, 0, zebra));
+                    g.Children.Add(Cell(Fmt(ammo[r].Power), cDim, false, TextAlignment.Right, r + 1, 1, zebra));
                     for (int c = 0; c < ships.Count; c++)
                     {
-                        double p = DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Value)) * 100.0;
-                        // grey -> yellow -> red with the chance
-                        Color col = p < 10.0 ? cDim : p < 40.0 ? Color.FromRgb(232, 200, 90) : Color.FromRgb(240, 120, 70);
-                        g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), col, false, TextAlignment.Right, r + 2, c + 1));
+                        double p = DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons)) * 100.0;
+                        // a heat background: the more chance the stronger the red; the text stays white
+                        int a = (int)Math.Round(Math.Min(1.0, p / 100.0) * 170.0);
+                        g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Right, r + 1, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
                     }
                 }
                 root.Children.Add(g);

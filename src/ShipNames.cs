@@ -76,13 +76,15 @@ namespace AlternativeDamageModel
             catch (Exception e) { SettingsWindow.Trace("ShipNames: " + e.Message); }
         }
 
-        /// <summary>The ships (shown name, displacement in tons; tons &gt; 0), sorted by displacement.</summary>
-        public static List<KeyValuePair<string, float>> Sizes()
+        public class ShipSize { public string Ini, Name; public float Tons; }
+
+        /// <summary>The ships (ini, shown name, displacement in tons; tons &gt; 0), sorted by displacement.</summary>
+        public static List<ShipSize> Sizes()
         {
             Load();
-            var l = new List<KeyValuePair<string, float>>();
-            foreach (var kv in _byIni) { float t; if (_tons.TryGetValue(kv.Key, out t) && t > 0f) l.Add(new KeyValuePair<string, float>(kv.Value, t)); }
-            l.Sort((a, b) => a.Value.CompareTo(b.Value));
+            var l = new List<ShipSize>();
+            foreach (var kv in _byIni) { float t; if (_tons.TryGetValue(kv.Key, out t) && t > 0f) l.Add(new ShipSize { Ini = kv.Key, Name = kv.Value, Tons = t }); }
+            l.Sort((x, y) => x.Tons.CompareTo(y.Tons));
             return l;
         }
 
