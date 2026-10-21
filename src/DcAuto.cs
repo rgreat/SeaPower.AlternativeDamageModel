@@ -35,11 +35,13 @@ namespace AlternativeDamageModel
         const double Period = 2.0, Debounce = 4.0, MinStay = 60.0, Tau = 10.0;
         const float HullMin = 5f;                 // % of the side's integrity to restore before hull work counts
         const float LeakBad = 0.5f, FireBad = 0.5f, WaterBad = 33f;
+        const double ExtraEvery = 10.0;           // s: one more team for a section with work, while free teams stand idle
+        const int ExtraMax = 4;                   // teams in one section, by this rule
         const float FireFast = 0.005f, WaterFast = 0.3f;   // a second: fraction of the fire's maximum / % of the section
 
         sealed class Ship
         {
-            public double Next, Last;
+            public double Next, Last, NextExtra;
             public float[] Fire = new float[5], Water = new float[5];          // last values
             public float[] FireRise = new float[5], WaterRise = new float[5];  // smoothed growth a second
             public double[] Seen = new double[5];                              // since when the section has had work (0 = none)
@@ -239,6 +241,7 @@ namespace AlternativeDamageModel
                     foreach (var n in needs) if (left > 0 && n.Want >= round && target[n.Section] < round) { target[n.Section]++; left--; }
 
                 // 3-6. fill the gaps
+                int sent = 0;
                 foreach (var n in needs)
                 {
                     int i = n.Section;
@@ -267,8 +270,34 @@ namespace AlternativeDamageModel
                         if (from == -1) { DcTeams.Send(comp, i); pool--; }
                         else if (DcTeams.MoveToSection(comp, from, i, true)) { here[from]--; if (target[from] > here[from]) target[from] = here[from]; }
                         else break;
-                        coming[i]++;
+                        coming[i]++; sent++;
                         Trace("Auto DC: a team for section " + i + " from " + (from < 0 ? "the reserve" : "section " + from) + " (" + best + " s)");
+                    }
+                }
+
+                // 7. free teams stand idle while a section has work: when nobody else is needed, one more team is added every few seconds
+                //    (from the reserve, or from a section with no work at all), to the section with work that has the fewest teams
+                if (sent == 0 && now >= ship.NextExtra)
+                {
+                    Need pick = null;
+                    foreach (var n in needs)
+                    {
+                        int have = here[n.Section] + coming[n.Section];
+                        if (have >= ExtraMax) continue;
+                        if (pick == null || have < here[pick.Section] + coming[pick.Section]) pick = n;   // the order of 'needs' decides between equals
+                    }
+                    if (pick != null)
+                    {
+                        int i = pick.Section, from = -2; float best = float.MaxValue;
+                        if (pool > 0) { best = DcTeams.TransferTime(comp, -1, i); from = -1; }
+                        for (int j = 0; j < count; j++)
+                        {
+                            if (j == i || work[j] || holds[j] || here[j] < 1) continue;
+                            float tt = DcTeams.TransferTime(comp, j, i);
+                            if (tt < best) { best = tt; from = j; }
+                        }
+                        if (from == -1) { DcTeams.Send(comp, i); Trace("Auto DC: one more team for section " + i + " from the reserve"); ship.NextExtra = now + ExtraEvery; }
+                        else if (from >= 0 && DcTeams.MoveToSection(comp, from, i, true)) { Trace("Auto DC: one more team for section " + i + " from section " + from); ship.NextExtra = now + ExtraEvery; }
                     }
                 }
                 return false;
