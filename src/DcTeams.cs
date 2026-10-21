@@ -289,6 +289,15 @@ namespace AlternativeDamageModel
             return 0.054 * Math.Pow(power, 1.83) / Math.Pow(hp, 1.18) * wc;
         }
 
+        /// <summary>The average wound of a team that is wounded by a hit, as a part of its full health (0..1; what WoundOf does: the strength is uniform up to min(1, 2q), the wound power x HitWound x strength / health, at most the whole).</summary>
+        public static double WoundMean(float power, float hp, double hitWound)
+        {
+            if (hp <= 0f || power <= 0f || hitWound <= 0.0) return 0.0;
+            double q = power / hp, m = Math.Min(1.0, 2.0 * q), k = q * hitWound;
+            if (k * m <= 1.0) return k * m / 2.0;
+            return 1.0 - (1.0 / k) / (2.0 * m);
+        }
+
         // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound
         static readonly ConditionalWeakTable<object, StrongBox<float>> LastHit = new ConditionalWeakTable<object, StrongBox<float>>();
         public static void NoteHit(object comp, float power)

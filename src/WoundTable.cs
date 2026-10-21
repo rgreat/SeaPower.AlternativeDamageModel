@@ -67,6 +67,17 @@ namespace AlternativeDamageModel
             return b;
         }
 
+        /// <summary>A cell with two lines: the chance (as before) and under it, small, the average wound.</summary>
+        static Border Cell2(string top, string below, Color c, bool bold, int row, int col, Color bg)
+        {
+            var sp = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8f, 3f, 8f, 3f), VerticalAlignment = VerticalAlignment.Center };
+            sp.Children.Add(new TextBlock { Text = top, Foreground = new SolidColorBrush(c), FontSize = 12f, TextAlignment = TextAlignment.Center, FontWeight = bold ? FontWeight.Bold : FontWeight.Normal });
+            sp.Children.Add(new TextBlock { Text = below, Foreground = new SolidColorBrush(Color.FromRgb(140, 148, 158)), FontSize = 10f, TextAlignment = TextAlignment.Center });
+            var b = new Border { Child = sp, Background = new SolidColorBrush(bg) };
+            Grid.SetRow(b, row); Grid.SetColumn(b, col);
+            return b;
+        }
+
         public static FrameworkElement Build()
         {
             var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(10f) };
@@ -74,7 +85,7 @@ namespace AlternativeDamageModel
             try
             {
                 // the values as they stand in the window now (not applied yet)
-                float hmul = SettingsWindow.WorkNumber("DamageControlTeams/TeamHealth", DcTeams.HealthMul), wc = SettingsWindow.WorkNumber("DamageControlTeams/WoundChance", (float)DcTeams.WoundChance);
+                float hmul = SettingsWindow.WorkNumber("DamageControlTeams/TeamHealth", DcTeams.HealthMul), wc = SettingsWindow.WorkNumber("DamageControlTeams/WoundChance", (float)DcTeams.WoundChance), hw = SettingsWindow.WorkNumber("DamageControlTeams/HitWound", DcTeams.HitWound);
                 var all = ShipNames.Sizes();
                 var ships = new List<ShipNames.ShipSize>();
                 foreach (var w in WantShips)
@@ -91,7 +102,7 @@ namespace AlternativeDamageModel
                     return root;
                 }
                 root.Children.Add(new TextBlock { Text = "Chance that one hit wounds a team", Foreground = new SolidColorBrush(cText), FontSize = 14f, FontWeight = FontWeight.Bold });
-                root.Children.Add(new TextBlock { Text = "% per hit, with the Max health and Wound chance now set. The chance is multiplied by Wound chance, then limited to 100",
+                root.Children.Add(new TextBlock { Text = "% per hit, with Max health, Wound chance and Wound strength now set (the chance is limited to 100). Under it: the wound a team gets, on average, in % of its health",
                                                   Foreground = new SolidColorBrush(cDim), FontSize = 11f, Margin = new Thickness(0f, 2f, 0f, 8f) });
                 var g = new Grid();
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -124,7 +135,8 @@ namespace AlternativeDamageModel
                         double p = Math.Min(100.0, DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons, hmul), wc) * 100.0);   // the multiplier first, then the limit of 100%
                         // a heat background on a log scale (1% is already seen, 100% the strongest); the text stays white
                         int a = (int)Math.Round(Math.Log(1.0 + p) / Math.Log(101.0) * 170.0);   // log scale: 1% is already seen
-                        g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Center, r + 4, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
+                        double w = DcTeams.WoundMean(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons, hmul), hw) * 100.0;
+                        g.Children.Add(Cell2(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), w.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%", p < 3.0 ? cDim : cText, p >= 50.0, r + 4, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
                     }
                 }
                 root.Children.Add(g);

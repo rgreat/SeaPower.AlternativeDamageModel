@@ -1077,7 +1077,7 @@ namespace AlternativeDamageModel
                 // (i): a table calculated from the game's ships and ammunition (made when the mouse comes to the icon)
                 var info = DamageControlUi.HeaderIcon(DamageControlUi.InfoIcon());
                 info.Margin = new Thickness(6f, 0f, 0f, 0f);
-                var holder = new Border { Background = B(Color.FromRgb(30, 34, 40)), BorderBrush = B(Color.FromRgb(90, 98, 110)), BorderThickness = new Thickness(1f) };
+                var holder = new Border();   // no frame of its own: the game's tooltip has one
                 try
                 {
                     ToolTipService.SetToolTip(info, holder);
