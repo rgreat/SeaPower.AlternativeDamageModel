@@ -88,6 +88,7 @@ namespace AlternativeDamageModel
             Add(TFx, "Fire smoke", "Effects/SmokeSevereFrom", "Severe fire look from", "% of max fire (game 50)", Kind.Number, 5f, 1f, 100f, true);
 
             Add(G, "Damage model", AdmKey, "Alternative Damage Control", "applies at once", Kind.Bool, 0, 0, 0, true);
+            Add(G, "Damage model", "HullIntegrity/DamageSpill", "Damage spills over", "a destroyed compartment: ½ to its neighbour, ¼ to the next", Kind.Bool, 0, 0, 0);
             Add(G, "Damage model", "General/FixHighTimeCompressionTrimError", "Fix trim compute error", "above 10x time compression", Kind.Bool, 0, 0, 0, true);
 
             Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SpeedEffect", "Multipliers by speed", "", Kind.Speed, 0, 0, 0);
@@ -785,7 +786,7 @@ namespace AlternativeDamageModel
             return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
                    key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
                    key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
-                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes";
+                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill";
         }
 
         static bool GameValue(Field f, out string v)

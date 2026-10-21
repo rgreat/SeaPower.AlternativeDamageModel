@@ -21,7 +21,7 @@ namespace AlternativeDamageModel
         static MethodInfo _mFlooding;
         static readonly BindingFlags All = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
-        static FieldInfo Field(Type t, string name)
+        internal static FieldInfo Field(Type t, string name)
         {
             for (; t != null; t = t.BaseType) { var f = t.GetField(name, All | BindingFlags.DeclaredOnly); if (f != null) return f; }
             return null;

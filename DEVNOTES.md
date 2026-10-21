@@ -862,3 +862,9 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 - `wp_sa-n-1` (M-1 Volna, V-601, мощность 25) и `usn_rim-66b` (SM-1MR, 24); строки сортируются по мощности.
 
 ### 2026-10-21 (43): из таблицы Wound chance убран M-1 (мощность почти как у SM-1)
+
+### 2026-10-21 (44): тултипы журнала попаданий и систем, перенос повреждений
+- **DamageSpill** (`DamageSpill.cs`, опция `[HullIntegrity] DamageSpill`, вкладка Damage Model, Advanced=true, Base Game=false): Prefix на `Blastzone.ProcessCompartmentHit`. Излишек урона (damage − текущая целостность отсека; для вторичного отсека ×0.75) уходит половиной в соседний отсек (того же борта, к середине судна; из центра — в сторону с большей целостностью). Если сосед разрушен — четверть на следующий. Брониро­ванные попадания (blockedByMainArmor) пропускаются; торпеда как в игре.
+- **HitLog** (`HitLog.cs`): Postfix того же метода пишет запись на удар (только для «первичного» отсека: совпадает `_hitCompartmentIndex`/`_portSideHit`): время (`GameTime.missionElapsedTime`), боеприпас (`_ap._displayedName`), секция, борт, флаги «броня»/«взрыв». До 400 на корабль, `ConditionalWeakTable` по Compartments, в сейвах не хранится. Тултип карточки Hull Damage/Flooding/Fires (`Extras.HullCard`, `HitLogTip`, строится при наведении): ≤20 строк, больше — «Боеприпас: x N».
+- **Системы** (`DamageControlUi.Systems.cs`): `MouseMove` на списках секций, `VisualTreeHelper.HitTest` → строка с DataContext=DamageSummary (IsSystem) → ToolTip. Скорость ремонта измеряется (`TrackSystems` в `Update`: сглаженная скорость роста `CurrentIntegrity` в игровом времени). Уровни повреждения по `SetCurrentDamageType` (>90 нет, >60 light, >20 medium, >1 severe); игра чинит систему только на один уровень лучше худшего (`BiggestDamageType`) — это показывается.
+- Не проверено в игре: попадание тултипов в строки (HitTest/DataContext), точность измерения скорости.

@@ -85,7 +85,7 @@ namespace AlternativeDamageModel
         static string _xamlDir;
         ConfigEntry<string> _noDeckEntry;
         ConfigEntry<Factor> _reopenEntry, _reopenLimitEntry, _fullFireEntry, _fireEffEntry;
-        ConfigEntry<bool> _fullSystemsEntry;
+        ConfigEntry<bool> _fullSystemsEntry, _spillEntry;
         static HashSet<string> _noDeck = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         ConfigEntry<Factor> _mWarEntry, _mCivEntry, _mSubEntry, _shellVulnEntry, _fireVulnEntry, _floodVulnEntry,
                             _uiFloodOne, _uiFloodTwo, _uiFireOne, _uiFireTwoUp, _uiFireTwoDown;
@@ -269,6 +269,9 @@ namespace AlternativeDamageModel
                 "A burning section opens its plugged leaks again: % of the largest leak the section has had, per second at fire 100% (less at a smaller fire). 0 = off.");
             _reopenLimitEntry = Pcfg.Bind("FireAndFlooding", "FireReopenLimit", new Factor(50f),
                 "A leak reopened by fire grows back up to this % of the largest leak the section has had.");
+            _spillEntry = Pcfg.Bind("HullIntegrity", "DamageSpill", true,
+                "A hit on a compartment that is already destroyed is not lost: half of the damage goes to the neighbouring compartment (the same side, towards the middle of the ship); " +
+                "if that one is destroyed too, a quarter goes to the one after it. The surplus of the hit that destroys a compartment spills the same way.");
             _fullSystemsEntry = Pcfg.Bind("FireAndFlooding", "FullFloodSystems", true,
                 "A fully flooded section (water above 75%): its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.");
             _fullFireEntry = Pcfg.Bind("FireAndFlooding", "FullFloodFireDecay", new Factor(10f),
@@ -823,6 +826,7 @@ namespace AlternativeDamageModel
             SectionEffects.ReopenRate = Math.Max(0f, _reopenEntry.Value.V);
             SectionEffects.ReopenLimit = Math.Max(0f, Math.Min(100f, _reopenLimitEntry.Value.V));
             SectionEffects.SystemsOut = _fullSystemsEntry.Value;
+            DamageSpill.Enabled = _spillEntry.Value;
             SectionEffects.FireDecay = Math.Max(0f, _fullFireEntry.Value.V);
             DcTeams.FireWorkEff = Math.Max(0f, Math.Min(100f, _fireEffEntry.Value.V)) / 100f;
             var nd = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1116,7 +1120,8 @@ namespace AlternativeDamageModel
             return null;
         }
 
-        static void ReserveHitPostfix(object __instance, object[] __args) { ReserveHits.Postfix(__instance, __args); }
+        static void ReserveHitPostfix(object __instance, object[] __args) { ReserveHits.Postfix(__instance, __args); HitLog.Postfix(__instance, __args); }
+        static void SpillPrefix(object __instance, object[] __args) { DamageSpill.Prefix(__instance, __args); }
 
         static HarmonyMethod Hm(string name)
         {
@@ -1222,7 +1227,8 @@ namespace AlternativeDamageModel
             if (tBlast != null)
             {
                 ReserveHits.Trace = Trace;
-                Patch(harmony, tBlast.GetMethod("ProcessCompartmentHit", all), null, "ReserveHitPostfix", null, "Blastzone.ProcessCompartmentHit (reserve hits)", ref ok, ref failed);
+                DamageSpill.Trace = Trace;
+                Patch(harmony, tBlast.GetMethod("ProcessCompartmentHit", all), "SpillPrefix", "ReserveHitPostfix", null, "Blastzone.ProcessCompartmentHit (reserve hits, damage spill)", ref ok, ref failed);
             }
 
             // diagnostics: LogFires

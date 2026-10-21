@@ -463,6 +463,7 @@ namespace AlternativeDamageModel
                 c.FireDesc = Desc(c.FireSum);
                 c.List = ics[i];
                 try { if (c.List != null) c.Column = Grid.GetColumn(c.List); } catch { }
+                HookSystemTips(c.List);
 
                 // the Flooding / Fire rows, if their template is in the visual tree (otherwise: text mode, see RenderRows)
                 FindRows(c, view);
@@ -706,6 +707,7 @@ namespace AlternativeDamageModel
             _sectionNames = sections.Names;
             _colsShown = st.Cols; _colsComp = new WeakReference(comp);
             var moving = DcTeams.Snapshot(comp).FindAll(v => v.State == (int)DcTeams.St.Moving);
+            TrackSystems(comp, t);
 
             for (int i = 0; i < st.Cols.Length; i++)
             {

@@ -25,6 +25,7 @@ namespace AlternativeDamageModel
             public FrameworkElement Res;                // where the game's brushes are looked up
             public double T = -1; public float List, Trim;
             public string FireSig;
+            public Border HullCard;                      // the card of Hull Damage / Flooding / Fires: its tooltip is the list of hits
             public TextBlock HullVal, FloodVal; public bool HullColored;   // the game's "Hull Damage" / "Flooding" values: we add (NN%)
             // "Damage Control Teams" / "Teams Knocked Out": the game's value (and the first card's "Available / Total") hidden, ours shown
             public List<UIElement> Hidden = new List<UIElement>();
@@ -37,6 +38,35 @@ namespace AlternativeDamageModel
             public Schematic Schem;
             public UIElement[] GameCard2, OurCard2;     // "Teams Knocked Out" (the game's) / "In Transfer" (ours)
             public int Card2Mode = -1;                     // the card's tooltip: the sections and their water (DamageControlUi.Schematic.cs)
+        }
+
+        const int HitLogLines = 20;
+
+        /// <summary>The hits on the ship: up to 20 as lines (time, ammunition, section and side); more - the count by ammunition ("100mm: x 31").</summary>
+        static FrameworkElement HitLogTip(object comp)
+        {
+            var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(10f) };
+            Func<string, Color, bool, TextBlock> line = (t, c, bold) => new TextBlock { Text = t, FontSize = 12f, Foreground = new SolidColorBrush(c), FontWeight = bold ? FontWeight.Bold : FontWeight.Normal, Margin = new Thickness(0f, 1f, 0f, 1f) };
+            var text = Color.FromRgb(225, 228, 232); var dim = Color.FromRgb(150, 156, 164);
+            var recs = HitLog.Records(comp);
+            root.Children.Add(line("Hits on the ship: " + recs.Count, text, true));
+            if (recs.Count == 0) { root.Children.Add(line("None yet", dim, false)); return root; }
+            if (recs.Count > HitLogLines)
+            {
+                var count = new Dictionary<string, int>(); var order = new List<string>();
+                foreach (var r in recs) { int n; count.TryGetValue(r.Ammo, out n); if (n == 0) order.Add(r.Ammo); count[r.Ammo] = n + 1; }
+                order.Sort((a, b) => count[b].CompareTo(count[a]));
+                foreach (var a in order) root.Children.Add(line(a + ": x " + count[a], text, false));
+                return root;
+            }
+            foreach (var r in recs)
+            {
+                var ts = TimeSpan.FromSeconds(Math.Max(0.0, r.Time));
+                string when = ((int)ts.TotalHours).ToString("0", CultureInfo.InvariantCulture) + ":" + ts.Minutes.ToString("00", CultureInfo.InvariantCulture) + ":" + ts.Seconds.ToString("00", CultureInfo.InvariantCulture);
+                string where = SectionName(_sectionNames, r.Section) + ", " + (r.Port ? "port" : "starboard");
+                root.Children.Add(line(when + "   " + r.Ammo + "   " + where + (r.Armor ? "   (stopped by armour)" : "") + (r.Blast ? "   (explosion)" : ""), r.Armor ? dim : text, false));
+            }
+            return root;
         }
 
         // dials: half a circle, the needle at the top for 0
@@ -204,6 +234,20 @@ namespace AlternativeDamageModel
                 }
             }
             else Trace("extras: Hull Damage card not found");
+            if (hullCard != null)
+            {
+                // the tooltip of the card: every hit on the ship (HitLog), made when the mouse comes
+                x.HullCard = hullCard;
+                var holder = new Border { Background = new SolidColorBrush(Color.FromRgb(30, 34, 40)), BorderBrush = new SolidColorBrush(Color.FromRgb(90, 98, 110)), BorderThickness = new Thickness(1f) };
+                try
+                {
+                    ToolTipService.SetToolTip(hullCard, holder);
+                    ToolTipService.SetPlacement(hullCard, PlacementMode.Left);
+                    ToolTipService.SetShowDuration(hullCard, int.MaxValue);
+                }
+                catch (Exception e) { Trace("hit log tip: " + e.Message); }
+                hullCard.MouseEnter += (s2, e2) => { try { holder.Child = HitLogTip(x.Comp); } catch (Exception ex) { Trace("hit log: " + ex.Message); } };
+            }
 
             // ---- team cards: free teams and knocked-out teams as icons (each team is shown once on the tab:
             //      free ones here, the others in their sections)
