@@ -340,7 +340,7 @@ namespace AlternativeDamageModel
             bool manual = Manual(comp);
             var sb = new System.Text.StringBuilder();
             foreach (var t in teams) sb.Append(t.State).Append(':').Append(t.Section).Append(':').Append(t.Ref.GetHashCode()).Append(':').Append((int)(t.Health * 10f)).Append(DcTeams.FatigueLevel(t.Fatigue)).Append(' ');
-            sb.Append('|').Append(free).Append(manual ? 'm' : 'a');
+            sb.Append('|').Append(free).Append(manual ? 'm' : 'a').Append(DcTeams.FatigueMin > 0f ? 'f' : 'n');
             string sig = sb.ToString();
 
             if (sig != x.TeamsSig && !(x.TeamsSig != null && MenusOpen()))
@@ -368,7 +368,7 @@ namespace AlternativeDamageModel
                         if (t.State == (int)DcTeams.St.Dead) { var r = t.Ref; var e = BigIcon(IconDead, null, null); LiveTip(e, () => RefTip(comp, r, sectionNames)); ch.Add(e); }
                         if (t.State != (int)DcTeams.St.Dead) alive++;
                     }
-                    if (x.FreeLabel != null) x.FreeLabel.Text = "In reserve";
+                    if (x.FreeLabel != null) x.FreeLabel.Text = DcTeams.FatigueMin > 0f ? "Resting" : "In reserve";
                 }
 
                 // on the move and recovering, with the time left

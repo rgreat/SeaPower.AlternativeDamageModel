@@ -759,3 +759,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (12): хинт усталости
 * `HealthNote`: «Fatigue N%» (от точки, где усталость перестаёт расти) + в скобках уровень и «rest M:SS» до полного восстановления; «Efficiency N%» (раны × усталость, `DcTeams.EffOf`) вместо «Work speed». Строка «Rested in» в хинте резерва убрана (дублировала).
+
+## 2026-10-21 (13): «Resting»
+* Заголовок карточки резерва: «Resting» при включённой усталости (`FatigueMin > 0`), иначе «In reserve»; флаг в сигнатуре карточки.
