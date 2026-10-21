@@ -123,29 +123,29 @@ namespace AlternativeDamageModel
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/WarshipTeams", "Warships", "", Kind.Table, 0, 0, 0);
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/SubmarineTeams", "Submarines", "", Kind.Table, 0, 0, 0);
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/CivilianTeams", "Civilian ships", "", Kind.Table, 0, 0, 0);
-            Add(DC, "Work", "DamageControlTeams/DCTeamEffectiveness", "Team effectiveness", "× game", Kind.Number, 0.1f, 0.05f, 5f);
-            Add(DC, "Work", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
-            Add(DC, "Work", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
-            Add(DC, "Work", "FireAndFlooding/SubmergedFireDecay", "Fire under water", "% per second per metre under water; 0 = off", Kind.Number, 0.5f, 0f, 20f);
-            Add(DC, "Work", "FireAndFlooding/TeamBlocksFireSpread", "Team stops fire spread", "fire does not spread into a section with a team", Kind.Bool, 0, 0, 0);
-            Add(DC, "Work", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
-            Add(DC, "Work", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
-            Add(DC, "Work", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
-            Add(DC, "Work", "DamageControlTeams/MaxPlugSpeed", "Max ship speed for plugging holes", "knots · 0 = no limit", Kind.Number, 1f, 0f, 100f);
-            Add(DC, "Work", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
-            Add(DC, "Work", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
+            Add(DC, "Team speed", "DamageControlTeams/DCTeamEffectiveness", "Team effectiveness", "× game", Kind.Number, 0.1f, 0.05f, 5f);
+            Add(DC, "Team speed", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Team speed", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Water", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
+            Add(DC, "Water", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
+            Add(DC, "Water", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
+            Add(DC, "Water", "DamageControlTeams/MaxPlugSpeed", "Max ship speed for plugging holes", "knots · 0 = no limit", Kind.Number, 1f, 0f, 100f);
+            Add(DC, "Fire", "FireAndFlooding/TeamBlocksFireSpread", "Team stops fire spread", "fire does not spread into a section with a team", Kind.Bool, 0, 0, 0);
+            Add(DC, "Fire", "FireAndFlooding/SubmergedFireDecay", "Fire under water", "% per second per metre under water; 0 = off", Kind.Number, 0.5f, 0f, 20f);
+            Add(DC, "Movement", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
+            Add(DC, "Movement", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Switches", "DamageControlTeams/TeamHealthEnabled", "Team health", "wounds and recovery; off = the Health page is hidden", Kind.Bool, 0, 0, 0);
             Add(DC, "Switches", "DamageControlTeams/FatigueEnabled", "Team fatigue", "off = the Fatigue page is hidden", Kind.Bool, 0, 0, 0);
             Add(DC, "Health", "DamageControlTeams/TeamHealth", "Max health", "× (by ship displacement)", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/HealthRegen", "Reserve recovery", "% health per second", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Health", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Health", "DamageControlTeams/HitWound", "Hit wounds", "× knock-out wound", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Fatigue", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
-            Add(DC, "Fatigue", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);
-            Add(DC, "Fatigue", "DamageControlTeams/SpeedRested", "Speed: rested", "% of normal", Kind.Number, 5f, 0f, 200f);
-            Add(DC, "Fatigue", "DamageControlTeams/SpeedTired", "Speed: tired", "% of normal", Kind.Number, 5f, 0f, 200f);
-            Add(DC, "Fatigue", "DamageControlTeams/SpeedExhausted", "Speed: exhausted", "% of normal", Kind.Number, 5f, 0f, 200f);
-            Add(DC, "Fatigue", "DamageControlTeams/FatigueRecovery", "Recovery speed", "% of the fatigue speed", Kind.Number, 10f, 0f, 1000f);
+            Add(DC, "Wounds", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Wounds", "DamageControlTeams/HitWound", "Hit wounds", "× knock-out wound", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
+            Add(DC, "Time", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);
+            Add(DC, "Time", "DamageControlTeams/FatigueRecovery", "Recovery speed", "% of the fatigue speed", Kind.Number, 10f, 0f, 1000f);
+            Add(DC, "Efficiency", "DamageControlTeams/SpeedRested", "Speed: rested", "% of normal", Kind.Number, 5f, 0f, 200f);
+            Add(DC, "Efficiency", "DamageControlTeams/SpeedTired", "Speed: tired", "% of normal", Kind.Number, 5f, 0f, 200f);
+            Add(DC, "Efficiency", "DamageControlTeams/SpeedExhausted", "Speed: exhausted", "% of normal", Kind.Number, 5f, 0f, 200f);
 
             Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
@@ -739,8 +739,8 @@ namespace AlternativeDamageModel
         {
             if (f.Group == "Switches") return -1;
             if (f.Group.StartsWith("Number of teams", StringComparison.Ordinal)) return 0;
-            if (f.Group == "Health") return 2;
-            if (f.Group == "Fatigue") return 3;
+            if (f.Group == "Health" || f.Group == "Wounds") return 2;
+            if (f.Group == "Time" || f.Group == "Efficiency") return 3;
             return 1;
         }
 

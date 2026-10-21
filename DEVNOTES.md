@@ -768,3 +768,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (15): зазоры панели выключателей
 * Нижний отступ панели выключателей 2 -> 6: зазор до подвкладок (6 + 8) равен зазору сверху (6 тела + 8).
+
+## 2026-10-21 (16): группы строк на страницах DC Teams
+* Work: Team speed / Water / Fire / Movement; Health: Health (Max health, Reserve recovery) / Wounds (Fire wounds, Hit wounds); Fatigue: Time (Tired after, Exhausted after, Recovery speed) / Efficiency (три Speed). `SubOf` знает новые названия групп.
