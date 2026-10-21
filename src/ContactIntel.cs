@@ -218,25 +218,21 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The rate (per second) of a value over the window WITHOUT the direct damage of hits: the intervals between samples with a hit in
-        /// them (and 2 seconds after) are left out, the rest is averaged. What is left is the damage that goes on by itself (water
-        /// coming in, fire eating the hull). Less than 10 seconds of such intervals: no rate.
+        /// The trend over the window: (the last - the first) / the time between them. For the hull the direct damage of hits is added
+        /// back first (HitLog.Direct: the loss of integrity in each hit), so what is left is the damage that goes on by itself (fire,
+        /// water): the hits are taken out of the general trend, even when they come all the time.
         /// </summary>
-        static double Rate(Hist h, List<float> v, List<double> hits)
+        static double Rate(Hist h, List<float> v, List<double[]> direct)
         {
             int n = h.T.Count;
             if (n < 2) return 0;
-            double sum = 0, dts = 0;
-            for (int i = 1; i < n; i++)
-            {
-                double dt = h.T[i] - h.T[i - 1];
-                if (dt < 0.2) continue;
-                bool hit = false;
-                foreach (var t in hits) if (t >= h.T[i - 1] - 0.5 && t <= h.T[i] + 2.0) { hit = true; break; }
-                if (hit) continue;
-                sum += v[i] - v[i - 1]; dts += dt;
-            }
-            return dts < 10.0 ? 0 : sum / dts;
+            double span = h.T[n - 1] - h.T[0];
+            if (span < MinSpan) return 0;
+            double first = v[0], last = v[n - 1];
+            if (direct != null)
+                foreach (var d in direct)
+                    if (d[0] > h.T[0] && d[0] <= h.T[n - 1]) last += d[1];   // hull: what the hits took inside the window
+            return (last - first) / span;
         }
 
         // ---- saved games: "time,flood,hull|..." (the samples of the trend: after loading the forecast goes on, it does not start over)
@@ -256,6 +252,7 @@ namespace AlternativeDamageModel
                       .Append(h.Flood[i].ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
                       .Append(h.Hull[i].ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
                 }
+                sb.Append('/').Append(HitLog.SaveDirect(comp));
                 return sb.ToString();
             }
             catch { return null; }
@@ -270,6 +267,8 @@ namespace AlternativeDamageModel
                 var h = History.GetOrCreateValue(obj);
                 h.T.Clear(); h.Flood.Clear(); h.Hull.Clear();
                 double now = Now();
+                int slash = text.IndexOf('/');
+                if (slash >= 0) { HitLog.LoadDirect(comp, text.Substring(slash + 1)); text = text.Substring(0, slash); }
                 foreach (var part in text.Split('|'))
                 {
                     var f = part.Split(',');
@@ -299,9 +298,9 @@ namespace AlternativeDamageModel
             double span = h.T.Count < 2 ? 0 : h.T[h.T.Count - 1] - h.T[0];
             if (!sinking && span >= MinSpan)
             {
-                var hits = new List<double>();
-                try { var comp = _oCompartments.GetValue(obj, null); foreach (var r in HitLog.Records(comp)) hits.Add(r.Time); } catch { }
-                double rf = Rate(h, h.Flood, hits), rh = Rate(h, h.Hull, hits);   // % a second, without the hits themselves
+                List<double[]> direct = null;
+                try { direct = HitLog.Direct(_oCompartments.GetValue(obj, null)); } catch { }
+                double rf = Rate(h, h.Flood, null), rh = Rate(h, h.Hull, direct);   // % a second, the direct damage of hits taken out of the hull
                 float limit = _tSub != null && _tSub.IsInstanceOfType(obj) ? 50f : Limits.LevelFull;
                 double ef = rf > 0.0005 ? (limit - flood) / rf : double.MaxValue, eh = rh < -0.0005 ? (hull - 10f) / -rh : double.MaxValue;
                 eta = Math.Min(ef, eh);

@@ -1130,8 +1130,8 @@ namespace AlternativeDamageModel
             return null;
         }
 
-        static void ReserveHitPostfix(object __instance, object[] __args) { ReserveHits.Postfix(__instance, __args); HitLog.Postfix(__instance, __args); }
-        static void SpillPrefix(object __instance, object[] __args) { DamageSpill.Prefix(__instance, __args); }
+        static void ReserveHitPostfix(object __instance, object[] __args) { ReserveHits.Postfix(__instance, __args); HitLog.Postfix(__instance, __args); HitLog.After(__instance, __args); }
+        static void SpillPrefix(object __instance, object[] __args) { HitLog.Before(__instance, __args); DamageSpill.Prefix(__instance, __args); }
 
         static HarmonyMethod Hm(string name)
         {

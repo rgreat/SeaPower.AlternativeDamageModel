@@ -63,6 +63,106 @@ namespace AlternativeDamageModel
             return "?";
         }
 
+        // ---- the direct damage of hits to the hull (for the sinking forecast: it is taken out of the hull's trend)
+        // each call of ProcessCompartmentHit: the ship's total integrity before (prefix) and after (postfix); the loss in % of the maximum
+
+        static readonly ConditionalWeakTable<object, List<double[]>> DirectLogs = new ConditionalWeakTable<object, List<double[]>>();
+        static object _beforeComps; static double _beforeSum;
+        static FieldInfo _fPortArr, _fStarArr, _fCurInt, _fMaxTotal;
+
+        static object CompsOf(object blastzone, object[] args)
+        {
+            if (args == null || args.Length < 4 || args[0] == null) return null;
+            var map = ReserveHits.Field(blastzone.GetType(), "_unitImpactData").GetValue(blastzone) as IDictionary;
+            if (map == null || !map.Contains(args[0])) return null;
+            var impact = map[args[0]];
+            if (!_init) Init(blastzone, impact);
+            if (!_ok) return null;
+            return _fImpactComp.GetValue(impact);
+        }
+
+        static double IntegritySum(object comps)
+        {
+            if (_fPortArr == null)
+            {
+                var t = comps.GetType();
+                _fPortArr = ReserveHits.Field(t, "_portCompartments"); _fStarArr = ReserveHits.Field(t, "_starboardCompartments"); _fMaxTotal = ReserveHits.Field(t, "_maxTotalIntegrity");
+            }
+            double sum = 0;
+            foreach (var f in new[] { _fPortArr, _fStarArr })
+            {
+                var arr = f == null ? null : f.GetValue(comps) as IEnumerable;
+                if (arr == null) continue;
+                foreach (var fc in arr)
+                {
+                    if (fc == null) continue;
+                    if (_fCurInt == null) _fCurInt = ReserveHits.Field(fc.GetType(), "_currentIntegrity");
+                    if (_fCurInt != null) sum += Convert.ToDouble(_fCurInt.GetValue(fc), CultureInfo.InvariantCulture);
+                }
+            }
+            return sum;
+        }
+
+        public static void Before(object blastzone, object[] args)
+        {
+            _beforeComps = null;
+            try
+            {
+                var comps = CompsOf(blastzone, args);
+                if (comps == null) return;
+                _beforeComps = comps; _beforeSum = IntegritySum(comps);
+            }
+            catch (Exception e) { Trace("HitLog.Before: " + e.Message); }
+        }
+
+        public static void After(object blastzone, object[] args)
+        {
+            var comps = _beforeComps; _beforeComps = null;
+            if (comps == null) return;
+            try
+            {
+                double loss = _beforeSum - IntegritySum(comps);
+                double max = _fMaxTotal == null ? 0 : Convert.ToDouble(_fMaxTotal.GetValue(comps), CultureInfo.InvariantCulture);
+                if (loss <= 0 || max <= 0) return;
+                double now = _pTime == null ? 0 : Convert.ToDouble(_pTime.GetValue(null, null), CultureInfo.InvariantCulture);
+                var list = DirectLogs.GetOrCreateValue(comps);
+                lock (list) { list.Add(new[] { now, 100.0 * loss / max }); if (list.Count > 600) list.RemoveAt(0); }
+            }
+            catch (Exception e) { Trace("HitLog.After: " + e.Message); }
+        }
+
+        /// <summary>The hull % lost to hits so far: pairs (time, loss %), oldest first.</summary>
+        public static List<double[]> Direct(object comps)
+        {
+            List<double[]> list;
+            if (comps == null || !DirectLogs.TryGetValue(comps, out list)) return new List<double[]>();
+            lock (list) return new List<double[]>(list);
+        }
+
+        public static string SaveDirect(object comps)
+        {
+            var d = Direct(comps);
+            if (d.Count == 0) return "";
+            var sb = new System.Text.StringBuilder();
+            foreach (var r in d) { if (sb.Length > 0) sb.Append('|'); sb.Append(r[0].ToString("0.#", CultureInfo.InvariantCulture)).Append(',').Append(r[1].ToString("0.###", CultureInfo.InvariantCulture)); }
+            return sb.ToString();
+        }
+
+        public static void LoadDirect(object comps, string text)
+        {
+            var list = DirectLogs.GetOrCreateValue(comps);
+            lock (list)
+            {
+                list.Clear();
+                foreach (var part in (text ?? "").Split('|'))
+                {
+                    var f = part.Split(',');
+                    double t, l;
+                    if (f.Length == 2 && double.TryParse(f[0], NumberStyles.Float, CultureInfo.InvariantCulture, out t) && double.TryParse(f[1], NumberStyles.Float, CultureInfo.InvariantCulture, out l)) list.Add(new[] { t, l });
+                }
+            }
+        }
+
         /// <summary>Postfix of Blastzone.ProcessCompartmentHit(hitObject, hc, blockedByMainArmor, damage).</summary>
         public static void Postfix(object __instance, object[] __args)
         {
