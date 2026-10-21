@@ -724,3 +724,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 * Эффективность: `TeamEff` = max(0.25, здоровье) (если ранен) × 0.5 (если устал, `FatigueMinutes`·60 с). `DcControl.CheckPrefix` считает среднее по группе команд, работающих над одной задачей (`_grpEff`), и умножает на него `DcTeams.WorkMul`.
 * UI: `Icon(task, team)` — подсветка усталой (янтарный фон), полоска здоровья по верхнему краю (поверх иконки, размер иконок не менялся — центровка не трогалась); `HealthNote` в подсказках; `Names`/`Tail` в Causes — «(Wounded)»/«(Tired)» в конце строк со скоростью, скорость считается в «командах-эквивалентах» (`TeamWork`).
 * Настройки (DC Teams → «Health and fatigue»): `TeamHealth`, `HealthRegen`, `FireWound`, `HitWound`, `FatigueMinutes`; все mod-only («default: …»). Advanced: 1 / 0.5 / 1 / 1 / 15; Base Game: 1 / 0.5 / 1 / 1 / 0.
+
+## 2026-10-21 (2): вложенные закладки DC Teams, выключатель здоровья
+* Вкладка DC Teams разбита на подвкладки `Subs` = Teams / Work / Health (`SubOf(Field)` по группе; `_sub` — выбранная, `SubBar()` в начале `ShowTab`). Группа «Work and movement» разделена: Transfer speed и Muster time → «Movement» (подвкладка Teams), остальное осталось в Work.
+* `TeamHealthEnabled` (bool; Advanced true, Base Game false): выключено → `DcTeams.HealthMul = 0` (ран нет, правила игры), остальные строки группы «Health» скрыты через `ShownWhen` (`HealthKey`). Усталость (`FatigueMinutes`) — отдельная группа «Fatigue», не зависит от выключателя. Base Game: `TeamHealth` и др. остаются в файле, но не действуют.

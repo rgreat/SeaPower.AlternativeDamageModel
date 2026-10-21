@@ -18,3 +18,4 @@ Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.
 - NEW (DC Teams tab) [Advanced]: team health by ship displacement (hint in %, health bar over the icon, dead at 0%); wounds from hits (a knock-out wounds the team, it walks to the reserve) and from fires it does not fight; recovery in the reserve (0.5% a second); wounded teams work slower.
 - NEW (DC Teams tab) [Advanced]: team fatigue (minutes of work, then half speed; the reserve rests it as fast); shown in the hint, tired teams are highlighted; "Wounded" / "Tired" added to the speed lines.
 - Removed: Knock-outs settings (Recovery time, Recovery spread, Knock-outs to death).
+- DC Teams tab is split into Teams / Work / Health pages; team health has its own on/off switch (off in Base Game, its other settings are hidden when off).

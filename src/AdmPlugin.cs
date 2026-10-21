@@ -75,7 +75,7 @@ namespace AlternativeDamageModel
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
-        ConfigEntry<bool> _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
+        ConfigEntry<bool> _healthOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -364,6 +364,9 @@ namespace AlternativeDamageModel
                 "the walk, rounded to 10 s. 0 = no walking time; with MusterTime 0 too, teams move at once and Auto DC is the game's.");
             _musterEntry = Pcfg.Bind("DamageControlTeams", "MusterTime", new Factor(60f),
                 "Seconds a team needs to get ready before every transfer. Cancelling a transfer while it is still getting ready costs no time.");
+            _healthOnEntry = Pcfg.Bind("DamageControlTeams", "TeamHealthEnabled", true,
+                "Team health on: wounds from hits and fires, recovery in the reserve, wounded teams work slower. Off = the game's rules " +
+                "(a hit takes a team out for a while, no wounds); the other health settings are hidden.");
             _healthEntry = Pcfg.Bind("DamageControlTeams", "TeamHealth", new Factor(1f),
                 "Health of a damage control team, a multiplier of its maximum, which grows with the ship's displacement (about 100 points at " +
                 "1000 t, 450 at 20000 t). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
@@ -829,7 +832,7 @@ namespace AlternativeDamageModel
             DcTeams.Effectiveness = Math.Max(0f, _teamEffEntry.Value.V);
             DcTeams.Speed = Math.Max(0f, _transferSpeedEntry.Value.V);
             DcTeams.Muster = Math.Max(0f, _musterEntry.Value.V);
-            DcTeams.HealthMul = Math.Max(0f, _healthEntry.Value.V);
+            DcTeams.HealthMul = _healthOnEntry.Value ? Math.Max(0f, _healthEntry.Value.V) : 0f;
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);
             DcTeams.FireWound = Math.Max(0f, _fireWoundEntry.Value.V);
             DcTeams.HitWound = Math.Max(0f, _hitWoundEntry.Value.V);
