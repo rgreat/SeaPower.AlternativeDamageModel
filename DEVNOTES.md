@@ -857,3 +857,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 ### 2026-10-21 (41): таблица Wound chance — текущие значения окна, плавная подкраска
 - Таблица считается по значениям профиля в окне (`SettingsWindow.WorkNumber` для TeamHealth и WoundChance), без Apply; пересчёт при каждом наведении на (i). `DcTeams.MaxHpFor(tons, mul)`, `WoundOdds(power, hp, wc)`.
 - Подкраска ячеек по логарифмической шкале: alpha = log(1+p)/log(101)·170 (1% уже заметно).
+
+### 2026-10-21 (42): в таблице Wound chance добавлены M-1 и SM-1
+- `wp_sa-n-1` (M-1 Volna, V-601, мощность 25) и `usn_rim-66b` (SM-1MR, 24); строки сортируются по мощности.
