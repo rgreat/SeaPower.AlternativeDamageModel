@@ -33,6 +33,8 @@ namespace AlternativeDamageModel
         public static float HealthMul = 1f;       // [DamageControlTeams] TeamHealth: x the maximum health; 0 = no wounds
         public static float RegenRate = 0.5f;     // % of the full health a second in the reserve
         public static float FireWound = 1f;       // % of the full health a second at fire 100% (a team that does not fight it)
+        public static float WoundThreshold = 50f; // the wound roll (0..100) below this = no wound
+        const float RollRef = 0.5f;               // warhead power / team health at which the roll is spread over the whole scale
         public static float HitWound = 1f;        // x the warhead power of the hit = the wound in points
         static readonly System.Random Rnd = new System.Random();
         public static bool ReserveHits = true;    // hits on the central compartment (the resting place) wound the teams in the reserve
@@ -258,6 +260,23 @@ namespace AlternativeDamageModel
             if (power > b.Value) b.Value = power;
         }
 
+        /// <summary>
+        /// The wound of a team hit by a warhead of this power, as a part of its full health (0 = not wounded). A random roll 0..100 is scaled by
+        /// how strong the warhead is against the team's health (power / health: the bigger the ship, the smaller; the bigger the warhead, the larger);
+        /// under WoundThreshold there is no wound, above it the wound grows from 0 to the whole power (x HitWound) at roll 100.
+        /// </summary>
+        static float WoundOf(object comp, float power)
+        {
+            float max = MaxHp(comp);
+            if (max <= 0f || power <= 0f) return 0f;
+            double roll = Rnd.NextDouble() * 100.0 * (power / max) / RollRef;
+            roll = Math.Min(100.0, roll);
+            float t = Math.Max(0f, Math.Min(99f, WoundThreshold));
+            if (roll < t) return 0f;
+            double strength = (roll - t) / (100.0 - t);
+            return (float)(power * HitWound * strength / max);
+        }
+
         static float TakeHit(object comp)
         {
             StrongBox<float> b;
@@ -275,7 +294,7 @@ namespace AlternativeDamageModel
             var pool = s.Teams.FindAll(x => x.State == St.Pool);
             if (pool.Count == 0 || Rnd.NextDouble() * 100.0 >= chancePct) return;
             var t = pool[Rnd.Next(pool.Count)];
-            t.Health -= power * HitWound / MaxHp(comp);
+            t.Health -= WoundOf(comp, power);
             if (t.Health <= 0f)
             {
                 var counts = Counts(comp);
@@ -670,7 +689,7 @@ namespace AlternativeDamageModel
                         taken++;
                         int from = hit.Section;
                         Leave(hit);
-                        float wound = HealthOn ? TakeHit(comp) * HitWound / MaxHp(comp) : 0f;
+                        float wound = HealthOn ? WoundOf(comp, TakeHit(comp)) : 0f;
                         hit.Health -= wound;
                         if (HealthOn && hit.Health <= 0f) { hit.State = St.Dead; hit.Health = 0f; Trace("DC team dead (section " + from + ")"); }
                         else
@@ -678,7 +697,7 @@ namespace AlternativeDamageModel
                             hit.State = St.Injured;   // wounded: walks to the reserve
                             hit.Total = TransferTime(comp, from);
                             hit.Until = now + hit.Total;
-                            Trace("DC team wounded (section " + from + "), health " + hit.Health.ToString("0.00", CultureInfo.InvariantCulture) + ", back in " + hit.Total + " s");
+                            Trace("DC team hit (section " + from + "), health " + hit.Health.ToString("0.00", CultureInfo.InvariantCulture) + ", back in " + hit.Total + " s");
                         }
                         hit.Section = -1; hit.From = from;   // From: where it was hit (shown in its tooltip)
                     }
