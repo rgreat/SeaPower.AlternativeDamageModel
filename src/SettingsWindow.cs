@@ -632,6 +632,7 @@ namespace AlternativeDamageModel
             h.MouseMove += (o, e) =>
             {
                 if (!down || _root == null) return;
+                e.Handled = true;   // while resizing the mouse events go no further
                 var p = e.GetPosition(_top);
                 float w = sx == 0 ? _winW : Math.Max(560f, Math.Min(1600f, w0 + sx * (p.X - start.X)));
                 float hh = sy == 0 ? _winH : Math.Max(420f, Math.Min(1400f, h0 + sy * (p.Y - start.Y)));
@@ -647,6 +648,8 @@ namespace AlternativeDamageModel
                 if (sy != 0) _move.Y += centred ? sy * dh / 2f : (sy < 0 ? -dh : 0f);
             };
             h.MouseLeftButtonUp += (o, e) => { if (!down) return; down = false; h.ReleaseMouseCapture(); e.Handled = true; };
+            h.MouseWheel += (o, e) => { if (down) e.Handled = true; };
+            h.MouseRightButtonDown += (o, e) => { if (down) e.Handled = true; };
             return h;
         }
 

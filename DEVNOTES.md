@@ -771,3 +771,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (16): группы строк на страницах DC Teams
 * Work: Team speed / Water / Fire / Movement; Health: Health (Max health, Reserve recovery) / Wounds (Fire wounds, Hit wounds); Fatigue: Time (Tired after, Exhausted after, Recovery speed) / Efficiency (три Speed). `SubOf` знает новые названия групп.
+
+## 2026-10-21 (17): ресайз окна настроек
+* `ResizeHandle`: во время перетаскивания края MouseMove (и колесо, правая кнопка) помечаются Handled — события дальше не идут.
