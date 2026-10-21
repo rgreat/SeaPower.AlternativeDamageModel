@@ -243,7 +243,7 @@ namespace AlternativeDamageModel
                 try
                 {
                     ToolTipService.SetToolTip(hullCard, holder);
-                    ToolTipService.SetPlacement(hullCard, PlacementMode.Left);
+                    ToolTipService.SetPlacement(hullCard, PlacementMode.Top);
                     ToolTipService.SetShowDuration(hullCard, int.MaxValue);
                 }
                 catch (Exception e) { Trace("hit log tip: " + e.Message); }
