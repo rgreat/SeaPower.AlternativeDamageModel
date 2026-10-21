@@ -123,7 +123,7 @@ namespace AlternativeDamageModel
                     Border holder;
                     if (!SysTips.TryGetValue(row, out holder))
                     {
-                        holder = new Border { Background = new SolidColorBrush(Color.FromRgb(30, 34, 40)), BorderBrush = new SolidColorBrush(Color.FromRgb(90, 98, 110)), BorderThickness = new Thickness(1f) };
+                        holder = new Border()   /* no frame of its own: the tooltip has the game's */;
                         SysTips.Add(row, holder);
                         try { ToolTipService.SetToolTip(row, holder); ToolTipService.SetPlacement(row, PlacementMode.Bottom); ToolTipService.SetShowDuration(row, int.MaxValue); } catch { }
                         _sysTipFor = null;

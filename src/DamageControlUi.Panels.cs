@@ -239,7 +239,7 @@ namespace AlternativeDamageModel
             {
                 // the tooltip of the card: every hit on the ship (HitLog), made when the mouse comes
                 x.HullCard = hullCard;
-                var holder = new Border { Background = new SolidColorBrush(Color.FromRgb(30, 34, 40)), BorderBrush = new SolidColorBrush(Color.FromRgb(90, 98, 110)), BorderThickness = new Thickness(1f) };
+                var holder = new Border()   /* no frame of its own: the tooltip has the game's */;
                 try
                 {
                     ToolTipService.SetToolTip(hullCard, holder);
