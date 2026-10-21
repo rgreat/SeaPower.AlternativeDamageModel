@@ -259,15 +259,14 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The chance that a hit of the given power wounds a team of the given health, before the limit of 100%: 0.1 x q^1.2 x WoundChance, q = power / health.
-        /// 10% when the warhead equals the team's health, about 0.1% at 1/50 of it, 100% at about 7 times it (and over 100% above - the margin keeps a sure wound
-        /// sure while the multiplier is below 1).
+        /// The chance that a hit of the given power wounds a team of the given health, before the limit of 100%: 5.4% x power^1.83 / health^1.18 x WoundChance.
+        /// It grows steeply with the warhead and falls with the ship's toughness: warhead 2.2 against health 2 - about 10%, against 100 - about 0.1%;
+        /// warhead 82 against 100 - about 75%. Above 100% the margin keeps a sure wound sure while the multiplier is below 1.
         /// </summary>
         public static double WoundOdds(float power, float hp)
         {
             if (WoundChance <= 0.0 || hp <= 0f || power <= 0f) return 0.0;
-            double q = power / hp;
-            return 0.1 * Math.Pow(q, 1.2) * WoundChance;
+            return 0.054 * Math.Pow(power, 1.83) / Math.Pow(hp, 1.18) * WoundChance;
         }
 
         // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound
@@ -280,7 +279,7 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The wound of a team hit by a warhead of this power, as a part of its full health (0 = not wounded). The chance is 0.1 x q^1.2 x WoundChance (q = power / health; the bigger the ship, the smaller;
+        /// The wound of a team hit by a warhead of this power, as a part of its full health (0 = not wounded). The chance is 5.4% x power^1.83 / health^1.18 x WoundChance (q = power / health; the bigger the ship, the smaller;
         /// the bigger the warhead, the larger - even the weakest hit has a small chance); the wound is a random part of the power (x HitWound), at most the whole.
         /// </summary>
         static float WoundOf(object comp, float power)

@@ -388,10 +388,11 @@ namespace AlternativeDamageModel
                 "in points of the team's health (1..100 by displacement). A wounded team walks to the reserve.");
             _woundChanceEntry = Pcfg.Bind("DamageControlTeams", "WoundChance", new Factor(1f),
                 "Multiplier of the chance that a hit wounds a team (0.5 = half as likely, 2 = twice; the result is at most 100%). Step 1 (only while Wounds at any hull integrity is off) - the game decides whether a hit takes a team out of its section at all " +
-                "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod decides the wound: the chance is 10% x q^1.2, q = warhead power / the team's health " +
-                "(10% when they are equal, about 0.1% at one fiftieth, 100% at about 7 times, over 100% above that), times this multiplier, at most 100% (with Wounds at any hull integrity off a team that was not wounded still leaves the section). " +
+                "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod decides the wound: the chance grows steeply with the warhead power (about power^1.8) and falls with the team's health (about health^1.2) - " +
+                "warhead 2.2 against health 2: about 10%, against 100: 0.1%; warhead 82 against 100: about 75%; far above that over 100%. It is multiplied by this multiplier, then limited to 100% " +
+                "(with Wounds at any hull integrity off a team that was not wounded still leaves the section). " +
                 "A stronger warhead raises the chance. A bigger ship lowers it: its teams are tougher (more health), and its compartments are bigger, so a hit is less likely to land where the team is. " +
-                "Even the weakest hit has a small chance. Example, warhead 25: against 12 health about 24%, against 29 about 8%, against 100 about 2%. 0 = never wounded.");
+                "Even the weakest hit has a small chance. Example, warhead 25: against 12 health about 100%, against 29 about 37%, against 100 about 9%. 0 = never wounded.");
             _fatigueOnEntry = Pcfg.Bind("DamageControlTeams", "FatigueEnabled", true,
                 "Team fatigue on: working builds it up, the reserve takes it away, a tired team works at half speed. Off = no fatigue; its settings are hidden.");
             _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(60f),
