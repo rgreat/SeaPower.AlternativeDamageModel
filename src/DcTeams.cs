@@ -34,6 +34,8 @@ namespace AlternativeDamageModel
         public static float RegenRate = 0.5f;     // % of the full health a second in the reserve
         public static float FireWound = 1f;       // % of the full health a second at fire 100% (a team that does not fight it)
         public static float HitWound = 1f;        // x the wound of one knock-out
+        static readonly System.Random Rnd = new System.Random();
+        public static bool ReserveHits = true;    // hits on the central compartment (the resting place) wound the teams in the reserve
         public static float FatigueRecover = 100f; // % of the build-up speed the reserve takes fatigue away at
         public static float FatigueMin = 0f;      // minutes of work until tired; 0 = off
         public static float ExhaustedMin = 120f;  // minutes of work until exhausted (the second level); not above FatigueMin = no second level
@@ -240,6 +242,27 @@ namespace AlternativeDamageModel
             StrongBox<float> d;
             float tons = comp != null && Disp.TryGetValue(comp, out d) && d.Value > 0f ? d.Value : 1000f;
             return Math.Max(60f, 100f * (float)Math.Sqrt(tons / 1000f)) * HealthMul;
+        }
+
+        /// <summary>A hit on the central compartment with this chance (%) wounds one team resting in the reserve (ReserveHits).</summary>
+        public static void ReserveHit(object comp, float chancePct)
+        {
+            if (!_ok || comp == null || !ReserveHits || !HealthOn || !IsEnabled() || chancePct <= 0f) return;
+            Ship s;
+            if (!Ships.TryGetValue(comp, out s)) return;
+            var pool = s.Teams.FindAll(x => x.State == St.Pool);
+            if (pool.Count == 0 || Rnd.NextDouble() * 100.0 >= chancePct) return;
+            var t = pool[Rnd.Next(pool.Count)];
+            t.Health -= HitHp * HitWound / MaxHp(comp);
+            if (t.Health <= 0f)
+            {
+                var counts = Counts(comp);
+                if (counts != null && counts.Length > 5 && counts[5] > 0) Set(comp, 5, counts[5] - 1);
+                Leave(t);
+                t.State = St.Dead; t.Health = 0f; t.Section = -1; t.From = -1;
+                Trace("DC team dead in the reserve (central compartment hit)");
+            }
+            else Trace("DC team in the reserve wounded, health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture));
         }
 
         public static bool Wounded(Team t) { return Wounded(t.Health); }

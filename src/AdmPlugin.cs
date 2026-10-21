@@ -75,7 +75,7 @@ namespace AlternativeDamageModel
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
-        ConfigEntry<bool> _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
+        ConfigEntry<bool> _reserveHitsEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -367,6 +367,9 @@ namespace AlternativeDamageModel
             _healthOnEntry = Pcfg.Bind("DamageControlTeams", "TeamHealthEnabled", true,
                 "Team health on: wounds from hits and fires, recovery in the reserve, wounded teams work slower. Off = the game's rules " +
                 "(a hit takes a team out for a while, no wounds); the other health settings are hidden.");
+            _reserveHitsEntry = Pcfg.Bind("DamageControlTeams", "HitsInReserve", true,
+                "The teams rest in the central compartment: a hit on it can wound a team waiting in the reserve (the chance is the game's for a " +
+                "team knocked out in a hit section: damage x (1 - integrity), only under 50% integrity). A wounded resting team stays in the reserve.");
             _healthEntry = Pcfg.Bind("DamageControlTeams", "TeamHealth", new Factor(1f),
                 "Health of a damage control team, a multiplier of its maximum, which grows with the ship's displacement (about 100 points at " +
                 "1000 t, 450 at 20000 t). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
@@ -844,6 +847,7 @@ namespace AlternativeDamageModel
             DcTeams.Effectiveness = Math.Max(0f, _teamEffEntry.Value.V);
             DcTeams.Speed = Math.Max(0f, _transferSpeedEntry.Value.V);
             DcTeams.Muster = Math.Max(0f, _musterEntry.Value.V);
+            DcTeams.ReserveHits = ReserveHits.Enabled = _reserveHitsEntry.Value;
             DcTeams.HealthMul = _healthOnEntry.Value ? Math.Max(0f, _healthEntry.Value.V) : 0f;
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);
             DcTeams.FireWound = Math.Max(0f, _fireWoundEntry.Value.V);
@@ -1100,6 +1104,8 @@ namespace AlternativeDamageModel
             return null;
         }
 
+        static void ReserveHitPostfix(object __instance, object[] __args) { ReserveHits.Postfix(__instance, __args); }
+
         static HarmonyMethod Hm(string name)
         {
             return new HarmonyMethod(typeof(AdmPlugin).GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public));
@@ -1199,6 +1205,13 @@ namespace AlternativeDamageModel
             // + flooding through holes (same method)
             if (tBlast != null && tFc != null && _fFcComp != null && _fFcCur != null && _fFcMaxInt != null)
                 Patch(harmony, tBlast.GetMethod("ProcessCompartmentHit", all), null, null, "CompartmentHitTranspiler", "Blastzone.ProcessCompartmentHit", ref ok, ref failed);
+
+            // wounds of the teams resting in the central compartment (Hits in reserve)
+            if (tBlast != null)
+            {
+                ReserveHits.Trace = Trace;
+                Patch(harmony, tBlast.GetMethod("ProcessCompartmentHit", all), null, "ReserveHitPostfix", null, "Blastzone.ProcessCompartmentHit (reserve hits)", ref ok, ref failed);
+            }
 
             // diagnostics: LogFires
             var tSc = asm.GetType("SeaPower.SystemCompartment");

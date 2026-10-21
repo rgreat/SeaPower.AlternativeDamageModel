@@ -140,6 +140,7 @@ namespace AlternativeDamageModel
             Add(DC, "Health", "DamageControlTeams/HealthRegen", "Recovery speed in reserve", "% health per second", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Wounds", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Wounds", "DamageControlTeams/HitWound", "Hit wounds", "× knock-out wound", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Wounds", "DamageControlTeams/HitsInReserve", "Hits in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
             Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
             Add(DC, "Time", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);
             Add(DC, "Time", "DamageControlTeams/FatigueRecovery", "Recovery speed", "% of the fatigue speed", Kind.Number, 10f, 0f, 1000f);
@@ -770,7 +771,7 @@ namespace AlternativeDamageModel
         static bool ModOnly(string key)
         {
             return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
-                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/ExhaustedMinutes" ||
+                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "DamageControlTeams/ExhaustedMinutes" ||
                    key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
                    key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes";
         }

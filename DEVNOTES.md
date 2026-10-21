@@ -777,3 +777,7 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (18): переименование
 * «Reserve recovery» -> «Recovery speed in reserve» (HealthRegen).
+
+## 2026-10-21 (19): Hits in reserve
+* Новый `ReserveHits.cs`: Harmony-postfix на `Blastzone.ProcessCompartmentHit` (через `object[] __args`). Резерв = центральный отсек (номер 3 из 5): попадание в него при целостности < 50% ранит случайную команду из резерва с шансом игры (урон × (1 − целостность); враг ≤ 20 %, гражданский ≤ 40 %; игрок — минус `Globals._dcTeamDisableReduction`; вторичные взрывы не считаются). Рана та же, что при выбивании (`HitHp·HitWound / MaxHp`), команда остаётся в резерве; ≤ 0 — погибает (`DcTeams.ReserveHit`). Урон берётся из параметра `damage` (для снарядов игра считает чуть иначе — через `_warheadPower·_damageMultiplier`; не воспроизведено).
+* Опция `HitsInReserve` (Wounds): Advanced true, Base Game false; работает только при включённом здоровье.
