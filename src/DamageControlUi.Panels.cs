@@ -581,8 +581,9 @@ namespace AlternativeDamageModel
                     int st = 0;
                     try { st = Convert.ToInt32(_scFireStateProp.GetValue(sys.GetValue(i), null)); } catch { }
                     if (st > 0) burning++;
-                    if (st > worst) worst = st;
                 }
+                // the fires' strength is what counts (the sum over the sections); their number is only added in brackets
+                worst = ContactIntel.FireStage(ContactIntel.FireTotal(comp));
                 string text = worst == 0 ? "None" : (worst == 1 ? "Minor" : worst == 2 ? "Moderate" : "Severe") + (burning > 1 ? " (" + burning + ")" : "");
                 string sig = text + worst;
                 if (sig != x.FireSig)

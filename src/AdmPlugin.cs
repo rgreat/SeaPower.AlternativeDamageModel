@@ -453,10 +453,11 @@ namespace AlternativeDamageModel
                 "Colours the weapon buttons of the selected unit's bottom panel by the state of their weapon systems: " +
                 "all working - the game's colour, some of that type inoperable - yellow, all of them inoperable - red.");
             _enemyDmgEntry = Cfg.Bind("UI", "ShowEnemyDamage", true,
-                "Four small icons under a ship's icon on the map (yours too): fire, water (flooding), hull damage, engine - each shown from the first sign, " +
-                "yellow / orange / red by severity - and a greyer map icon when the ship is going to sink (flooding or hull trend of the last minute against " +
-                "the sinking limits, within 20 minutes). For a contact it depends on how it is seen: in direct sight - all four; sonar - water " +
-                "(flooding noises) and engine; radar - engine only (slowed / stopped); ESM or no contact - nothing; nothing for a ship already sunk.");
+                "Four small icons under a ship's icon on the map (yours too): fire (the fires' total strength), water, hull (as classed on the Damage Control panel) " +
+                "and engine; yellow / orange / red by severity, and a greyer map icon when the ship is going to sink (within 20 minutes by the flooding / hull trend). " +
+                "A contact: fire, water, hull and engine only in direct sight; by sonar - the engine only (yellow: part of it lost, red: none works); " +
+                "by radar - a guess for a ship hit in the last 10 minutes, marked '?' (yellow: 10 knots or less, red: under 3); nothing by ESM or without a contact, and nothing for a sunk ship. " +
+                "The Fires line of the Damage Control tab uses the same total strength.");
             _uiEntry = Cfg.Bind("UI", "DetailedView", true,
                 "The detailed view of Unit Status -> Damage Control (the mod's display): hull integrity per side next to each section's " +
                 "name, an icon per damage control team (its task; tasks and moves by hand when Auto DC is off), water and fire in % with " +
@@ -1326,7 +1327,7 @@ namespace AlternativeDamageModel
             // 7. damage control: ship-wide priority (Auto / Fire / Flooding) and tasks given by hand to single teams
             DcControl.IsEnabled = () => Enabled && _uiOn;   // DC Priority and tasks by hand: with the detailed view, whatever the damage model
             DcControl.AutoOn = () => Model;                 // the optimised Auto DC: with the damage model, whatever the view
-            DamageControlUi.ModelOn = () => Model;
+            DamageControlUi.ModelOn = () => Model; ContactIntel.ModelOn = () => Model;
             DcControl.Trace = Trace;
             if (tComp != null && DcControl.Init(asm))
             {

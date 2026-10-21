@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
         public static Func<bool> IsEnabled = () => false;
 
-        public struct Info { public int Fire, Flood, Hull, Engine; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine : "") : null; } } }
+        public struct Info { public int Fire, Flood, Hull, Engine; public bool Guess; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine + (Guess ? "?" : "") : "") : null; } } }
 
         // ------------------------------------------------------------ reflection
 
@@ -33,8 +33,9 @@ namespace AlternativeDamageModel
         static FieldInfo _vObject;
         static PropertyInfo _vSensors, _vObserved, _vIdentified, _vDormant, _rpValue;
         static PropertyInfo _oCompartments, _oDestroyed, _cFlood, _cInt, _oPlayer;
-        static FieldInfo _oTaskforce, _cSinking, _cFires, _cProp, _cImmobile, _cMaxInt, _gPlayerTf;
-        static PropertyInfo _sInoperable, _sDamage;
+        static FieldInfo _cSys, _cCount, _scMax, _oTaskforce, _cSinking, _cFires, _cProp, _cImmobile, _cMaxInt, _gPlayerTf;
+        static PropertyInfo _sInoperable, _sDamage, _scSev;
+        static MethodInfo _oSpeed;
         static PropertyInfo _gameTime;
         static Type _tSub;
         static PropertyInfo _mUnit;
@@ -70,6 +71,10 @@ namespace AlternativeDamageModel
                 _cImmobile = tComp.GetField("_immobile", all);
                 _sInoperable = tSys.GetProperty("Inoperable", all);
                 _sDamage = tSys.GetProperty("CurrentDamageType", all);
+                _cSys = tComp.GetField("_systemCompartments", all); _cCount = tComp.GetField("_compartmentsCount", all);
+                var tSc = asm.GetType("SeaPower.SystemCompartment");
+                _scSev = tSc.GetProperty("FireSeverity", all); _scMax = tSc.GetField("_maxFireSeverity", all);
+                _oSpeed = tObj.GetMethod("getVelocityInKnots", all);
                 var tMapVm = asm.GetType("SeapowerUI.MapUnitViewModel");
                 _mUnit = tMapVm == null ? null : tMapVm.GetProperty("Unit", all);
                 _ok = _tVehicle != null && _vObject != null && _vSensors != null && _oCompartments != null && _cFlood != null && _cInt != null &&
@@ -175,29 +180,74 @@ namespace AlternativeDamageModel
                 bool soon = sinking || minutes <= 90.0;
                 bool doomed = sinking || minutes <= 20.0;
 
-                // three levels 0..3 per icon: fire, water, hull
+                // levels 0..4 as on the Damage Control panel: fire, water, hull; the engine: 1 part lost, 4 none works
                 var info = new Info { Doomed = doomed };
+                bool dead = prop <= 0.01f || (_cImmobile != null && (bool)_cImmobile.GetValue(comp));
                 if (seen)
                 {
-                    info.Fire = fires <= 0 ? 0 : fires >= 3 ? 3 : fires;
-                    info.Flood = flood < 1f ? 0 : flood < 10f ? 1 : flood < 25f ? 2 : 3;
-                    info.Hull = hull >= 90f ? 0 : hull >= 60f ? 1 : hull >= 30f ? 2 : 3;
-                    if (sinking) { info.Flood = 3; }
-                    info.Engine = EngineLevel(prop);
+                    // direct sight: the fires' total strength, water and hull by the panel's classes, the engine
+                    info.Fire = FireStage(FireTotal(comp));
+                    info.Flood = sinking ? 4 : FloodStage(flood);
+                    info.Hull = HullStage(hull, ModelOn());
+                    info.Engine = dead ? 4 : EngineLevel(prop);
                 }
-                else if (sonar && !radar)
+                else if (sonar)
                 {
-                    info.Flood = flood < 3f ? 0 : flood < 12f ? 1 : flood < 25f ? 2 : 3;
-                    info.Engine = EngineLevel(prop);
+                    info.Engine = dead ? 4 : EngineLevel(prop);   // heard: engines and screws
                     doomed = sinking; info.Doomed = doomed;
                 }
-                else { info.Doomed = false; info.Engine = EngineLevel(prop); }   // radar: only that the ship slowed down or stopped
+                else if (radar)
+                {
+                    // radar only guesses from the track: a ship hit lately that goes slowly
+                    info.Doomed = false;
+                    var recs = HitLog.Records(comp);
+                    double t = Now();
+                    if (recs.Count > 0 && t - recs[recs.Count - 1].Time <= 600.0 && _oSpeed != null)
+                    {
+                        float kn = Math.Abs(Convert.ToSingle(_oSpeed.Invoke(obj, null)));
+                        info.Engine = kn < 3f ? 4 : kn <= 10f ? 1 : 0;
+                        info.Guess = info.Engine > 0;
+                    }
+                }
+                else info.Doomed = false;
                 return info.Any || info.Doomed ? info : none;
             }
             catch (Exception e) { Trace("ContactIntel.Of: " + e.Message); return none; }
         }
 
-        static int EngineLevel(float prop) { return prop >= 0.99f ? 0 : prop >= 0.7f ? 1 : prop > 0.01f ? 2 : 3; }
+        /// <summary>The fires' total strength: the sum over the sections of their fire in % of the section's own maximum (100 = one section burning at full).</summary>
+        public static float FireTotal(object comp)
+        {
+            try
+            {
+                var sys = _cSys == null ? null : _cSys.GetValue(comp) as Array;
+                if (sys == null) return 0f;
+                int count = Math.Min(sys.Length, Convert.ToInt32(_cCount.GetValue(comp)));
+                float sum = 0f;
+                for (int i = 0; i < count; i++)
+                {
+                    var sc = sys.GetValue(i);
+                    if (sc == null) continue;
+                    float max = Convert.ToSingle(_scMax.GetValue(sc)), sev = Convert.ToSingle(_scSev.GetValue(sc, null));
+                    if (max > 0f && sev > 0f) sum += 100f * sev / max;
+                }
+                return sum;
+            }
+            catch { return 0f; }
+        }
+        /// <summary>1 Minor / 2 Moderate / 3 Severe by the total strength (the game's classes of one section: 25% and 50% of its maximum).</summary>
+        public static int FireStage(float total) { return total <= 0f ? 0 : total < 25f ? 1 : total < 50f ? 2 : 3; }
+        /// <summary>The stages of the Damage Control panel (0..4): hull by integrity %, water by the game's flooding value.</summary>
+        public static int HullStage(float integ, bool model)
+        {
+            float dmg = Math.Max(0f, Math.Min(100f, 100f - integ));
+            if (model) return dmg < 1f ? 0 : dmg <= 25f ? 1 : dmg <= 50f ? 2 : dmg <= 75f ? 3 : 4;
+            return integ >= 99f ? 0 : integ >= 75f ? 1 : integ >= 25f ? 2 : integ >= 1f ? 3 : 4;
+        }
+        public static int FloodStage(float fp) { return fp >= 30f ? 4 : fp >= 20f ? 3 : fp >= 10f ? 2 : fp >= 1f ? 1 : 0; }
+        public static Func<bool> ModelOn = () => true;
+
+        static int EngineLevel(float prop) { return prop >= 0.99f ? 0 : prop > 0.01f ? 1 : 4; }   // part lost: yellow; none works: red
 
         /// <summary>The propulsion's share that still works, 1..0 (as the game counts the speed: Compartments.UpdateWantedVelocityInKnots).</summary>
         static float Propulsion(object comp)
@@ -322,7 +372,7 @@ namespace AlternativeDamageModel
         }
 
         static readonly SolidColorBrush[] Levels = {
-            null, new SolidColorBrush(Color.FromRgb(240, 208, 74)), new SolidColorBrush(Color.FromRgb(255, 140, 60)), new SolidColorBrush(Color.FromRgb(255, 72, 60)) };
+            null, new SolidColorBrush(Color.FromRgb(240, 208, 74)), new SolidColorBrush(Color.FromRgb(255, 140, 60)), new SolidColorBrush(Color.FromRgb(255, 140, 60)), new SolidColorBrush(Color.FromRgb(255, 72, 60)) };
         static readonly string[] Shapes = {
             "M4,0 C5,2 7,3 7,5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5 C1,3.5 2,3 2.5,1.5 C3,2.5 3.5,2 4,0 Z",   // fire
             "M4,0 C5,2 7,4 7,5.5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5.5 C1,4 3,2 4,0 Z",                      // water drop
@@ -345,15 +395,18 @@ namespace AlternativeDamageModel
             }
             if (tb == null)
             {
-                tb = new StackPanel { Name = "AdmIntel", Orientation = Orientation.Horizontal, Width = 40f, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center };
+                tb = new StackPanel { Name = "AdmIntel", Orientation = Orientation.Horizontal, Width = 46f, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center };
                 for (int k = 0; k < 4; k++)
                     tb.Children.Add(new Noesis.Path { Data = Geometry.Parse(Shapes[k]), Width = 8f, Height = 8f, Margin = new Thickness(1f, 0f, 1f, 0f), Stretch = Stretch.Uniform });
-                Canvas.SetLeft(tb, -8.75f);   // the icon is 22.5 wide, centred over 40
+                tb.Children.Add(new TextBlock { Text = "?", FontSize = 8f, FontWeight = FontWeight.Bold, Margin = new Thickness(0f, -2f, 0f, 0f), Foreground = Levels[1] });
+                Canvas.SetLeft(tb, -11.75f);   // the icon is 22.5 wide, centred over 46
                 Canvas.SetTop(tb, 24f);
                 cv.Children.Add(tb);
             }
             tb.Visibility = Visibility.Visible;
             int[] lv = { info.Fire, info.Flood, info.Hull, info.Engine };
+            var q = tb.Children[4] as TextBlock;
+            if (q != null) q.Visibility = info.Guess ? Visibility.Visible : Visibility.Collapsed;
             for (int k = 0; k < 4; k++)
             {
                 var p = tb.Children[k] as Noesis.Path;
