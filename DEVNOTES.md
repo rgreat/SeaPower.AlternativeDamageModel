@@ -750,3 +750,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (9): второй уровень усталости и кривая скорости
 * Уровни: Tired after (60 мин), Exhausted after (120 мин; не меньше Tired — зажим в `AdmPlugin` и `KeepLevels` в окне; равны = второго уровня нет). Скорость `FatigueMul`: SpeedRested (100
+
+## 2026-10-21 (10): нижняя граница скорости
+* `TeamEff` при включённой усталости: итог (ранения × усталость) не ниже `SpeedExhausted`.

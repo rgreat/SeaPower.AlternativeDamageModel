@@ -247,7 +247,8 @@ namespace AlternativeDamageModel
         {
             if (t == null || !IsEnabled()) return 1f;
             float e = Wounded(t) ? Math.Max(MinWoundEff, t.Health) : 1f;
-            return IsEnabled() && FatigueMin > 0f ? e * FatigueMul(t.Fatigue) : e;
+            if (FatigueMin <= 0f) return e;
+            return Math.Max(SpeedExhausted, e * FatigueMul(t.Fatigue));   // wounds and fatigue together never take a team below the exhausted speed
         }
 
         /// <summary>" (Wounded)" / " (Tired)" / " (Wounded, Tired)" for the teams that work slower because of it; "" when none.</summary>
