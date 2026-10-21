@@ -34,6 +34,7 @@ namespace AlternativeDamageModel
         public static float RegenRate = 0.5f;     // % of the full health a second in the reserve
         public static float FireWound = 1f;       // % of the full health a second at fire 100% (a team that does not fight it)
         public static float HitWound = 1f;        // x the wound of one knock-out
+        public static float FatigueRecover = 100f; // % of the build-up speed the reserve takes fatigue away at
         public static float FatigueMin = 0f;      // minutes of work until tired; 0 = off
         public const float TiredEff = 0.5f;       // a tired team works at this part of its speed
         public const float MinWoundEff = 0.25f;   // a wounded team works at its health, but not below this
@@ -54,7 +55,7 @@ namespace AlternativeDamageModel
             public int From = -1;        // Moving: where from (-1 = the reserve)
             public double Until, Total;  // Moving / Injured: when it is over, and how long it takes in all
             public float Health = 1f;    // 0..1 of the maximum; 0 = dead
-            public double Fatigue;       // seconds of work in a row (at most twice the limit); the reserve takes it away at the same speed
+            public double Fatigue;       // seconds of work in a row (at most twice the limit); the reserve takes it away at FatigueRecover % of that speed
             public double Arrived;       // InSection: when it got there (Auto DC does not pull a team that has just arrived)
             public int Task, Doing;      // InSection: the task given by hand (DcControl, 0 = by priority) and what it did last tick
             public bool Back;            // Moving: turned back (Cancel Transfer) - no muster in its time
@@ -243,7 +244,7 @@ namespace AlternativeDamageModel
                 if (t.State == St.Pool)
                 {
                     if (HealthOn && t.Health < 1f) t.Health = Math.Min(1f, t.Health + RegenRate / 100f * (float)dt);
-                    if (t.Fatigue > 0) t.Fatigue = Math.Max(0, t.Fatigue - dt);
+                    if (t.Fatigue > 0) t.Fatigue = Math.Max(0, t.Fatigue - dt * FatigueRecover / 100.0);
                 }
                 else if (t.State == St.InSection)
                 {

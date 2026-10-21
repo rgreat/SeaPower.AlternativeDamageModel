@@ -141,6 +141,7 @@ namespace AlternativeDamageModel
             Add(DC, "Health", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/HitWound", "Hit wounds", "× knock-out wound", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Fatigue", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
+            Add(DC, "Fatigue", "DamageControlTeams/FatigueRecovery", "Recovery speed", "% of the fatigue speed", Kind.Number, 10f, 0f, 1000f);
 
             Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
@@ -762,7 +763,7 @@ namespace AlternativeDamageModel
         static bool ModOnly(string key)
         {
             return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
-                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
+                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
                    key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes";
         }
 

@@ -60,7 +60,7 @@ namespace AlternativeDamageModel
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _fatigueEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _fatigueEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _speedEffectEntry;
         ConfigEntry<Factor> _maxPlugEntry;
@@ -382,9 +382,11 @@ namespace AlternativeDamageModel
                 "'two knock-outs = dead' on a 1000 t ship. The team walks to the reserve wounded.");
             _fatigueOnEntry = Pcfg.Bind("DamageControlTeams", "FatigueEnabled", true,
                 "Team fatigue on: working builds it up, the reserve takes it away, a tired team works at half speed. Off = no fatigue; its settings are hidden.");
-            _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(0f),
+            _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(60f),
                 "Minutes of work in a section until a team is tired; then it works at half speed. The reserve takes fatigue away as fast as " +
                 "work builds it up. Shown in the team's hint; a tired team's icon is highlighted. 0 = no fatigue.");
+            _fatigueRecoverEntry = Pcfg.Bind("DamageControlTeams", "FatigueRecovery", new Factor(100f),
+                "How fast a team in the reserve gets rid of fatigue, % of the speed it builds up at while working. 100 = as fast; 50 = rest takes twice as long as the work.");
 
             _listLimitEntry = Pcfg.Bind("Sinking", "ListLimit", new Factor(Limits.ListFull),
                 "List, degrees: the full scale of the LIST gauge. From its red zone (75% of it) water comes over the deck edge and floods every " +
@@ -838,6 +840,7 @@ namespace AlternativeDamageModel
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);
             DcTeams.FireWound = Math.Max(0f, _fireWoundEntry.Value.V);
             DcTeams.HitWound = Math.Max(0f, _hitWoundEntry.Value.V);
+            DcTeams.FatigueRecover = Math.Max(0f, _fatigueRecoverEntry.Value.V);
             DcTeams.FatigueMin = _fatigueOnEntry.Value ? Math.Max(0f, _fatigueEntry.Value.V) : 0f;
             Limits.ListFull = Clamp(_listLimitEntry.Value.V, 5f, 69f);
             Limits.TrimFull = Clamp(_trimLimitEntry.Value.V, 1f, 30f);

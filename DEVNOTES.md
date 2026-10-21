@@ -744,3 +744,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (7): панель страницы DC Teams до низа
 * Область настроек — ScrollViewer, поэтому высота панели задаётся кодом: `FitPage()` ставит `MinHeight` = высота области − положение панели − отступы (вызов из Loaded / LayoutUpdated панели и SizeChanged скролла; порог 0.5 px против зацикливания). Если контента больше — работает прокрутка.
+
+## 2026-10-21 (8): Recovery speed усталости, Tired after = 60
+* `FatigueRecovery` (% скорости накопления; 100 по умолчанию): в резерве усталость убывает `dt·FatigueRecover/100`; подсказка «Rested in» учитывает его. `FatigueMinutes` по умолчанию 60 (код и профили).

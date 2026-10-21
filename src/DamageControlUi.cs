@@ -1846,7 +1846,7 @@ namespace AlternativeDamageModel
                         case DcTeams.St.Pool:
                             return dc + "free, in reserve" + (kn != null ? "\n" + kn : "") +
                                    (DcTeams.Wounded(v.Health) && DcTeams.RegenRate > 0f ? "\nHealed in " + Clock((1f - v.Health) / (DcTeams.RegenRate / 100f)) : "") +
-                                   (DcTeams.Tired(v.Fatigue) && DcTeams.FatigueMin > 0f ? "\nRested in " + Clock((float)(v.Fatigue - DcTeams.FatigueLimit)) : "");
+                                   (DcTeams.Tired(v.Fatigue) && DcTeams.FatigueMin > 0f ? "\nRested in " + (DcTeams.FatigueRecover > 0f ? Clock((float)(v.Fatigue - DcTeams.FatigueLimit) * 100f / DcTeams.FatigueRecover) : "never") : "");
                         default:
                             return dc + SectionName(names, v.Section);
                     }
