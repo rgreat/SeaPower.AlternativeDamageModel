@@ -263,10 +263,13 @@ namespace AlternativeDamageModel
                     Padding = new Thickness(6f, 4f, 6f, 4f), Margin = new Thickness(0f, 0f, 6f, 0f)
                 };
                 Grid.SetColumn(fc, 3);
-                var sp = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                sp.Children.Add(new TextBlock { Text = "Forecast", FontSize = 12f, HorizontalAlignment = HorizontalAlignment.Center, Foreground = Res(view, "Brush.Foreground.Highlight", Color.FromRgb(214, 218, 222)) });
-                x.FcMain = new TextBlock { Text = "Stable", FontSize = 20f, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0f, 2f, 0f, 0f) };
-                x.FcSub = new TextBlock { Text = "", FontSize = 12f, HorizontalAlignment = HorizontalAlignment.Center, Foreground = Res(view, "Brush.Foreground.Highlight", Color.FromRgb(214, 218, 222)) };
+                // one line along the top (it does not cover the ship's picture): "Forecast: Sinks in ~N min (hull damage)"
+                fc.VerticalAlignment = VerticalAlignment.Top; fc.Padding = new Thickness(8f, 3f, 8f, 3f);
+                var sp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                var dimB = Res(view, "Brush.Foreground.Highlight", Color.FromRgb(214, 218, 222));
+                sp.Children.Add(new TextBlock { Text = "Forecast:", FontSize = 14f, Foreground = dimB, Margin = new Thickness(0f, 0f, 8f, 0f), VerticalAlignment = VerticalAlignment.Center });
+                x.FcMain = new TextBlock { Text = "Stable", FontSize = 16f, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
+                x.FcSub = new TextBlock { Text = "", FontSize = 14f, Foreground = dimB, Margin = new Thickness(8f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center };
                 sp.Children.Add(x.FcMain); sp.Children.Add(x.FcSub);
                 fc.Child = sp;
                 Add(x, summary, fc);
@@ -618,7 +621,7 @@ namespace AlternativeDamageModel
             {
                 string fm, fs; int fv;
                 ContactIntel.Forecast(comp, out fm, out fs, out fv);
-                SetText(x.FcMain, fm); SetText(x.FcSub, fs);
+                SetText(x.FcMain, fm); SetText(x.FcSub, fs.Length == 0 ? "" : "(" + fs + ")");
                 SetBrush(x.FcMain, fv >= 2 ? BCritical : fv == 1 ? BHeavy : StageBrush(x.Res, 0));
             }
             try { RenderHullFlood(comp, x); } catch (Exception e) { Trace("RenderHullFlood: " + e.Message); }

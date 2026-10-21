@@ -96,7 +96,7 @@ namespace AlternativeDamageModel
         }
         static readonly ConditionalWeakTable<object, Hist> History = new ConditionalWeakTable<object, Hist>();
         
-        const double Window = 60.0;   // game seconds the trend is measured over
+        const double Window = 90.0;   // game seconds the trend is measured over
         const double MinSpan = 12.0;  // ... and the least of them before there is a forecast
 
         static double Now() { try { return Convert.ToDouble(_gameTime.GetValue(null, null)); } catch { return 0; } }
@@ -199,6 +199,24 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("ContactIntel.Of: " + e.Message); return none; }
         }
 
+        /// <summary>
+        /// The rate (per second) of a value over the window, but only a steady one: the smaller of the rate over the whole window and
+        /// over its later half (a hit a minute ago is a jump, not a trend - it would be extrapolated for ever).
+        /// </summary>
+        static double Rate(Hist h, List<float> v)
+        {
+            int n = h.T.Count;
+            if (n < 2) return 0;
+            double all = (v[n - 1] - v[0]) / (h.T[n - 1] - h.T[0]);
+            double mid = (h.T[0] + h.T[n - 1]) / 2.0;
+            int k = 0; while (k < n - 1 && h.T[k] < mid) k++;
+            double rec = h.T[n - 1] - h.T[k] > 1.0 ? (v[n - 1] - v[k]) / (h.T[n - 1] - h.T[k]) : 0;
+            // the same sign and the smaller in size
+            if (all > 0 && rec > 0) return Math.Min(all, rec);
+            if (all < 0 && rec < 0) return Math.Max(all, rec);
+            return 0;
+        }
+
         /// <summary>Game seconds to sinking by the trend of the last minute (flooding to its limit, hull to 10%); double.MaxValue - none.</summary>
         static double Trend(object obj, bool sinking, float flood, float hull)
         {
@@ -213,8 +231,7 @@ namespace AlternativeDamageModel
             double span = h.T.Count < 2 ? 0 : h.T[h.T.Count - 1] - h.T[0];
             if (!sinking && span >= MinSpan)
             {
-                double rf = (h.Flood[h.Flood.Count - 1] - h.Flood[0]) / span;   // % a second
-                double rh = (h.Hull[h.Hull.Count - 1] - h.Hull[0]) / span;
+                double rf = Rate(h, h.Flood), rh = Rate(h, h.Hull);   // % a second, only what goes on steadily
                 float limit = _tSub != null && _tSub.IsInstanceOfType(obj) ? 50f : Limits.LevelFull;
                 if (rf > 0.0005) eta = Math.Min(eta, (limit - flood) / rf);
                 if (rh < -0.0005) eta = Math.Min(eta, (hull - 10f) / -rh);
@@ -247,7 +264,7 @@ namespace AlternativeDamageModel
                 var h = History.GetOrCreateValue(obj);
                 double span = h.T[h.T.Count - 1] - h.T[0];
                 float limit = _tSub != null && _tSub.IsInstanceOfType(obj) ? 50f : Limits.LevelFull;
-                double rf = span > 0 ? (h.Flood[h.Flood.Count - 1] - h.Flood[0]) / span : 0, rh = span > 0 ? (h.Hull[h.Hull.Count - 1] - h.Hull[0]) / span : 0;
+                double rf = span > 0 ? Rate(h, h.Flood) : 0, rh = span > 0 ? Rate(h, h.Hull) : 0;
                 double ef = rf > 0.0005 ? (limit - flood) / rf : double.MaxValue, eh = rh < -0.0005 ? (hull - 10f) / -rh : double.MaxValue;
                 sub = ef <= eh ? "flooding" : "hull damage";
             }
@@ -443,7 +460,7 @@ namespace AlternativeDamageModel
                 for (int k = 0; k < 4; k++)
                     tb.Children.Add(new Noesis.Path
                     {
-                        Data = Geometry.Parse(Shapes[k]), Height = k == 3 ? 17f : 15f, Margin = k == 3 ? new Thickness(1.5f, 0f, 0.5f, 0f) : new Thickness(0.75f, 0f, 0.75f, 0f), Stretch = Stretch.Uniform,
+                        Data = Geometry.Parse(Shapes[k]), Height = k == 3 ? 17f : 15f, Margin = k == 3 ? new Thickness(0.5f, 0f, 0.5f, 0f) : new Thickness(0.75f, 0f, 0.75f, 0f), Stretch = Stretch.Uniform,
                         VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left, Stroke = Outlines[k], StrokeThickness = k == 3 ? 1f : 1.3f, StrokeLineJoin = PenLineJoin.Round
                     });
                 tb.Children.Add(new TextBlock { Text = "?", FontSize = 11f, FontWeight = FontWeight.Bold, Margin = new Thickness(0f, -2f, 0f, 0f), Foreground = Levels[1] });
