@@ -70,7 +70,7 @@ namespace AlternativeDamageModel
         static FieldInfo _fCompCount;
         static Dictionary<string, float> _perShip = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
-        ConfigEntry<bool> _debugEntry, _logShipsEntry, _logFiresEntry, _logHeelEntry, _uiEntry, _weaponColorEntry, _admEntry, _deckCornersEntry, _showHullEntry, _fixTrimTcEntry;
+        ConfigEntry<bool> _enemyDmgEntry, _debugEntry, _logShipsEntry, _logFiresEntry, _logHeelEntry, _uiEntry, _weaponColorEntry, _admEntry, _deckCornersEntry, _showHullEntry, _fixTrimTcEntry;
         ConfigEntry<string> _shipViewEntry;
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
@@ -452,6 +452,12 @@ namespace AlternativeDamageModel
             _weaponColorEntry = Cfg.Bind("UI", "ColorWeaponStatus", true,
                 "Colours the weapon buttons of the selected unit's bottom panel by the state of their weapon systems: " +
                 "all working - the game's colour, some of that type inoperable - yellow, all of them inoperable - red.");
+            _enemyDmgEntry = Cfg.Bind("UI", "ShowEnemyDamage", true,
+                "A short damage note under the icon of a ship on the map (yours too): one or two small words - sinking forecast " +
+                "('sinks ~12 min'), 'dead' / 'slow', 'fire', 'flood 18%', 'hull 60%' - and a greyer icon when the ship is going to sink. " +
+                "For a contact it depends on how it is seen: in sight and identified - the figures; in sight but not identified - words only; " +
+                "radar - only 'dead' / 'slow'; sonar - flooding noises, engines, 'sinking'; nothing without direct sight, radar or sonar, " +
+                "and nothing for a ship already sunk. The forecast is the flooding / hull trend of the last minute against the sinking limits.");
             _uiEntry = Cfg.Bind("UI", "DetailedView", true,
                 "The detailed view of Unit Status -> Damage Control (the mod's display): hull integrity per side next to each section's " +
                 "name, an icon per damage control team (its task; tasks and moves by hand when Auto DC is off), water and fire in % with " +
@@ -534,6 +540,8 @@ namespace AlternativeDamageModel
             {
                 try { WeaponStatusColors.Tick(UnityEngine.Time.unscaledTime, Enabled && _weaponColor); }
                 catch (Exception e) { Trace("WeaponStatusColors.Tick: " + e.Message); }
+                try { ContactIntel.Tick(UnityEngine.Time.unscaledTime, WeaponStatusColors.Root(), Enabled && _enemyDmg); }
+                catch (Exception e) { Trace("ContactIntel.Tick: " + e.Message); }
             }
             if (_uiReady)
             {
@@ -895,6 +903,7 @@ namespace AlternativeDamageModel
             if (_dumpXaml) RequestXamlExport();
             _uiOn = _uiEntry.Value;
             _weaponColor = _weaponColorEntry.Value;
+            _enemyDmg = _enemyDmgEntry.Value;
             try { ApplyUiSettings(); } catch (Exception e) { Trace("ApplyUiSettings: " + e.Message); }
 
             var map = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
@@ -1311,6 +1320,8 @@ namespace AlternativeDamageModel
             TimeCompressionFix.Trace = Trace; TimeCompressionFix.Warn = Warn;
             if (TimeCompressionFix.Init(harmony, asm)) ok++; else failed++;
             WeaponStatusColors.Trace = Trace; WeaponStatusColors.Init(asm);
+            ContactIntel.Trace = Trace; ContactIntel.IsEnabled = () => Enabled && _enemyDmg;
+            if (ContactIntel.Init(harmony, asm)) ok++; else failed++;
             if (TrimFlooding.InitList(harmony, asm)) ok++; else failed++;
 
             // 7. damage control: ship-wide priority (Auto / Fire / Flooding) and tasks given by hand to single teams
@@ -1862,7 +1873,7 @@ namespace AlternativeDamageModel
             DamageControlUi.Tick(UnityEngine.Time.unscaledTime, Enabled && _uiOn, Enabled);
         }
 
-        static bool _weaponColor;
+        static bool _weaponColor, _enemyDmg;
         static int ParseShipView(string v)
         {
             v = (v ?? "").Trim();

@@ -19,6 +19,7 @@ Upgraded Damage Control interface
    Water shown yellow / red while damage control can still get it out, grey when it cannot.
    Hull Damage and Flooding at the top right also show the overall % of the whole ship, e.g. Moderate (15%), nothing added at 0%; with Alternative Damage Control the hull damage words change at 25 / 50 / 75%.
    Weapon buttons of the selected unit's bottom panel are coloured by weapon state: part of that type inoperable - yellow, all of it - red (setting UI / ColorWeaponStatus).
+   Damage note under a ship's icon on the map (yours too; setting UI / ShowEnemyDamage): sinking forecast, dead/slow, fire, flood %, hull %; a greyer icon for a ship that will sink. For contacts the detail depends on how they are seen (sight + identified: figures; sight only: words; radar: dead/slow; sonar: flooding noises, engines).
    LIST / TRIM / LEVEL gauges; their tooltip is a plan of the ship with the water in every compartment. A check box in that plan, "Show deck levels in 3D", shows the ship's deck points in the 3D view all the time.
    Point at "Hull Damage / Flooding / Fires": a list of every hit on the ship (time, ammunition, section and side); over 20 hits - the count by ammunition.
    Point at a damaged system in a section's list: its damage level, integrity, repair speed and what it waits for.

@@ -55,6 +55,9 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("WeaponStatusColors.Init: " + e.Message); _ok = false; }
         }
 
+        /// <summary>The game's main view (the root of the tree the map lives in); null while it is not there.</summary>
+        public static FrameworkElement Root() { return _ok ? _mainInstance.GetValue(null) as FrameworkElement : null; }
+
         /// <summary>Called every frame; works once a second.</summary>
         public static void Tick(float now, bool on)
         {
