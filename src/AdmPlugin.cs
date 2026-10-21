@@ -76,7 +76,7 @@ namespace AlternativeDamageModel
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
         ConfigEntry<Factor> _noEngineEntry;
-        ConfigEntry<bool> _anyIntegrityEntry, _reserveHitsEntry, _autoRestEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
+        ConfigEntry<bool> _anyIntegrityEntry, _reserveHitsEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -381,10 +381,6 @@ namespace AlternativeDamageModel
             _reserveHitsEntry = Pcfg.Bind("DamageControlTeams", "HitsInReserve", true,
                 "The teams rest in the central compartment: a hit on it can wound a team waiting in the reserve (the chance is the game's for a " +
                 "team knocked out in a hit section: damage x (1 - integrity), only under 50% integrity). A wounded resting team stays in the reserve.");
-            _autoRestEntry = Pcfg.Bind("DamageControlTeams", "AutoRest", true,
-                "Auto DC rests the teams: a team with health under 33%, or exhausted, goes to the reserve; Auto DC uses it again only after a full rest " +
-                "(full health, no fatigue). On a ship in a bad way (sinking, or fire, water or hull at the third stage or worse) the rest is shorter: health 50%, " +
-                "fatigue down to fresh (not yet tired). Works with the optimised Auto DC (walking transfers) and the team health / fatigue settings.");
             _healthEntry = Pcfg.Bind("DamageControlTeams", "TeamHealth", new Factor(1f),
                 "Health of a damage control team, a multiplier of its maximum, which is 1..100 points by the ship's displacement (100 = a crew of 1000 and more, about 30000 t; " +
                 "1000 t = 24, 10000 t = 101). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
@@ -880,7 +876,6 @@ namespace AlternativeDamageModel
             DcTeams.Muster = Math.Max(0f, _musterEntry.Value.V);
             DcTeams.AnyIntegrity = _anyIntegrityEntry.Value;
             DcTeams.ReserveHits = ReserveHits.Enabled = _reserveHitsEntry.Value;
-            DcTeams.AutoRest = _autoRestEntry.Value;
             DcTeams.EngineEff = Math.Max(0f, Math.Min(100f, _noEngineEntry.Value.V)) / 100f;
             DcTeams.HealthMul = _healthOnEntry.Value ? Math.Max(0f, _healthEntry.Value.V) : 0f;
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);

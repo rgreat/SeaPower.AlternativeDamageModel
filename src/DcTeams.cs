@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
         public static float HitWound = 1f;        // x the warhead power of the hit = the wound in points
         static readonly System.Random Rnd = new System.Random();
         public static bool AnyIntegrity = true;   // a hit on a section wounds its teams at any integrity (not only the game's under 50%)
-        public static bool AutoRest = false;      // Auto DC: wounded (under 33% health) and exhausted teams go to the reserve and come back after the rest (RestPull)
+        public static bool AutoRest = true;       // Auto DC: wounded (under 33% health) and exhausted teams go to the reserve and come back after the rest (RestPull)
         public static Func<object, bool> Heavy = c => false;   // the ship is in a bad way: a rest is cut short (health 50%, fresh instead of full)
         public const float RestHealth = 0.33f, HeavyHealth = 0.5f;
         public static bool ReserveHits = true;    // hits on the central compartment (the resting place) wound the teams in the reserve

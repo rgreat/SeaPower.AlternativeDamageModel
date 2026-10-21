@@ -973,3 +973,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 ### 2026-10-21 (72): «Engine» штрафа DC — это Engine, а не Propulsion
 - Правка к 71: опция переименована «DC efficiency without engines». `ContactIntel.EngineOut` теперь смотрит `ObjectBase._powerSystemInUse` (PowerSystem, модуль Engine): `Inoperable` или `CurrentDamageType` = Destroyed. Раньше (ошибочно) — `_propulsionSystems` (VesselPropulsionSystem, винты) и `_immobile`. Иконка двигателя на карте по-прежнему считает Propulsion + `_immobile`, как игра.
 - Тексты: хинт «Engine out: N% effectiveness», предупреждение Forecast «Engine out: DC efficiency N%».
+
+### 2026-10-21 (73): AutoRest — всегда включён, опции больше нет
+- Из 70 убрана опция `[DamageControlTeams] AutoRest` (GUI, профили, ModOnly, Bind). `DcTeams.AutoRest = true` константой по умолчанию; фактически работает только при включённых здоровье/усталости и оптимизированном Auto DC. Ключ в старых .cfg игнорируется.
