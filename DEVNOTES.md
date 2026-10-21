@@ -860,3 +860,5 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ### 2026-10-21 (42): в таблице Wound chance добавлены M-1 и SM-1
 - `wp_sa-n-1` (M-1 Volna, V-601, мощность 25) и `usn_rim-66b` (SM-1MR, 24); строки сортируются по мощности.
+
+### 2026-10-21 (43): из таблицы Wound chance убран M-1 (мощность почти как у SM-1)
