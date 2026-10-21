@@ -383,8 +383,12 @@ namespace AlternativeDamageModel
                 "Multiplier of the strength of a wound: at most the warhead power of the ammunition (0..196, half of the game's ammunition under 25) x this, " +
                 "in points of the team's health (2..200 by displacement). A wounded team walks to the reserve.");
             _woundChanceEntry = Pcfg.Bind("DamageControlTeams", "WoundChance", new Factor(1f),
-                "Multiplier of the chance that a hit wounds a team it takes out of its section. The chance itself grows with the warhead power and falls " +
-                "with the ship's size (the team's health); even the weakest hit has a small one. 0 = never.");
+                "Multiplier of the chance that a hit wounds a team. Step 1 - the game decides whether a hit takes a team out of its section at all " +
+                "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod rolls the wound: a random number " +
+                "0-100 x (0.5 + warhead power / the team's health) x this multiplier. Under 50 there is no wound (the team still leaves the section); " +
+                "from 50 to 100 the wound grows from 0 to the whole warhead power (x Wound strength). A stronger warhead raises the roll, a bigger ship " +
+                "(more team health) lowers it; even the weakest hit has a small chance. Example, warhead 25: against 24 health about 67%, against 57 about 47%, " +
+                "against 200 about 20%. 0 = never wounded.");
             _fatigueOnEntry = Pcfg.Bind("DamageControlTeams", "FatigueEnabled", true,
                 "Team fatigue on: working builds it up, the reserve takes it away, a tired team works at half speed. Off = no fatigue; its settings are hidden.");
             _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(60f),

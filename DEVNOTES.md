@@ -803,3 +803,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (26): страница Wounds
 * Страницы DC Teams: Count / Movement / Work / Health / Wounds / Fatigue. Wounds (группа «Weapon hits», видна при включённом Team health): Wound chance, Wound strength, Hits in reserve. Fire wounds остались на Health (группа «Health»: Max health, Recovery speed in reserve, Fire wounds). Номера в `SubOf`/`SubShown`: Health 3, Wounds 4, Fatigue 5.
+
+## 2026-10-21 (27): переименование и хинт
+* «Hits in reserve» -> «Wounds in reserve» (ключ HitsInReserve прежний); подробный хинт `WoundChance` (шаг 1 игра, шаг 2 бросок, примеры).

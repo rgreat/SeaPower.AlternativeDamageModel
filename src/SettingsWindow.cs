@@ -141,7 +141,7 @@ namespace AlternativeDamageModel
             Add(DC, "Health", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Weapon hits", "DamageControlTeams/WoundChance", "Wound chance", "× chance", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Weapon hits", "DamageControlTeams/HitWound", "Wound strength", "× warhead power", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserve", "Hits in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
+            Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserve", "Wounds in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
             Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
             Add(DC, "Time", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);
             Add(DC, "Time", "DamageControlTeams/FatigueRecovery", "Recovery speed", "% of the fatigue speed", Kind.Number, 10f, 0f, 1000f);
