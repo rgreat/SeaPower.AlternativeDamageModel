@@ -11,7 +11,7 @@ namespace AlternativeDamageModel
     /// The hits on a ship, for the tooltip of the "Hull Damage / Flooding / Fires" block of the Damage Control tab: when (mission time),
     /// by what ammunition, on which section and side. One record per impact: the call of Blastzone.ProcessCompartmentHit for the compartment
     /// that was hit first (not the neighbours the blast reaches); explosions that follow a hit and hits stopped by the armour are marked.
-    /// Kept in memory with the ship, not in saved games; at most 400 per ship (the oldest go).
+    /// Kept with the ship and written to saved games (key AlternativeDamageModel_Hits); at most 400 per ship (the oldest go).
     /// </summary>
     static class HitLog
     {
@@ -93,6 +93,53 @@ namespace AlternativeDamageModel
                 lock (list) { list.Add(rec); if (list.Count > Max) list.RemoveAt(0); }
             }
             catch (Exception e) { Trace("HitLog: " + e.Message); }
+        }
+
+        // ---- saved games: "ammunition|ammunition|...#time,ammo,section,flags|..." (flags: 1 port, 2 stopped by armour, 4 explosion)
+
+        static string Clean(string a) { return (a ?? "?").Replace('|', '/').Replace('#', ' ').Replace(',', ' ').Replace(';', ' ').Replace('=', ' ').Trim(); }
+
+        public static string Save(object comps)
+        {
+            var recs = Records(comps);
+            if (recs.Count == 0) return null;
+            var names = new List<string>();
+            var sb = new System.Text.StringBuilder();
+            var body = new System.Text.StringBuilder();
+            foreach (var r in recs)
+            {
+                string a = Clean(r.Ammo);
+                int i = names.IndexOf(a);
+                if (i < 0) { names.Add(a); i = names.Count - 1; }
+                if (body.Length > 0) body.Append('|');
+                body.Append(r.Time.ToString("0.#", CultureInfo.InvariantCulture)).Append(',').Append(i).Append(',').Append(r.Section).Append(',')
+                    .Append((r.Port ? 1 : 0) | (r.Armor ? 2 : 0) | (r.Blast ? 4 : 0));
+            }
+            sb.Append(string.Join("|", names.ToArray())).Append('#').Append(body);
+            return sb.ToString();
+        }
+
+        public static void Load(object comps, string text)
+        {
+            try
+            {
+                int hash = text.IndexOf('#');
+                if (hash < 0) return;
+                var names = text.Substring(0, hash).Split('|');
+                var list = new List<Rec>();
+                foreach (var part in text.Substring(hash + 1).Split('|'))
+                {
+                    var f = part.Split(',');
+                    int idx, sec, flags; double t;
+                    if (f.Length < 4 || !double.TryParse(f[0], NumberStyles.Float, CultureInfo.InvariantCulture, out t) || !int.TryParse(f[1], out idx) ||
+                        !int.TryParse(f[2], out sec) || !int.TryParse(f[3], out flags)) continue;
+                    list.Add(new Rec { Time = t, Ammo = idx >= 0 && idx < names.Length ? names[idx] : "?", Section = sec, Port = (flags & 1) != 0, Armor = (flags & 2) != 0, Blast = (flags & 4) != 0 });
+                }
+                if (list.Count > Max) list.RemoveRange(0, list.Count - Max);
+                var cur = Logs.GetOrCreateValue(comps);
+                lock (cur) { cur.Clear(); cur.AddRange(list); }
+            }
+            catch (Exception e) { Trace("HitLog.Load: " + e.Message); }
         }
 
         /// <summary>A copy of the ship's records (oldest first); empty when none.</summary>

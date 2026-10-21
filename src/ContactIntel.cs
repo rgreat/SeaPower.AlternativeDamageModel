@@ -217,6 +217,51 @@ namespace AlternativeDamageModel
             return 0;
         }
 
+        // ---- saved games: "time,flood,hull|..." (the samples of the trend: after loading the forecast goes on, it does not start over)
+
+        public static string SaveTrend(object comp)
+        {
+            try
+            {
+                var obj = _cBase == null ? null : _cBase.GetValue(comp);
+                Hist h;
+                if (obj == null || !History.TryGetValue(obj, out h) || h.T.Count < 2) return null;
+                var sb = new System.Text.StringBuilder();
+                for (int i = 0; i < h.T.Count; i++)
+                {
+                    if (i > 0) sb.Append('|');
+                    sb.Append(h.T[i].ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+                      .Append(h.Flood[i].ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+                      .Append(h.Hull[i].ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                }
+                return sb.ToString();
+            }
+            catch { return null; }
+        }
+
+        public static void LoadTrend(object comp, string text)
+        {
+            try
+            {
+                var obj = _cBase == null ? null : _cBase.GetValue(comp);
+                if (obj == null) return;
+                var h = History.GetOrCreateValue(obj);
+                h.T.Clear(); h.Flood.Clear(); h.Hull.Clear();
+                double now = Now();
+                foreach (var part in text.Split('|'))
+                {
+                    var f = part.Split(',');
+                    double t; float fl, hu;
+                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+                    if (f.Length < 3 || !double.TryParse(f[0], System.Globalization.NumberStyles.Float, inv, out t) || !float.TryParse(f[1], System.Globalization.NumberStyles.Float, inv, out fl) ||
+                        !float.TryParse(f[2], System.Globalization.NumberStyles.Float, inv, out hu)) continue;
+                    if (t > now + 5.0) continue;   // not from this game's time
+                    h.T.Add(t); h.Flood.Add(fl); h.Hull.Add(hu);
+                }
+            }
+            catch (Exception e) { Trace("ContactIntel.LoadTrend: " + e.Message); }
+        }
+
         /// <summary>Game seconds to sinking by the trend of the last minute (flooding to its limit, hull to 10%); double.MaxValue - none.</summary>
         static double Trend(object obj, bool sinking, float flood, float hull)
         {

@@ -2111,7 +2111,7 @@ namespace AlternativeDamageModel
 
         static MethodInfo _mIniWriteStr, _mIniReadStr;
         const string DcSaveKey = "AlternativeDamageModel_DC";
-        const string DcTeamsSaveKey = "AlternativeDamageModel_Teams";
+        const string DcTeamsSaveKey = "AlternativeDamageModel_Teams", HitsSaveKey = "AlternativeDamageModel_Hits", TrendSaveKey = "AlternativeDamageModel_Trend";
 
         const string HullSaveKey = "AlternativeDamageModel_HullMult";
         const string SysSaveKey = "AlternativeDamageModel_IntegrityMult";
@@ -2261,6 +2261,10 @@ namespace AlternativeDamageModel
                 if (text != null) _mIniWriteStr.Invoke(ini, new object[] { sectionName, DcSaveKey, text });
                 var teams = Model ? DcTeams.Save(__instance) : null;
                 if (teams != null) _mIniWriteStr.Invoke(ini, new object[] { sectionName, DcTeamsSaveKey, teams });
+                var hits = HitLog.Save(__instance);
+                if (hits != null) _mIniWriteStr.Invoke(ini, new object[] { sectionName, HitsSaveKey, hits });
+                var trend = ContactIntel.SaveTrend(__instance);
+                if (trend != null) _mIniWriteStr.Invoke(ini, new object[] { sectionName, TrendSaveKey, trend });
             }
             catch (Exception e) { Trace("DcSavePostfix: " + e.Message); }
         }
@@ -2275,6 +2279,10 @@ namespace AlternativeDamageModel
                 if (_uiOn && !string.IsNullOrEmpty(text)) DcControl.Load(__instance, text);
                 var teams = _mIniReadStr.Invoke(ini, new object[] { sectionName, DcTeamsSaveKey, "", false }) as string;
                 if (Model && !string.IsNullOrEmpty(teams)) DcTeams.Load(__instance, teams);
+                var hits = _mIniReadStr.Invoke(ini, new object[] { sectionName, HitsSaveKey, "", false }) as string;
+                if (!string.IsNullOrEmpty(hits)) HitLog.Load(__instance, hits);
+                var trend = _mIniReadStr.Invoke(ini, new object[] { sectionName, TrendSaveKey, "", false }) as string;
+                if (!string.IsNullOrEmpty(trend)) ContactIntel.LoadTrend(__instance, trend);
             }
             catch (Exception e) { Trace("DcLoadPostfix: " + e.Message); }
         }
