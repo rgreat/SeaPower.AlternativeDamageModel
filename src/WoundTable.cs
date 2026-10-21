@@ -73,6 +73,8 @@ namespace AlternativeDamageModel
             Color cText = Color.FromRgb(225, 228, 232), cDim = Color.FromRgb(140, 148, 158);
             try
             {
+                // the values as they stand in the window now (not applied yet)
+                float hmul = SettingsWindow.WorkNumber("DamageControlTeams/TeamHealth", DcTeams.HealthMul), wc = SettingsWindow.WorkNumber("DamageControlTeams/WoundChance", (float)DcTeams.WoundChance);
                 var all = ShipNames.Sizes();
                 var ships = new List<ShipNames.ShipSize>();
                 foreach (var w in WantShips)
@@ -102,7 +104,7 @@ namespace AlternativeDamageModel
                 var cp = Cell("Power", cDim, false, TextAlignment.Center, 1, 1, null, 11f); cp.VerticalAlignment = VerticalAlignment.Bottom; g.Children.Add(cp);
                 for (int c = 0; c < ships.Count; c++)
                 {
-                    float hp = DcTeams.MaxHpFor(ships[c].Tons);
+                    float hp = DcTeams.MaxHpFor(ships[c].Tons, hmul);
                     var img = Profile(ships[c].Ini);
                     if (img != null) { Grid.SetRow(img, 0); Grid.SetColumn(img, c + 2); g.Children.Add(img); }
                     var nm = new TextBlock { Text = ships[c].Name, Foreground = new SolidColorBrush(cText), FontSize = 12f, FontWeight = FontWeight.Bold, TextAlignment = TextAlignment.Center,
@@ -118,9 +120,9 @@ namespace AlternativeDamageModel
                     g.Children.Add(Cell(Fmt(ammo[r].Power), cDim, false, TextAlignment.Center, r + 4, 1, zebra));
                     for (int c = 0; c < ships.Count; c++)
                     {
-                        double p = Math.Min(100.0, DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons)) * 100.0);   // the multiplier first, then the limit of 100%
-                        // a heat background: the more chance the stronger the red; the text stays white
-                        int a = (int)Math.Round(Math.Min(1.0, p / 100.0) * 170.0);
+                        double p = Math.Min(100.0, DcTeams.WoundOdds(ammo[r].Power, DcTeams.MaxHpFor(ships[c].Tons, hmul), wc) * 100.0);   // the multiplier first, then the limit of 100%
+                        // a heat background on a log scale (1% is already seen, 100% the strongest); the text stays white
+                        int a = (int)Math.Round(Math.Log(1.0 + p) / Math.Log(101.0) * 170.0);   // log scale: 1% is already seen
                         g.Children.Add(Cell(p.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), p < 3.0 ? cDim : cText, p >= 50.0, TextAlignment.Center, r + 4, c + 2, Color.FromArgb((byte)a, 220, 80, 50)));
                     }
                 }

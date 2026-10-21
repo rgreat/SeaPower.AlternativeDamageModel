@@ -251,10 +251,13 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The team health of a ship of the given displacement (tons), with the Max health multiplier.</summary>
-        public static float MaxHpFor(float tons)
+        public static float MaxHpFor(float tons) { return MaxHpFor(tons, HealthMul); }
+
+        /// <summary>The same with the multiplier given (the settings window's table: values not applied yet).</summary>
+        public static float MaxHpFor(float tons, float mul)
         {
             double hp = 100.0 * Math.Pow(Math.Max(1.0, tons) / 30000.0, 0.62);
-            hp = Math.Max(1.0, Math.Min(100.0, hp)) * HealthMul;
+            hp = Math.Max(1.0, Math.Min(100.0, hp)) * mul;
             return (float)Math.Max(1.0, Math.Round(hp));
         }
 
@@ -263,10 +266,12 @@ namespace AlternativeDamageModel
         /// It grows steeply with the warhead and falls with the ship's toughness: warhead 2.2 against health 2 - about 10%, against 100 - about 0.1%;
         /// warhead 82 against 100 - about 75%. Above 100% the margin keeps a sure wound sure while the multiplier is below 1.
         /// </summary>
-        public static double WoundOdds(float power, float hp)
+        public static double WoundOdds(float power, float hp) { return WoundOdds(power, hp, WoundChance); }
+
+        public static double WoundOdds(float power, float hp, double wc)
         {
-            if (WoundChance <= 0.0 || hp <= 0f || power <= 0f) return 0.0;
-            return 0.054 * Math.Pow(power, 1.83) / Math.Pow(hp, 1.18) * WoundChance;
+            if (wc <= 0.0 || hp <= 0f || power <= 0f) return 0.0;
+            return 0.054 * Math.Pow(power, 1.83) / Math.Pow(hp, 1.18) * wc;
         }
 
         // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound

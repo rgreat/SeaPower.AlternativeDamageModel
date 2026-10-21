@@ -729,6 +729,14 @@ namespace AlternativeDamageModel
             return _work != null && _work.Values.TryGetValue(f.Key, out v) ? v : "";
         }
 
+        /// <summary>A number of the profile being edited (not applied yet); 'def' when there is none.</summary>
+        public static float WorkNumber(string key, float def)
+        {
+            string v; Factor f;
+            if (_work != null && _work.Values.TryGetValue(key, out v) && Factor.TryParse(v, out f)) return f.V;
+            return def;
+        }
+
         static string FromValue(Field f)
         {
             string v;
