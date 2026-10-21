@@ -187,10 +187,12 @@ namespace AlternativeDamageModel
                     info.Flood = sinking ? 4 : FloodStage(flood);
                     info.Hull = HullStage(hull, ModelOn());
                     info.Engine = dead ? 4 : EngineLevel(prop);
+                    Latch(obj, info.Engine);
                 }
                 else if (sonar)
                 {
                     info.Engine = dead ? 4 : EngineLevel(prop);   // heard: engines and screws
+                    Latch(obj, info.Engine);
                     doomed = sinking; info.Doomed = doomed;
                 }
                 else if (radar)
@@ -199,7 +201,11 @@ namespace AlternativeDamageModel
                     info.Doomed = false;
                     var recs = HitLog.Records(comp);
                     double t = Now();
-                    if (recs.Count > 0 && t - recs[recs.Count - 1].Time <= 600.0 && _oSpeed != null)
+                    int known = Latched(obj);
+                    float kn0 = _oSpeed == null ? 99f : Math.Abs(Convert.ToSingle(_oSpeed.Invoke(obj, null)));
+                    if (known == 4 && kn0 < 3f) info.Engine = 4;   // the engine was seen/heard dead and the ship still does not move: it is the same
+                    else if (known > 0 && known < 4 && kn0 <= 10f) info.Engine = known;
+                    else if (recs.Count > 0 && t - recs[recs.Count - 1].Time <= 600.0 && _oSpeed != null)
                     {
                         float kn = Math.Abs(Convert.ToSingle(_oSpeed.Invoke(obj, null)));
                         info.Engine = kn < 3f ? 4 : kn <= 10f ? 1 : 0;
@@ -216,6 +222,12 @@ namespace AlternativeDamageModel
             }
             catch (Exception e) { Trace("ContactIntel.Of: " + e.Message); return none; }
         }
+
+        // the engine state seen or heard last: it stays while only the radar sees the ship and the ship has not got going (the sonar loses a stopped ship)
+        static readonly ConditionalWeakTable<object, Lt> Latches = new ConditionalWeakTable<object, Lt>();
+        sealed class Lt { public int L; }
+        static void Latch(object obj, int level) { try { Latches.GetOrCreateValue(obj).L = level; } catch { } }
+        static int Latched(object obj) { Lt a; return Latches.TryGetValue(obj, out a) ? a.L : 0; }
 
         /// <summary>
         /// The trend over the window: (the last - the first) / the time between them. For the hull the direct damage of hits is added
