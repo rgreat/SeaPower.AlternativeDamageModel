@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
         public static Func<bool> IsEnabled = () => false;
 
-        public struct Info { public string Text; public bool Doomed; public int Sev; }
+        public struct Info { public int Fire, Flood, Hull; public bool Doomed; public bool Any { get { return Fire + Flood + Hull > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull : "") : null; } } }
 
         // ------------------------------------------------------------ reflection
 
@@ -175,40 +175,22 @@ namespace AlternativeDamageModel
                 bool soon = sinking || minutes <= 90.0;
                 bool doomed = sinking || minutes <= 20.0;
 
-                var parts = new List<string>();
-                if (seen && ident)
+                // three levels 0..3 per icon: fire, water, hull
+                var info = new Info { Doomed = doomed };
+                if (seen)
                 {
-                    if (sinking) parts.Add("sinking");
-                    else if (soon) parts.Add("sinks ~" + Math.Max(1, (int)Math.Ceiling(minutes)) + " min");
-                    if (prop <= 0.01f) parts.Add("dead"); else if (prop < 0.7f) parts.Add("slow");
-                    if (fires > 0) parts.Add("fire");
-                    if (flood >= 1f) parts.Add("flood " + (int)Math.Round(flood) + "%");
-                    if (hull < 90f) parts.Add("hull " + (int)Math.Round(hull) + "%");
+                    info.Fire = fires <= 0 ? 0 : fires >= 3 ? 3 : fires;
+                    info.Flood = flood < 1f ? 0 : flood < 10f ? 1 : flood < 25f ? 2 : 3;
+                    info.Hull = hull >= 90f ? 0 : hull >= 60f ? 1 : hull >= 30f ? 2 : 3;
+                    if (sinking) { info.Flood = 3; }
                 }
-                else if (seen)
+                else if (sonar && !radar)
                 {
-                    if (sinking) parts.Add("sinking"); else if (soon) parts.Add("sinks soon");
-                    if (prop <= 0.01f) parts.Add("dead"); else if (prop < 0.7f) parts.Add("slow");
-                    if (fires > 0) parts.Add("fire");
-                    if (flood >= 3f) parts.Add("flooding");
+                    info.Flood = flood < 3f ? 0 : flood < 12f ? 1 : flood < 25f ? 2 : 3;
+                    doomed = sinking; info.Doomed = doomed;
                 }
-                else if (radar)
-                {
-                    if (prop <= 0.01f) parts.Add("dead"); else if (prop < 0.7f) parts.Add("slow");
-                    doomed = false;
-                }
-                else // sonar
-                {
-                    if (sinking) parts.Add("sinking");
-                    if (prop <= 0.01f) parts.Add("dead"); else if (prop < 0.7f) parts.Add("engine dmg");
-                    if (flood >= 25f) parts.Add("flood noise!!"); else if (flood >= 12f) parts.Add("flood noise!"); else if (flood >= 3f) parts.Add("flood noise");
-                    doomed = sinking;
-                }
-                if (parts.Count == 0) return none;
-                if (parts.Count > 2) parts.RemoveRange(2, parts.Count - 2);
-                var info = new Info { Text = string.Join(" ", parts.ToArray()), Doomed = doomed };
-                info.Sev = doomed || (seen && (prop <= 0.01f || flood >= 25f)) ? 2 : 1;
-                return info;
+                else info.Doomed = false;
+                return info.Any || info.Doomed ? info : none;
             }
             catch (Exception e) { Trace("ContactIntel.Of: " + e.Message); return none; }
         }
@@ -283,7 +265,7 @@ namespace AlternativeDamageModel
                     }
                 }
                 // no map canvas found to hang the note under the icon on: it goes to the game's own info lines
-                if (st.Info.Text != null && _scans >= 4 && _found == 0 && _mLine4 != null)
+                if (st.Info.Any && _scans >= 4 && _found == 0 && _mLine4 != null)
                 {
                     var cur = _mLine4.GetValue(__instance, null) as string;
                     _mLine4.GetSetMethod(true).Invoke(__instance, new object[] { string.IsNullOrEmpty(cur) ? st.Info.Text : cur + " " + st.Info.Text });
@@ -292,9 +274,6 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("ContactIntel.UpdatePostfix: " + e.Message); }
         }
 
-        static readonly SolidColorBrush Amber = new SolidColorBrush(Color.FromRgb(240, 208, 74));
-        static readonly SolidColorBrush Orange = new SolidColorBrush(Color.FromRgb(255, 140, 60));
-        static readonly SolidColorBrush LightRed = new SolidColorBrush(Color.FromRgb(255, 96, 84));
 
         /// <summary>Called every frame; works once a second: puts the notes under the map icons (a TextBlock "AdmIntel" in each icon canvas).</summary>
         public static void Tick(float now, FrameworkElement root, bool on)
@@ -338,35 +317,45 @@ namespace AlternativeDamageModel
             if (found > 0) _found = found;
         }
 
+        static readonly SolidColorBrush[] Levels = {
+            null, new SolidColorBrush(Color.FromRgb(240, 208, 74)), new SolidColorBrush(Color.FromRgb(255, 140, 60)), new SolidColorBrush(Color.FromRgb(255, 72, 60)) };
+        static readonly string[] Shapes = {
+            "M4,0 C5,2 7,3 7,5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5 C1,3.5 2,3 2.5,1.5 C3,2.5 3.5,2 4,0 Z",   // fire
+            "M4,0 C5,2 7,4 7,5.5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5.5 C1,4 3,2 4,0 Z",                      // water drop
+            "M0,2 L8,2 L6.5,7 L1.5,7 Z" };                                                              // hull
+
         static void SetNote(Canvas cv, Info info)
         {
-            TextBlock tb = null;
+            StackPanel tb = null;
             int n = cv.Children.Count;
             for (int k = 0; k < n; k++)
             {
-                var c = cv.Children[k] as TextBlock;
+                var c = cv.Children[k] as StackPanel;
                 if (c != null && c.Name == "AdmIntel") { tb = c; break; }
             }
-            if (info.Text == null)
+            if (!info.Any)
             {
                 if (tb != null) tb.Visibility = Visibility.Collapsed;
                 return;
             }
             if (tb == null)
             {
-                tb = new TextBlock
-                {
-                    Name = "AdmIntel", FontSize = 8f, Width = 90f, TextAlignment = TextAlignment.Center,
-                    IsHitTestVisible = false, FontWeight = FontWeight.Bold
-                };
-                Canvas.SetLeft(tb, -33.75f);   // the 22.5 icon is centred: 11.25 - 45
-                Canvas.SetTop(tb, 23f);
+                tb = new StackPanel { Name = "AdmIntel", Orientation = Orientation.Horizontal, Width = 30f, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center };
+                for (int k = 0; k < 3; k++)
+                    tb.Children.Add(new Noesis.Path { Data = Geometry.Parse(Shapes[k]), Width = 8f, Height = 8f, Margin = new Thickness(1f, 0f, 1f, 0f), Stretch = Stretch.Uniform });
+                Canvas.SetLeft(tb, -4f);   // the icon is 22.5 wide, centred over 30
+                Canvas.SetTop(tb, 24f);
                 cv.Children.Add(tb);
             }
             tb.Visibility = Visibility.Visible;
-            if (tb.Text != info.Text) tb.Text = info.Text;
-            var br = info.Sev >= 2 ? LightRed : Amber;
-            if (!ReferenceEquals(tb.Foreground, br)) tb.Foreground = br;
+            int[] lv = { info.Fire, info.Flood, info.Hull };
+            for (int k = 0; k < 3; k++)
+            {
+                var p = tb.Children[k] as Noesis.Path;
+                if (p == null) continue;
+                p.Visibility = lv[k] > 0 ? Visibility.Visible : Visibility.Collapsed;
+                if (lv[k] > 0 && !ReferenceEquals(p.Fill, Levels[lv[k]])) p.Fill = Levels[lv[k]];
+            }
         }
 
         public static void Patch(Harmony harmony, Assembly asm)

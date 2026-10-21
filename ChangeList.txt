@@ -7,7 +7,7 @@ Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.
 - Fixed: arrows of fires and flooding no longer slide onto the % text when a colour or a level changes.
 - Fixed: DC teams no longer go back to the reserve (or are taken off a section) while it still has hull or systems work.
 - Auto DC takes the fastest growing fire or leak first: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure (Fire / Flooding priority change the order of their group).
-- NEW (User Interface > Map): a short damage note under a ship's icon on the map (yours too) - sinking forecast, dead/slow, fire, flood %, hull % - and a greyer icon for a ship that is going to sink; for contacts it depends on how they are seen (direct sight + identified: figures; sight only: words; radar: dead/slow; sonar: flooding noises, engines); nothing for sunk ships.
+- NEW (User Interface > Map): three small icons under a ship's icon on the map (yours too): fire, flooding, hull damage (yellow / orange / red) and a greyer map icon for a ship that is going to sink; for contacts: all three in direct sight, flooding noises only by sonar, nothing by radar / ESM.
 - NEW: Flooding tab: list of ships that get no Deck Points (flooded by the old rules).
 - A surface ship without weapons is counted as civilian (hull value, number of teams).
 - NEW: AI ships under 50 m ignore the speed limit from flooding (kamikaze) [Advanced].

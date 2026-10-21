@@ -453,11 +453,10 @@ namespace AlternativeDamageModel
                 "Colours the weapon buttons of the selected unit's bottom panel by the state of their weapon systems: " +
                 "all working - the game's colour, some of that type inoperable - yellow, all of them inoperable - red.");
             _enemyDmgEntry = Cfg.Bind("UI", "ShowEnemyDamage", true,
-                "A short damage note under the icon of a ship on the map (yours too): one or two small words - sinking forecast " +
-                "('sinks ~12 min'), 'dead' / 'slow', 'fire', 'flood 18%', 'hull 60%' - and a greyer icon when the ship is going to sink. " +
-                "For a contact it depends on how it is seen: in sight and identified - the figures; in sight but not identified - words only; " +
-                "radar - only 'dead' / 'slow'; sonar - flooding noises, engines, 'sinking'; nothing without direct sight, radar or sonar, " +
-                "and nothing for a ship already sunk. The forecast is the flooding / hull trend of the last minute against the sinking limits.");
+                "Three small icons under a ship's icon on the map (yours too): fire, water (flooding), hull damage - each shown from the first sign, " +
+                "yellow / orange / red by severity - and a greyer map icon when the ship is going to sink (flooding or hull trend of the last minute against " +
+                "the sinking limits, within 20 minutes). For a contact it depends on how it is seen: in direct sight - all three; sonar - only water " +
+                "(flooding noises); radar, ESM or no contact - nothing; nothing for a ship already sunk.");
             _uiEntry = Cfg.Bind("UI", "DetailedView", true,
                 "The detailed view of Unit Status -> Damage Control (the mod's display): hull integrity per side next to each section's " +
                 "name, an icon per damage control team (its task; tasks and moves by hand when Auto DC is off), water and fire in % with " +
