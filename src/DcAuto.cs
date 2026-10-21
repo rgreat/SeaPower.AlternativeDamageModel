@@ -119,6 +119,7 @@ namespace AlternativeDamageModel
                 double dt = ship.Primed ? now - ship.Last : 0;
                 ship.Next = now + Period; ship.Last = now;
                 if (DcTeams.Out(comp)) return false;
+                DcTeams.RestPull(comp);   // wounded and exhausted teams go to rest (before the counts are read)
 
                 int count = Math.Min(5, (int)_count.GetValue(comp));
                 var port = _port.GetValue(comp) as Array; var star = _star.GetValue(comp) as Array; var sys = _sys.GetValue(comp) as Array;
@@ -208,7 +209,7 @@ namespace AlternativeDamageModel
 
                 // teams: where they are, and where the walking ones are going
                 var teams = DcTeams.Snapshot(comp);
-                int pool = counts.Length > 5 ? counts[5] : 0;
+                int pool = counts.Length > 5 ? Math.Min(counts[5], DcTeams.ReadyInPool(comp)) : 0;   // teams that rest are not sent
                 var here = new int[count]; var coming = new int[count];
                 var minStay = new float[count];
                 for (int i = 0; i < count; i++) { minStay[i] = float.MaxValue; if (i < counts.Length) here[i] = counts[i]; }

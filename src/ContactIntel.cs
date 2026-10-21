@@ -381,6 +381,19 @@ namespace AlternativeDamageModel
             catch { return ""; }
         }
 
+        /// <summary>The own ship is in a bad way (DC rests the teams in a shortened way): sinking, or fire, water or hull at the third stage or worse.</summary>
+        public static bool Heavy(object comp)
+        {
+            if (!_ok || comp == null) return false;
+            try
+            {
+                if ((bool)_cSinking.GetValue(comp)) return true;
+                float flood = Convert.ToSingle(_cFlood.GetValue(comp, null)), hull = Convert.ToSingle(_cInt.GetValue(comp, null));
+                return FloodStage(flood) >= 3 || HullStage(hull, ModelOn()) >= 3 || FireStage(FireTotal(comp)) >= 3;
+            }
+            catch { return false; }
+        }
+
         /// <summary>The fires' total strength: the sum over the sections of their fire in % of the section's own maximum (100 = one section burning at full).</summary>
         public static float FireTotal(object comp)
         {

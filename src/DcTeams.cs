@@ -37,6 +37,9 @@ namespace AlternativeDamageModel
         public static float HitWound = 1f;        // x the warhead power of the hit = the wound in points
         static readonly System.Random Rnd = new System.Random();
         public static bool AnyIntegrity = true;   // a hit on a section wounds its teams at any integrity (not only the game's under 50%)
+        public static bool AutoRest = false;      // Auto DC: wounded (under 33% health) and exhausted teams go to the reserve and come back after the rest (RestPull)
+        public static Func<object, bool> Heavy = c => false;   // the ship is in a bad way: a rest is cut short (health 50%, fresh instead of full)
+        public const float RestHealth = 0.33f, HeavyHealth = 0.5f;
         public static bool ReserveHits = true;    // hits on the central compartment (the resting place) wound the teams in the reserve
         public static float FatigueRecover = 100f; // % of the build-up speed the reserve takes fatigue away at
         public static float FatigueMin = 0f;      // minutes of work until tired; 0 = off
@@ -64,6 +67,7 @@ namespace AlternativeDamageModel
             public double Arrived;       // InSection: when it got there (Auto DC does not pull a team that has just arrived)
             public int Task, Doing;      // InSection: the task given by hand (DcControl, 0 = by priority) and what it did last tick
             public bool Back;            // Moving: turned back (Cancel Transfer) - no muster in its time
+            public bool Rest;            // AutoRest: sent to rest (wounded / exhausted); Auto DC uses it again only when the rest is over
         }
 
         sealed class Ship { public readonly List<Team> Teams = new List<Team>(); public int Timers; public double LastT = -1; public readonly List<KeyValuePair<int, float>> Pending = new List<KeyValuePair<int, float>>(); }
@@ -394,12 +398,24 @@ namespace AlternativeDamageModel
         static void Condition(object comp, Ship s, double dt)
         {
             float lim = FatigueLimit;
+            int heavy = -1;
             foreach (var t in s.Teams)
             {
                 if (t.State == St.Pool)
                 {
                     if (HealthOn && t.Health < 1f) t.Health = Math.Min(1f, t.Health + RegenRate / 100f * (float)dt);
                     if (t.Fatigue > 0) t.Fatigue = Math.Max(0, t.Fatigue - dt * FatigueRecover / 100.0);
+                    if (AutoRest)
+                    {
+                        if (!t.Rest) { if ((HealthOn && t.Health < RestHealth) || FatigueLevel(t.Fatigue) >= 2) t.Rest = true; }
+                        else
+                        {
+                            if (heavy < 0) { bool h = false; try { h = Heavy(comp); } catch { } heavy = h ? 1 : 0; }
+                            // a ship in a bad way takes the teams back sooner: health 50%, rested to fresh (not yet tired); otherwise full health, no fatigue
+                            bool done = heavy == 1 ? (!HealthOn || t.Health >= HeavyHealth) && FatigueLevel(t.Fatigue) == 0 : (!HealthOn || t.Health >= 0.995f) && t.Fatigue <= 0;
+                            if (done) { t.Rest = false; Trace("DC team rested" + (heavy == 1 ? " (shortened: the ship is in a bad way)" : "")); }
+                        }
+                    }
                 }
                 else if (t.State == St.InSection)
                 {
@@ -582,12 +598,53 @@ namespace AlternativeDamageModel
             var counts = Counts(comp);
             if (counts == null || counts.Length < 6 || counts[5] < 1 || index < 0 || index > 4) return true;
             var s = Get(comp);
-            var t = s.Teams.Find(x => x.State == St.Pool);
-            if (t == null) { Reconcile(comp, s); t = s.Teams.Find(x => x.State == St.Pool); }
+            var t = PickPool(s);
+            if (t == null) { Reconcile(comp, s); t = PickPool(s); }
             if (t == null) return true;
             Set(comp, 5, counts[5] - 1);
             t.State = St.Moving; t.Section = index; t.From = -1; t.Total = TransferTime(comp, index); t.Until = Now() + t.Total;
             return false;
+        }
+
+        static Team PickPool(Ship s) { return s.Teams.Find(x => x.State == St.Pool && Ready(x)) ?? s.Teams.Find(x => x.State == St.Pool); }
+
+        /// <summary>A team that is not sent to rest (or the rest is over).</summary>
+        public static bool Ready(Team t) { return !AutoRest || !t.Rest; }
+
+        /// <summary>The teams in the reserve that Auto DC may send out: not resting.</summary>
+        public static int ReadyInPool(object comp)
+        {
+            Ship s;
+            if (!_ok || comp == null || !Ships.TryGetValue(comp, out s)) return 0;
+            int n = 0;
+            foreach (var t in s.Teams) if (t.State == St.Pool && Ready(t)) n++;
+            return n;
+        }
+
+        /// <summary>Auto DC, every few seconds: a team in a section with health under 33% or exhausted goes to the reserve to rest (AutoRest).</summary>
+        public static void RestPull(object comp)
+        {
+            if (!_ok || comp == null || !AutoRest || !IsEnabled()) return;
+            try
+            {
+                Ship s;
+                if (!Ships.TryGetValue(comp, out s)) return;
+                foreach (var t in s.Teams.ToArray())
+                {
+                    if (t.State != St.InSection || t.Section < 0 || t.Section > 4) continue;
+                    if (!((HealthOn && t.Health < RestHealth) || FatigueLevel(t.Fatigue) >= 2)) continue;
+                    var counts = Counts(comp);
+                    if (counts == null || counts.Length < 6 || counts[t.Section] < 1) continue;
+                    int from = t.Section;
+                    Set(comp, from, counts[from] - 1);
+                    Leave(t);
+                    t.Rest = true;
+                    if (TransfersOn) { t.State = St.Moving; t.Section = -1; t.From = from; t.Total = TransferTime(comp, from); t.Until = Now() + t.Total; }
+                    else { Set(comp, 5, counts[5] + 1); t.State = St.Pool; t.Section = -1; }
+                    Trace("DC team to rest from section " + from + ", health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture) + ", fatigue " + FatigueLevel(t.Fatigue));
+                }
+            }
+            catch (Exception e) { Trace("DcTeams.RestPull: " + e.Message); }
         }
 
         /// <summary>Prefix of ReturnDCTeamToPool(index): the team leaves the section and walks back to the reserve.</summary>
@@ -819,7 +876,7 @@ namespace AlternativeDamageModel
             var parts = new List<string>();
             foreach (var t in s.Teams)
                 parts.Add((int)t.State + "/" + t.Section + "/" + Math.Max(0, t.Until - now).ToString("0.#", CultureInfo.InvariantCulture) + "/" +
-                          t.Total.ToString("0.#", CultureInfo.InvariantCulture) + "/0/" + t.From + "/" +
+                          t.Total.ToString("0.#", CultureInfo.InvariantCulture) + "/" + (t.Rest ? 1 : 0) + "/" + t.From + "/" +
                           (t.State == St.InSection ? Math.Max(0, now - t.Arrived) : 0).ToString("0", CultureInfo.InvariantCulture) + "/" +
                           t.Health.ToString("0.###", CultureInfo.InvariantCulture) + "/" + t.Fatigue.ToString("0", CultureInfo.InvariantCulture));
             return string.Join("|", parts.ToArray());
@@ -854,7 +911,7 @@ namespace AlternativeDamageModel
                     if (state == St.InSection && sec < 0) state = St.Pool;
                     if (state == St.Pool) sec = -1;
                     list.Add(new Team { State = state, Section = sec, From = from, Until = now + Math.Max(0, left), Total = Math.Max(0, total),
-                                        Health = (float)Math.Max(0, Math.Min(1, hp)), Fatigue = Math.Max(0, fat), Arrived = now - Math.Max(0, stay) });
+                                        Health = (float)Math.Max(0, Math.Min(1, hp)), Fatigue = Math.Max(0, fat), Rest = kn == 1, Arrived = now - Math.Max(0, stay) });
                 }
                 if (list.Count == 0) return;
                 var s = Ships.GetOrCreateValue(comp);
