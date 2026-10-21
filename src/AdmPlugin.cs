@@ -389,10 +389,10 @@ namespace AlternativeDamageModel
             _woundChanceEntry = Pcfg.Bind("DamageControlTeams", "WoundChance", new Factor(1f),
                 "Multiplier of the chance that a hit wounds a team. Step 1 (only while Wounds at any hull integrity is off) - the game decides whether a hit takes a team out of its section at all " +
                 "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod rolls the wound: a random number " +
-                "0-100 x (0.5 + warhead power / the team's health) x this multiplier. Under 50 there is no wound (the team still leaves the section); " +
-                "from 50 to 100 the wound grows from 0 to the whole warhead power (x Wound strength). A stronger warhead raises the roll, a bigger ship " +
-                "(more team health) lowers it; even the weakest hit has a small chance. Example, warhead 25: against 24 health about 67%, against 57 about 47%, " +
-                "against 200 about 20%. 0 = never wounded.");
+                "0-100 x (0.5 + warhead power / the team's health) x this multiplier. Under 50 there is no wound (with Wounds at any hull integrity off the team still leaves the section); " +
+                "from 50 to 100 the wound grows from 0 to the whole warhead power (x Wound strength). A stronger warhead raises the roll. A bigger ship lowers it: " +
+                "its teams are tougher (more health), and its compartments are bigger, so a hit is less likely to land where the team is. " +
+                "Even the weakest hit has a small chance. Example, warhead 25: against 24 health about 67%, against 57 about 47%, against 200 about 20%. 0 = never wounded.");
             _fatigueOnEntry = Pcfg.Bind("DamageControlTeams", "FatigueEnabled", true,
                 "Team fatigue on: working builds it up, the reserve takes it away, a tired team works at half speed. Off = no fatigue; its settings are hidden.");
             _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(60f),

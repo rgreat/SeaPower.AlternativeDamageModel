@@ -812,3 +812,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (29): переименование
 * «Any integrity» -> «Wounds at any hull integrity» (ключ WoundsAnyIntegrity).
+
+## 2026-10-21 (30): хинт Wound chance
+* Уточнён: больший корабль = крепче команды и больше отсеки (меньше шанс попасть туда, где команда); формула без изменений (отдельного множителя размера отсека нет — он входит в «здоровье по водоизмещению»).
