@@ -901,12 +901,16 @@ namespace AlternativeDamageModel
             string group = null;
             bool ui = UiOn();
             bool dcTab = Tabs[_tab] == "DC Teams";
+            Panel rowHost = _body;
             if (dcTab && !SubShown(_sub)) _sub = 1;
             FitColumns(Tabs[_tab]);
             if (dcTab)
             {
                 _body.Children.Add(SwitchPanel());
                 _body.Children.Add(SubBar());
+                var page = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 0f, 0f, 6f) };
+                _body.Children.Add(new Border { Child = page, Background = B(CPanel), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 6f), MinHeight = 120f });
+                rowHost = page;
             }
             foreach (var f in Fields)
             {
@@ -922,12 +926,12 @@ namespace AlternativeDamageModel
                         // General: the settings profile (of the damage model, hidden while it is off) between the switch and Logging
                         if (Tabs[_tab] == TGen && group == "Damage model" && adm && _profRow != null)
                         {
-                            _body.Children.Add(GroupTitle("Settings profile"));
-                            _body.Children.Add(_profRow);
+                            rowHost.Children.Add(GroupTitle("Settings profile"));
+                            rowHost.Children.Add(_profRow);
                         }
-                        group = f.Group; _body.Children.Add(GroupTitle(group));
+                        group = f.Group; rowHost.Children.Add(GroupTitle(group));
                     }
-                    _body.Children.Add(Row(f));
+                    rowHost.Children.Add(Row(f));
                 }
                 // one bad row must not blank out every row after it - this is why: Trace shows which key and why
                 catch (Exception e) { Trace("Settings row '" + f.Key + "' failed: " + e); }
@@ -967,14 +971,15 @@ namespace AlternativeDamageModel
 
         static FrameworkElement SubBar()
         {
-            var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 8f, 12f, 2f) };
+            var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 8f, 12f, 0f) };
             for (int i = 0; i < Subs.Length; i++)
             {
                 if (!SubShown(i)) continue;
                 int idx = i;
-                var tb = new Border { Child = Text(Subs[i], i == _sub ? CText : CDim), Padding = new Thickness(10f, 3f, 10f, 3f), Margin = new Thickness(0f, 0f, 4f, 0f),
-                                      CornerRadius = new CornerRadius(3f), Background = B(i == _sub ? CPanel : Color.FromArgb(0, 0, 0, 0)), BorderBrush = B(CLine),
-                                      BorderThickness = new Thickness(1f) };
+                bool on = i == _sub;
+                var tb = new Border { Child = Text(Subs[i], on ? CText : CDim), Padding = new Thickness(14f, 5f, 14f, 5f), Margin = new Thickness(0f, 0f, 2f, 0f),
+                                      CornerRadius = new CornerRadius(3f, 3f, 0f, 0f), Background = B(on ? CPanel : CCard), BorderBrush = B(CLine),
+                                      BorderThickness = new Thickness(1f, 1f, 1f, 0f) };
                 try { tb.Cursor = Cursors.Hand; } catch { }
                 tb.MouseLeftButtonUp += (o, e) => { _sub = idx; ShowTab(_tab); e.Handled = true; };
                 bar.Children.Add(tb);
