@@ -373,15 +373,15 @@ namespace AlternativeDamageModel
 
         static readonly SolidColorBrush[] Levels = {
             null, new SolidColorBrush(Color.FromRgb(240, 208, 74)), new SolidColorBrush(Color.FromRgb(255, 140, 60)), new SolidColorBrush(Color.FromRgb(255, 140, 60)), new SolidColorBrush(Color.FromRgb(255, 72, 60)) };
-        // outlines: fire red, water blue, hull black, engine orange
+        // outlines: fire red, water blue, hull and engine (propeller) grey
         static readonly SolidColorBrush[] Outlines = {
             new SolidColorBrush(Color.FromRgb(200, 30, 30)), new SolidColorBrush(Color.FromRgb(30, 90, 220)),
-            new SolidColorBrush(Color.FromRgb(0, 0, 0)), new SolidColorBrush(Color.FromRgb(255, 130, 0)) };
+            new SolidColorBrush(Color.FromRgb(88, 88, 88)), new SolidColorBrush(Color.FromRgb(88, 88, 88)) };
         static readonly string[] Shapes = {
             "M4,0 C5,2 7,3 7,5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5 C1,3.5 2,3 2.5,1.5 C3,2.5 3.5,2 4,0 Z",   // fire
             "M4,0 C5,2 7,4 7,5.5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5.5 C1,4 3,2 4,0 Z",                      // water drop
             "M12,1.5 L20.5,4.5 V11 C20.5,16 17,20 12,22.5 C7,20 3.5,16 3.5,11 V4.5 Z",   // hull: a shield
-            "M12.00,10.00 C15.00,8.00 15.80,3.00 12.00,0.50 C8.20,3.00 9.00,8.00 12.00,10.00 Z M13.73,13.00 C13.96,16.60 17.89,19.79 21.96,17.75 C21.69,13.21 16.96,11.40 13.73,13.00 Z M10.27,13.00 C7.04,11.40 2.31,13.21 2.04,17.75 C6.11,19.79 10.04,16.60 10.27,13.00 Z M12,9.3 A2.7,2.7 0 1 1 11.99,9.3 Z" };   // engine: a propeller
+            "F1 M11.00,8.60 C6.80,7.00 6.00,2.00 9.80,0.40 C14.00,-0.80 18.20,2.40 17.00,6.00 C16.40,7.40 14.60,8.40 13.20,8.70 Z M15.44,12.83 C18.93,10.00 23.66,11.80 23.15,15.89 C22.09,20.13 17.21,22.17 14.70,19.33 C13.78,18.11 13.82,16.05 14.26,14.69 Z M9.56,14.57 C10.27,19.00 6.34,22.20 3.05,19.71 C-0.09,16.67 0.59,11.43 4.30,10.67 C5.82,10.49 7.58,11.55 8.54,12.61 Z M12,7.6 A4.4,4.4 0 1 1 11.99,7.6 Z M12,9.8 A2.2,2.2 0 1 0 11.99,9.8 Z" };   // engine: a propeller with a hollow hub
 
         static void SetNote(Canvas cv, Info info)
         {
