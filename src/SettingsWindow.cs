@@ -74,7 +74,7 @@ namespace AlternativeDamageModel
             const string H = "Hull", FF = "Fire", DC = "DC Teams", S = "Flooding", D = TUi, G = TGen;
             Add(D, "Damage Control tab", UiKey, "Detailed view", "applies at once", Kind.Bool, 0, 0, 0, true);
             Add(D, "Bottom panel", "UI/ColorWeaponStatus", "Weapon status colours", "yellow: part inoperable, red: all", Kind.Bool, 0, 0, 0, true);
-            Add(D, "Map", "UI/ShowEnemyDamage", "Ship damage icons", "fire, water, hull under the map icon", Kind.Bool, 0, 0, 0, true);
+            Add(D, "Map", "UI/ShowEnemyDamage", "Ship damage icons", "fire, water, hull, engine", Kind.Bool, 0, 0, 0, true);
             Add(D, ArrowsGroup, "UI/FloodingOneArrowAt", "Water: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FloodingTwoArrowsAt", "Water: two arrows from", "% a second", Kind.Number, 0.05f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FireOneArrowAt", "Fire: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);

@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
         public static Func<bool> IsEnabled = () => false;
 
-        public struct Info { public int Fire, Flood, Hull; public bool Doomed; public bool Any { get { return Fire + Flood + Hull > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull : "") : null; } } }
+        public struct Info { public int Fire, Flood, Hull, Engine; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine : "") : null; } } }
 
         // ------------------------------------------------------------ reflection
 
@@ -183,17 +183,21 @@ namespace AlternativeDamageModel
                     info.Flood = flood < 1f ? 0 : flood < 10f ? 1 : flood < 25f ? 2 : 3;
                     info.Hull = hull >= 90f ? 0 : hull >= 60f ? 1 : hull >= 30f ? 2 : 3;
                     if (sinking) { info.Flood = 3; }
+                    info.Engine = EngineLevel(prop);
                 }
                 else if (sonar && !radar)
                 {
                     info.Flood = flood < 3f ? 0 : flood < 12f ? 1 : flood < 25f ? 2 : 3;
+                    info.Engine = EngineLevel(prop);
                     doomed = sinking; info.Doomed = doomed;
                 }
-                else info.Doomed = false;
+                else { info.Doomed = false; info.Engine = EngineLevel(prop); }   // radar: only that the ship slowed down or stopped
                 return info.Any || info.Doomed ? info : none;
             }
             catch (Exception e) { Trace("ContactIntel.Of: " + e.Message); return none; }
         }
+
+        static int EngineLevel(float prop) { return prop >= 0.99f ? 0 : prop >= 0.7f ? 1 : prop > 0.01f ? 2 : 3; }
 
         /// <summary>The propulsion's share that still works, 1..0 (as the game counts the speed: Compartments.UpdateWantedVelocityInKnots).</summary>
         static float Propulsion(object comp)
@@ -322,7 +326,8 @@ namespace AlternativeDamageModel
         static readonly string[] Shapes = {
             "M4,0 C5,2 7,3 7,5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5 C1,3.5 2,3 2.5,1.5 C3,2.5 3.5,2 4,0 Z",   // fire
             "M4,0 C5,2 7,4 7,5.5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5.5 C1,4 3,2 4,0 Z",                      // water drop
-            "M0,2 L8,2 L6.5,7 L1.5,7 Z" };                                                              // hull
+            "M0,2 L8,2 L6.5,7 L1.5,7 Z",                                                                 // hull
+            "M1,2.5 H3 V1 H5 V2.5 H7 V7 H1 Z" };                                                        // engine
 
         static void SetNote(Canvas cv, Info info)
         {
@@ -340,16 +345,16 @@ namespace AlternativeDamageModel
             }
             if (tb == null)
             {
-                tb = new StackPanel { Name = "AdmIntel", Orientation = Orientation.Horizontal, Width = 30f, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center };
-                for (int k = 0; k < 3; k++)
+                tb = new StackPanel { Name = "AdmIntel", Orientation = Orientation.Horizontal, Width = 40f, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center };
+                for (int k = 0; k < 4; k++)
                     tb.Children.Add(new Noesis.Path { Data = Geometry.Parse(Shapes[k]), Width = 8f, Height = 8f, Margin = new Thickness(1f, 0f, 1f, 0f), Stretch = Stretch.Uniform });
-                Canvas.SetLeft(tb, -4f);   // the icon is 22.5 wide, centred over 30
+                Canvas.SetLeft(tb, -8.75f);   // the icon is 22.5 wide, centred over 40
                 Canvas.SetTop(tb, 24f);
                 cv.Children.Add(tb);
             }
             tb.Visibility = Visibility.Visible;
-            int[] lv = { info.Fire, info.Flood, info.Hull };
-            for (int k = 0; k < 3; k++)
+            int[] lv = { info.Fire, info.Flood, info.Hull, info.Engine };
+            for (int k = 0; k < 4; k++)
             {
                 var p = tb.Children[k] as Noesis.Path;
                 if (p == null) continue;
