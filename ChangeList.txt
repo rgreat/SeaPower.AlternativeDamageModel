@@ -11,6 +11,7 @@ Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.
 - The Fires line of the Damage Control tab now classes the fires by their total strength (the number of burning sections stays in brackets).
 - NEW (Damage Control tab): a "Forecast" card in the empty middle of the summary row: Stable / Sinks in ~N min (by flooding or hull damage) / Sinking, by the trend of the last minute.
 - The hit statistics (tooltip of Hull Damage / Flooding / Fires) and the sinking forecast trend are saved with the game and restored on load.
+- NEW (User Interface > Map): the Unit Status window of a ship that is not yours (it was empty) shows a Damage Control tab with a simplified panel: the four icons in words and a sinking forecast, by what the sensors tell (nothing without direct sight).
 - NEW: Flooding tab: list of ships that get no Deck Points (flooded by the old rules).
 - A surface ship without weapons is counted as civilian (hull value, number of teams).
 - NEW: AI ships under 50 m ignore the speed limit from flooding (kamikaze) [Advanced].

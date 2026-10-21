@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
         public static Func<bool> IsEnabled = () => false;
 
-        public struct Info { public int Fire, Flood, Hull, Engine; public bool Guess; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine + (Guess ? "?" : "") : "") : null; } } }
+        public struct Info { public int Fire, Flood, Hull, Engine; public bool Guess, Seen, Ident, Sinking, Dead; public int EtaMin; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine + (Guess ? "?" : "") : "") : null; } } }
 
         // ------------------------------------------------------------ reflection
 
@@ -108,7 +108,20 @@ namespace AlternativeDamageModel
             return _rpValue == null ? null : _rpValue.GetValue(rp, null);
         }
 
-        static bool Flag(object rp) { var v = Rp(rp); return v is bool && (bool)v; }
+        public static readonly SolidColorBrush RedBrush = new SolidColorBrush(Color.FromRgb(255, 72, 60)), OrangeBrush = new SolidColorBrush(Color.FromRgb(255, 140, 60)), TextBrush = new SolidColorBrush(Color.FromRgb(214, 218, 222));
+        public static object ObjectOf(object vehicle) { return _vObject == null ? null : _vObject.GetValue(vehicle); }
+        /// <summary>A contact that is a ship with compartments (not destroyed).</summary>
+        public static bool HasCompartments(object vehicle)
+        {
+            try
+            {
+                var obj = ObjectOf(vehicle);
+                if (obj == null || (_oDestroyed != null && (bool)_oDestroyed.GetValue(obj, null))) return false;
+                return _oCompartments.GetValue(obj, null) != null;
+            }
+            catch { return false; }
+        }
+        public static bool Flag(object rp) { var v = Rp(rp); return v is bool && (bool)v; }
 
         // ------------------------------------------------------------ what a contact shows
 
@@ -194,7 +207,9 @@ namespace AlternativeDamageModel
                     }
                 }
                 else info.Doomed = false;
-                return info.Any || info.Doomed ? info : none;
+                info.Seen = seen; info.Ident = ident; info.Sinking = sinking; info.Dead = dead;
+                info.EtaMin = !sinking && soon && minutes < 1e6 ? Math.Max(1, (int)Math.Ceiling(minutes)) : 0;
+                return info;
             }
             catch (Exception e) { Trace("ContactIntel.Of: " + e.Message); return none; }
         }
@@ -484,6 +499,23 @@ namespace AlternativeDamageModel
             "M12,1.5 L20.5,4.5 V11 C20.5,16 17,20 12,22.5 C7,20 3.5,16 3.5,11 V4.5 Z",   // hull: a shield
             "M14.89,7.71 L14.47,8.12 L15.00,8.52 L15.41,8.91 L16.06,9.83 L16.33,10.45 L16.49,10.99 L16.60,12.17 L19.67,11.79 L20.54,11.75 L21.37,11.80 L22.13,11.97 L22.60,12.16 L23.23,12.60 L23.59,13.00 L23.75,13.24 L23.93,13.96 L23.94,14.48 L23.82,15.29 L23.65,15.85 L23.27,16.69 L22.75,17.50 L22.33,18.01 L21.61,18.71 L21.07,19.13 L19.86,19.80 L19.20,20.03 L18.57,20.17 L18.03,20.21 L17.51,20.17 L17.04,20.05 L16.38,19.74 L15.99,19.47 L15.46,18.95 L15.02,18.34 L14.64,17.65 L14.35,16.91 L14.12,16.08 L13.01,16.49 L12.34,16.59 L11.77,16.59 L10.66,16.40 L10.14,16.21 L9.55,15.90 L8.08,19.27 L7.49,20.21 L6.77,20.95 L6.34,21.23 L5.86,21.42 L5.05,21.56 L4.34,21.35 L3.45,20.78 L2.84,20.16 L2.15,19.14 L1.74,18.26 L1.45,17.30 L1.29,16.29 L1.28,15.25 L1.45,14.22 L1.75,13.35 L2.17,12.69 L2.70,12.18 L3.32,11.82 L4.01,11.58 L4.75,11.46 L5.52,11.45 L6.57,11.58 L7.40,11.80 L7.60,10.66 L7.79,10.14 L8.11,9.54 L8.44,9.08 L8.91,8.59 L9.85,7.93 L7.82,5.22 L7.38,4.48 L7.05,3.74 L6.86,2.99 L6.86,2.23 L7.07,1.46 L7.36,1.02 L7.95,0.55 L8.94,0.12 L10.11,-0.09 L11.06,-0.09 L12.36,0.12 L13.33,0.44 L14.25,0.91 L15.09,1.51 L15.79,2.22 L16.22,2.91 L16.45,3.62 L16.51,4.33 L16.42,5.05 L16.10,5.99 L15.57,6.88 Z M14.20,12.07 L14.17,11.64 L14.06,11.23 L13.87,10.84 L13.61,10.50 L13.28,10.21 L12.91,10.00 L12.50,9.86 L12.07,9.80 L11.64,9.83 L11.23,9.94 L10.84,10.13 L10.50,10.39 L10.21,10.72 L10.00,11.09 L9.86,11.50 L9.80,11.93 L9.83,12.36 L9.94,12.77 L10.13,13.16 L10.39,13.50 L10.72,13.79 L11.09,14.00 L11.50,14.14 L11.93,14.20 L12.36,14.17 L12.77,14.06 L13.16,13.87 L13.50,13.61 L13.79,13.28 L14.00,12.91 L14.14,12.50 Z" };   // engine: a propeller, one outline with a hole (the union of the blades and the hub)
 
+        /// <summary>An icon of the set (0 fire, 1 water, 2 hull, 3 engine): outlined, of a given height, its width by its shape.</summary>
+        public static Noesis.Path NewIcon(int k, float height, float margin)
+        {
+            return new Noesis.Path
+            {
+                Data = Geometry.Parse(Shapes[k]), Height = height, Margin = k == 3 ? new Thickness(0.5f, 0f, 0.5f, 0f) : new Thickness(margin, 0f, margin, 0f), Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left, Stroke = Outlines[k], StrokeThickness = k == 3 ? 1f : 1.3f, StrokeLineJoin = PenLineJoin.Round
+            };
+        }
+
+        /// <summary>The fill of an icon by a level 1..4 (0: no fill).</summary>
+        public static void SetLevel(Noesis.Path p, int level)
+        {
+            var b = level > 0 && level < Levels.Length ? Levels[level] : null;
+            if (!ReferenceEquals(p.Fill, b)) p.Fill = b;
+        }
+
         static void SetNote(Canvas cv, Info info)
         {
             StackPanel tb = null;
@@ -502,12 +534,7 @@ namespace AlternativeDamageModel
             {
                 // a fixed-width grid centred under the icon (the icons inside are packed to its centre)
                 tb = new StackPanel { Name = "AdmIntel", Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, IsHitTestVisible = false };
-                for (int k = 0; k < 4; k++)
-                    tb.Children.Add(new Noesis.Path
-                    {
-                        Data = Geometry.Parse(Shapes[k]), Height = k == 3 ? 17f : 15f, Margin = k == 3 ? new Thickness(0.5f, 0f, 0.5f, 0f) : new Thickness(0.75f, 0f, 0.75f, 0f), Stretch = Stretch.Uniform,
-                        VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left, Stroke = Outlines[k], StrokeThickness = k == 3 ? 1f : 1.3f, StrokeLineJoin = PenLineJoin.Round
-                    });
+                for (int k = 0; k < 4; k++) tb.Children.Add(NewIcon(k, k == 3 ? 17f : 15f, 0.75f));
                 tb.Children.Add(new TextBlock { Text = "?", FontSize = 11f, FontWeight = FontWeight.Bold, Margin = new Thickness(0f, -2f, 0f, 0f), Foreground = Levels[1] });
                 var host = new Grid { Name = "AdmIntel", Width = 90f, IsHitTestVisible = false };
                 host.Children.Add(tb);

@@ -1114,6 +1114,18 @@ namespace AlternativeDamageModel
             lock (StatusViews) { StatusViews.RemoveAll(w => !w.IsAlive); StatusViews.Add(new WeakReference(view)); }
         }
 
+        /// <summary>The Unit Status windows made so far (the visible ones).</summary>
+        public static List<FrameworkElement> StatusViewElements()
+        {
+            var list = new List<FrameworkElement>();
+            lock (StatusViews) { foreach (var w in StatusViews) { var fe = w.Target as FrameworkElement; if (fe != null) list.Add(fe); } }
+            return list;
+        }
+
+        public static Brush ResBrush(FrameworkElement where, string key, Color fallback) { return Res(where, key, fallback); }
+        public static List<DependencyObject> TreeOf(DependencyObject root, int budget) { return Flatten(root, budget); }
+        public static DependencyObject ParentOf(DependencyObject e) { return Parent(e); }
+
         static void DecorateStatusViews(float now)
         {
             List<object> views = new List<object>();

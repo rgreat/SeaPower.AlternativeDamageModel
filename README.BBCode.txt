@@ -17,6 +17,7 @@ Water shown yellow / red while damage control can still get it out, grey when it
 Hull Damage and Flooding at the top right also show the overall % of the whole ship, e.g. Moderate (15%), nothing added at 0%; with Alternative Damage Control the hull damage words change at 25 / 50 / 75%.
 Weapon buttons of the selected unit's bottom panel are coloured by weapon state: part of that type inoperable - yellow, all of it - red (setting UI / ColorWeaponStatus).
 Four small icons under a ship's icon on the map (yours too; setting UI / ShowEnemyDamage): fire (total strength), flooding, hull (classes of the Damage Control panel), engine - yellow / orange / red - and a greyer map icon for a ship that will sink. A contact: all four in direct sight; by sonar the engine only; by radar a guess ('?') of a slow ship hit lately; nothing by ESM.
+Unit Status of a contact: instead of an empty window - a Damage Control tab with a simplified panel (icons in words, sinking forecast), as far as the sensors tell.
 Damage Control tab: a "Forecast" card in the middle of the summary row (Stable / Sinks in ~N min by flooding or hull damage / Sinking).
 LIST / TRIM / LEVEL gauges; their tooltip is a plan of the ship with the water in every compartment. A check box in that plan, "Show deck levels in 3D", shows the ship's deck points in the 3D view all the time.
 Point at "Hull Damage / Flooding / Fires": a list of every hit on the ship (time, ammunition, section and side); over 20 hits - the count by ammunition.

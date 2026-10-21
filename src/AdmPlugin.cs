@@ -457,7 +457,7 @@ namespace AlternativeDamageModel
                 "and engine; yellow / orange / red by severity, and a greyer map icon when the ship is going to sink (within 20 minutes by the flooding / hull trend). " +
                 "A contact: fire, water, hull and engine only in direct sight; by sonar - the engine only (yellow: part of it lost, red: none works); " +
                 "by radar - a guess for a ship hit in the last 10 minutes, marked '?' (yellow: 10 knots or less, red: under 3); nothing by ESM or without a contact, and nothing for a sunk ship. " +
-                "The Fires line of the Damage Control tab uses the same total strength.");
+                "The Fires line of the Damage Control tab uses the same total strength. The Unit Status of a contact shows a Damage Control tab with the same information in words.");
             _uiEntry = Cfg.Bind("UI", "DetailedView", true,
                 "The detailed view of Unit Status -> Damage Control (the mod's display): hull integrity per side next to each section's " +
                 "name, an icon per damage control team (its task; tasks and moves by hand when Auto DC is off), water and fire in % with " +
@@ -542,6 +542,7 @@ namespace AlternativeDamageModel
                 catch (Exception e) { Trace("WeaponStatusColors.Tick: " + e.Message); }
                 try { ContactIntel.Tick(UnityEngine.Time.unscaledTime, WeaponStatusColors.Root(), Enabled && _enemyDmg); }
                 catch (Exception e) { Trace("ContactIntel.Tick: " + e.Message); }
+                try { EnemyStatus.Tick(UnityEngine.Time.unscaledTime); } catch (Exception e) { Trace("EnemyStatus.Tick: " + e.Message); }
             }
             if (_uiReady)
             {
@@ -1322,6 +1323,8 @@ namespace AlternativeDamageModel
             WeaponStatusColors.Trace = Trace; WeaponStatusColors.Init(asm);
             ContactIntel.Trace = Trace; ContactIntel.IsEnabled = () => Enabled && _enemyDmg;
             if (ContactIntel.Init(harmony, asm)) ok++; else failed++;
+            EnemyStatus.Trace = Trace; EnemyStatus.IsEnabled = () => Enabled && _enemyDmg;
+            if (EnemyStatus.Init(harmony, asm)) ok++; else failed++;
             if (TrimFlooding.InitList(harmony, asm)) ok++; else failed++;
 
             // 7. damage control: ship-wide priority (Auto / Fire / Flooding) and tasks given by hand to single teams
