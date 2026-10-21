@@ -1072,7 +1072,7 @@ namespace AlternativeDamageModel
         static readonly ConditionalWeakTable<TextBlock, HeaderState> Headers = new ConditionalWeakTable<TextBlock, HeaderState>();
         static readonly List<WeakReference> Decorated = new List<WeakReference>();     // TextBlocks with our icons (to restore)
         static readonly List<WeakReference> StatusViews = new List<WeakReference>();   // SeapowerUI.UnitStatusView
-        sealed class StatusState { public TextBlock Header; public float NextScan; }
+        sealed class StatusState { public TextBlock Header; public float NextScan; public int ScanMisses; }
         static readonly ConditionalWeakTable<object, StatusState> StatusStates = new ConditionalWeakTable<object, StatusState>();
 
         // the "Damage Control" tab view models (UnitStatusTabViewModel, Kind = DamageControl), caught when the game makes them;
@@ -1137,7 +1137,8 @@ namespace AlternativeDamageModel
                 var ss = StatusStates.GetOrCreateValue(v);
                 if (ss.Header != null && Parent(ss.Header) != null) { DecorateHeader(ss.Header, fe); continue; }
                 if (now < ss.NextScan && !_scanNow) continue;
-                ss.NextScan = now + 0.5f;
+                ss.NextScan = now + (ss.ScanMisses < 3 ? 0.5f : 3f);   // a view whose tab buttons are not there: not a walk twice a second for ever
+                ss.ScanMisses++;
                 foreach (var e in Flatten(fe, 8000))
                 {
                     var rb = e as RadioButton;
@@ -1147,7 +1148,7 @@ namespace AlternativeDamageModel
                     foreach (var x in Flatten(rb, 50)) { var t = x as TextBlock; if (t != null) { ss.Header = t; break; } }
                     break;
                 }
-                if (ss.Header != null) DecorateHeader(ss.Header, fe);
+                if (ss.Header != null) { ss.ScanMisses = 0; DecorateHeader(ss.Header, fe); }
             }
             _scanNow = false;
         }

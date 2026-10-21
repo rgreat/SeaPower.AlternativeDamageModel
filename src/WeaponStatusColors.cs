@@ -58,7 +58,18 @@ namespace AlternativeDamageModel
         /// <summary>The game's main view (the root of the tree the map lives in); null while it is not there.</summary>
         public static FrameworkElement Root() { return _ok ? _mainInstance.GetValue(null) as FrameworkElement : null; }
 
-        /// <summary>Called every frame; works once a second.</summary>
+        public static bool Ready { get { return _ok; } }
+
+        /// <summary>A text block bound to a weapon entry (UiScan collects these in its walk).</summary>
+        public static bool Candidate(TextBlock tb)
+        {
+            if (!_ok) return false;
+            object dc = null;
+            try { dc = tb.DataContext; } catch { }
+            return dc != null && _entryType.IsInstanceOfType(dc);
+        }
+
+        /// <summary>Called every frame; works once a second on the text blocks UiScan found (it walks the tree itself, every 2 s).</summary>
         public static void Tick(float now, bool on)
         {
             if (!_ok) return;
@@ -69,7 +80,7 @@ namespace AlternativeDamageModel
             }
             if (now < _next) return;
             _next = now + 1f;
-            try { Scan(); } catch (Exception e) { Trace("WeaponStatusColors.Scan: " + e.Message); }
+            try { Apply(); } catch (Exception e) { Trace("WeaponStatusColors.Apply: " + e.Message); }
         }
 
         static void ClearAll()
@@ -100,50 +111,29 @@ namespace AlternativeDamageModel
             return n == 0 || bad == 0 ? 0 : bad < n ? 1 : 2;
         }
 
-        static void Scan()
+        static void Apply()
         {
-            var root = _mainInstance.GetValue(null) as FrameworkElement;
-            if (root == null) { if (Colored.Count > 0) Colored.Clear(); return; }
-
+            var texts = UiScan.Texts;
             var seen = new HashSet<TextBlock>();
-            var stack = new Stack<DependencyObject>();
-            stack.Push(root);
-            int budget = 40000;
-            while (stack.Count > 0 && budget-- > 0)
+            for (int i = 0; i < texts.Count; i++)
             {
-                var e = stack.Pop();
-                var tb = e as TextBlock;
-                if (tb != null)
+                var tb = texts[i];
+                object dc = null;
+                try { dc = tb.DataContext; } catch { }
+                if (dc == null || !_entryType.IsInstanceOfType(dc)) continue;
+                string text = tb.Text;
+                if (string.IsNullOrEmpty(text) || !(text == (string)_pLabel.GetValue(dc, null) || text == (string)_pAmmoText.GetValue(dc, null))) continue;
+                seen.Add(tb);
+                int st = State(dc);
+                Brush want = st == 2 ? Red : st == 1 ? Yellow : null;
+                if (want == null)
                 {
-                    object dc = null;
-                    try { dc = tb.DataContext; } catch { }
-                    if (dc != null && _entryType.IsInstanceOfType(dc))
-                    {
-                        string text = tb.Text;
-                        if (!string.IsNullOrEmpty(text) && (text == (string)_pLabel.GetValue(dc, null) || text == (string)_pAmmoText.GetValue(dc, null)))
-                        {
-                            seen.Add(tb);
-                            int st = State(dc);
-                            Brush want = st == 2 ? Red : st == 1 ? Yellow : null;
-                            if (want == null)
-                            {
-                                if (Tracked(tb)) { tb.ClearValue(TextBlock.ForegroundProperty); Untrack(tb); }
-                            }
-                            else
-                            {
-                                if (!ReferenceEquals(tb.Foreground, want)) tb.Foreground = want;
-                                if (!Tracked(tb)) Colored.Add(new WeakReference(tb));
-                            }
-                        }
-                    }
+                    if (Tracked(tb)) { tb.ClearValue(TextBlock.ForegroundProperty); Untrack(tb); }
                 }
-                int n;
-                try { n = VisualTreeHelper.GetChildrenCount(e); } catch { n = 0; }
-                for (int k = 0; k < n; k++)
+                else
                 {
-                    DependencyObject c = null;
-                    try { c = VisualTreeHelper.GetChild(e, k); } catch { }
-                    if (c != null) stack.Push(c);
+                    if (!ReferenceEquals(tb.Foreground, want)) tb.Foreground = want;
+                    if (!Tracked(tb)) Colored.Add(new WeakReference(tb));
                 }
             }
             // coloured blocks that are gone (another unit selected) are forgotten

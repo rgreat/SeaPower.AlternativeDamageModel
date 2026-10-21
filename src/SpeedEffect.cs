@@ -97,31 +97,54 @@ namespace AlternativeDamageModel
         static FieldInfo _fBase; static MethodInfo _mSpeed; static bool _init;
         const BindingFlags All = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
+        // Called for every flooding / fire compartment of every ship in every physics tick (the transpilers): the owner of a
+        // compartment is found once, the speed is read once per frame and ship (a reflection call each time was most of the mod's cost)
+        sealed class Owner { public object Comp; }
+        sealed class Kn { public int Frame = -1; public float Value; }
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Owner> OwnerOf = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Owner>();
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Kn> Speeds = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Kn>();
+
         /// <summary>The ship's speed in knots (absolute value) for a Compartments, FloodingCompartment or SystemCompartment; 0 when unknown.</summary>
         public static float KnotsOf(object any)
         {
             try
             {
                 if (any == null) return 0f;
-                object comp = any;
-                var t = any.GetType();
-                if (t.Name != "Compartments")
+                Owner ow;
+                if (!OwnerOf.TryGetValue(any, out ow))
                 {
+                    object comp = any;
+                    var t = any.GetType();
                     FieldInfo fo;
-                    if (!Owners.TryGetValue(t, out fo)) { fo = t.GetField("_compartments", All); Owners[t] = fo; }
-                    if (fo == null) return 0f;
-                    comp = fo.GetValue(any);
-                    if (comp == null) return 0f;
+                    if (!Owners.TryGetValue(t, out fo)) { fo = t.Name == "Compartments" ? null : t.GetField("_compartments", All); Owners[t] = fo; }
+                    if (fo != null)
+                    {
+                        comp = fo.GetValue(any);
+                        if (comp == null) return 0f;   // not set yet: not remembered
+                    }
+                    else if (t.Name != "Compartments") return 0f;
+                    ow = new Owner { Comp = comp };
+                    OwnerOf.Add(any, ow);
                 }
+                var ship = ow.Comp;
+                Kn k;
+                if (!Speeds.TryGetValue(ship, out k)) { k = new Kn(); Speeds.Add(ship, k); }
+                int frame = UnityEngine.Time.frameCount;
+                if (k.Frame == frame) return k.Value;
                 if (!_init)
                 {
                     _init = true;
-                    _fBase = comp.GetType().GetField("_baseObject", All);
+                    _fBase = ship.GetType().GetField("_baseObject", All);
                     _mSpeed = _fBase == null ? null : _fBase.FieldType.GetMethod("getVelocityInKnots", All);
                 }
-                if (_fBase == null || _mSpeed == null) return 0f;
-                var bo = _fBase.GetValue(comp);
-                return bo == null ? 0f : Math.Abs(Convert.ToSingle(_mSpeed.Invoke(bo, null)));
+                float v = 0f;
+                if (_fBase != null && _mSpeed != null)
+                {
+                    var bo = _fBase.GetValue(ship);
+                    v = bo == null ? 0f : Math.Abs(Convert.ToSingle(_mSpeed.Invoke(bo, null)));
+                }
+                k.Frame = frame; k.Value = v;
+                return v;
             }
             catch (Exception e) { Trace("SpeedEffect.KnotsOf: " + e.Message); return 0f; }
         }

@@ -26,7 +26,8 @@ namespace AlternativeDamageModel
         public static bool SystemsOut;           // [FireAndFlooding] FullFloodSystems
         public static float FireDecay;           // [FireAndFlooding] FullFloodFireDecay: % of the maximum fire a second; 0 = off
 
-        sealed class State { public float[] MaxLeak = new float[10]; public bool[] Full = new bool[5]; }
+        sealed class State { public float[] MaxLeak = new float[10]; public bool[] Full = new bool[5]; public float Acc; }
+        const float Step = 0.1f;   // game seconds between the runs: the rates are applied for the whole time gathered, a few dozen reflection calls per ship are not paid in every physics tick
         static readonly ConditionalWeakTable<object, State> States = new ConditionalWeakTable<object, State>();
 
         static bool _init, _ok;
@@ -81,6 +82,9 @@ namespace AlternativeDamageModel
                 float dt = F(_pFixedDt.GetValue(null, null));
                 if (dt <= 0f) return;
                 var st = States.GetOrCreateValue(comp);
+                st.Acc += dt;
+                if (st.Acc < Step) return;
+                dt = st.Acc; st.Acc = 0f;
                 int n = Math.Min(5, Convert.ToInt32(_fCount.GetValue(comp)));
                 var port = _fPort.GetValue(comp) as Array; var star = _fStar.GetValue(comp) as Array; var sys = _fSys.GetValue(comp) as Array;
                 if (port == null || star == null || sys == null) return;

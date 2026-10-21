@@ -41,6 +41,9 @@ namespace AlternativeDamageModel
             public float[] Got;        // %/s received as overflow from others
             public int[] GotFrom;      // compartment it comes from (the last one), -1 none
             public int[] PassedTo;     // where this full compartment's water goes now, -1 none
+            public object[] Fcs;                 // the flooding compartments by k (port, then starboard): found when the game's arrays change, not every tick
+            public Array PortArr, StarArr;
+            public float[] WorldY;               // scratch of the tick
             public bool Deep;                    // a destroyed ship with all its deck points under water: no more wave sampling
             public float Zc;                     // mean z of the compartments (the pitch axis)
             public float[] M;                    // last Margins: list to port, to starboard, trim to the stern, to the bow (degrees at which the first point touches)
@@ -311,12 +314,21 @@ namespace AlternativeDamageModel
                 float dt = _gameDt();
                 if (dt <= 0f) return;
                 int n = s.Count, total = 2 * n;
+                var portArr = _fPort.GetValue(comp) as Array; var starArr = _fStar.GetValue(comp) as Array;
+                if (s.Fcs == null || !ReferenceEquals(portArr, s.PortArr) || !ReferenceEquals(starArr, s.StarArr))
+                {
+                    if (portArr == null || starArr == null) return;
+                    s.Fcs = new object[total];
+                    for (int k = 0; k < total; k++) s.Fcs[k] = (k < n ? portArr : starArr).GetValue(k % n);
+                    s.PortArr = portArr; s.StarArr = starArr;
+                }
+                if (s.WorldY == null || s.WorldY.Length != total) s.WorldY = new float[total];
                 Matrix4x4 ltw = s.P.ShipT.localToWorldMatrix;
                 bool destroyed = IsDestroyed(comp);
-                var worldY = new float[total];
+                var worldY = s.WorldY;
                 for (int k = 0; k < total; k++)
                 {
-                    var fc = Fc(comp, n, k);
+                    var fc = s.Fcs[k];
                     worldY[k] = ltw.MultiplyPoint3x4(s.P.Points[s.Map[k]]).y;
                     float water = (float)_fWater.GetValue(fc);
                     if (destroyed && !s.Deep)
@@ -350,7 +362,7 @@ namespace AlternativeDamageModel
                     int at = k;
                     for (int guard = 0; guard < total && amount > 1e-6f; guard++)
                     {
-                        var fc = Fc(comp, n, at);
+                        var fc = s.Fcs[at];
                         float cur = (float)_fCur.GetValue(fc), max = (float)_fMax.GetValue(fc);
                         float space = Math.Max(0f, max - cur);
                         float add = Math.Min(amount, space);
@@ -422,25 +434,31 @@ namespace AlternativeDamageModel
         /// deck point); when all of them are full too, theirs, and so on along the chain - the nearest not-full compartment, the lowest of those
         /// equally near. -1 if there is none. (Each full compartment looks from itself, so both full compartments of a section feed their own
         /// neighbours, not one common one.)</summary>
+        static readonly HashSet<int> _nSeen = new HashSet<int>();
+        static readonly List<int> _nA = new List<int>(), _nB = new List<int>();   // scratch of Next (main thread; no collections made per call)
+
         static int Next(object comp, State s, float[] worldY, int from)
         {
             int n = s.Count;
-            var seen = new HashSet<int> { from };
-            var frontier = new List<int> { from };
+            var seen = _nSeen; seen.Clear(); seen.Add(from);
+            var frontier = _nA; frontier.Clear(); frontier.Add(from);
+            var cand = _nB;
             while (frontier.Count > 0)
             {
-                var cand = new List<int>();
+                cand.Clear();
                 foreach (int k in frontier)
                 {
                     int side = k / n, l = k % n;
-                    int[] nb = { l > 0 ? side * n + l - 1 : -1, l < n - 1 ? side * n + l + 1 : -1, (1 - side) * n + l };
-                    foreach (int j in nb) if (j >= 0 && seen.Add(j)) cand.Add(j);
+                    int a = l > 0 ? side * n + l - 1 : -1, b = l < n - 1 ? side * n + l + 1 : -1, c = (1 - side) * n + l;
+                    if (a >= 0 && seen.Add(a)) cand.Add(a);
+                    if (b >= 0 && seen.Add(b)) cand.Add(b);
+                    if (c >= 0 && seen.Add(c)) cand.Add(c);
                 }
                 int best = -1; float bestY = float.MaxValue;
                 foreach (int j in cand)
-                    if (!Full(Fc(comp, n, j)) && worldY[j] < bestY) { bestY = worldY[j]; best = j; }
+                    if (!Full(s.Fcs[j]) && worldY[j] < bestY) { bestY = worldY[j]; best = j; }
                 if (best >= 0) return best;
-                frontier = cand;
+                var tmp = frontier; frontier = cand; cand = tmp;
             }
             return -1;
         }

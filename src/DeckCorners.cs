@@ -877,12 +877,15 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>Small level numbers (metres of the deck point above the sea: +, below: -) next to the points, facing the camera.</summary>
+        static readonly List<Vector3> _lblV = new List<Vector3>(); static readonly List<Color> _lblC = new List<Color>(); static readonly List<int> _lblI = new List<int>();
+        static Vector3[] _lblAt; static float[] _lblM;
+
         static void UpdateLabels(Vector3[] at, float[] meters)
         {
             if (_labelMesh == null) return;
             var cam = Camera.main;
             if (cam == null || at == null || meters == null) { _labelMesh.Clear(); return; }
-            var v = new List<Vector3>(); var col = new List<Color>(); var idx = new List<int>();
+            var v = _lblV; var col = _lblC; var idx = _lblI; v.Clear(); col.Clear(); idx.Clear();   // reused: every frame while the lines are shown
             Vector3 right = cam.transform.right, up = cam.transform.up, camPos = cam.transform.position;
             for (int i = 0; i < at.Length; i++)
             {
@@ -898,7 +901,7 @@ namespace AlternativeDamageModel
             }
             _labelMesh.Clear();
             if (v.Count == 0) return;
-            _labelMesh.SetVertices(v); _labelMesh.SetColors(col); _labelMesh.SetIndices(idx.ToArray(), MeshTopology.Lines, 0);
+            _labelMesh.SetVertices(v); _labelMesh.SetColors(col); _labelMesh.SetIndices(idx, MeshTopology.Lines, 0);
         }
 
         static void SetActive(bool on)
@@ -1044,7 +1047,8 @@ namespace AlternativeDamageModel
             if (showLines)
             {
                 Matrix4x4 ltw = _shipTransform.localToWorldMatrix;
-                var labelAt = new Vector3[_points.Length]; var labelM = new float[_points.Length];
+                if (_lblAt == null || _lblAt.Length != _points.Length) { _lblAt = new Vector3[_points.Length]; _lblM = new float[_points.Length]; }
+                var labelAt = _lblAt; var labelM = _lblM;
                 for (int i = 0; i < _points.Length; i++)
                 {
                     Vector3 deck = ltw.MultiplyPoint3x4(_points[i]);

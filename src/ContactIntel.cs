@@ -469,8 +469,9 @@ namespace AlternativeDamageModel
         static readonly ConditionalWeakTable<object, VmState> States = new ConditionalWeakTable<object, VmState>();
         static readonly ConditionalWeakTable<SolidColorBrush, SolidColorBrush> Greys = new ConditionalWeakTable<SolidColorBrush, SolidColorBrush>();
         static PropertyInfo _mBrush, _mLine4;
-        static int _scans, _found;
         static float _nextScan;
+
+        static readonly ConditionalWeakTable<SolidColorBrush, SolidColorBrush> GreyMade = new ConditionalWeakTable<SolidColorBrush, SolidColorBrush>();   // the grey brushes themselves
 
         static SolidColorBrush Grey(SolidColorBrush b)
         {
@@ -481,6 +482,7 @@ namespace AlternativeDamageModel
             Func<float, float> mix = v => v * (1f - k) + gray * k;
             g = new SolidColorBrush(Color.FromArgb(c.A, (byte)Math.Round(mix(c.R / 255f) * 255f), (byte)Math.Round(mix(c.G / 255f) * 255f), (byte)Math.Round(mix(c.B / 255f) * 255f)));
             Greys.Add(b, g);
+            GreyMade.Add(g, g);
             return g;
         }
 
@@ -507,14 +509,15 @@ namespace AlternativeDamageModel
                 if (st.Info.Doomed && _mBrush != null)
                 {
                     var b = _mBrush.GetValue(__instance, null) as SolidColorBrush;
-                    if (b != null)
+                    SolidColorBrush already;
+                    if (b != null && !GreyMade.TryGetValue(b, out already))   // not again and again: a set raises a property change
                     {
                         var g = Grey(b);
                         _mBrush.GetSetMethod(true).Invoke(__instance, new object[] { g });
                     }
                 }
                 // no map canvas found to hang the note under the icon on: it goes to the game's own info lines
-                if (st.Info.Any && _scans >= 4 && _found == 0 && _mLine4 != null)
+                if (st.Info.Any && UiScan.IconWalks >= 4 && !UiScan.FoundIcons && _mLine4 != null)
                 {
                     var cur = _mLine4.GetValue(__instance, null) as string;
                     _mLine4.GetSetMethod(true).Invoke(__instance, new object[] { string.IsNullOrEmpty(cur) ? st.Info.Text : cur + " " + st.Info.Text });
@@ -524,46 +527,32 @@ namespace AlternativeDamageModel
         }
 
 
-        /// <summary>Called every frame; works once a second: puts the notes under the map icons (a TextBlock "AdmIntel" in each icon canvas).</summary>
-        public static void Tick(float now, FrameworkElement root, bool on)
+        public static bool Ready { get { return _ok; } }
+        public static bool NotesMade;   // a note was made: while there are notes, UiScan keeps finding the icons (to hide them when the feature is off)
+
+        /// <summary>Called every frame; works once a second: puts the notes under the map icons (a Grid "AdmIntel" in each icon canvas) - on the canvases UiScan found.</summary>
+        public static void Tick(float now, bool on)
         {
             if (!_ok) return;
             if (now < _nextScan) return;
             _nextScan = now + 1f;
-            if (root == null) return;
-            try { Scan(root, on); } catch (Exception e) { Trace("ContactIntel.Scan: " + e.Message); }
+            try { Apply(on); } catch (Exception e) { Trace("ContactIntel.Apply: " + e.Message); }
         }
 
-        static void Scan(FrameworkElement root, bool on)
+        static void Apply(bool on)
         {
-            var stack = new Stack<DependencyObject>();
-            stack.Push(root);
-            int budget = 60000, found = 0;
-            while (stack.Count > 0 && budget-- > 0)
+            var icons = UiScan.Icons;
+            for (int i = 0; i < icons.Count; i++)
             {
-                var e = stack.Pop();
-                var cv = e as Canvas;
-                if (cv != null && cv.Name == "UnitIcon")
-                {
-                    found++;
-                    object dc = null;
-                    try { dc = cv.DataContext; } catch { }
-                    VmState st;
-                    Info info = new Info();
-                    if (on && dc != null && States.TryGetValue(dc, out st)) info = st.Info;
-                    SetNote(cv, info);
-                }
-                int n;
-                try { n = VisualTreeHelper.GetChildrenCount(e); } catch { n = 0; }
-                for (int k = 0; k < n; k++)
-                {
-                    DependencyObject c = null;
-                    try { c = VisualTreeHelper.GetChild(e, k); } catch { }
-                    if (c != null) stack.Push(c);
-                }
+                var cv = icons[i];
+                object dc = null;
+                try { dc = cv.DataContext; } catch { }
+                VmState st;
+                Info info = new Info();
+                if (on && dc != null && States.TryGetValue(dc, out st)) info = st.Info;
+                SetNote(cv, info);
             }
-            _scans++;
-            if (found > 0) _found = found;
+            if (!on) NotesMade = false;   // all hidden now; a note made later sets it again
         }
 
         static readonly SolidColorBrush[] Levels = {
@@ -620,6 +609,7 @@ namespace AlternativeDamageModel
                 Canvas.SetLeft(host, 11.25f - 45f);   // the icon is 22.5 wide: its centre is 11.25
                 Canvas.SetTop(host, 25f);
                 cv.Children.Add(host);
+                NotesMade = true;
                 tb = null;
                 for (int k = 0; k < cv.Children.Count; k++) { var g = cv.Children[k] as Grid; if (g != null && g.Name == "AdmIntel") { tb = g.Children[0] as StackPanel; break; } }
                 if (tb == null) return;

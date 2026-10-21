@@ -542,9 +542,13 @@ namespace AlternativeDamageModel
             }
             if (_patchTried)
             {
-                try { WeaponStatusColors.Tick(UnityEngine.Time.unscaledTime, Enabled && _weaponColor); }
+                float uNow = UnityEngine.Time.unscaledTime;
+                bool wantTexts = Enabled && _weaponColor, wantIcons = Enabled && _enemyDmg;
+                try { UiScan.Tick(uNow, WeaponStatusColors.Root(), ContactIntel.Ready && (wantIcons || ContactIntel.NotesMade), WeaponStatusColors.Ready && wantTexts); }
+                catch (Exception e) { Trace("UiScan.Tick: " + e.Message); }
+                try { WeaponStatusColors.Tick(uNow, wantTexts); }
                 catch (Exception e) { Trace("WeaponStatusColors.Tick: " + e.Message); }
-                try { ContactIntel.Tick(UnityEngine.Time.unscaledTime, WeaponStatusColors.Root(), Enabled && _enemyDmg); }
+                try { ContactIntel.Tick(uNow, wantIcons); }
                 catch (Exception e) { Trace("ContactIntel.Tick: " + e.Message); }
                 try { EnemyStatus.Tick(UnityEngine.Time.unscaledTime); } catch (Exception e) { Trace("EnemyStatus.Tick: " + e.Message); }
             }
@@ -1327,7 +1331,7 @@ namespace AlternativeDamageModel
             TimeCompressionFix.IsEnabled = () => Enabled && _fixTrimTc;
             TimeCompressionFix.Trace = Trace; TimeCompressionFix.Warn = Warn;
             if (TimeCompressionFix.Init(harmony, asm)) ok++; else failed++;
-            WeaponStatusColors.Trace = Trace; WeaponStatusColors.Init(asm);
+            WeaponStatusColors.Trace = Trace; UiScan.Trace = Trace; WeaponStatusColors.Init(asm);
             ContactIntel.Trace = Trace; ContactIntel.IsEnabled = () => Enabled && _enemyDmg;
             if (ContactIntel.Init(harmony, asm)) ok++; else failed++;
             EnemyStatus.Trace = Trace; EnemyStatus.IsEnabled = () => Enabled && _enemyDmg;
