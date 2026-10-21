@@ -52,7 +52,7 @@ namespace AlternativeDamageModel
         // game members
         static bool _ok;
         static PropertyInfo _teams, _autoDc;
-        static FieldInfo _sinking, _port, _star, _sys, _floodRate, _growRate, _count;
+        static FieldInfo _sinking, _port, _star, _sys, _floodRate, _growRate, _count, _maxSev;
         static PropertyInfo _floodDelta, _severity;
         static FieldInfo _curFlood, _maxFlood, _baseObj, _crewF, _repairF;
         static MethodInfo _getTransform;
@@ -79,6 +79,7 @@ namespace AlternativeDamageModel
                 _floodDelta = tFc.GetProperty("FloodingDelta", all);
                 _severity = tSc.GetProperty("FireSeverity", all);
                 _growRate = tSc.GetField("_fireGrowRate", all);
+                _maxSev = tSc.GetField("_maxFireSeverity", all);
                 _returnTeam = tComp.GetMethod("ReturnDCTeamToPool", all);
                 _sendTeam = tComp.GetMethod("SendDCTeamToCompartment", all);
                 _leakOrig = Caller(tComp.GetMethod("RepairFloodingRate", all));
@@ -434,9 +435,10 @@ namespace AlternativeDamageModel
                 {
                     int t = ui && k < objs.Count ? objs[k].Task : TaskNone;
                     if (t == TaskNone || _done[k]) continue;
-                    int size = 0;
-                    for (int m = k; m < n; m++) if (m < objs.Count && objs[m].Task == t && !_done[m]) { _done[m] = true; size++; }
+                    int size = 0; float eff = 0f;
+                    for (int m = k; m < n; m++) if (m < objs.Count && objs[m].Task == t && !_done[m]) { _done[m] = true; size++; eff += DcTeams.TeamEff(objs[m]); }
                     teams[i] = size;
+                    _grpEff = size > 0 ? eff / size : 1f;
                     bool worked = Repairs[t] != null && Work(t, comp, i, null);
                     for (int m = k; m < n; m++)
                         if (m < objs.Count && objs[m].Task == t)
@@ -452,6 +454,7 @@ namespace AlternativeDamageModel
                 if (nRest > 0)
                 {
                     teams[i] = nRest;
+                    _grpEff = GroupEff(_rest, 0, nRest);
                     int did = TaskIdle;
                     _safeLeak = true;
                     try
@@ -467,6 +470,7 @@ namespace AlternativeDamageModel
                 if (nFree > 0)
                 {
                     teams[i] = nFree;
+                    _grpEff = GroupEff(_free, 0, nFree);
                     int did = TaskIdle;
                     foreach (var t in Orders[mode])
                         if (Work(t, comp, i, null)) { did = t; break; }
@@ -474,7 +478,7 @@ namespace AlternativeDamageModel
                     returnTeam = did == TaskIdle && nFree == n && autoDc && !StayWhenIdle(comp);   // as the game: nothing to do -> back to the pool
                 }
             }
-            finally { teams[i] = n; }   // our temporary counts never stay
+            finally { teams[i] = n; _grpEff = 1f; }   // our temporary counts never stay
             for (int k = 0; k < n && k < objs.Count; k++) objs[k].Doing = _did[k];
             if (returnTeam) _returnTeam.Invoke(comp, new object[] { i });
             return false;
@@ -483,13 +487,34 @@ namespace AlternativeDamageModel
         /// One task's repair call for a section. Teams that do not fight the fire in a section where one burns work at FireWorkEff of their effectiveness
         /// (DcTeams.WorkMul, read by the multiplier that DCTeamEffectiveness uses).
         /// </summary>
+        static float _grpEff = 1f;   // the mean efficiency (wounds, fatigue) of the teams in the group that works now
+        static float GroupEff(int[] idx, int from, int count)
+        {
+            float sum = 0f; int n = 0;
+            for (int k = from; k < from + count; k++) { int m = idx[k]; if (m >= 0 && m < _objs.Count) { sum += DcTeams.TeamEff(_objs[m]); n++; } }
+            return n > 0 ? sum / n : 1f;
+        }
+
         static bool Work(int task, object comp, int i, Func<object, int, bool> call)
         {
             float mul = 1f;
             if (task != TaskFire && DcTeams.FireWorkEff < 1f && FireIn(comp, i)) mul = DcTeams.FireWorkEff;
-            DcTeams.WorkMul = mul;
+            DcTeams.WorkMul = mul * _grpEff;
             try { return call != null ? call(comp, i) : Repairs[task](comp, i); }
             finally { DcTeams.WorkMul = 1f; }
+        }
+
+        /// <summary>The fire in section i as a part of its maximum (0..1): wounds the teams there that do not fight it.</summary>
+        public static float FireLevel(object comp, int i)
+        {
+            try
+            {
+                if (_maxSev == null) return 0f;
+                var sc = (_sys.GetValue(comp) as Array).GetValue(i);
+                float max = Convert.ToSingle(_maxSev.GetValue(sc)), sev = (float)_severity.GetValue(sc, null);
+                return max > 0f ? Math.Max(0f, Math.Min(1f, sev / max)) : 0f;
+            }
+            catch { return 0f; }
         }
 
         static bool FireIn(object comp, int i)

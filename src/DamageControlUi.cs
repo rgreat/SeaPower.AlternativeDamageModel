@@ -1690,8 +1690,8 @@ namespace AlternativeDamageModel
             var coming = moving.FindAll(v => v.Section == i);
             var sb = new StringBuilder();
             sb.Append(n).Append(manual ? 'm' : 'a');
-            for (int k = 0; k < n; k++) sb.Append(':').Append(actual[k]).Append('/').Append(forced[k]);
-            foreach (var v in coming) sb.Append('>').Append(v.Ref.GetHashCode());
+            for (int k = 0; k < n; k++) { sb.Append(':').Append(actual[k]).Append('/').Append(forced[k]); var tk = refs[k] as DcTeams.Team; if (tk != null) sb.Append('h').Append((int)(tk.Health * 10f)).Append(DcTeams.Tired(tk) ? 'T' : 't'); }
+            foreach (var v in coming) sb.Append('>').Append(v.Ref.GetHashCode()).Append((int)(v.Health * 10f)).Append(DcTeams.Tired(v.Fatigue) ? 'T' : 't');
             string sig = sb.ToString();
             if (c.TeamsSig != null && MenusOpen()) return;   // an open menu would close with its icon
             if (!NeedsRender(tb, sig, c.TeamsSig, c.TeamsShown)) return;
@@ -1702,7 +1702,7 @@ namespace AlternativeDamageModel
             for (int k = 0; k < n && k < 8; k++, shown++)
             {
                 int did = actual[k] == TaskNone ? TaskIdle : actual[k];
-                var frame = Frame(Icon(did), shown, forced[k] != TaskNone);
+                var frame = Frame(Icon(did, refs[k]), shown, forced[k] != TaskNone);
                 int kk = k;
                 if (manual)
                 {
@@ -1714,7 +1714,7 @@ namespace AlternativeDamageModel
             }
             foreach (var v in coming)
             {
-                var frame = Frame(Icon(IconTransit), shown++, false);
+                var frame = Frame(Icon(IconTransit, v.Ref), shown++, false);
                 var r = v.Ref;
                 Clickable(frame, manual ? (Func<ContextMenu>)(() => CancelMenu(comp, r)) : null, r);
                 LiveTip(frame, () => RefTip(comp, r, sec.Names));
@@ -1776,12 +1776,18 @@ namespace AlternativeDamageModel
             return names != null && i < names.Length && !string.IsNullOrEmpty(names[i]) ? names[i] : "section " + (i + 1);
         }
 
-        static string KnockNote(int knocks)
+        /// <summary>Health and fatigue of a team for its hint ("Health 60% (wounded: slower)"); null when both are off.</summary>
+        static string HealthNote(float health, float fatigue)
         {
-            if (knocks <= 0) return null;
-            string s = knocks == 1 ? "Knocked out once" : "Knocked out " + knocks + " times";
-            if (DcTeams.KnocksToDie > 0 && knocks + 1 >= DcTeams.KnocksToDie) s += " (next: lost)";
-            return s;
+            var sb = new StringBuilder();
+            if (DcTeams.IsEnabled() && DcTeams.HealthOn)
+                sb.Append("Health ").Append(Math.Round(health * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%').Append(DcTeams.Wounded(health) ? " (wounded: slower)" : "");
+            if (DcTeams.IsEnabled() && DcTeams.FatigueMin > 0f)
+            {
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append("Fatigue ").Append(Clock(Math.Min(fatigue, DcTeams.FatigueLimit))).Append(" of ").Append(Clock(DcTeams.FatigueLimit)).Append(DcTeams.Tired(fatigue) ? " (tired: half speed)" : "");
+            }
+            return sb.Length > 0 ? sb.ToString() : null;
         }
 
         /// <summary>A team working in section i, slot k (its k-th icon).</summary>
@@ -1802,7 +1808,7 @@ namespace AlternativeDamageModel
                 if (k < here.Count)
                 {
                     if (here[k].Stay < 1e6f && DcTeams.TransfersOn) sb.Append("\nHere " + Clock(here[k].Stay));
-                    string kn = KnockNote(here[k].Knocks);
+                    string kn = HealthNote(here[k].Health, here[k].Fatigue);
                     if (kn != null) sb.Append("\n" + kn);
                 }
                 if (Manual(comp)) sb.Append(ModelOn() ? "\nClick: task / move" : "\nClick: task");
@@ -1821,7 +1827,7 @@ namespace AlternativeDamageModel
                     if (!ReferenceEquals(v.Ref, teamRef)) continue;
                     string dc = Dc(v.Number) + ": ";
                     bool manual = Manual(comp);
-                    string kn = KnockNote(v.Knocks);
+                    string kn = HealthNote(v.Health, v.Fatigue);
                     switch ((DcTeams.St)v.State)
                     {
                         case DcTeams.St.Moving:
@@ -1834,11 +1840,13 @@ namespace AlternativeDamageModel
                             return sb.ToString();
                         }
                         case DcTeams.St.Injured:
-                            return dc + "recovering\nBack in " + Clock(v.Left) + (kn != null ? "\n" + kn : "");
+                            return dc + "wounded, going to the reserve\nThere in " + Clock(v.Left) + (kn != null ? "\n" + kn : "");
                         case DcTeams.St.Dead:
                             return dc + "lost" + (v.From >= 0 ? " (" + SectionName(names, v.From) + ")" : "");
                         case DcTeams.St.Pool:
-                            return dc + "free, in reserve" + (kn != null ? "\n" + kn : "");
+                            return dc + "free, in reserve" + (kn != null ? "\n" + kn : "") +
+                                   (DcTeams.Wounded(v.Health) && DcTeams.RegenRate > 0f ? "\nHealed in " + Clock((1f - v.Health) / (DcTeams.RegenRate / 100f)) : "") +
+                                   (DcTeams.Tired(v.Fatigue) && DcTeams.FatigueMin > 0f ? "\nRested in " + Clock((float)(v.Fatigue - DcTeams.FatigueLimit)) : "");
                         default:
                             return dc + SectionName(names, v.Section);
                     }
@@ -2205,6 +2213,28 @@ namespace AlternativeDamageModel
             return cv;
         }
 
+        /// <summary>A team's icon: highlighted when the team is tired, with a health bar along its top edge when it is wounded.</summary>
+        static FrameworkElement Icon(int task, object teamRef)
+        {
+            var cv = (Canvas)Icon(task);
+            var t = teamRef as DcTeams.Team;
+            if (t == null || t.State == DcTeams.St.Dead) return cv;
+            if (DcTeams.Tired(t))
+                cv.Children.Insert(0, new Path { Data = new StreamGeometry("M0,0 L16,0 L16,16 L0,16 Z"), Fill = new SolidColorBrush(Color.FromArgb(150, 232, 168, 40)) });
+            if (DcTeams.Wounded(t))
+            {
+                float h = Math.Max(0f, Math.Min(1f, t.Health)), w = 16f * h;
+                cv.Children.Add(new Path { Data = new StreamGeometry("M0,0 L16,0 L16,3 L0,3 Z"), Fill = new SolidColorBrush(Color.FromArgb(220, 20, 20, 20)) });
+                if (w > 0.1f)
+                    cv.Children.Add(new Path
+                    {
+                        Data = new StreamGeometry("M0,0 L" + w.ToString("0.##", CultureInfo.InvariantCulture) + ",0 L" + w.ToString("0.##", CultureInfo.InvariantCulture) + ",3 L0,3 Z"),
+                        Fill = new SolidColorBrush(h > 0.6f ? Color.FromRgb(90, 200, 90) : h > 0.3f ? Color.FromRgb(230, 200, 60) : Color.FromRgb(225, 70, 60))
+                    });
+            }
+            return cv;
+        }
+
         static string TaskName(int task)
         {
             switch (task)
@@ -2215,11 +2245,9 @@ namespace AlternativeDamageModel
                 case TaskCounter: return "counterflooding";
                 case TaskHull: return "welding the hull";
                 case TaskSystems: return "repairing systems";
-                case IconKnocked: case IconDead:
-                    return DcTeams.KnocksToDie > 1 ? "lost (knocked out " + DcTeams.KnocksToDie.ToString(CultureInfo.InvariantCulture) + " times)" :
-                           DcTeams.KnocksToDie == 1 ? "lost (knocked out)" : "lost";
+                case IconKnocked: case IconDead: return "lost";
                 case IconTransit: return "on the move (In Transfer)";
-                case IconInjured: return "recovering (In Transfer)";
+                case IconInjured: return "wounded, going to the reserve (In Transfer)";
                 default: return "no task";
             }
         }

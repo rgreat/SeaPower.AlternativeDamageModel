@@ -297,11 +297,12 @@ namespace AlternativeDamageModel
             return t;
         }
 
-        static FrameworkElement BigIcon(int task, string tip, string under) { TextBlock t; return BigIcon(task, tip, under, out t); }
+        static TextBlock _unused;
+        static FrameworkElement BigIcon(int task, string tip, string under) { TextBlock t; return BigIcon(task, tip, under, out t, null); }
 
-        static FrameworkElement BigIcon(int task, string tip, string under, out TextBlock time)
+        static FrameworkElement BigIcon(int task, string tip, string under, out TextBlock time, object team = null)
         {
-            var vb = new Viewbox { Width = 22f, Height = 22f, Child = Icon(task) };
+            var vb = new Viewbox { Width = 22f, Height = 22f, Child = Icon(task, team) };
             FrameworkElement e = vb;
             time = null;
             if (under != null)
@@ -338,7 +339,7 @@ namespace AlternativeDamageModel
             int free = counts != null && counts.Length > 5 ? counts[5] : 0;
             bool manual = Manual(comp);
             var sb = new System.Text.StringBuilder();
-            foreach (var t in teams) sb.Append(t.State).Append(':').Append(t.Section).Append(':').Append(t.Ref.GetHashCode()).Append(' ');
+            foreach (var t in teams) sb.Append(t.State).Append(':').Append(t.Section).Append(':').Append(t.Ref.GetHashCode()).Append(':').Append((int)(t.Health * 10f)).Append(DcTeams.Tired(t.Fatigue) ? 'T' : 't').Append(' ');
             sb.Append('|').Append(free).Append(manual ? 'm' : 'a');
             string sig = sb.ToString();
 
@@ -357,7 +358,7 @@ namespace AlternativeDamageModel
                     var pool = teams.FindAll(t => t.State == (int)DcTeams.St.Pool);
                     for (int k = 0; k < free; k++)
                     {
-                        var e = BigIcon(TaskIdle, null, null);
+                        var e = BigIcon(TaskIdle, null, null, out _unused, k < pool.Count ? pool[k].Ref : null);
                         if (k < pool.Count) { var r = pool[k].Ref; LiveTip(e, () => RefTip(comp, r, sectionNames)); }
                         else try { ToolTipService.SetToolTip(e, "A free damage control team, waiting in the reserve"); } catch { }
                         ch.Add(e);
@@ -379,7 +380,7 @@ namespace AlternativeDamageModel
                     {
                         if (t.State != (int)DcTeams.St.Moving) continue;
                         TextBlock clock;
-                        var e = BigIcon(IconTransit, null, Clock(t.Left), out clock);
+                        var e = BigIcon(IconTransit, null, Clock(t.Left), out clock, t.Ref);
                         var frame = new Border { Child = e, CornerRadius = new CornerRadius(2f), Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)) };
                         var r = t.Ref;
                         LiveTip(frame, () => RefTip(comp, r, sectionNames));
@@ -391,7 +392,7 @@ namespace AlternativeDamageModel
                     {
                         if (t.State != (int)DcTeams.St.Injured) continue;
                         TextBlock clock;
-                        var e = BigIcon(IconInjured, null, Clock(t.Left), out clock);
+                        var e = BigIcon(IconInjured, null, Clock(t.Left), out clock, t.Ref);
                         var r = t.Ref;
                         LiveTip(e, () => RefTip(comp, r, sectionNames));
                         ch.Add(e);

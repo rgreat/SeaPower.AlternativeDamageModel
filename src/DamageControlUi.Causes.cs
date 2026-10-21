@@ -51,9 +51,22 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The numbers of the teams in section i doing 'task' now ("DC1, DC3"), and how many teams are in the section.</summary>
+        /// <summary>Team names with the status of the teams that work slower (Wounded / Tired), for the end of a line with their speed.</summary>
+        sealed class Names : List<string> { public string Mood = ""; public float Eff; }
+
+        /// <summary>The teams' work in team-equivalents: each counts as much as its health and fatigue let it work.</summary>
+        static float TeamWork(List<string> teams) { var n = teams as Names; return n != null && n.Eff > 0f ? n.Eff : teams.Count; }
+
+        static string Tail(List<string> teams)
+        {
+            var n = teams as Names;
+            return n == null || n.Mood.Length == 0 ? "" : " (" + n.Mood + ")";
+        }
+
         static List<string> Doing(object comp, int i, int task, out int inSection)
         {
-            var list = new List<string>();
+            var list = new Names();
+            bool w = false, f = false; float eff = 0f;
             inSection = 0;
             try
             {
@@ -64,7 +77,14 @@ namespace AlternativeDamageModel
                 DcControl.GetTeams(comp, i, n, out forced, out actual);
                 var here = DcTeams.InSection(comp, i);
                 for (int k = 0; k < n && k < actual.Length; k++)
-                    if (actual[k] == task) list.Add(k < here.Count ? Dc(here[k].Number) : "a team");
+                    if (actual[k] == task)
+                    {
+                        list.Add(k < here.Count ? Dc(here[k].Number) : "a team");
+                        if (k >= here.Count) eff += 1f;
+                        if (k < here.Count) { eff += DcTeams.TeamEff(here[k].Ref as DcTeams.Team); w |= DcTeams.Wounded(here[k].Health); f |= DcTeams.Tired(here[k].Fatigue); }
+                    }
+                list.Eff = eff;
+                list.Mood = w && f ? "Wounded, Tired" : w ? "Wounded" : f ? "Tired" : "";
             }
             catch (Exception e) { Trace("Doing: " + e.Message); }
             return list;
@@ -86,7 +106,7 @@ namespace AlternativeDamageModel
         /// <summary>Who is (not) on it: "DC1 plugging" / "busy: DC2 fire" / "team coming" / "no team".</summary>
         static string OnIt(object comp, int i, List<string> doing, string verb, int inSec, List<string> busy, string busyWith, bool worse, ref bool way)
         {
-            if (doing.Count > 0) return Who(doing) + " " + verb;
+            if (doing.Count > 0) return Who(doing) + " " + verb + Tail(doing);
             if (busy != null && busy.Count > 0) return "Busy: " + Who(busy) + " " + busyWith + " first";
             if (inSec > 0) return null;   // a team here busy with something else does not change this value: nothing to say
             if (Coming(comp, i) > 0) { way = true; return null; }   // said once, last, outside "Raises it" / "Lowers it"
@@ -131,7 +151,7 @@ namespace AlternativeDamageModel
                 }
                 else if (leakOther > 0f && plugging.Count > 0) Line(up, Who(plugging) + " plugging the other side");
                 if (counter.Count > 0 && DcControl.CounterSide(comp, i) == (port ? 1 : -1))
-                    Line(up, Who(counter) + " counterflooding: +" + R(counter.Count * perTeam * DcControl.CounterRate) + "%/s");
+                    Line(up, Who(counter) + " counterflooding: +" + R(TeamWork(counter) * perTeam * DcControl.CounterRate) + "%/s" + Tail(counter));
                 if (_shownListComp.Target == comp)
                 {
                     float list = _shownList;
@@ -150,11 +170,11 @@ namespace AlternativeDamageModel
                 {
                     bool now = drainPort == port || deltaOther <= 1e-4f;   // the game pumps one side at a time
                     // only what changes this side now: not while the other side is pumped first, not at the water's minimum
-                    if (now && delta > 1e-4f) Line(down, Who(pumping) + " pumping out: \u2212" + R(pumping.Count * perTeam) + "%/s");
+                    if (now && delta > 1e-4f) Line(down, Who(pumping) + " pumping out: \u2212" + R(TeamWork(pumping) * perTeam) + "%/s" + Tail(pumping));
                 }
                 else Line(down, OnIt(comp, i, pumping, "pumping out", inSec, null, "", rate > 0f && delta > 1e-4f, ref way));
                 if (plugging.Count > 0 && DcControl.LeakPump > 0f && delta > 1e-4f && (drainPort == port || deltaOther <= 1e-4f))
-                    Line(down, Who(plugging) + " pump while plugging: \u2212" + R(plugging.Count * perTeam * DcControl.LeakPump) + "%/s");
+                    Line(down, Who(plugging) + " pump while plugging: \u2212" + R(TeamWork(plugging) * perTeam * DcControl.LeakPump) + "%/s" + Tail(plugging));
 
                 var sb = new StringBuilder((port ? "Port" : "Starboard") + ": " + Pc(water) + ", " + Rate(rate));
                 if (up.Length > 0) sb.Append("\nRaises it:").Append(up);

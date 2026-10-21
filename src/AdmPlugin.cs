@@ -60,8 +60,7 @@ namespace AlternativeDamageModel
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healEntry, _healSpreadEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
-        ConfigEntry<int> _knockDeathEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _fatigueEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _speedEffectEntry;
         ConfigEntry<Factor> _maxPlugEntry;
@@ -365,14 +364,22 @@ namespace AlternativeDamageModel
                 "the walk, rounded to 10 s. 0 = no walking time; with MusterTime 0 too, teams move at once and Auto DC is the game's.");
             _musterEntry = Pcfg.Bind("DamageControlTeams", "MusterTime", new Factor(60f),
                 "Seconds a team needs to get ready before every transfer. Cancelling a transfer while it is still getting ready costs no time.");
-            _healEntry = Pcfg.Bind("DamageControlTeams", "HealTime", new Factor(90f),
-                "Seconds a knocked-out team needs to recover; then it is back in the reserve. Its transfer from the section to the reserve " +
-                "(MusterTime + the walk) is added.");
-            _healSpreadEntry = Pcfg.Bind("DamageControlTeams", "HealTimeSpread", new Factor(0f),
-                "Random spread of the recovery time, seconds either way: HealTime 90 with 30 = 60 to 120 s, as in the game " +
-                "(there teams recover one after another; here each on its own). 0 = always HealTime.");
-            _knockDeathEntry = Pcfg.Bind("DamageControlTeams", "KnockoutsToDeath", 2,
-                "A team knocked out this many times is dead and does not come back. 0 = never (as in the game).");
+            _healthEntry = Pcfg.Bind("DamageControlTeams", "TeamHealth", new Factor(1f),
+                "Health of a damage control team, a multiplier of its maximum, which grows with the ship's displacement (about 100 points at " +
+                "1000 t, 450 at 20000 t). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
+                "(as much as their health, not below 25%). 0 = teams are never wounded (a hit still takes a team out of its section).");
+            _regenEntry = Pcfg.Bind("DamageControlTeams", "HealthRegen", new Factor(0.5f),
+                "A team in the reserve recovers this much of its full health a second.");
+            _fireWoundEntry = Pcfg.Bind("DamageControlTeams", "FireWound", new Factor(1f),
+                "A team in a burning section that is not fighting the fire loses this much of its full health a second at fire 100% " +
+                "(less at a lower fire level).");
+            _hitWoundEntry = Pcfg.Bind("DamageControlTeams", "HitWound", new Factor(1f),
+                "Multiplier of the wound a team gets when a hit takes it out of its section (the game's knock-out: only in a hit section with " +
+                "integrity under 50%, the chance is the damage x (1 - integrity), at most 20%). One knock-out = 50 points, as the old " +
+                "'two knock-outs = dead' on a 1000 t ship. The team walks to the reserve wounded.");
+            _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(0f),
+                "Minutes of work in a section until a team is tired; then it works at half speed. The reserve takes fatigue away as fast as " +
+                "work builds it up. Shown in the team's hint; a tired team's icon is highlighted. 0 = no fatigue.");
 
             _listLimitEntry = Pcfg.Bind("Sinking", "ListLimit", new Factor(Limits.ListFull),
                 "List, degrees: the full scale of the LIST gauge. From its red zone (75% of it) water comes over the deck edge and floods every " +
@@ -822,9 +829,11 @@ namespace AlternativeDamageModel
             DcTeams.Effectiveness = Math.Max(0f, _teamEffEntry.Value.V);
             DcTeams.Speed = Math.Max(0f, _transferSpeedEntry.Value.V);
             DcTeams.Muster = Math.Max(0f, _musterEntry.Value.V);
-            DcTeams.Heal = Math.Max(0f, _healEntry.Value.V);
-            DcTeams.HealSpread = Math.Max(0f, _healSpreadEntry.Value.V);
-            DcTeams.KnocksToDie = Math.Max(0, _knockDeathEntry.Value);
+            DcTeams.HealthMul = Math.Max(0f, _healthEntry.Value.V);
+            DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);
+            DcTeams.FireWound = Math.Max(0f, _fireWoundEntry.Value.V);
+            DcTeams.HitWound = Math.Max(0f, _hitWoundEntry.Value.V);
+            DcTeams.FatigueMin = Math.Max(0f, _fatigueEntry.Value.V);
             Limits.ListFull = Clamp(_listLimitEntry.Value.V, 5f, 69f);
             Limits.TrimFull = Clamp(_trimLimitEntry.Value.V, 1f, 30f);
             Limits.TrimRefLength = Math.Max(0f, _trimLengthEntry.Value.V);

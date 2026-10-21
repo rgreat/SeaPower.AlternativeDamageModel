@@ -133,9 +133,11 @@ namespace AlternativeDamageModel
             Add(DC, "Work and movement", "DamageControlTeams/MaxPlugSpeed", "Max ship speed for plugging holes", "knots · 0 = no limit", Kind.Number, 1f, 0f, 100f);
             Add(DC, "Work and movement", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
             Add(DC, "Work and movement", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
-            Add(DC, "Knock-outs", "DamageControlTeams/HealTime", "Recovery time", "s + transfer back", Kind.Number, 10f, 0f, 1200f);
-            Add(DC, "Knock-outs", "DamageControlTeams/HealTimeSpread", "Recovery spread", "± s", Kind.Number, 10f, 0f, 600f);
-            Add(DC, "Knock-outs", "DamageControlTeams/KnockoutsToDeath", "Knock-outs to death", "0 = never", Kind.Integer, 1f, 0f, 9f);
+            Add(DC, "Health and fatigue", "DamageControlTeams/TeamHealth", "Team health", "× max · 0 = no wounds", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Health and fatigue", "DamageControlTeams/HealthRegen", "Reserve recovery", "% health per second", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Health and fatigue", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Health and fatigue", "DamageControlTeams/HitWound", "Hit wounds", "× knock-out wound", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Health and fatigue", "DamageControlTeams/FatigueMinutes", "Fatigue after", "min of work · 0 = off", Kind.Number, 1f, 0f, 240f);
 
             Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
@@ -723,7 +725,9 @@ namespace AlternativeDamageModel
         /// <summary>Settings the game has no counterpart of (not "game: x" but the mod's own default).</summary>
         static bool ModOnly(string key)
         {
-            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit";
+            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
+                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
+                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes";
         }
 
         static bool GameValue(Field f, out string v)
@@ -832,9 +836,7 @@ namespace AlternativeDamageModel
                 foreach (var r in t) { teams.Add(r[1].ToString(CultureInfo.InvariantCulture)); if (r[0] > 0) tons.Add(r[0].ToString(CultureInfo.InvariantCulture)); }
                 return "game: " + string.Join("/", teams.ToArray()) + (tons.Count > 0 ? "\nfrom " + string.Join("/", tons.ToArray()) + " t" : "");
             }
-            if (f.Key == "DamageControlTeams/HealTime") return "game: 60-120";
             if (f.Key == "Sinking/TrimReferenceLength" && Num(v) == 0f) return "game: off";
-            if (f.Key == "DamageControlTeams/KnockoutsToDeath" && Num(v) == 0f) return "game: never";
             if ((f.Key == "DamageControlTeams/TransferSpeed" || f.Key == "DamageControlTeams/MusterTime") && Num(v) == 0f) return "game: instant";
             return "game: " + v;
         }
