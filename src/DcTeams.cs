@@ -237,16 +237,16 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The ship's team health in points, 1..100 by displacement (x TeamHealth): 100 is a ship with a crew of 1000 and more (about 30000 t and up),
-        /// below that it falls with the crew, which grows roughly as displacement^0.6: 1000 t = 12, 4000 t = 28, 10000 t = 50.
+        /// The ship's team health in points, 2..200 by displacement (x TeamHealth): 200 is a ship with a crew of 1000 and more (about 30000 t and up),
+        /// below that it falls with the crew, which grows roughly as displacement^0.6: 1000 t = 24, 4000 t = 57, 10000 t = 101.
         /// A hit wounds a team by the warhead power of the ammunition (the game's ammunition: 0..196, half of it under 25).
         /// </summary>
         public static float MaxHp(object comp)
         {
             StrongBox<float> d;
             float tons = comp != null && Disp.TryGetValue(comp, out d) && d.Value > 0f ? d.Value : 1000f;
-            double hp = 100.0 * Math.Pow(Math.Max(1.0, tons) / 30000.0, 0.62);
-            return (float)Math.Max(1.0, Math.Min(100.0, hp)) * HealthMul;
+            double hp = 200.0 * Math.Pow(Math.Max(1.0, tons) / 30000.0, 0.62);
+            return (float)Math.Max(2.0, Math.Min(200.0, hp)) * HealthMul;
         }
 
         // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound

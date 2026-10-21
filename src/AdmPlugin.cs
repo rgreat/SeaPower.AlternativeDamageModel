@@ -371,8 +371,8 @@ namespace AlternativeDamageModel
                 "The teams rest in the central compartment: a hit on it can wound a team waiting in the reserve (the chance is the game's for a " +
                 "team knocked out in a hit section: damage x (1 - integrity), only under 50% integrity). A wounded resting team stays in the reserve.");
             _healthEntry = Pcfg.Bind("DamageControlTeams", "TeamHealth", new Factor(1f),
-                "Health of a damage control team, a multiplier of its maximum, which is 1..100 points by the ship's displacement (100 = a crew of 1000 and more, about 30000 t; " +
-                "1000 t = 12, 10000 t = 50). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
+                "Health of a damage control team, a multiplier of its maximum, which is 2..200 points by the ship's displacement (200 = a crew of 1000 and more, about 30000 t; " +
+                "1000 t = 24, 10000 t = 101). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
                 "(as much as their health, not below 25%). 0 = teams are never wounded (a hit still takes a team out of its section).");
             _regenEntry = Pcfg.Bind("DamageControlTeams", "HealthRegen", new Factor(0.5f),
                 "A team in the reserve recovers this much of its full health a second.");
@@ -382,7 +382,7 @@ namespace AlternativeDamageModel
             _hitWoundEntry = Pcfg.Bind("DamageControlTeams", "HitWound", new Factor(1f),
                 "Multiplier of the wound a team gets when a hit takes it out of its section (the game's knock-out: only in a hit section with " +
                 "integrity under 50%, the chance is the damage x (1 - integrity), at most 20%). The wound is the warhead power of the ammunition " +
-                "(0..196, half of the game's ammunition under 25) x this, in points of the team's health (1..100 by displacement). The team walks to the reserve wounded.");
+                "(0..196, half of the game's ammunition under 25) x this, in points of the team's health (2..200 by displacement). The team walks to the reserve wounded.");
             _fatigueOnEntry = Pcfg.Bind("DamageControlTeams", "FatigueEnabled", true,
                 "Team fatigue on: working builds it up, the reserve takes it away, a tired team works at half speed. Off = no fatigue; its settings are hidden.");
             _fatigueEntry = Pcfg.Bind("DamageControlTeams", "FatigueMinutes", new Factor(60f),
