@@ -905,7 +905,7 @@ namespace AlternativeDamageModel
             FitColumns(Tabs[_tab]);
             if (dcTab)
             {
-                foreach (var sw in Fields) if (sw.Tab == "DC Teams" && SubOf(sw) == -1) _body.Children.Add(Row(sw));
+                _body.Children.Add(SwitchPanel());
                 _body.Children.Add(SubBar());
             }
             foreach (var f in Fields)
@@ -943,6 +943,27 @@ namespace AlternativeDamageModel
             if (Tabs[_tab] == "Systems") ModuleRows();
             if (Tabs[_tab] == "Flooding") NoDeckRows();
             UpdateHeader();
+        }
+
+        /// <summary>The DC Teams switches in one line, a panel of their own (not in the columns of the rows).</summary>
+        static FrameworkElement SwitchPanel()
+        {
+            var line = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (var f in Fields)
+            {
+                if (f.Tab != "DC Teams" || SubOf(f) != -1) continue;
+                Action refresh;
+                var cb = BoolEditor(f, () => { }, out refresh);
+                var item = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                item.Children.Add(cb);
+                var lab = Text(f.Label, CText); lab.Margin = new Thickness(6f, 0f, 0f, 0f);
+                item.Children.Add(lab);
+                var box = new Border { Child = item, Padding = new Thickness(8f, 4f, 14f, 4f), Margin = new Thickness(0f, 0f, 8f, 0f), Background = B(Color.FromArgb(0, 0, 0, 0)) };
+                Hover(box, f.Label, f.Key);
+                line.Children.Add(box);
+            }
+            return new Border { Child = line, Background = B(CPanel), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(3f),
+                                Margin = new Thickness(12f, 8f, 12f, 2f), Padding = new Thickness(4f, 2f, 4f, 2f), HorizontalAlignment = HorizontalAlignment.Left };
         }
 
         static FrameworkElement SubBar()

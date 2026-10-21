@@ -732,3 +732,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 ## 2026-10-21 (3): DC Teams — страницы Count/Work/Health/Fatigue, выключатели над ними, колонки
 * Подвкладки: Count (таблицы числа команд), Work (все скорости + бывшие Movement), Health, Fatigue. Выключатели `TeamHealthEnabled` и `FatigueEnabled` (группа «Switches», `SubOf = -1`) выведены строками над панелью страниц; выключенная страница не показывается (`SubShown`), `_sub` при этом сбрасывается на Work. `FatigueEnabled`: Advanced true, Base Game false (FatigueMinutes в обоих 15; при выключателе off `DcTeams.FatigueMin = 0`).
 * Колонки строк (`RowGrid`): теперь все Star (метка / редактор 300 / game), с `MinWidth`; веса метки и колонки «game:» считает `FitColumns(tab)` по длине текстов вкладки (≈7.3 px/симв. для метки, 6.3 для «game:»; пределы 150–280 и 70–150), поэтому при ресайзе окна растут и первые колонки. Оценка по длине строки — не измерение, на глаз поправить после проверки в игре.
+
+## 2026-10-21 (4): выключатели DC Teams в одной строке
+* `SwitchPanel()`: «Team health» и «Team fatigue» — чекбоксы в одной горизонтальной панели над страницами (отдельная рамка, без колонок `RowGrid`); подсказка по наведению через `Hover`, кнопки сброса и точки «differs» у них нет.
