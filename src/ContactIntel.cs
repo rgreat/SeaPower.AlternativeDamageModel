@@ -373,6 +373,10 @@ namespace AlternativeDamageModel
 
         static readonly SolidColorBrush[] Levels = {
             null, new SolidColorBrush(Color.FromRgb(240, 208, 74)), new SolidColorBrush(Color.FromRgb(255, 140, 60)), new SolidColorBrush(Color.FromRgb(255, 140, 60)), new SolidColorBrush(Color.FromRgb(255, 72, 60)) };
+        // outlines: fire red, water blue, hull black, engine orange
+        static readonly SolidColorBrush[] Outlines = {
+            new SolidColorBrush(Color.FromRgb(200, 30, 30)), new SolidColorBrush(Color.FromRgb(30, 90, 220)),
+            new SolidColorBrush(Color.FromRgb(0, 0, 0)), new SolidColorBrush(Color.FromRgb(255, 130, 0)) };
         static readonly string[] Shapes = {
             "M4,0 C5,2 7,3 7,5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5 C1,3.5 2,3 2.5,1.5 C3,2.5 3.5,2 4,0 Z",   // fire
             "M4,0 C5,2 7,4 7,5.5 C7,7 5.5,8 4,8 C2.5,8 1,7 1,5.5 C1,4 3,2 4,0 Z",                      // water drop
@@ -385,25 +389,37 @@ namespace AlternativeDamageModel
             int n = cv.Children.Count;
             for (int k = 0; k < n; k++)
             {
-                var c = cv.Children[k] as StackPanel;
-                if (c != null && c.Name == "AdmIntel") { tb = c; break; }
+                var c = cv.Children[k] as Grid;
+                if (c != null && c.Name == "AdmIntel" && c.Children.Count > 0) { tb = c.Children[0] as StackPanel; break; }
             }
             if (!info.Any)
             {
-                if (tb != null) tb.Visibility = Visibility.Collapsed;
+                if (tb != null) { var hg = VisualTreeHelper.GetParent(tb) as UIElement; if (hg != null) hg.Visibility = Visibility.Collapsed; }
                 return;
             }
             if (tb == null)
             {
-                tb = new StackPanel { Name = "AdmIntel", Orientation = Orientation.Horizontal, Width = 46f, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Center };
+                // a fixed-width grid centred under the icon (the icons inside are packed to its centre)
+                tb = new StackPanel { Name = "AdmIntel", Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, IsHitTestVisible = false };
                 for (int k = 0; k < 4; k++)
-                    tb.Children.Add(new Noesis.Path { Data = Geometry.Parse(Shapes[k]), Width = 8f, Height = 8f, Margin = new Thickness(1f, 0f, 1f, 0f), Stretch = Stretch.Uniform });
-                tb.Children.Add(new TextBlock { Text = "?", FontSize = 8f, FontWeight = FontWeight.Bold, Margin = new Thickness(0f, -2f, 0f, 0f), Foreground = Levels[1] });
-                Canvas.SetLeft(tb, -11.75f);   // the icon is 22.5 wide, centred over 46
-                Canvas.SetTop(tb, 24f);
-                cv.Children.Add(tb);
+                    tb.Children.Add(new Noesis.Path
+                    {
+                        Data = Geometry.Parse(Shapes[k]), Width = 13f, Height = 13f, Margin = new Thickness(1.5f, 0f, 1.5f, 0f), Stretch = Stretch.Uniform,
+                        Stroke = Outlines[k], StrokeThickness = 1.3f
+                    });
+                tb.Children.Add(new TextBlock { Text = "?", FontSize = 11f, FontWeight = FontWeight.Bold, Margin = new Thickness(0f, -2f, 0f, 0f), Foreground = Levels[1] });
+                var host = new Grid { Name = "AdmIntel", Width = 90f, IsHitTestVisible = false };
+                host.Children.Add(tb);
+                Canvas.SetLeft(host, 11.25f - 45f);   // the icon is 22.5 wide: its centre is 11.25
+                Canvas.SetTop(host, 25f);
+                cv.Children.Add(host);
+                tb = null;
+                for (int k = 0; k < cv.Children.Count; k++) { var g = cv.Children[k] as Grid; if (g != null && g.Name == "AdmIntel") { tb = g.Children[0] as StackPanel; break; } }
+                if (tb == null) return;
             }
             tb.Visibility = Visibility.Visible;
+            var hostGrid = VisualTreeHelper.GetParent(tb) as UIElement;
+            if (hostGrid != null) hostGrid.Visibility = Visibility.Visible;
             int[] lv = { info.Fire, info.Flood, info.Hull, info.Engine };
             var q = tb.Children[4] as TextBlock;
             if (q != null) q.Visibility = info.Guess ? Visibility.Visible : Visibility.Collapsed;
