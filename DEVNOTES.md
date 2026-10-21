@@ -784,3 +784,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (20): страница Movement
 * Страницы DC Teams: Count / Movement / Work / Health / Fatigue; Movement = группа «Movement» (Transfer speed, Muster time). Номера страниц в `SubOf`/`SubShown` сдвинуты (Health 3, Fatigue 4).
+
+## 2026-10-21 (21): здоровье малых кораблей
+* `MaxHp`: минимум 10 вместо 60 (малая команда на катере): 7 т ≈ 8 пунктов, 100 т ≈ 32, 250 т ≈ 50; до ~250 т одно выбивание (50 пунктов) убивает команду.

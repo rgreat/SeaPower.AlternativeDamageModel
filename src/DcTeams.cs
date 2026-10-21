@@ -236,12 +236,12 @@ namespace AlternativeDamageModel
             return f >= FatigueLimit ? 1 : 0;
         }
 
-        /// <summary>The ship's team health in points: 100 at 1000 t, growing with the square root of the displacement, x TeamHealth.</summary>
+        /// <summary>The ship's team health in points: 100 at 1000 t, growing with the square root of the displacement (a boat's team is a few people: at least 10), x TeamHealth.</summary>
         public static float MaxHp(object comp)
         {
             StrongBox<float> d;
             float tons = comp != null && Disp.TryGetValue(comp, out d) && d.Value > 0f ? d.Value : 1000f;
-            return Math.Max(60f, 100f * (float)Math.Sqrt(tons / 1000f)) * HealthMul;
+            return Math.Max(10f, 100f * (float)Math.Sqrt(tons / 1000f)) * HealthMul;
         }
 
         /// <summary>A hit on the central compartment with this chance (%) wounds one team resting in the reserve (ReserveHits).</summary>
