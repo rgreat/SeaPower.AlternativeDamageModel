@@ -9,7 +9,7 @@ namespace AlternativeDamageModel
 {
     /// <summary>
     /// The Unit Status window for a ship that is not yours: the game keeps it empty (no unit you command). With [UI] ShowEnemyDamage:
-    /// the window gets one tab, Damage Control, and over its content a heavily simplified panel of the mod: what the player can tell
+    /// the window gets one tab, Damage State, and over its content a heavily simplified panel of the mod: what the player can tell
     /// about the contact by its sensors (ContactIntel: the same four icons, words instead of figures, the sinking forecast).
     /// The game's view model is touched only after UnitStatusViewModel.SwitchUnit when it has no unit: the window shows the tab,
     /// the name; the panel (an overlay in the content area) is ours. Own unit selected again: the game's states are not touched.
@@ -21,12 +21,13 @@ namespace AlternativeDamageModel
 
         static bool _ok;
         static FieldInfo _fUnit, _gMain;
-        static PropertyInfo _pHasUnit, _pUnitName, _pEngagement, _pDcTab, _pSelObj, _pAvail, _pSelected, _pValue;
+        static PropertyInfo _pHeader, _pHasUnit, _pUnitName, _pEngagement, _pDcTab, _pSelObj, _pAvail, _pSelected, _pValue;
         static MethodInfo _mGetVeh;
         static FieldInfo _gPlayerTf;
         static PropertyInfo _oName, _vIdent, _vId;
         static Type _tVehicle;
 
+        static string _origHeader;                 // the tab's own title, put back when a unit of the player is selected
         public static bool Active;                 // the window shows a contact now
         static object _vehicle;                    // the contact (Vehicle)
 
@@ -45,7 +46,7 @@ namespace AlternativeDamageModel
                 _pHasUnit = tVm.GetProperty("HasUnit", all); _pUnitName = tVm.GetProperty("UnitName", all);
                 _pEngagement = tVm.GetProperty("EngagementTab", all); _pDcTab = tVm.GetProperty("DamageControlTab", all);
                 var tTab = ByName(asm, "UnitStatusTabViewModel");
-                _pAvail = tTab.GetProperty("IsAvailable", all); _pSelected = tTab.GetProperty("IsSelected", all);
+                _pHeader = tTab.GetProperty("Header", all); _pAvail = tTab.GetProperty("IsAvailable", all); _pSelected = tTab.GetProperty("IsSelected", all);
                 _gMain = tGlobals.GetField("_mainGameViewModel", all); _gPlayerTf = tGlobals.GetField("_playerTaskforce", all);
                 _pSelObj = tMain.GetProperty("SelectedObject", all);
                 _mGetVeh = tObj.GetMethod("GetMapVehicle", all);
@@ -103,6 +104,11 @@ namespace AlternativeDamageModel
                     var eng = _pEngagement.GetValue(__instance, null); var dc = _pDcTab.GetValue(__instance, null);
                     _pHasUnit.GetSetMethod(true).Invoke(__instance, new object[] { true });
                     _pUnitName.GetSetMethod(true).Invoke(__instance, new object[] { NameOf(_vehicle) });
+                    if (_pHeader != null)
+                    {
+                        if (_origHeader == null) _origHeader = Convert.ToString(_pHeader.GetValue(dc, null));
+                        if (_origHeader != "Damage State") _pHeader.SetValue(dc, "Damage State", null);
+                    }
                     _pAvail.SetValue(eng, false, null);
                     _pAvail.SetValue(dc, true, null);
                     _pSelected.SetValue(dc, true, null);
@@ -111,6 +117,7 @@ namespace AlternativeDamageModel
                 else if (Active)
                 {
                     Active = false; _vehicle = null;
+                    if (_pHeader != null && _origHeader != null) _pHeader.SetValue(_pDcTab.GetValue(__instance, null), _origHeader, null);
                     if (_fUnit.GetValue(__instance) == null)
                     {
                         // nothing of the player's selected: the window as the game leaves it
@@ -225,7 +232,7 @@ namespace AlternativeDamageModel
         static void Fill(Card p, FrameworkElement view)
         {
             var i = ContactIntel.Of(_vehicle);
-            SetText(p.Title, "Damage Control — " + NameOf(_vehicle));
+            SetText(p.Title, "Damage State — " + NameOf(_vehicle));
             string fc = ""; int sev = 0;
             if (i.Sinking) { fc = "Sinking"; sev = 2; }
             else if (i.Seen && i.Ident && i.EtaMin > 0) { int m = (i.EtaMin + 4) / 5 * 5; fc = "Sinks in ~" + m + " min"; sev = i.EtaMin <= 20 ? 2 : 1; }
