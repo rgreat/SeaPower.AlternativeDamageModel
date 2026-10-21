@@ -800,3 +800,6 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (25): шанс и сила ранения — два множителя
 * `WoundThreshold` убран из окна/профилей/записи (порог 50 — константа). Бросок: `random(0..100) · (0.5 + мощность/здоровье) · WoundChance`, зажим 100; < 50 — ранения нет; выше — рана от 0 до мощность·`HitWound`. Самое слабое попадание имеет малый шанс (не нулевой). Новая опция `WoundChance` (×1); `HitWound` переименована в окне в «Wound strength».
+
+## 2026-10-21 (26): страница Wounds
+* Страницы DC Teams: Count / Movement / Work / Health / Wounds / Fatigue. Wounds (группа «Weapon hits», видна при включённом Team health): Wound chance, Wound strength, Hits in reserve. Fire wounds остались на Health (группа «Health»: Max health, Recovery speed in reserve, Fire wounds). Номера в `SubOf`/`SubShown`: Health 3, Wounds 4, Fatigue 5.

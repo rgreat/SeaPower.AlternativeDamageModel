@@ -20,5 +20,5 @@ Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.
 - NEW (DC Teams tab) [Advanced]: team fatigue, two levels (tired after 60, exhausted after 120 minutes), speed 100% > 75% > 25% in straight lines between them (settable; the reserve rests it at a set % of that speed, 100 by default); shown in the hint, tired teams are highlighted; "Wounded" / "Tired" added to the speed lines.
 - Removed: Knock-outs settings (Recovery time, Recovery spread, Knock-outs to death).
 - DC Teams tab is split into Teams / Movement / Work / Health pages; team health has its own on/off switch (off in Base Game, its other settings are hidden when off).
-- DC Teams tab: pages Count / Movement / Work / Health / Fatigue; team health and team fatigue have their own switches above the pages (off in Base Game; a switched-off page is hidden). Settings columns follow the window size.
+- DC Teams tab: pages Count / Movement / Work / Health / Wounds / Fatigue; team health and team fatigue have their own switches above the pages (off in Base Game; a switched-off page is hidden). Settings columns follow the window size.
 - NEW (DC Teams > Health) [Advanced]: "Hits in reserve" - the teams rest in the central compartment, a hit on it can wound a resting team.

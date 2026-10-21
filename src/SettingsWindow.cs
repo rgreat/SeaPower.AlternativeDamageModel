@@ -138,10 +138,10 @@ namespace AlternativeDamageModel
             Add(DC, "Switches", "DamageControlTeams/FatigueEnabled", "Team fatigue", "off = the Fatigue page is hidden", Kind.Bool, 0, 0, 0);
             Add(DC, "Health", "DamageControlTeams/TeamHealth", "Max health", "× (2-200 by displacement)", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/HealthRegen", "Recovery speed in reserve", "% health per second", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Wounds", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Wounds", "DamageControlTeams/WoundChance", "Wound chance", "× chance", Kind.Number, 0.1f, 0f, 10f);
-            Add(DC, "Wounds", "DamageControlTeams/HitWound", "Wound strength", "× warhead power", Kind.Number, 0.1f, 0f, 20f);
-            Add(DC, "Wounds", "DamageControlTeams/HitsInReserve", "Hits in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
+            Add(DC, "Health", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Weapon hits", "DamageControlTeams/WoundChance", "Wound chance", "× chance", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Weapon hits", "DamageControlTeams/HitWound", "Wound strength", "× warhead power", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserve", "Hits in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
             Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
             Add(DC, "Time", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);
             Add(DC, "Time", "DamageControlTeams/FatigueRecovery", "Recovery speed", "% of the fatigue speed", Kind.Number, 10f, 0f, 1000f);
@@ -737,7 +737,7 @@ namespace AlternativeDamageModel
 
         /// <summary>The game's own value of a setting (what the "game:" column shows): the entry's default for global keys, the Base Game profile for the rest.</summary>
         /// <summary>Settings the game has no counterpart of (not "game: x" but the mod's own default).</summary>
-        static readonly string[] Subs = { "Count", "Movement", "Work", "Health", "Fatigue" };
+        static readonly string[] Subs = { "Count", "Movement", "Work", "Health", "Wounds", "Fatigue" };
         static int _sub;
         /// <summary>The DC Teams tab is split by kind of option: which page a row is on (-1 = the switches above the pages).</summary>
         static int SubOf(Field f)
@@ -745,12 +745,13 @@ namespace AlternativeDamageModel
             if (f.Group == "Switches") return -1;
             if (f.Group.StartsWith("Number of teams", StringComparison.Ordinal)) return 0;
             if (f.Group == "Movement") return 1;
-            if (f.Group == "Health" || f.Group == "Wounds") return 3;
-            if (f.Group == "Time" || f.Group == "Efficiency") return 4;
+            if (f.Group == "Health") return 3;
+            if (f.Group == "Weapon hits") return 4;
+            if (f.Group == "Time" || f.Group == "Efficiency") return 5;
             return 2;
         }
 
-        static bool SubShown(int sub) { return sub == 3 ? IsOn(HealthKey) : sub == 4 ? IsOn(FatigueKey) : true; }
+        static bool SubShown(int sub) { return sub == 3 || sub == 4 ? IsOn(HealthKey) : sub == 5 ? IsOn(FatigueKey) : true; }
 
         // column widths of the rows (stars: the first columns grow with the window too); set per tab from its texts
         static float _wLabel = 200f, _wGame = 124f;
