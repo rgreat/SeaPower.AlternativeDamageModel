@@ -1061,6 +1061,22 @@ namespace AlternativeDamageModel
             var dot = new Ellipse { Width = 6f, Height = 6f, Fill = B(CWarn), Margin = new Thickness(0f, 0f, 6f, 0f), VerticalAlignment = VerticalAlignment.Center };
             lab.Children.Add(dot);
             lab.Children.Add(Text(f.Label, CText));
+            if (f.Key == "DamageControlTeams/WoundChance")
+            {
+                // (i): a table calculated from the game's ships and ammunition (made when the mouse comes to the icon)
+                var info = DamageControlUi.HeaderIcon(DamageControlUi.InfoIcon());
+                info.Margin = new Thickness(6f, 0f, 0f, 0f);
+                var holder = new Border { Background = B(Color.FromRgb(30, 34, 40)), BorderBrush = B(Color.FromRgb(90, 98, 110)), BorderThickness = new Thickness(1f) };
+                try
+                {
+                    ToolTipService.SetToolTip(info, holder);
+                    ToolTipService.SetPlacement(info, PlacementMode.Right);
+                    ToolTipService.SetShowDuration(info, int.MaxValue);
+                }
+                catch (Exception e) { Trace("wound table tip: " + e.Message); }
+                info.MouseEnter += (o, e) => { try { holder.Child = WoundTable.Build(); } catch (Exception x) { Trace("wound table: " + x.Message); } };
+                lab.Children.Add(info);
+            }
             g.Children.Add(lab);
 
             Action mark = () => { dot.Visibility = Differs(f) ? Visibility.Visible : Visibility.Hidden; };

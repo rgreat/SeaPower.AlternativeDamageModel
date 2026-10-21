@@ -815,3 +815,8 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 
 ## 2026-10-21 (30): хинт Wound chance
 * Уточнён: больший корабль = крепче команды и больше отсеки (меньше шанс попасть туда, где команда); формула без изменений (отдельного множителя размера отсека нет — он входит в «здоровье по водоизмещению»).
+
+### 2026-10-21 (31): таблица Wound chance во всплывающей подсказке
+- В окне настроек после текста «Wound chance» значок (i) (тот же `InfoIcon`, что в заголовке панели DC; `InfoIcon`/`HeaderIcon` теперь internal). Подсказка — таблица, считается при наведении (`WoundTable.Build`).
+- Данные из игры (с модами): корабли — `ShipNames.Sizes()` (`UnitData`, поле `_displacement`), боеприпасы — `UnitMetadataProvider.AmmunitionData` + `AmmunitionParameters.GetShared(ini)._warheadPower` (читается один раз, дубли по отображаемому имени убираются).
+- Выбор: 6 кораблей и 9 боеприпасов, равномерно по логарифму водоизмещения / мощности боеголовки. Ячейка = `DcTeams.WoundOdds(power, MaxHpFor(tons))` в %, с текущими Max health и Wound chance. Формулы вынесены в `DcTeams.MaxHpFor`, `DcTeams.WoundOdds`.

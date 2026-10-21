@@ -248,8 +248,23 @@ namespace AlternativeDamageModel
         {
             StrongBox<float> d;
             float tons = comp != null && Disp.TryGetValue(comp, out d) && d.Value > 0f ? d.Value : 1000f;
+            return MaxHpFor(tons);
+        }
+
+        /// <summary>The team health of a ship of the given displacement (tons), with the Max health multiplier.</summary>
+        public static float MaxHpFor(float tons)
+        {
             double hp = 200.0 * Math.Pow(Math.Max(1.0, tons) / 30000.0, 0.62);
             return (float)Math.Max(2.0, Math.Min(200.0, hp)) * HealthMul;
+        }
+
+        /// <summary>The chance (0..1) that a hit of the given power wounds a team of the given health: the roll passes 50.</summary>
+        public static double WoundOdds(float power, float hp)
+        {
+            double wc = WoundChance;
+            if (wc <= 0.0 || hp <= 0f) return 0.0;
+            double k = (0.5 + power / hp) * wc;
+            return Math.Max(0.0, Math.Min(1.0, 1.0 - 0.5 / k));
         }
 
         // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound

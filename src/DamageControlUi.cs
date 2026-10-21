@@ -1205,7 +1205,7 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>A header icon: 14 x 14, centred, a transparent (hit-testable) frame, a little dimmer until the mouse is on it.</summary>
-        static Border HeaderIcon(FrameworkElement icon)
+        internal static Border HeaderIcon(FrameworkElement icon)
         {
             var b = new Border { Child = icon, Width = 14f, Height = 14f, VerticalAlignment = VerticalAlignment.Center,
                                  Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)), Opacity = 0.9f };
@@ -1227,7 +1227,7 @@ namespace AlternativeDamageModel
             };
         }
 
-        static FrameworkElement InfoIcon()
+        internal static FrameworkElement InfoIcon()
         {
             var cv = new Canvas { Width = 14f, Height = 14f };
             cv.Children.Add(Shape("F0 M7,0 A7,7 0 1 1 7,14 A7,7 0 1 1 7,0 Z M6,6 L8,6 L8,11.5 L6,11.5 Z M7,2.5 A1.2,1.2 0 1 1 7,4.9 A1.2,1.2 0 1 1 7,2.5 Z", CBlue));
