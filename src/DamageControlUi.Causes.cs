@@ -81,7 +81,7 @@ namespace AlternativeDamageModel
                     {
                         list.Add(k < here.Count ? Dc(here[k].Number) : "a team");
                         if (k >= here.Count) eff += 1f;
-                        if (k < here.Count) { eff += DcTeams.TeamEff(here[k].Ref as DcTeams.Team); w |= DcTeams.Wounded(here[k].Health); lv = Math.Max(lv, DcTeams.FatigueLevel(here[k].Fatigue)); }
+                        if (k < here.Count) { eff += DcTeams.TeamEff(here[k].Ref as DcTeams.Team) * (task == TaskSystems ? 1f : DcTeams.EngineMulOf(comp)); w |= DcTeams.Wounded(here[k].Health); lv = Math.Max(lv, DcTeams.FatigueLevel(here[k].Fatigue)); }
                     }
                 list.Eff = eff;
                 list.Mood = (w ? "Wounded" : "") + (w && lv > 0 ? ", " : "") + (lv == 2 ? "Exhausted" : lv == 1 ? "Tired" : "");

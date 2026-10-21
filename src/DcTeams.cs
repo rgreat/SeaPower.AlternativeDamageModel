@@ -209,7 +209,18 @@ namespace AlternativeDamageModel
         /// <summary>Multiplier of every damage control work rate (Repair* methods, after the crew's rate is read).</summary>
         public static float WorkMul = 1f;       // set around one section's repair calls (DcControl): teams working amid a fire they do not fight
         public static float FireWorkEff = 1f;   // [FireAndFlooding] FireWorkEfficiency / 100 (1 = off)
-        public static float Eff(float v) { return IsEnabled() ? v * Effectiveness * WorkMul : v; }
+        public static float Eff(float v) { return IsEnabled() ? v * Effectiveness * WorkMul * ShipMul : v; }
+        /// <summary>The same without the engine penalty: the repair of systems.</summary>
+        public static float EffSys(float v) { return IsEnabled() ? v * Effectiveness * WorkMul : v; }
+        public static float EngineEff = 1f;     // [Systems] NoEngineTeamEffectiveness / 100: the teams' effectiveness (not systems repair) while the ship has no engines; 1 = off
+        public static Func<object, bool> EngineOut = c => false;
+        public static float ShipMul = 1f;       // of the ship that is ticking now (Tick): its engine penalty
+        /// <summary>The engine penalty of a ship's teams: EngineEff while none of its engines works, else 1.</summary>
+        public static float EngineMulOf(object comp)
+        {
+            if (comp == null || EngineEff >= 1f || !IsEnabled()) return 1f;
+            try { return EngineOut(comp) ? EngineEff : 1f; } catch { return 1f; }
+        }
 
         // ------------------------------------------------------------ health and fatigue
 
@@ -751,6 +762,7 @@ namespace AlternativeDamageModel
         public static void Tick(object comp)
         {
             if (!_ok || comp == null) return;
+            ShipMul = EngineMulOf(comp);   // read by Eff in this ship's repair calls (the same OnFixedUpdate)
             if (!IsEnabled())
             {
                 // the game's own rules: only keep the team objects in step with its counts (the tab numbers them)

@@ -381,6 +381,14 @@ namespace AlternativeDamageModel
             catch { return ""; }
         }
 
+        /// <summary>None of the ship's engines works (all propulsion out, or the ship is immobile).</summary>
+        public static bool EngineOut(object comp)
+        {
+            if (!_ok || comp == null) return false;
+            try { return Propulsion(comp) <= 0.01f || (_cImmobile != null && (bool)_cImmobile.GetValue(comp)); }
+            catch { return false; }
+        }
+
         /// <summary>The own ship is in a bad way (DC rests the teams in a shortened way): sinking, or fire, water or hull at the third stage or worse.</summary>
         public static bool Heavy(object comp)
         {

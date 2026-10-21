@@ -1791,9 +1791,10 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>Health and fatigue of a team for its hint ("Health 60% (wounded: slower)"); null when both are off.</summary>
-        static string HealthNote(float health, float fatigue)
+        static string HealthNote(object comp, float health, float fatigue)
         {
             var sb = new StringBuilder();
+            float engMul = DcTeams.EngineMulOf(comp);
             if (DcTeams.IsEnabled() && DcTeams.HealthOn)
                 sb.Append("Health ").Append(Math.Round(health * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%').Append(DcTeams.Wounded(health) ? " (wounded: slower)" : "");
             if (DcTeams.IsEnabled() && DcTeams.FatigueMin > 0f)
@@ -1806,7 +1807,12 @@ namespace AlternativeDamageModel
                 if (fatigue > 1f) inside.Add("rest " + (DcTeams.FatigueRecover > 0f ? Clock((float)fatigue * 100f / DcTeams.FatigueRecover) : "never"));
                 sb.Append("Fatigue ").Append(Math.Round(Math.Min(1.0, fatigue / full) * 100.0).ToString("0", CultureInfo.InvariantCulture)).Append('%')
                   .Append(inside.Count > 0 ? " (" + string.Join(", ", inside.ToArray()) + ")" : "")
-                  .Append("\nEfficiency ").Append(Math.Round(DcTeams.EffOf(health, fatigue) * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%');
+                  .Append("\nEfficiency ").Append(Math.Round(DcTeams.EffOf(health, fatigue) * engMul * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%');
+            }
+            if (engMul < 1f)
+            {
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append("Engines out: ").Append(Math.Round(engMul * 100f).ToString("0", CultureInfo.InvariantCulture)).Append("% effectiveness (not systems repair)");
             }
             return sb.Length > 0 ? sb.ToString() : null;
         }
@@ -1829,7 +1835,7 @@ namespace AlternativeDamageModel
                 if (k < here.Count)
                 {
                     if (here[k].Stay < 1e6f && DcTeams.TransfersOn) sb.Append("\nHere " + Clock(here[k].Stay));
-                    string kn = HealthNote(here[k].Health, here[k].Fatigue);
+                    string kn = HealthNote(comp, here[k].Health, here[k].Fatigue);
                     if (kn != null) sb.Append("\n" + kn);
                 }
                 if (Manual(comp)) sb.Append(ModelOn() ? "\nClick: task / move" : "\nClick: task");
@@ -1848,7 +1854,7 @@ namespace AlternativeDamageModel
                     if (!ReferenceEquals(v.Ref, teamRef)) continue;
                     string dc = Dc(v.Number) + ": ";
                     bool manual = Manual(comp);
-                    string kn = HealthNote(v.Health, v.Fatigue);
+                    string kn = HealthNote(comp, v.Health, v.Fatigue);
                     switch ((DcTeams.St)v.State)
                     {
                         case DcTeams.St.Moving:

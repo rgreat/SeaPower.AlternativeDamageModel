@@ -75,6 +75,7 @@ namespace AlternativeDamageModel
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
+        ConfigEntry<Factor> _noEngineEntry;
         ConfigEntry<bool> _anyIntegrityEntry, _reserveHitsEntry, _autoRestEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
@@ -306,6 +307,9 @@ namespace AlternativeDamageModel
             _fireHullEntry = Pcfg.Bind("FireAndFlooding", "FireHullDamageSpeed", new Factor(1f),
                 "How fast a fire eats the hull of its section (integrity of both its compartments). 1.0 = as in the game. " +
                 "Damage to the systems in the section is not changed.");
+            _noEngineEntry = Pcfg.Bind("Systems", "NoEngineTeamEffectiveness", new Factor(50f),
+                "Damage control teams while the ship has no working engines (all propulsion out): their effectiveness in % (fires, leaks, water, hull; repair of systems is not " +
+                "affected). Shown in the teams' hints and in the Forecast line of the Damage Control tab. 100 = off.");
             _sysIntEntry = Pcfg.Bind("Systems", "Integrity", new Factor(1f),
                 "How many times stronger the systems of ships and submarines are than in the game (weapons, sensors, engines, magazines... - " +
                 "modules.ini Integrity, after the game's own adjustments). 1.0 = as in the game. Single module types can get their own Integrity " +
@@ -877,6 +881,7 @@ namespace AlternativeDamageModel
             DcTeams.AnyIntegrity = _anyIntegrityEntry.Value;
             DcTeams.ReserveHits = ReserveHits.Enabled = _reserveHitsEntry.Value;
             DcTeams.AutoRest = _autoRestEntry.Value;
+            DcTeams.EngineEff = Math.Max(0f, Math.Min(100f, _noEngineEntry.Value.V)) / 100f;
             DcTeams.HealthMul = _healthOnEntry.Value ? Math.Max(0f, _healthEntry.Value.V) : 0f;
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);
             DcTeams.FireWound = Math.Max(0f, _fireWoundEntry.Value.V);
@@ -1291,6 +1296,7 @@ namespace AlternativeDamageModel
             // 10. damage control teams: number by displacement, transfers, knock-outs, effectiveness
             DcTeams.IsEnabled = () => Model;
             DcTeams.Heavy = ContactIntel.Heavy;
+            DcTeams.EngineOut = ContactIntel.EngineOut;
             DcTeams.IsTracking = () => Enabled;
             DcTeams.Info = Say;
             DcTeams.Trace = Trace;
@@ -2104,6 +2110,7 @@ namespace AlternativeDamageModel
         static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); SectionEffects.Tick(__instance); BubblesOff.Tick(__instance); if (Enabled) FireSmoke.Tick(__instance); }
 
         public static float TeamEffMul(float v) { return DcTeams.Eff(v); }
+        public static float TeamEffMulSys(float v) { return DcTeams.EffSys(v); }
 
         // every crew work rate read in the Repair* methods (Crew._floodingRateRepair, _fireSeveretyRepair, _floodingRepair,
         // _structureRepair, _systemRepair) is multiplied by DCTeamEffectiveness
@@ -2115,7 +2122,7 @@ namespace AlternativeDamageModel
             {
                 var fi = l[i].operand as FieldInfo;
                 return l[i].opcode == OpCodes.Ldfld && fi != null && fi.DeclaringType != null && fi.DeclaringType.Name == "Crew" && names.Contains(fi.Name);
-            }, "TeamEffMul", expected, "DCTeamEffectiveness " + (original != null ? original.Name : "?"));
+            }, original != null && original.Name == "RepairSystems" ? "TeamEffMulSys" : "TeamEffMul", expected, "DCTeamEffectiveness " + (original != null ? original.Name : "?"));
         }
 
         static MethodInfo _mIniWriteStr, _mIniReadStr;

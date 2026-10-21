@@ -964,3 +964,8 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 - `DcTeams.RestPull(comp)` — из `DcAuto.Allocate` каждые 2 с, до чтения счётчиков: команда в секции с health <33% (`RestHealth`) или уровня Exhausted → в резерв (ходьба, если переходы включены), `Rest=true`. Только при работающем оптимизированном Auto DC (переходы с ходьбой).
 - `Condition`: у команды в резерве `Rest` ставится и при возвращении раненой/уставшей (после попадания), снимается: полный отдых — health ≥99,5% и усталость 0; тяжёлый корабль (`ContactIntel.Heavy`: тонет или огонь/вода/корпус ≥3-й стадии) — health ≥50% и уровень усталости Fresh (ниже Tired).
 - `DcAuto`: резерв считается только по `DcTeams.ReadyInPool` (не отдыхающим); `SendPrefix` берёт сначала не отдыхающую команду (ручная отправка при необходимости берёт любую).
+
+### 2026-10-21 (71): команды DC без двигателей — −50% эффективности (кроме ремонта систем)
+- Опция `[Systems] NoEngineTeamEffectiveness` (Factor, %, Advanced 50, Base Game 100 = выкл; вкладка Systems, «DC teams without engines»; ModOnly). `DcTeams.EngineEff`.
+- `ContactIntel.EngineOut(comp)`: весь Propulsion ≤0.01 или `_immobile`. `DcTeams.EngineMulOf(comp)`; `DcTeams.ShipMul` ставится в начале `DcTeams.Tick` (prefix OnFixedUpdate того же корабля, ремонты идут внутри него); `DcTeams.Eff` множит на него, `EffSys` без него: транспилер `RepairSystems` вызывает `TeamEffMulSys`, остальные Repair* — `TeamEffMul`.
+- UI: `HealthNote(comp, …)` — строка «Engines out: 50% effectiveness (not systems repair)» и «Efficiency» с учётом штрафа; Causes — эффективность списка команд (кроме Systems); карточка Forecast — оранжевый `FcWarn` «Engines out: DC teams at 50%».

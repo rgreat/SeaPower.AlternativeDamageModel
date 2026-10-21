@@ -25,7 +25,7 @@ namespace AlternativeDamageModel
             public FrameworkElement Res;                // where the game's brushes are looked up
             public double T = -1; public float List, Trim;
             public string FireSig;
-            public TextBlock FcMain, FcSub;               // the forecast card (summary column 3)
+            public TextBlock FcMain, FcSub, FcWarn;               // the forecast card (summary column 3)
             public Border HullCard;                      // the card of Hull Damage / Flooding / Fires: its tooltip is the list of hits
             public TextBlock HullVal, FloodVal; public bool HullColored;   // the game's "Hull Damage" / "Flooding" values: we add (NN%)
             // "Damage Control Teams" / "Teams Knocked Out": the game's value (and the first card's "Available / Total") hidden, ours shown
@@ -270,7 +270,8 @@ namespace AlternativeDamageModel
                 sp.Children.Add(new TextBlock { Text = "Forecast:", FontSize = 14f, Foreground = dimB, Margin = new Thickness(0f, 0f, 8f, 0f), VerticalAlignment = VerticalAlignment.Center });
                 x.FcMain = new TextBlock { Text = "Stable", FontSize = 16f, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
                 x.FcSub = new TextBlock { Text = "", FontSize = 14f, Foreground = dimB, Margin = new Thickness(8f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center };
-                sp.Children.Add(x.FcMain); sp.Children.Add(x.FcSub);
+                x.FcWarn = new TextBlock { Text = "", FontSize = 14f, Foreground = BHeavy, Margin = new Thickness(10f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center };
+                sp.Children.Add(x.FcMain); sp.Children.Add(x.FcSub); sp.Children.Add(x.FcWarn);
                 fc.Child = sp;
                 Add(x, summary, fc);
             }
@@ -622,6 +623,8 @@ namespace AlternativeDamageModel
                 string fm, fs; int fv;
                 ContactIntel.Forecast(comp, out fm, out fs, out fv);
                 SetText(x.FcMain, fm); SetText(x.FcSub, fs.Length == 0 ? "" : "(" + fs + ")");
+                float em = DcTeams.EngineMulOf(comp);
+                SetText(x.FcWarn, em < 1f ? "Engines out: DC teams at " + Math.Round(em * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "");
                 SetBrush(x.FcMain, fv >= 2 ? BCritical : fv == 1 ? BHeavy : StageBrush(x.Res, 0));
             }
             try { RenderHullFlood(comp, x); } catch (Exception e) { Trace("RenderHullFlood: " + e.Message); }
