@@ -139,6 +139,7 @@ namespace AlternativeDamageModel
             Add(DC, "Health", "DamageControlTeams/TeamHealth", "Max health", "× (2-200 by displacement)", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/HealthRegen", "Recovery speed in reserve", "% health per second", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Health", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Weapon hits", "DamageControlTeams/WoundsAnyIntegrity", "Any integrity", "not only under 50%", Kind.Bool, 0, 0, 0);
             Add(DC, "Weapon hits", "DamageControlTeams/WoundChance", "Wound chance", "× chance", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Weapon hits", "DamageControlTeams/HitWound", "Wound strength", "× warhead power", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserve", "Wounds in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
@@ -774,7 +775,7 @@ namespace AlternativeDamageModel
         static bool ModOnly(string key)
         {
             return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
-                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/ExhaustedMinutes" ||
+                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
                    key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
                    key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes";
         }

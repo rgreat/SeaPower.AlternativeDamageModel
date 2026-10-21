@@ -103,6 +103,12 @@ namespace AlternativeDamageModel
                 if ((bool)_fSecondary.GetValue(__instance)) return;        // the game: no knock-outs by secondary explosions
                 float power = Power(__instance, Convert.ToSingle(__args[3]));
                 DcTeams.NoteHit(comps, power);                              // the wound of a team knocked out in a hit section
+                if (DcTeams.AnyIntegrity)
+                {
+                    DcTeams.QueueHit(comps, number - 1, power);             // the section's teams, at any integrity
+                    if (Enabled && number == 3) DcTeams.ReserveHit(comps, 100f, power);
+                    return;
+                }
                 if (!Enabled || number != 3) return;                        // the central compartment of five
                 var fc = _mFlooding.Invoke(comps, new object[] { number, parts[1] == "port" });
                 if (fc == null) return;

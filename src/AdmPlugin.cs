@@ -75,7 +75,7 @@ namespace AlternativeDamageModel
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
-        ConfigEntry<bool> _reserveHitsEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
+        ConfigEntry<bool> _anyIntegrityEntry, _reserveHitsEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -367,6 +367,10 @@ namespace AlternativeDamageModel
             _healthOnEntry = Pcfg.Bind("DamageControlTeams", "TeamHealthEnabled", true,
                 "Team health on: wounds from hits and fires, recovery in the reserve, wounded teams work slower. Off = the game's rules " +
                 "(a hit takes a team out for a while, no wounds); the other health settings are hidden.");
+            _anyIntegrityEntry = Pcfg.Bind("DamageControlTeams", "WoundsAnyIntegrity", true,
+                "A hit on a section can wound its teams at any integrity. Off = as in the game: only a hit section with integrity under 50% can take a team " +
+                "out, with the chance damage x (1 - integrity), at most 20%. On = every hit on a section with teams gets the wound roll (see Wound chance); " +
+                "a wounded team walks to the reserve.");
             _reserveHitsEntry = Pcfg.Bind("DamageControlTeams", "HitsInReserve", true,
                 "The teams rest in the central compartment: a hit on it can wound a team waiting in the reserve (the chance is the game's for a " +
                 "team knocked out in a hit section: damage x (1 - integrity), only under 50% integrity). A wounded resting team stays in the reserve.");
@@ -383,7 +387,7 @@ namespace AlternativeDamageModel
                 "Multiplier of the strength of a wound: at most the warhead power of the ammunition (0..196, half of the game's ammunition under 25) x this, " +
                 "in points of the team's health (2..200 by displacement). A wounded team walks to the reserve.");
             _woundChanceEntry = Pcfg.Bind("DamageControlTeams", "WoundChance", new Factor(1f),
-                "Multiplier of the chance that a hit wounds a team. Step 1 - the game decides whether a hit takes a team out of its section at all " +
+                "Multiplier of the chance that a hit wounds a team. Step 1 (only while Any integrity is off) - the game decides whether a hit takes a team out of its section at all " +
                 "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod rolls the wound: a random number " +
                 "0-100 x (0.5 + warhead power / the team's health) x this multiplier. Under 50 there is no wound (the team still leaves the section); " +
                 "from 50 to 100 the wound grows from 0 to the whole warhead power (x Wound strength). A stronger warhead raises the roll, a bigger ship " +
@@ -853,6 +857,7 @@ namespace AlternativeDamageModel
             DcTeams.Effectiveness = Math.Max(0f, _teamEffEntry.Value.V);
             DcTeams.Speed = Math.Max(0f, _transferSpeedEntry.Value.V);
             DcTeams.Muster = Math.Max(0f, _musterEntry.Value.V);
+            DcTeams.AnyIntegrity = _anyIntegrityEntry.Value;
             DcTeams.ReserveHits = ReserveHits.Enabled = _reserveHitsEntry.Value;
             DcTeams.HealthMul = _healthOnEntry.Value ? Math.Max(0f, _healthEntry.Value.V) : 0f;
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);

@@ -37,6 +37,7 @@ namespace AlternativeDamageModel
         const float Threshold = 50f;              // the wound roll (0..100) below this = no wound
         public static float HitWound = 1f;        // x the warhead power of the hit = the wound in points
         static readonly System.Random Rnd = new System.Random();
+        public static bool AnyIntegrity = true;   // a hit on a section wounds its teams at any integrity (not only the game's under 50%)
         public static bool ReserveHits = true;    // hits on the central compartment (the resting place) wound the teams in the reserve
         public static float FatigueRecover = 100f; // % of the build-up speed the reserve takes fatigue away at
         public static float FatigueMin = 0f;      // minutes of work until tired; 0 = off
@@ -66,7 +67,7 @@ namespace AlternativeDamageModel
             public bool Back;            // Moving: turned back (Cancel Transfer) - no muster in its time
         }
 
-        sealed class Ship { public readonly List<Team> Teams = new List<Team>(); public int Timers; public double LastT = -1; }
+        sealed class Ship { public readonly List<Team> Teams = new List<Team>(); public int Timers; public double LastT = -1; public readonly List<KeyValuePair<int, float>> Pending = new List<KeyValuePair<int, float>>(); }
         static readonly ConditionalWeakTable<object, StrongBox<float>> Disp = new ConditionalWeakTable<object, StrongBox<float>>();
         static readonly ConditionalWeakTable<object, Ship> Ships = new ConditionalWeakTable<object, Ship>();
 
@@ -273,6 +274,37 @@ namespace AlternativeDamageModel
             if (roll < Threshold) return 0f;
             double strength = (roll - Threshold) / (100.0 - Threshold);
             return (float)(power * HitWound * strength / max);
+        }
+
+        /// <summary>Hits on a section (Blastzone, ReserveHits) waiting for the next tick: with AnyIntegrity they wound the section's teams.</summary>
+        public static void QueueHit(object comp, int section, float power)
+        {
+            Ship s;
+            if (!_ok || comp == null || !AnyIntegrity || !HealthOn || !IsEnabled() || !Ships.TryGetValue(comp, out s) || section < 0 || section > 4 || s.Pending.Count > 40) return;
+            s.Pending.Add(new KeyValuePair<int, float>(section, power));
+        }
+
+        /// <summary>One queued hit: a random team working in the section gets the roll for a wound; wounded, it walks to the reserve (dead at 0).</summary>
+        static void ApplySectionHit(object comp, Ship s, int section, float power, double now)
+        {
+            var here = s.Teams.FindAll(x => x.State == St.InSection && x.Section == section);
+            if (here.Count == 0) return;
+            var t = here[Rnd.Next(here.Count)];
+            float wound = WoundOf(comp, power);
+            if (wound <= 0f) return;
+            var counts = Counts(comp);
+            if (counts != null && section < counts.Length && counts[section] > 0) Set(comp, section, counts[section] - 1);
+            Leave(t);
+            t.Health -= wound;
+            if (t.Health <= 0f) { t.State = St.Dead; t.Health = 0f; Trace("DC team dead (section " + section + ")"); }
+            else
+            {
+                t.State = St.Injured;
+                t.Total = TransferTime(comp, section);
+                t.Until = now + t.Total;
+                Trace("DC team wounded (section " + section + "), health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture));
+            }
+            t.Section = -1; t.From = section;
         }
 
         static float TakeHit(object comp)
@@ -685,6 +717,13 @@ namespace AlternativeDamageModel
                         }
                         if (hit == null) break;   // no team of ours missing
                         taken++;
+                        if (AnyIntegrity)
+                        {
+                            // the game's knock-out (integrity under 50%) is not used: the team stays, the hit is rolled for a wound below
+                            Set(comp, hit.Section, counts[hit.Section] + 1);
+                            counts = Counts(comp);
+                            continue;
+                        }
                         int from = hit.Section;
                         Leave(hit);
                         float wound = HealthOn ? WoundOf(comp, TakeHit(comp)) : 0f;
@@ -702,6 +741,13 @@ namespace AlternativeDamageModel
                     if (taken > 0) timers.RemoveRange(timers.Count - taken, taken);   // the newest ones: those just added
                 }
                 s.Timers = timers == null ? 0 : timers.Count;
+
+                // hits on sections (AnyIntegrity)
+                if (s.Pending.Count > 0)
+                {
+                    foreach (var h in s.Pending) if (AnyIntegrity) ApplySectionHit(comp, s, h.Key, h.Value, now);
+                    s.Pending.Clear();
+                }
 
                 // arrivals and recoveries
                 foreach (var t in s.Teams)
