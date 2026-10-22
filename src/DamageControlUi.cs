@@ -42,7 +42,7 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ tasks (DcControl decides; shown here)
         const int TaskNone = DcControl.TaskNone, TaskIdle = DcControl.TaskIdle, TaskLeak = DcControl.TaskLeak, TaskFire = DcControl.TaskFire,
-                  TaskPump = DcControl.TaskPump, TaskHull = DcControl.TaskHull, TaskSystems = DcControl.TaskSystems;
+                  TaskPump = DcControl.TaskPump, TaskHull = DcControl.TaskHull, TaskSystems = DcControl.TaskSystems, TaskCounter = DcControl.TaskCounter;
         const int IconByPriority = 99;   // menu entry "By priority": a gear in a ring of arrows
         const int IconKnocked = 98;      // (old) knocked out: the crewman greyed out with a red cross
         const int IconTransit = 97, IconInjured = 96, IconDead = 95;   // team on the move (grey), recovering (medical badge), dead (red cross)
@@ -168,6 +168,8 @@ namespace AlternativeDamageModel
             public string HeaderOrig, TeamsOrig, FloodOrig, FireOrig;          // the game's own text
             public string HeaderSig, TeamsSig, FloodSig, FireSig;              // what we rendered
             public string HeaderShown, TeamsShown, FloodShown, FireShown;      // TextBlock.Text right after rendering
+            public int AP, AS, AF;                                              // the arrows shown now (for the hysteresis)
+            public Drawn HeaderD, FloodD, FireD;                                // what the rows' inlines are now (updated in place: the arrows' tooltips stay open)
             // trend samples
             public double T = -1;
             public float P, S, F, IP, IS, RP, RS, RF, RIP, RIS;
@@ -181,7 +183,7 @@ namespace AlternativeDamageModel
             public float Now;                     // real time of this tick
             public object Vm, Comp;               // the unit shown now: the tab is reused when another unit is selected
             public Border AutoCard; public UIElement AutoContent; public Panel AutoStack;   // AutoStack: our panel it is in
-            public Image Picture; public float PictureMaxW, PictureMaxH; public Thickness PictureMargin;   // the ship's profile, made bigger   // the game's Auto DC card and its content, moved into ours
+            public Image Picture; public bool PicFitted; public float PictureMaxW, PictureMaxH; public Thickness PictureMargin;   // the ship's profile, made bigger   // the game's Auto DC card and its content, moved into ours
             public bool Ok, Dumped;
             public float NextDiscover;
             public int Fails;
@@ -189,7 +191,7 @@ namespace AlternativeDamageModel
             public TextBlock Help;               // "Auto DC prioritizes threats in this order: ..."
             public Border Priority;              // our "DC Priority" card
             public Panel PriorityHost;           // the grid of the summary cards it was added to
-            public ToggleButton[] PriorityButtons;
+            public ToggleButton[] PriorityButtons; public ToggleButton LimitButton;
             public Extras X;                     // Fires row and the list / trim panel (DamageControlUi.Panels.cs)
             public string HelpOrig, HelpShown;
             public TextBlock HelpTitle;          // "Auto Damage Control Status" above it: folded into the same line
@@ -381,6 +383,15 @@ namespace AlternativeDamageModel
             return -1;
         }
 
+        static readonly ConditionalWeakTable<object, object> FloodSums = new ConditionalWeakTable<object, object>();
+
+        /// <summary>Whether this DamageSummary is a Flooding row's (Compartments.floodStates), not a fire's or a system's.</summary>
+        public static bool IsFloodSummary(object summary)
+        {
+            object o;
+            return summary != null && FloodSums.TryGetValue(summary, out o);
+        }
+
         static string Desc(object summary)
         {
             try { return _sumDesc.GetValue(summary, null) as string ?? ""; } catch { return ""; }
@@ -445,12 +456,14 @@ namespace AlternativeDamageModel
                 var c = new Col();
                 cols[i] = c;
                 c.FloodSum = floodStates.GetValue(i);
+                if (c.FloodSum != null) try { FloodSums.Remove(c.FloodSum); FloodSums.Add(c.FloodSum, c.FloodSum); } catch { }
                 var sc = sys.GetValue(i);
                 c.FireSum = sc == null ? null : _scFireState.GetValue(sc);
                 c.FloodDesc = Desc(c.FloodSum);
                 c.FireDesc = Desc(c.FireSum);
                 c.List = ics[i];
                 try { if (c.List != null) c.Column = Grid.GetColumn(c.List); } catch { }
+                HookSystemTips(c.List);
 
                 // the Flooding / Fire rows, if their template is in the visual tree (otherwise: text mode, see RenderRows)
                 FindRows(c, view);
@@ -499,6 +512,7 @@ namespace AlternativeDamageModel
                         var tb = VisualTreeHelper.GetChild(holder, k) as TextBlock;
                         if (tb != null) { c.Teams = tb; break; }
                     }
+                    CompactTeamRow(holder);
                     break;
                 }
 
@@ -552,6 +566,66 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The text blocks of the Flooding / Fire rows inside this compartment's list, when its items are in the visual tree.</summary>
+        const float TeamGapBelow = 1f, TeamHeaderGap = 2f;   // the gap under the team row (the game: 5) and the section name's margins above and below (6 / 4)
+        const float TeamBtnHeight = 22f;   // the - / + buttons of the DC team row (the game's are about 32): the row is lower, the sections are higher
+        static readonly HashSet<object> _compacted = new HashSet<object>();
+        static int _compactTrace;
+
+        /// <summary>Makes the row with the - / + buttons and the team icon lower: buttons of a fixed small height, no extra margins of the row, a fixed row height of the grid made automatic.</summary>
+        static void CompactTeamRow(DependencyObject holder)
+        {
+            if (holder == null || _compacted.Contains(holder)) return;
+            _compacted.Add(holder);
+            try
+            {
+                var sb = new System.Text.StringBuilder();
+                int n = VisualTreeHelper.GetChildrenCount(holder);
+                for (int k = 0; k < n; k++)
+                {
+                    var b = VisualTreeHelper.GetChild(holder, k) as FrameworkElement;
+                    if (b == null) continue;
+                    sb.Append(b.GetType().Name + " " + b.ActualWidth.ToString("0") + "x" + b.ActualHeight.ToString("0") + " m" + b.Margin + " | ");
+                    if (b is ButtonBase)
+                    {
+                        b.MinHeight = 0f; b.Height = TeamBtnHeight;
+                        var bb = (Control)b;
+                        bb.Padding = new Thickness(bb.Padding.Left, 0f, bb.Padding.Right, 0f);
+                        b.Margin = new Thickness(b.Margin.Left, 0f, b.Margin.Right, 0f);
+                    }
+                    else if (b is TextBlock) b.Margin = new Thickness(b.Margin.Left, 0f, b.Margin.Right, 0f);
+                }
+                var fe = holder as FrameworkElement;
+                if (fe != null)
+                {
+                    sb.Append("holder " + fe.GetType().Name + " " + fe.ActualWidth.ToString("0") + "x" + fe.ActualHeight.ToString("0") + " m" + fe.Margin);
+                    fe.Margin = new Thickness(fe.Margin.Left, 0f, fe.Margin.Right, 0f);
+                    fe.MinHeight = 0f;
+                    var g = Parent(fe) as Grid;
+                    if (g != null)
+                    {
+                        int r = Grid.GetRow(fe);
+                        if (r >= 0 && r < g.RowDefinitions.Count)
+                        {
+                            var rd = g.RowDefinitions[r];
+                            sb.Append(", row " + r + " height " + rd.Height + " min " + rd.MinHeight);
+                            rd.MinHeight = 0f;
+                            if (rd.Height.IsAbsolute) rd.Height = GridLength.Auto;
+                            // from the game's XAML (DamageControlView): the row above is the section name (margin 6,4), the row below is a 5 px gap
+                            if (r + 1 < g.RowDefinitions.Count && g.RowDefinitions[r + 1].Height.IsAbsolute) g.RowDefinitions[r + 1].Height = new GridLength(TeamGapBelow);
+                            int col = Grid.GetColumn(fe), ng = VisualTreeHelper.GetChildrenCount(g);
+                            for (int k = 0; k < ng; k++)
+                            {
+                                var h = VisualTreeHelper.GetChild(g, k) as TextBlock;
+                                if (h != null && Grid.GetRow(h) == r - 1 && Grid.GetColumn(h) == col) h.Margin = new Thickness(h.Margin.Left, TeamHeaderGap, h.Margin.Right, TeamHeaderGap);
+                            }
+                        }
+                    }
+                }
+                if (_compactTrace < 3) { _compactTrace++; Trace("DC team row compacted: " + sb); }
+            }
+            catch (Exception ex) { Trace("CompactTeamRow: " + ex.Message); }
+        }
+
         static void FindRows(Col c, DependencyObject view)
         {
             c.FloodOrig = c.FloodDesc;
@@ -585,7 +659,7 @@ namespace AlternativeDamageModel
             {
                 RemoveExtras(st.X);
                 PutBackAuto(st);
-                st.Priority = null; st.PriorityHost = null; st.PriorityButtons = null; st.X = null;
+                st.Priority = null; st.PriorityHost = null; st.PriorityButtons = null; st.LimitButton = null; st.X = null;
                 return false;   // found again, the card added again
             }
             if (st.Cols == null) return false;
@@ -630,8 +704,10 @@ namespace AlternativeDamageModel
             for (int i = 0; i < st.Cols.Length; i++) { sections.Names[i] = st.Cols[i].HeaderOrig; sections.Order[i] = i; }
             Array.Sort(sections.Order, (a, b) => st.Cols[a].Column.CompareTo(st.Cols[b].Column));
             _order = sections.Order;
+            _sectionNames = sections.Names;
             _colsShown = st.Cols; _colsComp = new WeakReference(comp);
             var moving = DcTeams.Snapshot(comp).FindAll(v => v.State == (int)DcTeams.St.Moving);
+            TrackSystems(comp, t);
 
             for (int i = 0; i < st.Cols.Length; i++)
             {
@@ -654,19 +730,21 @@ namespace AlternativeDamageModel
                     if (f - c.F > 3f + 2f * Math.Max(0f, c.RF) * dt) c.FireHitT = t;
                     if (c.IP - ip > 1.5f + 2f * Math.Max(0f, -c.RIP) * dt) c.HullHitP = t;
                     if (c.IS - isb > 1.5f + 2f * Math.Max(0f, -c.RIS) * dt) c.HullHitS = t;
-                    c.RP = (p - c.P) / dt; c.RS = (s - c.S) / dt; c.RF = (f - c.F) / dt;
-                    c.RIP = (ip - c.IP) / dt; c.RIS = (isb - c.IS) / dt;
+                    // the samples are a quarter of a second apart and the game's numbers do not always move evenly (some come in steps), so the
+                    // rate is smoothed (TrendSmooth s): the arrows do not come and go with every step
+                    float a = 1f - (float)Math.Exp(-dt / TrendSmooth);
+                    c.RP += ((p - c.P) / dt - c.RP) * a; c.RS += ((s - c.S) / dt - c.RS) * a; c.RF += ((f - c.F) / dt - c.RF) * a;
+                    c.RIP += ((ip - c.IP) / dt - c.RIP) * a; c.RIS += ((isb - c.IS) / dt - c.RIS) * a;
                 }
                 if (c.T < 0 || t != c.T) { c.T = t; c.P = p; c.S = s; c.F = f; c.IP = ip; c.IS = isb; }
 
-                RenderHeader(c, ip, isb, comp, i);
+                RenderHeader(c, ip, isb, comp, i, fp, fs, sc);
                 RenderTeams(c, comp, i, teams != null && i < teams.Length ? teams[i] : 0, sections, moving);
                 RenderRows(c, p, s, f, comp, i);
             }
             RenderHelp(comp, st);
             RenderTabHeader(st);
             RenderPriority(comp, st);
-            FitPicture(st);
             if (st.X != null)
                 try
                 {
@@ -674,6 +752,7 @@ namespace AlternativeDamageModel
                     for (int k = 0; k < names.Length; k++) names[k] = st.Cols[k].HeaderOrig;
                     RenderExtras(comp, st.Vm, st.X, names);
                 } catch (Exception e) { Trace("RenderExtras: " + e.Message); }
+            FitPicture(st);   // after the cards got their content
         }
 
         // ------------------------------------------------------------ "DC Priority" card (Auto / Fire / Flooding)
@@ -681,9 +760,9 @@ namespace AlternativeDamageModel
         static readonly string[] PriorityNames = { "Auto", "Fire", "Flooding" };
         static readonly string[] PriorityTips =
         {
-            "Auto: the game's order - Flooding Rate > Fire > Flooding > Structure > Systems.",
-            "Fire first: Fire > Flooding Rate > Flooding > Structure > Systems. Auto DC sends free teams to the worst fire first.",
-            "Flooding first: Flooding Rate > Flooding > Fire > Structure > Systems. Auto DC sends free teams to leaks, then to water.",
+            "Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. The fastest growing fire or leak first.",
+            "Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. Auto DC sends free teams to the worst fire first.",
+            "Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. Auto DC sends free teams to leaks, then to water.",
         };
 
         /// <summary>
@@ -742,7 +821,7 @@ namespace AlternativeDamageModel
                     {
                         var img = VisualTreeHelper.GetChild(host, k) as Image;
                         if (img == null) continue;
-                        st.Picture = img; st.PictureMaxW = img.MaxWidth; st.PictureMaxH = img.MaxHeight; st.PictureMargin = img.Margin;
+                        st.Picture = img; st.PicFitted = false; st.PictureMaxW = img.MaxWidth; st.PictureMaxH = img.MaxHeight; st.PictureMargin = img.Margin;
                         img.MaxWidth = PictureMaxWidth;
                         img.MaxHeight = PictureMaxHeight;
                         img.Margin = new Thickness(img.Margin.Left, PictureLift, img.Margin.Right, img.Margin.Bottom);
@@ -761,11 +840,14 @@ namespace AlternativeDamageModel
                 var stack = new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center };
 
                 // the game's Auto DC content, moved (its bindings come along: same view, same data context)
+                StackPanel autoRow = null;
                 var autoContent = card.Child as UIElement;
                 if (autoContent != null)
                 {
                     card.Child = null;
-                    stack.Children.Add(autoContent);
+                    autoRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                    autoRow.Children.Add(autoContent);   // "Limit Speed" joins it on the same level
+                    stack.Children.Add(autoRow);
                     card.Visibility = Visibility.Collapsed;
                     st.AutoCard = card; st.AutoContent = autoContent; st.AutoStack = stack;
                 }
@@ -790,12 +872,30 @@ namespace AlternativeDamageModel
                     row.Children.Add(b);
                 }
                 stack.Children.Add(row);
+                // like the game's Auto DC: a title above, a toggle below ("Enabled" / "Disabled"), the same size as that toggle
+                var lim = new ToggleButton { Content = "Enabled", Padding = new Thickness(8f, 2f, 8f, 2f), HorizontalAlignment = HorizontalAlignment.Stretch };
+                ToggleButton gameToggle = null;
+                if (autoContent != null) foreach (var e in Flatten(autoContent, 200)) { gameToggle = e as ToggleButton; if (gameToggle != null) break; }
+                if (gameToggle != null)
+                {
+                    try { lim.Padding = gameToggle.Padding; lim.MinWidth = gameToggle.MinWidth; lim.Height = gameToggle.Height; lim.Margin = gameToggle.Margin; lim.FontSize = gameToggle.FontSize; if (gameToggle.Width > 0f) lim.Width = gameToggle.Width; } catch { }
+                }
+                var limTitle = new TextBlock { Text = "Limit Speed", HorizontalAlignment = HorizontalAlignment.Center };
+                if (label != null) { limTitle.Foreground = label.Foreground; limTitle.FontSize = label.FontSize; limTitle.Margin = label.Margin; }
+                var limBox = new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6f, 0f, 0f, 0f) };
+                limBox.Children.Add(limTitle); limBox.Children.Add(lim);
+                try { ToolTipService.SetToolTip(limBox, "On: the game cuts the ship's speed while there is flooding (10 kn with open holes, 10-25 kn by the water in the sections).\nOff: no cut, the ship keeps its ordered speed - the water comes in faster and fires burn brighter."); } catch { }
+                lim.Click += (sender, e) => { DcControl.SetLimitSpeed(st.Comp, lim.IsChecked == true); lim.Content = lim.IsChecked == true ? "Enabled" : "Disabled"; };
+                if (autoRow != null) autoRow.Children.Add(limBox); else stack.Children.Add(limBox);
+                st.LimitButton = lim;
                 box.Child = stack;
                 host.Children.Add(box);
                 st.Priority = box; st.PriorityHost = host; st.PriorityButtons = buttons;
 
                 try { st.X = AddExtras(view, grid, host, card, all); } catch (Exception e) { Trace("extras: " + e.Message); }
                 SyncPriority(buttons, DcControl.GetMode(comp));
+                RenderPriority(comp, st);
+                FitPicture(st);   // before the first frame: the picture is not shown at its 300 px limit and then pulled in
             }
             catch (Exception e) { Trace("priority card: " + e.Message); }
         }
@@ -816,6 +916,8 @@ namespace AlternativeDamageModel
             if (img == null) return;
             try
             {
+                // the first time: measure the cards now (the layout pass would come after the first frame - the picture row jumped then)
+                if (!st.PicFitted) try { img.UpdateLayout(); } catch { }
                 float need = 0f;
                 foreach (var card in new[] { st.Priority, st.X != null ? st.X.ListCard : null })
                 {
@@ -828,6 +930,7 @@ namespace AlternativeDamageModel
                 // the cards start SideTop below the row's top; the picture PictureLift (+ its bottom margin)
                 float max = Math.Min(PictureMaxHeight, need + SideTop - PictureLift - img.Margin.Bottom);
                 if (Math.Abs(img.MaxHeight - max) > 0.5f) img.MaxHeight = max;
+                if (!st.PicFitted) { st.PicFitted = true; try { img.UpdateLayout(); } catch { } }
             }
             catch (Exception e) { Trace("FitPicture: " + e.Message); }
         }
@@ -852,7 +955,7 @@ namespace AlternativeDamageModel
                 if (st.AutoContent != null)
                 {
                     // out of our stack (known), else out of whatever holds it now (logical or visual parent)
-                    if (st.AutoStack != null) try { st.AutoStack.Children.Remove(st.AutoContent); } catch { }
+                    if (st.AutoStack != null) try { foreach (var ch in st.AutoStack.Children) { var ar = ch as StackPanel; if (ar != null) ar.Children.Remove(st.AutoContent); } st.AutoStack.Children.Remove(st.AutoContent); } catch { }
                     DependencyObject holder = null;
                     var fe = st.AutoContent as FrameworkElement;
                     try { if (fe != null) holder = fe.Parent; } catch { }
@@ -886,6 +989,7 @@ namespace AlternativeDamageModel
         static void RenderPriority(object comp, ViewState st)
         {
             if (st.PriorityButtons != null) SyncPriority(st.PriorityButtons, DcControl.GetMode(comp));
+            if (st.LimitButton != null) try { st.LimitButton.IsEnabled = ModelOn(); bool on = DcControl.LimitSpeed(comp); if (st.LimitButton.IsChecked != on) st.LimitButton.IsChecked = on; st.LimitButton.Content = on ? "Enabled" : "Disabled"; } catch { }
         }
 
         // ------------------------------------------------------------ the help line and its legend
@@ -893,8 +997,8 @@ namespace AlternativeDamageModel
         static readonly string[] OrderText =
         {
             null,   // Auto: the game's own text
-            "DC Priority: Fire - teams take threats in this order: Fire > Flooding Rate > Flooding > Structure > Systems",
-            "DC Priority: Flooding - teams take threats in this order: Flooding Rate > Flooding > Fire > Structure > Systems",
+            "DC Priority: Fire - teams take threats in this order: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure",
+            "DC Priority: Flooding - teams take threats in this order: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure",
         };
 
         /// <summary>
@@ -968,7 +1072,7 @@ namespace AlternativeDamageModel
         static readonly ConditionalWeakTable<TextBlock, HeaderState> Headers = new ConditionalWeakTable<TextBlock, HeaderState>();
         static readonly List<WeakReference> Decorated = new List<WeakReference>();     // TextBlocks with our icons (to restore)
         static readonly List<WeakReference> StatusViews = new List<WeakReference>();   // SeapowerUI.UnitStatusView
-        sealed class StatusState { public TextBlock Header; public float NextScan; }
+        sealed class StatusState { public TextBlock Header; public float NextScan; public int ScanMisses; }
         static readonly ConditionalWeakTable<object, StatusState> StatusStates = new ConditionalWeakTable<object, StatusState>();
 
         // the "Damage Control" tab view models (UnitStatusTabViewModel, Kind = DamageControl), caught when the game makes them;
@@ -1010,6 +1114,18 @@ namespace AlternativeDamageModel
             lock (StatusViews) { StatusViews.RemoveAll(w => !w.IsAlive); StatusViews.Add(new WeakReference(view)); }
         }
 
+        /// <summary>The Unit Status windows made so far (the visible ones).</summary>
+        public static List<FrameworkElement> StatusViewElements()
+        {
+            var list = new List<FrameworkElement>();
+            lock (StatusViews) { foreach (var w in StatusViews) { var fe = w.Target as FrameworkElement; if (fe != null) list.Add(fe); } }
+            return list;
+        }
+
+        public static Brush ResBrush(FrameworkElement where, string key, Color fallback) { return Res(where, key, fallback); }
+        public static List<DependencyObject> TreeOf(DependencyObject root, int budget) { return Flatten(root, budget); }
+        public static DependencyObject ParentOf(DependencyObject e) { return Parent(e); }
+
         static void DecorateStatusViews(float now)
         {
             List<object> views = new List<object>();
@@ -1021,7 +1137,8 @@ namespace AlternativeDamageModel
                 var ss = StatusStates.GetOrCreateValue(v);
                 if (ss.Header != null && Parent(ss.Header) != null) { DecorateHeader(ss.Header, fe); continue; }
                 if (now < ss.NextScan && !_scanNow) continue;
-                ss.NextScan = now + 0.5f;
+                ss.NextScan = now + (ss.ScanMisses < 3 ? 0.5f : 3f);   // a view whose tab buttons are not there: not a walk twice a second for ever
+                ss.ScanMisses++;
                 foreach (var e in Flatten(fe, 8000))
                 {
                     var rb = e as RadioButton;
@@ -1031,7 +1148,7 @@ namespace AlternativeDamageModel
                     foreach (var x in Flatten(rb, 50)) { var t = x as TextBlock; if (t != null) { ss.Header = t; break; } }
                     break;
                 }
-                if (ss.Header != null) DecorateHeader(ss.Header, fe);
+                if (ss.Header != null) { ss.ScanMisses = 0; DecorateHeader(ss.Header, fe); }
             }
             _scanNow = false;
         }
@@ -1103,7 +1220,7 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>A header icon: 14 x 14, centred, a transparent (hit-testable) frame, a little dimmer until the mouse is on it.</summary>
-        static Border HeaderIcon(FrameworkElement icon)
+        internal static Border HeaderIcon(FrameworkElement icon)
         {
             var b = new Border { Child = icon, Width = 14f, Height = 14f, VerticalAlignment = VerticalAlignment.Center,
                                  Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)), Opacity = 0.9f };
@@ -1125,7 +1242,7 @@ namespace AlternativeDamageModel
             };
         }
 
-        static FrameworkElement InfoIcon()
+        internal static FrameworkElement InfoIcon()
         {
             var cv = new Canvas { Width = 14f, Height = 14f };
             cv.Children.Add(Shape("F0 M7,0 A7,7 0 1 1 7,14 A7,7 0 1 1 7,0 Z M6,6 L8,6 L8,11.5 L6,11.5 Z M7,2.5 A1.2,1.2 0 1 1 7,4.9 A1.2,1.2 0 1 1 7,2.5 Z", CBlue));
@@ -1172,7 +1289,7 @@ namespace AlternativeDamageModel
 
             line("One icon = one damage control team:", CWhite, 14f);
             var icons = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 2f, 0f, 0f) };
-            foreach (var task in new[] { TaskLeak, TaskFire, TaskPump, TaskHull, TaskSystems, TaskIdle, IconTransit, IconInjured, IconDead })
+            foreach (var task in new[] { TaskLeak, TaskFire, TaskPump, TaskCounter, TaskHull, TaskSystems, TaskIdle, IconTransit, IconInjured, IconDead })
             {
                 var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0f, 0f, 0f, 3f) };
                 row.Children.Add(Icon(task));
@@ -1233,6 +1350,17 @@ namespace AlternativeDamageModel
             switch (a) { case 2: return " ++"; case 1: return " +"; case -1: return " -"; case -2: return " --"; default: return ""; }
         }
 
+        const float TrendSmooth = 1.5f;   // seconds
+
+        /// <summary>The arrows of a rate with hysteresis: an arrow already shown stays while the rate is still above ~half of its threshold
+        /// (<paramref name="prev"/> = what was shown), so a rate hovering around a threshold does not make the arrow (and its open tooltip) come and go.</summary>
+        static int Arrows(float rate, float one, float twoUp, float twoDown, int prev)
+        {
+            int n = Arrows(rate, one, twoUp, twoDown);
+            if (prev != 0 && n != prev && Arrows(rate, one * 0.4f, twoUp * 0.6f, twoDown * 0.6f) == prev) return prev;
+            return n;
+        }
+
         static int Arrows(float rate, float one, float twoUp, float twoDown)
         {
             if (rate >= twoUp) return 2;
@@ -1249,7 +1377,6 @@ namespace AlternativeDamageModel
             return ((int)Math.Floor(v)).ToString(CultureInfo.InvariantCulture) + "%";
         }
 
-        static Color Stage(float integrity) { return integrity >= 75f ? CWhite : (integrity >= 25f ? COrange : CRed); }
 
         /// <summary>Rebuilds a text block when what it shows changed, or when the game rewrote it (a binding update).</summary>
         static bool NeedsRender(TextBlock tb, string sig, string lastSig, string lastShown)
@@ -1257,28 +1384,293 @@ namespace AlternativeDamageModel
             return tb != null && (sig != lastSig || tb.Text != lastShown);
         }
 
-        static void RenderHeader(Col c, float ip, float isb, object comp, int i)
+        /// <summary>One piece of a row's text: a run (own colour or the row's) or an arrow with its tooltip.</summary>
+        sealed class Seg
+        {
+            public string Text; public Color? Col;
+            public bool Arrow; public bool Up; public int N; public Func<string> Why;
+            public bool Box;   // a number in a text block of its own, inside the row (changing it does not make the row's text lay itself out again)
+        }
+        static Seg Run_(string text, Color? col = null) { return new Seg { Text = text, Col = col }; }
+        static Seg Box_(string text, Color? col = null, Func<string> why = null) { return new Seg { Text = text, Col = col, Box = true, Why = why }; }
+        static Seg Arr_(bool up, int n, Color col, Func<string> why) { return new Seg { Arrow = true, Up = up, N = n, Col = col, Why = why }; }
+
+        /// <summary>What a row's inlines are now.</summary>
+        sealed class Drawn { public TextBlock Tb; public List<Seg> Segs; public List<Inline> Inl; public List<TextBlock> Kids; public string Shown; public int Healed; }
+
+        /// <summary>
+        /// Writes a row. While the pieces are the same kind (same arrows, same colours of the arrows), only the texts and colours of the
+        /// runs are changed in place - the arrows and their open tooltips are not made anew (they flickered when the numbers changed).
+        /// Made anew only when the structure changes, the game rewrote the text, or force is set.
+        /// </summary>
+        static int _drawTrace;
+        static int _boxTrace, _widthTrace, _overTrace, _healTrace;
+        static float BoxDrop = 0.25f;   // how far (× font size) the % boxes are moved down onto the text baseline
+
+        /// <summary>Diagnostics: the boxes of a row standing on top of each other (the box's right edge past the left edge of the next box).</summary>
+        static bool CheckOverlap(TextBlock tb, Drawn d, List<Seg> segs)
+        {
+            try
+            {
+                if (tb.ActualWidth < 0.5f) return false;
+                int prev = -1; float px = 0f, pw = 0f; float ptol = 0f;
+                for (int i = 0; i < segs.Count; i++)
+                {
+                    FrameworkElement kid = null; float tol = 0.5f;
+                    if (segs[i].Box && i < d.Kids.Count) kid = d.Kids[i];
+                    else if (segs[i].Arrow && i < d.Inl.Count) { var iu = d.Inl[i] as InlineUIContainer; kid = iu != null ? iu.Child as FrameworkElement : null; tol = 3.5f; }
+                    if (kid == null) continue;
+                    var pt = kid.TranslatePoint(new Point(0f, 0f), tb);
+                    float x = pt.X, w = kid.ActualWidth;
+                    if (prev >= 0 && x < px + pw - Math.Max(tol, ptol))
+                    {
+                        if (_overTrace >= 25) return true;
+                        _overTrace++;
+                        var sb = new System.Text.StringBuilder();
+                        for (int j = 0; j < segs.Count; j++) sb.Append(segs[j].Arrow ? "[arrow]" : segs[j].Box ? "<" + segs[j].Text + ">" : "'" + segs[j].Text + "'");
+                        Trace("DC pieces overlap: #" + prev + " x " + px.ToString("0.#") + " w " + pw.ToString("0.#") + ", #" + i + " x " + x.ToString("0.#") + " w " + w.ToString("0.#") + "; row w " + tb.ActualWidth.ToString("0.#") + ", font " + tb.FontSize.ToString("0.#") + "; " + sb);
+                        return true;
+                    }
+                    prev = i; px = x; pw = w; ptol = tol;
+                }
+            }
+            catch (Exception ex) { if (_overTrace < 25) { _overTrace++; Trace("DC overlap check: " + ex.Message); } }
+            return false;
+        }
+
+        static void Draw(TextBlock tb, ref Drawn d, bool force, List<Seg> segs)
+        {
+            bool same = !force && d != null && ReferenceEquals(d.Tb, tb) && tb.Text == d.Shown && d.Segs.Count == segs.Count;
+            for (int i = 0; same && i < segs.Count; i++)
+            {
+                var o = d.Segs[i]; var n = segs[i];
+                if (o.Arrow != n.Arrow || o.Box != n.Box || (n.Arrow ? (o.Up != n.Up || o.N != n.N || !o.Col.Equals(n.Col)) : (o.Col.HasValue != n.Col.HasValue))) same = false;
+            }
+            // a box whose width changes (9% -> 10%) moves the pieces after it: the row is made anew, not patched (an arrow stayed on the number)
+            for (int i = 0; same && i < segs.Count; i++)
+            {
+                if (!segs[i].Arrow && !segs[i].Box && i < d.Kids.Count && d.Kids[i] != null && d.Kids[i].Text != segs[i].Text) { same = false; break; }   // a separator in the group changes its width
+                if (!segs[i].Box || i >= d.Kids.Count || d.Kids[i] == null || d.Kids[i].Text == segs[i].Text) continue;
+                try { if (Math.Abs(BoxWidth(segs[i].Text, tb) - d.Kids[i].Width) > 0.4f) same = false; } catch { }
+            }
+            // the inlines of a row sometimes keep stale positions (a box standing on top of the next one) until the row is made anew:
+            // found by the positions of the boxes, the row is rebuilt (at most once a second per row)
+            int healed = d != null ? d.Healed : 0;
+            bool heal = false;
+            if (same && Environment.TickCount - healed > 300 && CheckOverlap(tb, d, segs)) { same = false; heal = true; healed = Environment.TickCount; if (_healTrace < 20) { _healTrace++; Trace("DC row: boxes overlap, the row is rebuilt"); } }
+            if (same)
+            {
+                for (int i = 0; i < segs.Count; i++)
+                {
+                    var o = d.Segs[i]; var n = segs[i];
+                    if (n.Arrow) continue;
+                    if (n.Box)
+                    {
+                        var kid = d.Kids[i];
+                        if (kid == null) continue;
+                        if (kid.Text != n.Text)
+                        {
+                            string was = kid.Text;
+                            kid.Text = n.Text;
+                            // a measured fixed width: the row's layout cannot lose it; the container is given its child again so that the row
+                            // lays its inlines out anew (a changed size of the child alone did not move the next pieces)
+                            try
+                            {
+                                float w0 = kid.Width, w1 = BoxWidth(n.Text, tb);
+                                kid.Width = w1;
+                                var iuc = d.Inl[i] as InlineUIContainer;
+                                if (iuc != null && ReferenceEquals(iuc.Child, kid) && Math.Abs(w1 - w0) > 0.4f) { iuc.Child = null; iuc.Child = kid; }
+                                tb.InvalidateMeasure(); tb.InvalidateArrange();
+                                if (_widthTrace < 30) { _widthTrace++; Trace("DC box width: #" + i + " '" + was + "' -> '" + n.Text + "' width " + w0.ToString("0.#") + " -> " + w1.ToString("0.#") + ", font " + tb.FontSize.ToString("0.#") + ", reattached " + (iuc != null && Math.Abs(w1 - w0) > 0.4f)); }
+                            }
+                            catch (Exception ex) { if (_widthTrace < 30) { _widthTrace++; Trace("DC box width: " + ex.Message); } }
+                        }
+                        if (_boxTrace < 12 && !string.IsNullOrEmpty(kid.Text))
+                        {
+                            // diagnostics of the pieces standing on top of each other: a laid-out box with no width
+                            try
+                            {
+                                if (kid.ActualWidth < 0.5f && tb.ActualWidth > 0.5f)
+                                {
+                                    _boxTrace++;
+                                    Trace("DC box has no width: '" + kid.Text + "' kid " + kid.ActualWidth.ToString("0.#") + "x" + kid.ActualHeight.ToString("0.#") + ", row " + tb.ActualWidth.ToString("0.#") + "x" + tb.ActualHeight.ToString("0.#") +
+                                          ", font " + tb.FontSize.ToString("0.#") + ", wrap " + tb.TextWrapping + ", pieces " + segs.Count);
+                                }
+                            }
+                            catch { }
+                        }
+                        if (n.Col.HasValue && !o.Col.Equals(n.Col)) kid.Foreground = new SolidColorBrush(n.Col.Value);
+                        continue;
+                    }
+                    var run = d.Inl[i] as Run;
+                    if (run == null)
+                    {
+                        var rk = i < d.Kids.Count ? d.Kids[i] : null;   // a separator inside the group
+                        if (rk != null)
+                        {
+                            if (rk.Text != n.Text) rk.Text = n.Text;
+                            if (n.Col.HasValue && !o.Col.Equals(n.Col)) rk.Foreground = new SolidColorBrush(n.Col.Value);
+                        }
+                        continue;
+                    }
+                    if (run.Text != n.Text) run.Text = n.Text;
+                    if (n.Col.HasValue && !o.Col.Equals(n.Col)) run.Foreground = new SolidColorBrush(n.Col.Value);
+                }
+                d.Segs = segs; d.Shown = tb.Text;
+                return;
+            }
+            if (_drawTrace < 40 && d != null) { _drawTrace++; Trace("DC row rebuilt: " + (force ? "forced" : !ReferenceEquals(d.Tb, tb) ? "other text block" : tb.Text != d.Shown ? "text rewritten by the game" : "structure changed")); }
+            // the game's binding would write its own text into the row from time to time (and wipe the arrows, with their open tooltips):
+            // it is taken off while we draw (Keep saved it; RestoreBlock puts it back)
+            Keep(tb);
+            try { if (BindingOperations.GetBindingBase(tb, TextBlock.TextProperty) != null) BindingOperations.ClearBinding(tb, TextBlock.TextProperty); } catch (Exception ex) { Trace("Draw ClearBinding: " + ex.Message); }
+            var il = tb.Inlines;
+            il.Clear();
+            var inl = new List<Inline>(segs.Count);
+            var kids = new List<TextBlock>(segs.Count);
+            // From the first % box to the end of the row everything goes into ONE inline container, in a horizontal panel: the text block
+            // places a single piece (after the label), and the % boxes, separators and arrows stand side by side by the panel's own layout.
+            // (Pieces placed one by one by the text block sometimes stood on top of each other, or moved by a pixel, in the traces.)
+            int g0 = -1;
+            for (int j = 0; j < segs.Count && g0 < 0; j++) if (segs[j].Box) g0 = j;
+            for (int si = 0; si < segs.Count; si++)
+            {
+                var s = segs[si];
+                Inline x;
+                TextBlock kid = null;
+                if (g0 >= 0 && si == g0)
+                {
+                    float fs = tb.FontSize > 1f ? tb.FontSize : 14f;
+                    var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
+                    float h = 0f;
+                    var gInl = new List<Inline>(); var gKids = new List<TextBlock>();
+                    for (int j = g0; j < segs.Count; j++)
+                    {
+                        var t = segs[j];
+                        if (t.Arrow)
+                        {
+                            var ai = Arrow(t.Up, t.N, t.Col.Value, t.Why);
+                            var aiu = ai as InlineUIContainer;
+                            FrameworkElement el = aiu != null ? aiu.Child as FrameworkElement : null;
+                            if (el != null) aiu.Child = null;
+                            else el = new TextBlock { Text = " " + new string(t.Up ? '+' : '-', t.N), Foreground = new SolidColorBrush(t.Col.Value) };
+                            el.VerticalAlignment = VerticalAlignment.Bottom;
+                            panel.Children.Add(el);
+                            gInl.Add(ai); gKids.Add(null);
+                            continue;
+                        }
+                        var k = new TextBlock { Text = t.Text, VerticalAlignment = VerticalAlignment.Bottom };
+                        // the child of an inline container stands with its bottom edge on the baseline: all texts are moved down by the descent
+                        try { k.Margin = new Thickness(0f, 0f, 0f, -(float)Math.Round(fs * BoxDrop)); if (t.Box) k.Width = BoxWidth(t.Text, tb); } catch { }
+                        if (t.Col.HasValue) k.Foreground = new SolidColorBrush(t.Col.Value);
+                        if (t.Box && t.Why != null) LiveTip(k, t.Why);
+                        if (h <= 0f) { try { k.Measure(new Size(float.PositiveInfinity, float.PositiveInfinity)); h = k.DesiredSize.Height; } catch { } }
+                        panel.Children.Add(k);
+                        gInl.Add(null); gKids.Add(k);
+                    }
+                    if (h > 0f)
+                    {
+                        // whole pixels only: a fractional height (14.4) put the row on a pixel boundary that changed by one when a colour was repainted
+                        float drop = (float)Math.Round(fs * BoxDrop), th = (float)Math.Round(h + drop);
+                        foreach (var c in panel.Children) { var tk = c as TextBlock; if (tk != null && tk.Margin.Bottom < 0f) tk.Height = th; }
+                        panel.Height = th - drop;   // the same height whatever the arrows: the row does not change its height when they come and go
+                    }
+                    try { panel.UseLayoutRounding = true; } catch { }
+                    x = new InlineUIContainer(panel);
+                    il.Add(x);
+                    inl.Add(x); kids.Add(gKids[0]);
+                    for (int j = 1; j < gInl.Count; j++) { inl.Add(gInl[j]); kids.Add(gKids[j]); }
+                    break;
+                }
+                if (s.Arrow) x = Arrow(s.Up, s.N, s.Col.Value, s.Why);
+                else
+                {
+                    var r = new Run(s.Text);
+                    if (s.Col.HasValue) r.Foreground = new SolidColorBrush(s.Col.Value);
+                    x = r;
+                }
+                il.Add(x); inl.Add(x); kids.Add(kid);
+            }
+            d = new Drawn { Tb = tb, Segs = segs, Inl = inl, Kids = kids, Shown = tb.Text, Healed = healed };
+            try { tb.InvalidateMeasure(); } catch { }
+        }
+
+        static readonly Dictionary<string, float> _bwCache = new Dictionary<string, float>();
+        static int _bwTrace;
+
+        /// <summary>Width of a % box: the text measured off the tree with the row's own font (cached by text + font); if the measure gives nothing, estimated by the characters.</summary>
+        static float BoxWidth(string text, TextBlock row)
+        {
+            float fs = row.FontSize > 1f ? row.FontSize : 14f;
+            string key = null;
+            try
+            {
+                key = (row.FontFamily == null ? "" : row.FontFamily.ToString()) + "|" + fs + "|" + row.FontWeight + "|" + row.FontStyle + "|" + text;
+                float cw;
+                if (_bwCache.TryGetValue(key, out cw)) return cw;
+                var probe = new TextBlock { Text = text ?? "", FontSize = fs, FontWeight = row.FontWeight, FontStyle = row.FontStyle };
+                if (row.FontFamily != null) probe.FontFamily = row.FontFamily;
+                probe.Measure(new Size(float.PositiveInfinity, float.PositiveInfinity));
+                float w = probe.DesiredSize.Width;
+                if (w > 0.5f)
+                {
+                    w = (float)Math.Ceiling(w) + 1f;
+                    if (_bwCache.Count > 500) _bwCache.Clear();
+                    _bwCache[key] = w;
+                    return w;
+                }
+                if (_bwTrace++ < 5) Trace("DC box: the text measure gave " + w + " for '" + text + "', estimated");
+            }
+            catch (Exception ex) { if (_bwTrace++ < 5) Trace("DC box measure: " + ex.Message); }
+            return BoxEstimate(text, fs);
+        }
+
+        static float BoxEstimate(string text, float fs)
+        {
+            float w = 0f;
+            foreach (char c in text ?? "") w += c >= '0' && c <= '9' ? 0.62f : c == '%' ? 0.95f : c == '.' || c == ',' ? 0.34f : c == ' ' ? 0.3f : 0.66f;
+            return (float)Math.Ceiling(w * fs) + 1f;
+        }
+
+        /// <summary>The colour of a side's hull %: grey once it is welded as far as it can be (MaxAllowedIntegrity, whatever the %);
+        /// otherwise by damage - yellow (light damage, can be welded), orange, red.</summary>
+        static readonly Color CYellow = Color.FromRgb(236, 212, 110);
+
+        static Color HullColor(float integrity, bool repaired)
+        {
+            if (repaired) return CGrey;
+            return integrity >= 75f ? CYellow : (integrity >= 25f ? COrange : CRed);
+        }
+
+        /// <summary>True when a damage control team can weld nothing more on this compartment (IntegrityDelta ~ 0).</summary>
+        static bool WeldedUp(object fc)
+        {
+            float max = GetF(_fcMaxInt, fc);
+            if (_fcMaxAllowed == null || _fcCurInt == null || max <= 0f) return false;
+            return GetP(_fcMaxAllowed, fc) - GetF(_fcCurInt, fc) <= max * 0.0005f;
+        }
+
+        static void RenderHeader(Col c, float ip, float isb, object comp, int i, object fp, object fs, object sc)
         {
             var tb = c.Header;
             if (tb == null) return;
             if (c.HeaderSig != null && tb.Text != c.HeaderShown) c.HeaderOrig = tb.Text; // the game changed the name (language)
-            int ap = Math.Abs(c.RIP) < 1e-6f ? 0 : (c.RIP > 0 ? 1 : -1), asb = Math.Abs(c.RIS) < 1e-6f ? 0 : (c.RIS > 0 ? 1 : -1);
+            int ap = Math.Abs(c.RIP) < 0.003f ? 0 : (c.RIP > 0 ? 1 : -1), asb = Math.Abs(c.RIS) < 0.003f ? 0 : (c.RIS > 0 ? 1 : -1);   // (the rate is smoothed: it dies away, not to exactly 0)
             bool whole = ip >= 99.95f && isb >= 99.95f;
-            string sig = whole ? "whole" : Pct(ip) + ap + "/" + Pct(isb) + asb + Stage(ip) + Stage(isb);
-            if (!NeedsRender(tb, sig, c.HeaderSig, c.HeaderShown)) return;
-            var il = tb.Inlines;
-            il.Clear();
-            il.Add(new Run(c.HeaderOrig ?? ""));
+            InitCauses(comp, fp, sc);
+            Color cp = HullColor(ip, WeldedUp(fp)), cs = HullColor(isb, WeldedUp(fs));
+            var segs = new List<Seg> { Run_(c.HeaderOrig ?? "") };
             if (!whole)
             {
-                il.Add(new Run("   "));
-                il.Add(Colored(Pct(ip), Stage(ip)));
-                if (ap != 0) il.Add(Arrow(ap > 0, 1, ap > 0 ? CDown : CUp, () => HullCause(comp, c, i, true))); // integrity: up is good (green), down is bad (red)
-                il.Add(Colored(" / ", Stage(isb)));
-                il.Add(Colored(Pct(isb), Stage(isb)));
-                if (asb != 0) il.Add(Arrow(asb > 0, 1, asb > 0 ? CDown : CUp, () => HullCause(comp, c, i, false)));
+                segs.Add(Run_("   "));
+                segs.Add(Box_(Pct(ip), cp, () => HullCause(comp, c, i, true)));
+                if (ap != 0) segs.Add(Arr_(ap > 0, 1, ap > 0 ? CDown : CUp, () => HullCause(comp, c, i, true))); // integrity: up is good (green), down is bad (red)
+                segs.Add(Run_(" / ", CGrey));
+                segs.Add(Box_(Pct(isb), cs, () => HullCause(comp, c, i, false)));
+                if (asb != 0) segs.Add(Arr_(asb > 0, 1, asb > 0 ? CDown : CUp, () => HullCause(comp, c, i, false)));
             }
-            c.HeaderSig = sig;
+            Draw(tb, ref c.HeaderD, c.HeaderSig == null, segs);
+            c.HeaderSig = "ok";
             c.HeaderShown = tb.Text;
         }
 
@@ -1289,6 +1681,8 @@ namespace AlternativeDamageModel
         /// that team a task by hand (kept while the team stays in the compartment); a team with a task given by hand is underlined.
         /// </summary>
         sealed class Sections { public string[] Names; public int[] Order; }
+
+        static string[] _sectionNames;   // the sections' names as the game writes them, for the hints
 
         static string SectionName(Sections sec, int i)
         {
@@ -1311,8 +1705,8 @@ namespace AlternativeDamageModel
             var coming = moving.FindAll(v => v.Section == i);
             var sb = new StringBuilder();
             sb.Append(n).Append(manual ? 'm' : 'a');
-            for (int k = 0; k < n; k++) sb.Append(':').Append(actual[k]).Append('/').Append(forced[k]);
-            foreach (var v in coming) sb.Append('>').Append(v.Ref.GetHashCode());
+            for (int k = 0; k < n; k++) { sb.Append(':').Append(actual[k]).Append('/').Append(forced[k]); var tk = refs[k] as DcTeams.Team; if (tk != null) sb.Append('h').Append((int)(tk.Health * 10f)).Append(DcTeams.FatigueLevel(tk.Fatigue)); }
+            foreach (var v in coming) sb.Append('>').Append(v.Ref.GetHashCode()).Append((int)(v.Health * 10f)).Append(DcTeams.FatigueLevel(v.Fatigue));
             string sig = sb.ToString();
             if (c.TeamsSig != null && MenusOpen()) return;   // an open menu would close with its icon
             if (!NeedsRender(tb, sig, c.TeamsSig, c.TeamsShown)) return;
@@ -1323,7 +1717,7 @@ namespace AlternativeDamageModel
             for (int k = 0; k < n && k < 8; k++, shown++)
             {
                 int did = actual[k] == TaskNone ? TaskIdle : actual[k];
-                var frame = Frame(Icon(did), shown, forced[k] != TaskNone);
+                var frame = Frame(Icon(did, refs[k]), shown, forced[k] != TaskNone);
                 int kk = k;
                 if (manual)
                 {
@@ -1335,7 +1729,7 @@ namespace AlternativeDamageModel
             }
             foreach (var v in coming)
             {
-                var frame = Frame(Icon(IconTransit), shown++, false);
+                var frame = Frame(Icon(IconTransit, v.Ref), shown++, false);
                 var r = v.Ref;
                 Clickable(frame, manual ? (Func<ContextMenu>)(() => CancelMenu(comp, r)) : null, r);
                 LiveTip(frame, () => RefTip(comp, r, sec.Names));
@@ -1397,12 +1791,31 @@ namespace AlternativeDamageModel
             return names != null && i < names.Length && !string.IsNullOrEmpty(names[i]) ? names[i] : "section " + (i + 1);
         }
 
-        static string KnockNote(int knocks)
+        /// <summary>Health and fatigue of a team for its hint ("Health 60% (wounded: slower)"); null when both are off.</summary>
+        static string HealthNote(object comp, float health, float fatigue)
         {
-            if (knocks <= 0) return null;
-            string s = knocks == 1 ? "Knocked out once" : "Knocked out " + knocks + " times";
-            if (DcTeams.KnocksToDie > 0 && knocks + 1 >= DcTeams.KnocksToDie) s += " (next: lost)";
-            return s;
+            var sb = new StringBuilder();
+            float engMul = DcTeams.EngineMulOf(comp);
+            if (DcTeams.IsEnabled() && DcTeams.HealthOn)
+                sb.Append("Health ").Append(Math.Round(health * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%').Append(DcTeams.Wounded(health) ? " (wounded: slower)" : "");
+            if (DcTeams.IsEnabled() && DcTeams.FatigueMin > 0f)
+            {
+                if (sb.Length > 0) sb.Append('\n');
+                int lv = DcTeams.FatigueLevel(fatigue);
+                float full = DcTeams.ExhaustedLimit > 0f ? DcTeams.ExhaustedLimit : 2f * DcTeams.FatigueLimit;   // where fatigue stops growing = 100%
+                var inside = new List<string>();
+                if (lv > 0) inside.Add(lv == 2 ? "exhausted" : "tired");
+                if (fatigue > 1f) inside.Add("rest " + (DcTeams.FatigueRecover > 0f ? Clock((float)fatigue * 100f / DcTeams.FatigueRecover) : "never"));
+                sb.Append("Fatigue ").Append(Math.Round(Math.Min(1.0, fatigue / full) * 100.0).ToString("0", CultureInfo.InvariantCulture)).Append('%')
+                  .Append(inside.Count > 0 ? " (" + string.Join(", ", inside.ToArray()) + ")" : "")
+                  .Append("\nEfficiency ").Append(Math.Round(DcTeams.EffOf(health, fatigue) * engMul * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%');
+            }
+            if (engMul < 1f)
+            {
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append("Engine out: ").Append(Math.Round(engMul * 100f).ToString("0", CultureInfo.InvariantCulture)).Append("% effectiveness (except systems repair)");
+            }
+            return sb.Length > 0 ? sb.ToString() : null;
         }
 
         /// <summary>A team working in section i, slot k (its k-th icon).</summary>
@@ -1419,11 +1832,11 @@ namespace AlternativeDamageModel
                 var here = DcTeams.InSection(comp, i);
                 int number = k < here.Count ? here[k].Number : 0;
                 var sb = new StringBuilder(Dc(number) + ": " + TaskName(did));
-                if (forced[k] != TaskNone) sb.Append(forced[k] == did ? "\nTask by hand" : "\nBy hand: " + TaskName(forced[k]) + " (nothing to do)");
+                if (forced[k] != TaskNone) sb.Append(forced[k] == did ? "\nTask by hand" : "\nBy hand: " + TaskName(forced[k]) + (forced[k] == TaskLeak && SpeedEffect.TooFastToPlug(comp) ? " (speed is too fast)" : " (nothing to do)"));
                 if (k < here.Count)
                 {
                     if (here[k].Stay < 1e6f && DcTeams.TransfersOn) sb.Append("\nHere " + Clock(here[k].Stay));
-                    string kn = KnockNote(here[k].Knocks);
+                    string kn = HealthNote(comp, here[k].Health, here[k].Fatigue);
                     if (kn != null) sb.Append("\n" + kn);
                 }
                 if (Manual(comp)) sb.Append(ModelOn() ? "\nClick: task / move" : "\nClick: task");
@@ -1442,7 +1855,7 @@ namespace AlternativeDamageModel
                     if (!ReferenceEquals(v.Ref, teamRef)) continue;
                     string dc = Dc(v.Number) + ": ";
                     bool manual = Manual(comp);
-                    string kn = KnockNote(v.Knocks);
+                    string kn = HealthNote(comp, v.Health, v.Fatigue);
                     switch ((DcTeams.St)v.State)
                     {
                         case DcTeams.St.Moving:
@@ -1455,11 +1868,13 @@ namespace AlternativeDamageModel
                             return sb.ToString();
                         }
                         case DcTeams.St.Injured:
-                            return dc + "recovering\nBack in " + Clock(v.Left) + (kn != null ? "\n" + kn : "");
+                            return dc + "wounded, going to the reserve\nThere in " + Clock(v.Left) + (kn != null ? "\n" + kn : "");
                         case DcTeams.St.Dead:
                             return dc + "lost" + (v.From >= 0 ? " (" + SectionName(names, v.From) + ")" : "");
                         case DcTeams.St.Pool:
-                            return dc + "free, in reserve" + (kn != null ? "\n" + kn : "");
+                            return dc + "free, in reserve" + (kn != null ? "\n" + kn : "") +
+                                   (DcTeams.Wounded(v.Health) && DcTeams.RegenRate > 0f ? "\nHealed in " + Clock((1f - v.Health) / (DcTeams.RegenRate / 100f)) : "") +
+                                   "";
                         default:
                             return dc + SectionName(names, v.Section);
                     }
@@ -1547,10 +1962,10 @@ namespace AlternativeDamageModel
         static ContextMenu TeamMenu(object comp, int i, object team, int forced, Sections sec)
         {
             var menu = new ContextMenu();
-            foreach (var t in new[] { TaskLeak, TaskFire, TaskPump, TaskHull, TaskSystems })
+            foreach (var t in new[] { TaskLeak, TaskFire, TaskPump, TaskCounter, TaskHull, TaskSystems })
                 menu.Items.Add(MenuEntry(Cap(TaskName(t)), Icon(t), t == forced, comp, team, t));
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuEntry("By priority (as the other teams)", Icon(IconByPriority), forced == TaskNone, comp, team, TaskNone));
+            menu.Items.Add(MenuEntry("Auto", Icon(IconByPriority), forced == TaskNone, comp, team, TaskNone));
             if (!ModelOn()) return menu;   // moves between sections: only with Alternative Damage Control
             menu.Items.Add(new Separator());
             var move = new MenuItem { Header = "Move to section" };
@@ -1608,25 +2023,21 @@ namespace AlternativeDamageModel
             var tb = c.Flood;
             if (tb == null) return;
             bool any = p > 0.0005f || s > 0.0005f;
-            int ap = Arrows(c.RP, FloodOne, FloodTwo, FloodTwo), asb = Arrows(c.RS, FloodOne, FloodTwo, FloodTwo);
+            int ap = Arrows(c.RP, FloodOne, FloodTwo, FloodTwo, c.AP), asb = Arrows(c.RS, FloodOne, FloodTwo, FloodTwo, c.AS);
+            c.AP = ap; c.AS = asb;
             // colour: yellow / red while damage control can still get water out (or a leak is open), grey once it cannot
             int sp = any ? FloodState(comp, i, true) : 0, ss = any ? FloodState(comp, i, false) : 0;
-            string sig = any ? Pct(p) + ap + "/" + Pct(s) + asb + "|" + sp + ss : "none";
-            if (!NeedsRender(tb, sig, c.FloodSig, c.FloodShown)) return;
-            var il = tb.Inlines;
-            il.Clear();
-            var label = new Run(c.FloodOrig ?? "");
-            if (any) label.Foreground = new SolidColorBrush(FloodColor(Math.Max(sp, ss)));
-            il.Add(label);
+            var segs = new List<Seg> { Run_(c.FloodOrig ?? "", any ? (Color?)FloodColor(Math.Max(sp, ss)) : null) };
             if (any)
             {
-                il.Add(Colored("  " + Pct(p), FloodColor(sp)));
-                if (ap != 0) il.Add(Arrow(ap > 0, Math.Abs(ap), ap > 0 ? CUp : CDown, () => FloodCause(comp, c, i, true)));
-                il.Add(Colored(" / ", FloodColor(Math.Max(sp, ss))));
-                il.Add(Colored(Pct(s), FloodColor(ss)));
-                if (asb != 0) il.Add(Arrow(asb > 0, Math.Abs(asb), asb > 0 ? CUp : CDown, () => FloodCause(comp, c, i, false)));
+                segs.Add(Run_("  ")); segs.Add(Box_(Pct(p), FloodColor(sp), () => FloodCause(comp, c, i, true)));
+                if (ap != 0) segs.Add(Arr_(ap > 0, Math.Abs(ap), ap > 0 ? CUp : CDown, () => FloodCause(comp, c, i, true)));
+                segs.Add(Run_(" / ", FloodColor(Math.Max(sp, ss))));
+                segs.Add(Box_(Pct(s), FloodColor(ss), () => FloodCause(comp, c, i, false)));
+                if (asb != 0) segs.Add(Arr_(asb > 0, Math.Abs(asb), asb > 0 ? CUp : CDown, () => FloodCause(comp, c, i, false)));
             }
-            c.FloodSig = sig;
+            Draw(tb, ref c.FloodD, c.FloodSig == null, segs);
+            c.FloodSig = "ok";
             c.FloodShown = tb.Text;
         }
 
@@ -1668,18 +2079,16 @@ namespace AlternativeDamageModel
             var tb = c.Fire;
             if (tb == null) return;
             bool any = f > 0.0005f;
-            int a = Arrows(c.RF, FireOne, FireTwoUp, FireTwoDown);
-            string sig = any ? Pct(f) + a : "none";
-            if (!NeedsRender(tb, sig, c.FireSig, c.FireShown)) return;
-            var il = tb.Inlines;
-            il.Clear();
-            il.Add(new Run(c.FireOrig ?? ""));
+            int a = Arrows(c.RF, FireOne, FireTwoUp, FireTwoDown, c.AF);
+            c.AF = a;
+            var segs = new List<Seg> { Run_(c.FireOrig ?? "") };
             if (any)
             {
-                il.Add(new Run("  " + Pct(f)));
-                if (a != 0) il.Add(Arrow(a > 0, Math.Abs(a), a > 0 ? CUp : CDown, () => FireCause(comp, c, i)));
+                segs.Add(Run_("  ")); segs.Add(Box_(Pct(f), null, () => FireCause(comp, c, i)));
+                if (a != 0) segs.Add(Arr_(a > 0, Math.Abs(a), a > 0 ? CUp : CDown, () => FireCause(comp, c, i)));
             }
-            c.FireSig = sig;
+            Draw(tb, ref c.FireD, c.FireSig == null, segs);
+            c.FireSig = "ok";
             c.FireShown = tb.Text;
         }
 
@@ -1738,6 +2147,12 @@ namespace AlternativeDamageModel
                 new object[] { "F0 M15.07,-0.22 L10.53,2.4 L9.4,2.4 L9.4,2.8 L6.6,2.8 L6.2,4.6 L6.8,4.6 L6.8,6.6 L4.3,6.6 L2.8,6.6 L2.8,8.2 L2.8,9.8 L4.3,9.8 L4.3,8.2 L6.8,8.2 L6.8,14.0 L5.2,14.0 L5.2,15.6 L12.0,15.6 L12.0,14.0 L10.4,14.0 L10.4,4.6 L11.0,4.6 L10.8,3.7 L10.8,3.63 L15.67,0.82 Z", 112, 130, 154 },
                 new object[] { "F0 M8.1,5.0 L8.1,13.8 L7.4,13.8 L7.4,5.0 Z", 162, 180, 202 },
                 new object[] { "F0 M3.55,10.6 L4.73,13.15 L4.77,13.26 L4.8,13.36 L4.83,13.46 L4.84,13.57 L4.85,13.68 L4.85,13.79 L4.84,13.9 L4.81,14.0 L4.78,14.11 L4.75,14.21 L4.7,14.31 L4.65,14.4 L4.58,14.49 L4.51,14.57 L4.44,14.65 L4.36,14.72 L4.27,14.78 L4.17,14.84 L4.08,14.89 L3.98,14.93 L3.87,14.96 L3.77,14.98 L3.66,15.0 L3.55,15.0 L3.44,15.0 L3.33,14.98 L3.23,14.96 L3.12,14.93 L3.02,14.89 L2.93,14.84 L2.83,14.78 L2.74,14.72 L2.66,14.65 L2.59,14.57 L2.52,14.49 L2.45,14.4 L2.4,14.31 L2.35,14.21 L2.32,14.11 L2.29,14.0 L2.26,13.9 L2.25,13.79 L2.25,13.68 L2.26,13.57 L2.27,13.46 L2.3,13.36 L2.33,13.26 L2.37,13.15 Z", 74, 150, 226 },
+            } },
+            { TaskCounter, new[] {   // a compartment, water rising in it, an arrow up
+                new object[] { "F0 M1.6,2.0 L3.0,2.0 L3.0,13.6 L13.0,13.6 L13.0,2.0 L14.4,2.0 L14.4,15.2 L1.6,15.2 Z", 170, 176, 184 },
+                new object[] { "F0 M3.0,9.4 C4.4,8.0 6.0,8.0 7.5,9.4 C9.0,10.8 10.6,10.8 13.0,8.8 L13.0,13.6 L3.0,13.6 Z", 74, 150, 226 },
+                new object[] { "F0 M3.0,9.4 C4.4,8.0 6.0,8.0 7.5,9.4 C9.0,10.8 10.6,10.8 13.0,8.8 L13.0,9.9 C10.6,11.9 9.0,11.9 7.5,10.5 C6.0,9.1 4.4,9.1 3.0,10.5 Z", 160, 208, 250 },
+                new object[] { "F0 M8.0,1.4 L11.2,5.2 L9.0,5.2 L9.0,8.0 L7.0,8.0 L7.0,5.2 L4.8,5.2 Z", 160, 208, 250 },
             } },
             { TaskHull, new[] {
                 new object[] { "F0 M7.5,11.4 L7.5,15.6 L0.4,15.6 L0.4,11.4 Z M15.6,11.4 L15.6,15.6 L8.5,15.6 L8.5,11.4 Z", 170, 176, 184 },
@@ -1826,6 +2241,30 @@ namespace AlternativeDamageModel
             return cv;
         }
 
+        /// <summary>A team's icon: highlighted when the team is tired, with a health bar along its top edge when it is wounded.</summary>
+        static FrameworkElement Icon(int task, object teamRef)
+        {
+            var cv = (Canvas)Icon(task);
+            var t = teamRef as DcTeams.Team;
+            if (t == null || t.State == DcTeams.St.Dead) return cv;
+            int tired = DcTeams.FatigueLevel(t.Fatigue);
+            if (tired > 0)
+                cv.Children.Insert(0, new Path { Data = new StreamGeometry("M0,0 L16,0 L16,16 L0,16 Z"),
+                                                 Fill = new SolidColorBrush(tired == 2 ? Color.FromArgb(160, 225, 90, 50) : Color.FromArgb(150, 232, 168, 40)) });
+            if (DcTeams.Wounded(t))
+            {
+                float h = Math.Max(0f, Math.Min(1f, t.Health)), w = 16f * h;
+                cv.Children.Add(new Path { Data = new StreamGeometry("M0,0 L16,0 L16,3 L0,3 Z"), Fill = new SolidColorBrush(Color.FromArgb(220, 20, 20, 20)) });
+                if (w > 0.1f)
+                    cv.Children.Add(new Path
+                    {
+                        Data = new StreamGeometry("M0,0 L" + w.ToString("0.##", CultureInfo.InvariantCulture) + ",0 L" + w.ToString("0.##", CultureInfo.InvariantCulture) + ",3 L0,3 Z"),
+                        Fill = new SolidColorBrush(h > 0.6f ? Color.FromRgb(90, 200, 90) : h > 0.3f ? Color.FromRgb(230, 200, 60) : Color.FromRgb(225, 70, 60))
+                    });
+            }
+            return cv;
+        }
+
         static string TaskName(int task)
         {
             switch (task)
@@ -1833,13 +2272,12 @@ namespace AlternativeDamageModel
                 case TaskLeak: return "plugging a leak";
                 case TaskFire: return "fighting the fire";
                 case TaskPump: return "pumping water out";
+                case TaskCounter: return "counterflooding";
                 case TaskHull: return "welding the hull";
                 case TaskSystems: return "repairing systems";
-                case IconKnocked: case IconDead:
-                    return DcTeams.KnocksToDie > 1 ? "lost (knocked out " + DcTeams.KnocksToDie.ToString(CultureInfo.InvariantCulture) + " times)" :
-                           DcTeams.KnocksToDie == 1 ? "lost (knocked out)" : "lost";
+                case IconKnocked: case IconDead: return "lost";
                 case IconTransit: return "on the move (In Transfer)";
-                case IconInjured: return "recovering (In Transfer)";
+                case IconInjured: return "wounded, going to the reserve (In Transfer)";
                 default: return "no task";
             }
         }
@@ -1877,7 +2315,7 @@ namespace AlternativeDamageModel
             {
                 PutBackAuto(st);   // first: it takes the game's Auto DC content out of our card
                 if (st.Priority != null && st.PriorityHost != null) try { st.PriorityHost.Children.Remove(st.Priority); } catch { }
-                st.Priority = null; st.PriorityHost = null; st.PriorityButtons = null;
+                st.Priority = null; st.PriorityHost = null; st.PriorityButtons = null; st.LimitButton = null;
                 try { RemoveExtras(st.X); } catch (Exception e) { Trace("RemoveExtras: " + e.Message); }
                 st.X = null;
             }

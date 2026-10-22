@@ -1,0 +1,35 @@
+Version 1.3.0.
+
+- New: (i) after "Wound chance" in the settings shows a table of wound chances calculated from the game's own ships and ammunition (mods included). Under each chance it shows the average wound in % of the team's health (follows "Wound strength").
+- Fixed: arrows of fires and flooding no longer slide onto the % text when a colour or a level changes.
+- Fixed: DC teams no longer go back to the reserve (or are taken off a section) while it still has hull or systems work.
+- Auto DC takes the fastest growing fire or leak first: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure (Fire / Flooding priority change the order of their group).
+- NEW (User Interface > Map): four small icons under a ship's icon on the map (yours too): fire (total strength of the fires), flooding, hull (classes of the Damage Control panel), engine (yellow / orange / red), and a greyer map icon for a ship that will sink. A contact: all four in direct sight, the engine only by sonar, a '?' guess about a slow ship hit lately by radar, nothing by ESM.
+- The Fires line of the Damage Control tab now classes the fires by their total strength (the number of burning sections stays in brackets).
+- NEW (Damage Control tab): a "Forecast" card in the empty middle of the summary row: Stable / Sinks in ~N min (by flooding or hull damage) / Sinking, by the trend of the last minute.
+- The hit statistics (tooltip of Hull Damage / Flooding / Fires) and the sinking forecast trend are saved with the game and restored on load.
+- NEW (User Interface > Map): the Unit Status window of a ship that is not yours (it was empty) shows a Damage State tab with a simplified panel: the four icons in words and a sinking forecast, by what the sensors tell (nothing without direct sight).
+- NEW: Flooding tab: list of ships that get no Deck Points (flooded by the old rules).
+- A surface ship without weapons is counted as civilian (hull value, number of teams).
+- NEW: AI ships under 50 m ignore the speed limit from flooding (kamikaze) [Advanced].
+- Removed: "Centre of mass rise" (not needed).
+- "Keep centre of mass", "Wreck drag" and "Stop bubbles after" moved to the Effects tab and are global (not part of a profile); the Sinking tab is gone.
+- NEW (Flooding tab) [Advanced]: fire in a section reopens plugged leaks (0.5% of the largest leak a second at fire 100%, up to 50% of it).
+- NEW (Flooding tab) [Advanced]: a section flooded above 75% loses its systems (inoperable, no repair) and its fire is put out (10% a second).
+- NEW (Fire tab) [Advanced]: teams in a burning section that do not fight the fire work at 75% effectiveness.
+- Own profiles (Custom) remember the profile they were made from; settings a profile does not have yet take the values of that parent profile (Base Game if it is gone).
+- NEW (DC Teams tab) [Advanced]: team health (1-100 by ship displacement; 100 = a crew of 1000+), wounds by the warhead power of the hit (hint in %, health bar over the icon, dead at 0%); wounds from hits (a knock-out wounds the team, it walks to the reserve) and from fires it does not fight; recovery in the reserve (0.5% a second); wounded teams work slower.
+- NEW (DC Teams > Health) [Advanced]: a hit wounds a team by chance: a chance that grows steeply with the warhead power against the team health, the weakest hit has a tiny chance, the wound grows up to the warhead power; two multipliers: wound chance (a plain multiplier of the probability; grows steeply with the power and falls with the health, over 100% for a far stronger warhead) and wound strength.
+- NEW (DC Teams tab) [Advanced]: team fatigue, two levels (tired after 60, exhausted after 120 minutes), speed 100% > 75% > 25% in straight lines between them (settable; the reserve rests it at a set % of that speed, 100 by default); shown in the hint, tired teams are highlighted; "Wounded" / "Tired" added to the speed lines.
+- NEW (DC tab): tooltip of "Hull Damage / Flooding / Fires" lists every hit on the ship (time, ammunition, section, side; over 20 hits: count by ammunition).
+- NEW (DC tab): tooltip of a damaged system: damage level, integrity, repair speed, what it waits for.
+- NEW (Damage Model tab) [Advanced]: "Damage spills over": damage that a destroyed compartment cannot take goes half to its neighbour, a quarter to the next if that is destroyed too.
+- Removed: Knock-outs settings (Recovery time, Recovery spread, Knock-outs to death).
+- DC Teams tab is split into Teams / Movement / Work / Health pages; team health has its own on/off switch (off in Base Game, its other settings are hidden when off).
+- DC Teams tab: pages Count / Movement / Work / Health / Wounds / Fatigue; team health and team fatigue have their own switches above the pages (off in Base Game; a switched-off page is hidden). Settings columns follow the window size.
+- NEW (DC Teams > Health) [Advanced]: "Wounds in reserve" - the teams rest in the central compartment, a hit on it can wound a resting team.
+- NEW (DC Teams > Wounds) [Advanced]: "Wounds at any hull integrity" - every hit on a section with teams can wound them, not only under 50% integrity as in the game.
+- NEW: Auto DC rests the teams. Auto DC takes a team with health under 33%, or an exhausted one, off its section to the reserve and uses it again only after a full rest (full health, no fatigue). On a ship in a bad way (sinking, or fire, water or hull at the third stage or worse) the rest is shorter: health 50% and fatigue down to fresh (not yet tired). Works with the optimised Auto DC (walking transfers) and the team health / fatigue settings.
+- NEW [Advanced] (Systems tab): "DC efficiency without engines" (NoEngineTeamEffectiveness, 50 = % effectiveness; 100 = off). While the ship's Engine (the power system in use, not the propulsion / screws) is out of order, its damage control teams work at that effectiveness at fires, leaks, water and hull (repair of systems is not affected). Shown in the teams' hints ("Engine out: 50% effectiveness") and as a warning in the Forecast line of the Damage Control tab.
+- Auto DC no longer leaves free teams idle while a section has work: when nobody else is needed, it adds one more team to the section with the fewest teams every 10 s (up to 4 in a section), from the reserve or from a section with no work.
+- Faster: repeated work in the mod's per-tick and per-second code was cut (the ship's speed is read once per frame, one UI tree walk every 2 s instead of two every second, fewer allocations in flooding code).

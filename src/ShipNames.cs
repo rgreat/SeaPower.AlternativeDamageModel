@@ -16,6 +16,7 @@ namespace AlternativeDamageModel
         static Dictionary<string, string> _byIni;        // ini -> shown name
         static Dictionary<string, string> _byName;       // shown name -> ini
         static List<string> _sorted;
+        static Dictionary<string, float> _tons;          // ini -> displacement
 
         static void Load()
         {
@@ -23,6 +24,7 @@ namespace AlternativeDamageModel
             _byIni = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             _byName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             _sorted = new List<string>();
+            _tons = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
             try
             {
                 Type tProv = null, tSingleton = null;
@@ -56,6 +58,7 @@ namespace AlternativeDamageModel
                     if (tn.IndexOf("Vessel", StringComparison.Ordinal) < 0 && tn.IndexOf("Submarine", StringComparison.Ordinal) < 0) continue;
                     string cls = Prop(sop, "ClassName"), def = Prop(sop, "DefaultName");
                     raw.Add(new KeyValuePair<string, string[]>(ini, new[] { cls, def }));
+                    try { var fd = sop.GetType().GetField("_displacement"); if (fd != null) _tons[ini] = Convert.ToSingle(fd.GetValue(sop)); } catch { }
                 }
                 // names: the class; the same class twice -> with the unit's name; still the same -> with the ini name
                 var count = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -71,6 +74,42 @@ namespace AlternativeDamageModel
                 _sorted.Sort(StringComparer.CurrentCultureIgnoreCase);
             }
             catch (Exception e) { SettingsWindow.Trace("ShipNames: " + e.Message); }
+        }
+
+        public class ShipSize { public string Ini, Name; public float Tons; }
+
+        /// <summary>The ships (ini, shown name, displacement in tons; tons &gt; 0), sorted by displacement.</summary>
+        public static List<ShipSize> Sizes()
+        {
+            Load();
+            var l = new List<ShipSize>();
+            foreach (var kv in _byIni) { float t; if (_tons.TryGetValue(kv.Key, out t) && t > 0f) l.Add(new ShipSize { Ini = kv.Key, Name = kv.Value, Tons = t }); }
+            l.Sort((x, y) => x.Tons.CompareTo(y.Tons));
+            return l;
+        }
+
+        /// <summary>The game's UnitMetadataProvider (null when it is not made yet).</summary>
+        public static object Provider()
+        {
+            try
+            {
+                Type tProv = null, tSingleton = null;
+                foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    if (a.GetName().Name != "Seapower-Scripts") continue;
+                    foreach (var t in a.GetTypes())
+                    {
+                        if (t.Name == "UnitMetadataProvider") tProv = t;
+                        else if (t.Name == "Singleton`1" && t.Namespace == "SeaPower") tSingleton = t;
+                    }
+                }
+                if (tProv == null || tSingleton == null) return null;
+                var gen = tSingleton.MakeGenericType(tProv);
+                var exists = gen.GetMethod("InstanceExists", BindingFlags.Static | BindingFlags.Public);
+                if (exists != null && !(bool)exists.Invoke(null, new object[] { false })) return null;
+                return gen.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public).GetValue(null, null);
+            }
+            catch { return null; }
         }
 
         static string Prop(object o, string name)

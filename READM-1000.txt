@@ -1,0 +1,13 @@
+Version 1.3.0.
+
+Changes:
+• Contacts gain Damage State tab (from visual/sonar/radar sensors data) with sinking forecast.
+• Contact on Map gain icons: fire, flooding, hull, engine; ship forecasted as sinking became greyer.
+• DC tab: Forecast card, list of hits, engine-out warning.
+• DC Teams: Advanced modelling of health/wounds/fatigue/rest. Engine out - 50% DC efficiency penalty.
+• Auto DC AI optimized.
+• Fire in section could reopens water leaks; 
+• 75% flooded section loses systems
+• Flooded section put out fires
+• Small AI ships ignore flooding speed limits.
+• Fixes: arrows, DC team logic, performance.

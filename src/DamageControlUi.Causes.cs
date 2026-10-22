@@ -8,8 +8,8 @@ namespace AlternativeDamageModel
 {
     /// <summary>
     /// Why a value on the Damage Control tab changes - the tooltips of its arrows (made when they open, from the state now):
-    ///  - Flooding (per side): holes (leak rate), who plugs / pumps (by team number), water over the deck edge from heavy list,
-    ///    the leak growing by itself (hull below 19% and no team), the water that stays until the hull is repaired, sinking;
+    ///  - Flooding (per side): holes (leak rate), who plugs / pumps (by team number), water over the deck edge from heavy list
+    ///    or from trim past the limit (TrimFlooding.FloodsNow), the leak growing by itself (hull below 19% and no team), sinking;
     ///  - Fire: its own growth, hits, who fights it, the stage and what it does (spreading, systems, hull);
     ///  - Hull (per side): fire in the section, hits, who welds, how far it can be welded.
     /// The game's rules behind it (Compartments.CheckDamageControl / Repair*, FloodingCompartment.OnFixedUpdate,
@@ -51,9 +51,22 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The numbers of the teams in section i doing 'task' now ("DC1, DC3"), and how many teams are in the section.</summary>
+        /// <summary>Team names with the status of the teams that work slower (Wounded / Tired), for the end of a line with their speed.</summary>
+        sealed class Names : List<string> { public string Mood = ""; public float Eff; }
+
+        /// <summary>The teams' work in team-equivalents: each counts as much as its health and fatigue let it work.</summary>
+        static float TeamWork(List<string> teams) { var n = teams as Names; return n != null && n.Eff > 0f ? n.Eff : teams.Count; }
+
+        static string Tail(List<string> teams)
+        {
+            var n = teams as Names;
+            return n == null || n.Mood.Length == 0 ? "" : " (" + n.Mood + ")";
+        }
+
         static List<string> Doing(object comp, int i, int task, out int inSection)
         {
-            var list = new List<string>();
+            var list = new Names();
+            bool w = false; int lv = 0; float eff = 0f;
             inSection = 0;
             try
             {
@@ -64,7 +77,14 @@ namespace AlternativeDamageModel
                 DcControl.GetTeams(comp, i, n, out forced, out actual);
                 var here = DcTeams.InSection(comp, i);
                 for (int k = 0; k < n && k < actual.Length; k++)
-                    if (actual[k] == task) list.Add(k < here.Count ? Dc(here[k].Number) : "a team");
+                    if (actual[k] == task)
+                    {
+                        list.Add(k < here.Count ? Dc(here[k].Number) : "a team");
+                        if (k >= here.Count) eff += 1f;
+                        if (k < here.Count) { eff += DcTeams.TeamEff(here[k].Ref as DcTeams.Team) * (task == TaskSystems ? 1f : DcTeams.EngineMulOf(comp)); w |= DcTeams.Wounded(here[k].Health); lv = Math.Max(lv, DcTeams.FatigueLevel(here[k].Fatigue)); }
+                    }
+                list.Eff = eff;
+                list.Mood = (w ? "Wounded" : "") + (w && lv > 0 ? ", " : "") + (lv == 2 ? "Exhausted" : lv == 1 ? "Tired" : "");
             }
             catch (Exception e) { Trace("Doing: " + e.Message); }
             return list;
@@ -84,12 +104,13 @@ namespace AlternativeDamageModel
         static string Rate(float r) { return (r >= 0 ? "+" : "−") + R(r) + "%/s"; }
 
         /// <summary>Who is (not) on it: "DC1 plugging" / "busy: DC2 fire" / "team coming" / "no team".</summary>
-        static string OnIt(object comp, int i, List<string> doing, string verb, int inSec, List<string> busy, string busyWith)
+        static string OnIt(object comp, int i, List<string> doing, string verb, int inSec, List<string> busy, string busyWith, bool worse, ref bool way)
         {
-            if (doing.Count > 0) return Who(doing) + " " + verb;
+            if (doing.Count > 0) return Who(doing) + " " + verb + Tail(doing);
             if (busy != null && busy.Count > 0) return "Busy: " + Who(busy) + " " + busyWith + " first";
-            if (inSec > 0) return "Team busy with other work";
-            return Coming(comp, i) > 0 ? "Team on its way" : "No team here";
+            if (inSec > 0) return null;   // a team here busy with something else does not change this value: nothing to say
+            if (Coming(comp, i) > 0) { way = true; return null; }   // said once, last, outside "Raises it" / "Lowers it"
+            return worse ? "No team here" : null;   // "no team" is said only when the value is getting worse because of it
         }
 
         // ------------------------------------------------------------ flooding
@@ -105,29 +126,61 @@ namespace AlternativeDamageModel
                 float water = F(_fcFloodPct.GetValue(fc, null)), rate = port ? c.RP : c.RS;
                 float leak = GetF(_fcRate, fc), leakOther = GetF(_fcRate, other);
                 float integ = F(_fcIntPct.GetValue(fc, null));
-                float minFlood = GetP(_fcMinFlood, fc);
+                float delta = GetP(_fcFloodDelta, fc), deltaOther = GetP(_fcFloodDelta, other);   // water above the minimum
                 bool sinking = GetB(_compSinking, comp);
+                bool faster = GetB(_fcFaster, fc);
                 int inSec;
                 var plugging = Doing(comp, i, TaskLeak, out inSec);
                 var pumping = Doing(comp, i, TaskPump, out inSec);
+                var counter = Doing(comp, i, TaskCounter, out inSec);
                 var fighting = Doing(comp, i, TaskFire, out inSec);
+                float perTeam = DcControl.PumpPerTeam(comp);
+                bool drainPort = true;
+                try { var arr = _compDrainPort == null ? null : _compDrainPort.GetValue(comp) as bool[]; if (arr != null && i < arr.Length) drainPort = arr[i]; } catch { }
+
+                bool way = false;
+                var up = new StringBuilder(); var down = new StringBuilder();
+                // ---- what raises it
+                if (leak > 0f)
+                {
+                    // the game: water += leak rate x 0.5 x the flooding speed per second (faster while sinking)
+                    float sm = SpeedEffect.Flood(comp), mul = AdmPlugin.FloodingMul(1f) * sm, inflow = mul * leak * 0.5f;
+                    Line(up, "Holes: +" + R(inflow) + "%/s" + (faster ? " (sinking: faster)" : "") + (sm > 1.005f ? " (faster: ship speed)" : sm < 0.995f ? " (slower: ship speed)" : ""));
+                    if (SpeedEffect.TooFastToPlug(comp)) Line(up, "Ship too fast to plug holes: over " + SpeedEffect.MaxPlugKnots.ToString("0.#", CultureInfo.InvariantCulture) + " kn");
+                    Line(up, OnIt(comp, i, plugging, "plugging (stops the leak)", inSec, fighting, "fire", rate > 0f, ref way));
+                }
+                else if (leakOther > 0f && plugging.Count > 0) Line(up, Who(plugging) + " plugging the other side");
+                if (counter.Count > 0 && DcControl.CounterSide(comp, i) == (port ? 1 : -1))
+                    Line(up, Who(counter) + " counterflooding: +" + R(TeamWork(counter) * perTeam * DcControl.CounterRate) + "%/s" + Tail(counter));
+                if (_shownListComp.Target == comp)
+                {
+                    float list = _shownList;
+                    if (!IsSub(comp) && !SubmergedFlooding.Covers(comp) && (port ? list > 0f : list < 0f) && Math.Abs(list) > (ModelOn() ? Limits.ListFlood : 45f))
+                        Line(up, "List " + Math.Abs(list).ToString("0", CultureInfo.InvariantCulture) + "\u00b0: water over the deck");
+                }
+                float pitch;
+                if (TrimFlooding.FloodsNow(comp, i, port, out pitch))
+                    Line(up, "Trim " + Math.Abs(pitch).ToString("0.0", CultureInfo.InvariantCulture) + "\u00b0 " + (pitch > 0f ? "bow" : "stern") + " down: water over the deck");
+                foreach (var why in SubmergedFlooding.Reasons(comp, i, port, _sectionNames)) Line(up, why);
+                if (integ < 19f && inSec == 0 && leak > 0f) Line(up, "The leak grows: hull " + Pc(integ) + ", no team");
+                if (sinking) Line(up, "The ship is sinking");
+
+                // ---- what lowers it (the teams' own speeds, whether or not they can beat the inflow)
+                if (pumping.Count > 0)
+                {
+                    bool now = drainPort == port || deltaOther <= 1e-4f;   // the game pumps one side at a time
+                    // only what changes this side now: not while the other side is pumped first, not at the water's minimum
+                    if (now && delta > 1e-4f) Line(down, Who(pumping) + " pumping out: \u2212" + R(TeamWork(pumping) * perTeam) + "%/s" + Tail(pumping));
+                }
+                else Line(down, OnIt(comp, i, pumping, "pumping out", inSec, null, "", rate > 0f && delta > 1e-4f, ref way));
+                if (plugging.Count > 0 && DcControl.LeakPump > 0f && delta > 1e-4f && (drainPort == port || deltaOther <= 1e-4f))
+                    Line(down, Who(plugging) + " pump while plugging: \u2212" + R(TeamWork(plugging) * perTeam * DcControl.LeakPump) + "%/s" + Tail(plugging));
 
                 var sb = new StringBuilder((port ? "Port" : "Starboard") + ": " + Pc(water) + ", " + Rate(rate));
-                if (rate >= 0)
-                {
-                    if (leak > 0f) { Line(sb, "Leak " + R(leak)); Line(sb, OnIt(comp, i, plugging, "plugging", inSec, fighting, "fire")); }
-                    else if (leakOther > 0f && plugging.Count > 0) Line(sb, Who(plugging) + " plugging other side");
-                    if (_shownListComp.Target == comp)
-                    {
-                        float list = _shownList;
-                        if (!IsSub(comp) && (port ? list > 0f : list < 0f) && Math.Abs(list) > (ModelOn() ? Limits.ListFlood : 45f))
-                            Line(sb, "List " + Math.Abs(list).ToString("0", CultureInfo.InvariantCulture) + "°: water over deck");
-                    }
-                    if (integ < 19f && inSec == 0 && leak > 0f) Line(sb, "Leak grows: hull " + Pc(integ) + ", no team");
-                    if (sinking) Line(sb, "Sinking");
-                }
-                else if (pumping.Count > 0) Line(sb, Who(pumping) + " pumping");
-                if (minFlood > 0.5f) Line(sb, "Min " + Pc(minFlood) + " until welded");
+                if (up.Length > 0) sb.Append("\nRaises it:").Append(up);
+                else sb.Append("\nNothing raises it now");
+                if (down.Length > 0) sb.Append("\nLowers it:").Append(down);
+                if (way) sb.Append("\nTeam on its way");
                 return sb.ToString();
             }
             catch (Exception e) { Trace("FloodCause: " + e.Message); return "Flooding"; }
@@ -151,19 +204,21 @@ namespace AlternativeDamageModel
                 var fighting = Doing(comp, i, TaskFire, out inSec);
                 var plugging = Doing(comp, i, TaskLeak, out inSec);
 
+                bool way = false;
                 var sb = new StringBuilder("Fire " + Pc(fire) + " (" + stage + "), " + Rate(rate));
                 double ago = c.FireHitT >= 0 ? Now() - c.FireHitT : -1;
-                if (grow > 0f) Line(sb, "Grows " + R(grow) + "%/s by itself");
+                float fm = SpeedEffect.Fire(comp);
+                if (grow > 0f) Line(sb, "Grows " + R(grow) + "%/s by itself" + (fm > 1.005f ? " (faster: ship speed)" : fm < 0.995f ? " (slower: ship speed)" : ""));
                 if (rate >= 0 && ago >= 0 && ago < 60) Line(sb, "Hit " + ((int)ago).ToString(CultureInfo.InvariantCulture) + " s ago");
-                Line(sb, OnIt(comp, i, fighting, rate >= 0 ? "fighting" : "putting out", inSec, plugging, "leak"));
+                Line(sb, OnIt(comp, i, fighting, rate >= 0 ? "fighting" : "putting out", inSec, plugging, "leak", rate > 0f, ref way));
                 if (fighting.Count == 0) Line(sb, "Only DC puts it out");
                 double un = AdmPlugin.UnattendedFor(comp, i);
                 if (un >= 0) Line(sb, "Unattended " + ((int)un).ToString(CultureInfo.InvariantCulture) + " s: grows faster");
                 // the game: the hull burns at every stage (in proportion to the fire); systems take damage from time to time -
                 // a little while minor, more when moderate, most when severe; only a severe fire spreads
-                if (fire > 49.8f) Line(sb, "Spreads, hurts systems, hull");
-                else if (fire > 24.9f) Line(sb, "Hurts systems, hull");
-                else if (fire > 0f) Line(sb, "Hurts hull, systems a little");
+                if (fire > 0f) Line(sb, "Damages hull and systems");
+                if (fire > 49.8f) Line(sb, "Spreads to adjacent sections");
+                if (way) sb.Append("\nTeam on its way");
                 return sb.ToString();
             }
             catch (Exception e) { Trace("FireCause: " + e.Message); return "Fire"; }

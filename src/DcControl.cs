@@ -21,14 +21,14 @@ namespace AlternativeDamageModel
     /// </summary>
     static class DcControl
     {
-        public const int TaskNone = 0, TaskIdle = 1, TaskLeak = 2, TaskFire = 3, TaskPump = 4, TaskHull = 5, TaskSystems = 6;
+        public const int TaskNone = 0, TaskIdle = 1, TaskLeak = 2, TaskFire = 3, TaskPump = 4, TaskHull = 5, TaskSystems = 6, TaskCounter = 7;
         public const int ModeAuto = 0, ModeFire = 1, ModeFlooding = 2;
 
         static readonly int[][] Orders =
         {
-            new[] { TaskLeak, TaskFire, TaskPump, TaskHull, TaskSystems },   // Auto: the game's order
-            new[] { TaskFire, TaskLeak, TaskPump, TaskHull, TaskSystems },   // fire first
-            new[] { TaskLeak, TaskPump, TaskFire, TaskHull, TaskSystems },   // flooding first
+            new[] { TaskLeak, TaskFire, TaskPump, TaskSystems, TaskHull },   // Auto (a growing fire goes first in DcAuto)
+            new[] { TaskFire, TaskLeak, TaskPump, TaskSystems, TaskHull },   // fire first
+            new[] { TaskLeak, TaskPump, TaskFire, TaskSystems, TaskHull },   // flooding first
         };
 
         public static Func<bool> IsEnabled = () => false;   // DC Priority, tasks by hand (the detailed view)
@@ -36,10 +36,15 @@ namespace AlternativeDamageModel
         /// <summary>Optimised Auto DC: a team with nothing to do waits where it is (no walk back to the reserve).</summary>
         public static Func<object, bool> StayWhenIdle = c => false;
         public static Action<string> Trace = s => { };
+        public static float LeakPump = 0.5f;      // [FireAndFlooding] LeakPumpShare: pumping out while plugging holes, × the pumping speed
+        public static float CounterRate = 2f;     // [FireAndFlooding] CounterFloodSpeed: × the pumping speed
+        public static float CounterLimit = 50f;   // [FireAndFlooding] CounterFloodLimit: water in one compartment, %, up to which it is let in
 
         sealed class Ship
         {
             public int Mode;
+            public bool LimitInit;
+            public bool NoSpeedLimit;   // "Limit Speed" off
             public readonly List<int>[] Pending = new List<int>[8];  // per compartment: tasks from a saved game, put on the teams there
         }
         static readonly ConditionalWeakTable<object, Ship> Ships = new ConditionalWeakTable<object, Ship>();
@@ -47,8 +52,11 @@ namespace AlternativeDamageModel
         // game members
         static bool _ok;
         static PropertyInfo _teams, _autoDc;
-        static FieldInfo _sinking, _port, _star, _sys, _floodRate, _growRate, _count;
+        static FieldInfo _sinking, _port, _star, _sys, _floodRate, _growRate, _count, _maxSev;
         static PropertyInfo _floodDelta, _severity;
+        static FieldInfo _curFlood, _maxFlood, _baseObj, _crewF, _repairF;
+        static MethodInfo _getTransform;
+        static PropertyInfo _fixedDt;
         static MethodInfo _returnTeam, _sendTeam;
         static readonly Func<object, int, bool>[] Repairs = new Func<object, int, bool>[8];
 
@@ -71,19 +79,193 @@ namespace AlternativeDamageModel
                 _floodDelta = tFc.GetProperty("FloodingDelta", all);
                 _severity = tSc.GetProperty("FireSeverity", all);
                 _growRate = tSc.GetField("_fireGrowRate", all);
+                _maxSev = tSc.GetField("_maxFireSeverity", all);
                 _returnTeam = tComp.GetMethod("ReturnDCTeamToPool", all);
                 _sendTeam = tComp.GetMethod("SendDCTeamToCompartment", all);
-                Repairs[TaskLeak] = Caller(tComp.GetMethod("RepairFloodingRate", all));
+                _leakOrig = Caller(tComp.GetMethod("RepairFloodingRate", all));
+                Repairs[TaskLeak] = _leakOrig == null ? null : LeakWithPump;
                 Repairs[TaskFire] = Caller(tComp.GetMethod("RepairFire", all));
-                Repairs[TaskPump] = Caller(tComp.GetMethod("RepairFlooding", all));
+                _pumpOrig = Caller(tComp.GetMethod("RepairFlooding", all));
+                _drainSide = tComp.GetField("_drainPortSide", all);
+                Repairs[TaskPump] = _pumpOrig == null ? null : PumpMoreWater;
                 Repairs[TaskHull] = Caller(tComp.GetMethod("RepairStructure", all));
-                Repairs[TaskSystems] = Caller(tComp.GetMethod("RepairSystems", all));
+                var sysOrig = Caller(tComp.GetMethod("RepairSystems", all));
+                Repairs[TaskSystems] = sysOrig == null ? null : (Func<object, int, bool>)((c, i) => !SectionEffects.Locked(c, i) && sysOrig(c, i));   // a flooded section's systems cannot be repaired
+                Repairs[TaskCounter] = CounterFlood;
+                _curFlood = tFc.GetField("_currentFlooding", all); _maxFlood = tFc.GetField("_maxFlooding", all);
+                _baseObj = tComp.GetField("_baseObject", all);
+                _getTransform = _baseObj == null ? null : _baseObj.FieldType.GetMethod("getTransform", all);
+                _crewF = _baseObj == null ? null : _baseObj.FieldType.GetField("_crew", all);
+                _repairF = _crewF == null ? null : _crewF.FieldType.GetField("_floodingRepair", all);
+                var tGt = asm.GetType("SeaPower.GameTime");
+                _fixedDt = tGt == null ? null : tGt.GetProperty("fixedDeltaTime", all);
+                if (_curFlood == null || _maxFlood == null || _getTransform == null || _crewF == null || _repairF == null || _fixedDt == null)
+                { Repairs[TaskCounter] = null; Trace("DcControl: counterflooding is not available (game members not found)"); }
                 _ok = _teams != null && _autoDc != null && _sinking != null && _port != null && _star != null && _sys != null && _count != null &&
                       _floodRate != null && _floodDelta != null && _severity != null && _growRate != null && _returnTeam != null && _sendTeam != null &&
                       Repairs[TaskLeak] != null && Repairs[TaskFire] != null && Repairs[TaskPump] != null && Repairs[TaskHull] != null && Repairs[TaskSystems] != null;
             }
             catch (Exception e) { Trace("DcControl.Init: " + e); _ok = false; }
             return _ok;
+        }
+
+        // ------------------------------------------------------------ counterflooding (by hand only)
+
+        /// <summary>The ship's list in degrees: positive = the port side is down (as the game reads it: Euler z of the hull).</summary>
+        static float ListOf(object comp)
+        {
+            var tr = _getTransform.Invoke(_baseObj.GetValue(comp), null) as UnityEngine.Transform;
+            if (tr == null) return 0f;
+            float z = tr.localEulerAngles.z;
+            return z > 180f ? z - 360f : z;
+        }
+
+        /// <summary>The side of compartment i that counterflooding lets the water into: +1 port, -1 starboard, 0 = none. The side opposite to the heel
+        /// (list over 0.3 degrees); on an even keel the side with less water (so the trim can be corrected from the end sections without a list).</summary>
+        public static int CounterSide(object comp, int i)
+        {
+            if (!_ok || comp == null || Repairs[TaskCounter] == null || i < 0 || i > 4) return 0;
+            try
+            {
+                float list = ListOf(comp);
+                if (list > 0.3f) return -1;
+                if (list < -0.3f) return 1;
+                var port = _port.GetValue(comp) as Array; var star = _star.GetValue(comp) as Array;
+                return (float)_curFlood.GetValue(port.GetValue(i)) <= (float)_curFlood.GetValue(star.GetValue(i)) ? 1 : -1;
+            }
+            catch { return 0; }
+        }
+
+        /// <summary>Lets water into one side of compartment i at CounterRate × the pumping speed (the same crew skill, the same number of teams).
+        /// False = nothing to do (that side is at the limit): the team then works by priority.</summary>
+        static bool CounterFlood(object comp, int i)
+        {
+            int side = CounterSide(comp, i);
+            if (side == 0) return false;
+            var teams = _teams.GetValue(comp, null) as int[];
+            var arr = (side > 0 ? _port : _star).GetValue(comp) as Array;
+            var fc = arr.GetValue(i);
+            float cur = (float)_curFlood.GetValue(fc);
+            float cap = Math.Min(CounterLimit, (float)_maxFlood.GetValue(fc));
+            if (cur >= cap) return false;
+            float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));   // as fast as pumping (with PumpOutSpeed), times CounterRate
+            float add = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null)) * CounterRate;
+            _curFlood.SetValue(fc, Math.Min(cap, cur + add));
+            return true;
+        }
+
+        /// <summary>Water pumped out per team per second, % (the crew's skill and PumpOutSpeed): for the tooltips.</summary>
+        public static float PumpPerTeam(object comp)
+        {
+            try { return AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp)))); } catch { return 0f; }
+        }
+
+        /// <summary>The trim in degrees: positive = the bow is down (Euler x of the hull, as the game reads it).</summary>
+        static float TrimOf(object comp)
+        {
+            var tr = _getTransform.Invoke(_baseObj.GetValue(comp), null) as UnityEngine.Transform;
+            if (tr == null) return 0f;
+            float x = tr.localEulerAngles.x;
+            return x > 180f ? x - 360f : x;
+        }
+
+        /// <summary>
+        /// Pumping out for a team that is ordered to counterflood: only from a side (and a section) where it does not make the list / trim worse.
+        /// Taking water out of a side lifts it: that is bad for the list when this is the side that is already up (opposite to the heel), and for the trim when
+        /// the end of this section is already up (a forward section with the bow up, an after one with the stern up). The middle section does not touch the trim.
+        /// Pumps as the game does (teams × crew skill × PumpOutSpeed × dt, down to the side's minimum) and returns false when nothing may be pumped.
+        /// </summary>
+        static bool PumpSafe(object comp, int i) { return PumpSafe(comp, i, 1f); }
+
+        static Func<object, int, bool> _leakOrig, _pumpOrig;
+        static FieldInfo _drainSide;
+        static bool _safeLeak;
+
+        /// <summary>Pumping out (the game's RepairFlooding) starts from the side with more water above its minimum. The side changes to the other one
+        /// when this one is at its minimum, or when the other has more water and the last change was at least SwitchEvery seconds of pumping ago.</summary>
+        const float SwitchEvery = 10f;
+        static readonly ConditionalWeakTable<object, float[]> SideAge = new ConditionalWeakTable<object, float[]>();
+
+        static bool PumpMoreWater(object comp, int i)
+        {
+            try
+            {
+                var arr = _drainSide == null ? null : _drainSide.GetValue(comp) as bool[];
+                if (arr != null && i < arr.Length)
+                {
+                    float dp = (float)_floodDelta.GetValue((_port.GetValue(comp) as Array).GetValue(i), null);
+                    float ds = (float)_floodDelta.GetValue((_star.GetValue(comp) as Array).GetValue(i), null);
+                    var age = SideAge.GetValue(comp, c => new float[] { 99f, 99f, 99f, 99f, 99f, 99f, 99f, 99f });
+                    age[i] += Convert.ToSingle(_fixedDt.GetValue(null, null));
+                    if (dp > 1e-4f || ds > 1e-4f)
+                    {
+                        bool cur = arr[i], want = cur;
+                        float dc = cur ? dp : ds, dother = cur ? ds : dp;
+                        if (dc <= 1e-4f) want = !cur;                                   // this side is at its minimum
+                        else if (dother > dc && age[i] >= SwitchEvery) want = !cur;     // the other has more water: not more often than SwitchEvery
+                        if (want != cur) { arr[i] = want; age[i] = 0f; }
+                    }
+                }
+            }
+            catch { }
+            return _pumpOrig(comp, i);
+        }
+
+        /// <summary>Plugging holes (the game's RepairFloodingRate) and, at the same time, pumping out at LeakPump × the pumping speed (for a team ordered to counterflood: only where that does not worsen the list / trim).</summary>
+        static bool LeakWithPump(object comp, int i)
+        {
+            if (SpeedEffect.TooFastToPlug(comp)) return false;   // too fast: the team works by priority
+            bool worked = _leakOrig(comp, i);
+            if (worked && LeakPump > 0f) { if (_safeLeak) PumpSafe(comp, i, LeakPump); else PumpFree(comp, i, LeakPump); }
+            return worked;
+        }
+
+        /// <summary>Pumping as the game does (the side with more water first), times share; no checks of the list / trim.</summary>
+        static void PumpFree(object comp, int i, float share)
+        {
+            try
+            {
+                var ports = _port.GetValue(comp) as Array; var stars = _star.GetValue(comp) as Array;
+                object fp = ports.GetValue(i), fs = stars.GetValue(i);
+                float wp = (float)_curFlood.GetValue(fp), ws = (float)_curFlood.GetValue(fs);
+                float dp = (float)_floodDelta.GetValue(fp, null), ds = (float)_floodDelta.GetValue(fs, null);
+                if (dp <= 1e-4f && ds <= 1e-4f) return;
+                bool port = dp >= ds;
+                var side = _drainSide == null ? null : _drainSide.GetValue(comp) as bool[];
+                if (side != null && i < side.Length) port = side[i] ? dp > 1e-4f : ds <= 1e-4f;   // the side the pumping works on (PumpMoreWater)
+                var teams = _teams.GetValue(comp, null) as int[];
+                float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));
+                float dec = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null)) * share;
+                var f = port ? fp : fs; float cur = port ? wp : ws, d = port ? dp : ds;
+                _curFlood.SetValue(f, cur - Math.Min(d, dec));
+            }
+            catch (Exception e) { Trace("PumpFree: " + e.Message); }
+        }
+
+        static bool PumpSafe(object comp, int i, float share)
+        {
+            if (Repairs[TaskCounter] == null) return Repairs[TaskPump](comp, i);   // no way to tell: the game's pumping
+            try
+            {
+                float list = ListOf(comp), trim = TrimOf(comp);
+                if (i < 2 && trim < -0.2f) return false;    // forward section, bow already up
+                if (i > 2 && trim > 0.2f) return false;     // after section, stern already up
+                var ports = _port.GetValue(comp) as Array; var stars = _star.GetValue(comp) as Array;
+                object fp = ports.GetValue(i), fs = stars.GetValue(i);
+                float wp = (float)_curFlood.GetValue(fp), ws = (float)_curFlood.GetValue(fs);
+                float minP = wp - (float)_floodDelta.GetValue(fp, null), minS = ws - (float)_floodDelta.GetValue(fs, null);   // FloodingDelta = water above the minimum
+                bool canPort = wp > minP + 1e-4f && !(list < -0.3f);   // the port side is the high one when the list is to starboard
+                bool canStar = ws > minS + 1e-4f && !(list > 0.3f);
+                if (!canPort && !canStar) return false;
+                bool port = canPort && (!canStar || wp - minP >= ws - minS);
+                var teams = _teams.GetValue(comp, null) as int[];
+                float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));
+                float dec = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null)) * share;
+                var f = port ? fp : fs; float cur = port ? wp : ws, min = port ? minP : minS;
+                _curFlood.SetValue(f, Math.Max(min, cur - dec));
+                return true;
+            }
+            catch (Exception e) { Trace("PumpSafe: " + e.Message); return false; }
         }
 
         /// <summary>A fast call of a private bool Method(int) of Compartments; falls back to reflection.</summary>
@@ -104,6 +286,25 @@ namespace AlternativeDamageModel
         {
             Ship s;
             return comp != null && Ships.TryGetValue(comp, out s) ? s.Mode : ModeAuto;
+        }
+
+        /// <summary>"Limit Speed" button: the game cuts the ship's speed by the flooding (10-25 kn). Default on; off = no cut.</summary>
+        public static bool LimitSpeed(object comp)
+        {
+            if (comp == null) return true;
+            var s = Ships.GetOrCreateValue(comp);
+            // the start value, set once when the ship is first asked (the game's first speed update after the spawn): a small AI ship starts with
+            // the button off ([FireAndFlooding] SmallAiNoSpeedLimit); after that it is the button's own state
+            if (!s.LimitInit) { bool free = SpeedEffect.NoCutFor(comp); if (free) s.NoSpeedLimit = true; if (!SpeedEffect.Failed) s.LimitInit = true; }
+            return !s.NoSpeedLimit;
+        }
+
+        public static void SetLimitSpeed(object comp, bool on)
+        {
+            if (comp == null) return;
+            var sh = Ships.GetOrCreateValue(comp);
+            sh.LimitInit = true; sh.NoSpeedLimit = !on;
+            Trace("Limit Speed -> " + (on ? "on" : "off"));
         }
 
         public static void SetMode(object comp, int mode)
@@ -183,7 +384,7 @@ namespace AlternativeDamageModel
                         foreach (var t in cs[i].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
                         {
                             int v;
-                            list.Add(int.TryParse(t, out v) && v >= TaskNone && v <= TaskSystems && v != TaskIdle ? v : TaskNone);
+                            list.Add(int.TryParse(t, out v) && v >= TaskNone && v <= TaskCounter && v != TaskIdle ? v : TaskNone);
                         }
                         s.Pending[i] = list;   // put on the teams at the first check (they are made from the game's counts then)
                     }
@@ -223,43 +424,110 @@ namespace AlternativeDamageModel
             if (n <= 0) return false;   // the game does nothing either
             int mode = ui && s != null ? Math.Max(0, Math.Min(2, s.Mode)) : ModeAuto;
 
-            if (_free == null || _free.Length < n) { _free = new int[Math.Max(8, n)]; _done = new bool[Math.Max(8, n)]; _did = new int[Math.Max(8, n)]; }
+            if (_free == null || _free.Length < n) { _free = new int[Math.Max(8, n)]; _done = new bool[Math.Max(8, n)]; _did = new int[Math.Max(8, n)]; _rest = new int[Math.Max(8, n)]; }
             bool returnTeam = false;
             try
             {
                 // teams with a task given by hand, grouped by task
-                int nFree = 0;
+                int nFree = 0, nRest = 0;
                 for (int k = 0; k < n; k++) { _done[k] = false; _did[k] = TaskIdle; }
                 for (int k = 0; k < n; k++)
                 {
                     int t = ui && k < objs.Count ? objs[k].Task : TaskNone;
                     if (t == TaskNone || _done[k]) continue;
-                    int size = 0;
-                    for (int m = k; m < n; m++) if (m < objs.Count && objs[m].Task == t && !_done[m]) { _done[m] = true; size++; }
+                    int size = 0; float eff = 0f;
+                    for (int m = k; m < n; m++) if (m < objs.Count && objs[m].Task == t && !_done[m]) { _done[m] = true; size++; eff += DcTeams.TeamEff(objs[m]); }
                     teams[i] = size;
-                    bool worked = Repairs[t] != null && Repairs[t](comp, i);
+                    _grpEff = size > 0 ? eff / size : 1f;
+                    bool worked = Repairs[t] != null && Work(t, comp, i, null);
                     for (int m = k; m < n; m++)
-                        if (m < objs.Count && objs[m].Task == t) { if (worked) _did[m] = t; else _free[nFree++] = m; }   // nothing to do: by priority
+                        if (m < objs.Count && objs[m].Task == t)
+                        {
+                            if (worked) _did[m] = t;
+                            else if (t == TaskCounter) _rest[nRest++] = m;   // nothing to counterflood: by priority, but it pumps only where that does not worsen the list / trim
+                            else _free[nFree++] = m;   // nothing to do: by priority
+                        }
                 }
                 for (int k = 0; k < n; k++) if (!_done[k]) _free[nFree++] = k;
+
+                // teams ordered to counterflood that have nothing to let in: the other tasks by priority, but pumping out only where it does not make the list / trim worse
+                if (nRest > 0)
+                {
+                    teams[i] = nRest;
+                    _grpEff = GroupEff(_rest, 0, nRest);
+                    int did = TaskIdle;
+                    _safeLeak = true;
+                    try
+                    {
+                        foreach (var t in Orders[mode])
+                            if (Work(t, comp, i, t == TaskPump ? (Func<object, int, bool>)PumpSafe : null)) { did = t; break; }
+                    }
+                    finally { _safeLeak = false; }
+                    for (int m = 0; m < nRest; m++) _did[_rest[m]] = did;
+                }
 
                 // the rest: the first task in the order that has work
                 if (nFree > 0)
                 {
                     teams[i] = nFree;
+                    _grpEff = GroupEff(_free, 0, nFree);
                     int did = TaskIdle;
                     foreach (var t in Orders[mode])
-                        if (Repairs[t](comp, i)) { did = t; break; }
+                        if (Work(t, comp, i, null)) { did = t; break; }
                     for (int m = 0; m < nFree; m++) _did[_free[m]] = did;
                     returnTeam = did == TaskIdle && nFree == n && autoDc && !StayWhenIdle(comp);   // as the game: nothing to do -> back to the pool
                 }
             }
-            finally { teams[i] = n; }   // our temporary counts never stay
+            finally { teams[i] = n; _grpEff = 1f; }   // our temporary counts never stay
             for (int k = 0; k < n && k < objs.Count; k++) objs[k].Doing = _did[k];
             if (returnTeam) _returnTeam.Invoke(comp, new object[] { i });
             return false;
         }
-        static int[] _free, _did;   // reused buffers (main thread only)
+        /// <summary>
+        /// One task's repair call for a section. Teams that do not fight the fire in a section where one burns work at FireWorkEff of their effectiveness
+        /// (DcTeams.WorkMul, read by the multiplier that DCTeamEffectiveness uses).
+        /// </summary>
+        static float _grpEff = 1f;   // the mean efficiency (wounds, fatigue) of the teams in the group that works now
+        static float GroupEff(int[] idx, int from, int count)
+        {
+            float sum = 0f; int n = 0;
+            for (int k = from; k < from + count; k++) { int m = idx[k]; if (m >= 0 && m < _objs.Count) { sum += DcTeams.TeamEff(_objs[m]); n++; } }
+            return n > 0 ? sum / n : 1f;
+        }
+
+        static bool Work(int task, object comp, int i, Func<object, int, bool> call)
+        {
+            float mul = 1f;
+            if (task != TaskFire && DcTeams.FireWorkEff < 1f && FireIn(comp, i)) mul = DcTeams.FireWorkEff;
+            DcTeams.WorkMul = mul * _grpEff;
+            try { return call != null ? call(comp, i) : Repairs[task](comp, i); }
+            finally { DcTeams.WorkMul = 1f; }
+        }
+
+        /// <summary>The fire in section i as a part of its maximum (0..1): wounds the teams there that do not fight it.</summary>
+        public static float FireLevel(object comp, int i)
+        {
+            try
+            {
+                if (_maxSev == null) return 0f;
+                var sc = (_sys.GetValue(comp) as Array).GetValue(i);
+                float max = Convert.ToSingle(_maxSev.GetValue(sc)), sev = (float)_severity.GetValue(sc, null);
+                return max > 0f ? Math.Max(0f, Math.Min(1f, sev / max)) : 0f;
+            }
+            catch { return 0f; }
+        }
+
+        static bool FireIn(object comp, int i)
+        {
+            try
+            {
+                var sc = (_sys.GetValue(comp) as Array).GetValue(i);
+                return (float)_severity.GetValue(sc, null) > 0f || (float)_growRate.GetValue(sc) > 0f;
+            }
+            catch { return false; }
+        }
+
+        static int[] _free, _did, _rest;   // reused buffers (main thread only)
         static readonly List<DcTeams.Team> _objs = new List<DcTeams.Team>();
         static bool[] _done;
 

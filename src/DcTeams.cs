@@ -13,8 +13,10 @@ namespace AlternativeDamageModel
     ///  - transfers: a team sent to a section, or sent back to the reserve, walks there - muster time + the distance between the
     ///    section (its place along the hull) and the middle of the ship at TransferSpeed; rounded to 10 s. A walking team is in no
     ///    section and cannot be given orders;
-    ///  - knocked out: the team is out for HealTime + the walk from its section to the middle; knocked out a second time it is dead
-    ///    and does not come back;
+    ///  - health: every team has health (a part of its maximum, which grows with the ship's displacement). A hit that knocks a team
+    ///    out of its section wounds it and it walks to the reserve; a fire in the section it does not fight wounds it too; in the
+    ///    reserve it recovers. At 0 it is dead. A wounded team works slower;
+    ///  - fatigue: working builds it up, the reserve takes it away; a tired team works at half speed;
     ///  - the Auto DC "recall all teams every minute" is skipped while transfers are on (it would keep the teams walking).
     /// The game itself keeps only counts per section (DamageControlTeamsNumbers[0..4]) and the reserve ([5]); teams on the move,
     /// recovering or dead are kept here and are in none of those counts. The game's own knock-out timers are taken over.
@@ -27,9 +29,24 @@ namespace AlternativeDamageModel
         public static Action<string> Info = s => { };
 
         // settings (AdmPlugin)
-        public static float Speed = 50f, Muster = 60f, Heal = 90f, HealSpread = 0f, Effectiveness = 0.5f;
-        public static int KnocksToDie = 2;   // 0 = never
+        public static float Speed = 50f, Muster = 60f, Effectiveness = 0.5f;
+        public static float HealthMul = 1f;       // [DamageControlTeams] TeamHealth: x the maximum health; 0 = no wounds
+        public static float RegenRate = 0.5f;     // % of the full health a second in the reserve
+        public static float FireWound = 1f;       // % of the full health a second at fire 100% (a team that does not fight it)
+        public static float WoundChance = 1f;     // x the chance of a wound
+        public static float HitWound = 1f;        // x the warhead power of the hit = the wound in points
         static readonly System.Random Rnd = new System.Random();
+        public static bool AnyIntegrity = true;   // a hit on a section wounds its teams at any integrity (not only the game's under 50%)
+        public static bool AutoRest = true;       // Auto DC: wounded (under 33% health) and exhausted teams go to the reserve and come back after the rest (RestPull)
+        public static Func<object, bool> Heavy = c => false;   // the ship is in a bad way: a rest is cut short (health 50%, fresh instead of full)
+        public const float RestHealth = 0.33f, HeavyHealth = 0.5f;
+        public static bool ReserveHits = true;    // hits on the central compartment (the resting place) wound the teams in the reserve
+        public static float FatigueRecover = 100f; // % of the build-up speed the reserve takes fatigue away at
+        public static float FatigueMin = 0f;      // minutes of work until tired; 0 = off
+        public static float ExhaustedMin = 120f;  // minutes of work until exhausted (the second level); not above FatigueMin = no second level
+        public static float SpeedRested = 1f, SpeedTired = 0.75f, SpeedExhausted = 0.25f;   // work speed of a rested / tired / exhausted team; linear between the levels
+        public const float MinWoundEff = 0.25f;   // a wounded team works at its health, but not below this
+        const float DefaultHit = 25f;             // warhead power taken when the hit's own is unknown (the median of the game's ammunition)
 
         /// <summary>Transfers take time (TransferSpeed or MusterTime not 0): walking teams, no recall, the optimised Auto DC.</summary>
         public static bool TransfersOn { get { return Speed > 0f || Muster > 0f; } }
@@ -45,13 +62,16 @@ namespace AlternativeDamageModel
             public int Section = -1;     // InSection: where; Moving: where to (-1 = the reserve)
             public int From = -1;        // Moving: where from (-1 = the reserve)
             public double Until, Total;  // Moving / Injured: when it is over, and how long it takes in all
-            public int Knocks;
+            public float Health = 1f;    // 0..1 of the maximum; 0 = dead
+            public double Fatigue;       // seconds of work in a row (at most twice the limit); the reserve takes it away at FatigueRecover % of that speed
             public double Arrived;       // InSection: when it got there (Auto DC does not pull a team that has just arrived)
             public int Task, Doing;      // InSection: the task given by hand (DcControl, 0 = by priority) and what it did last tick
             public bool Back;            // Moving: turned back (Cancel Transfer) - no muster in its time
+            public bool Rest;            // AutoRest: sent to rest (wounded / exhausted); Auto DC uses it again only when the rest is over
         }
 
-        sealed class Ship { public readonly List<Team> Teams = new List<Team>(); public int Timers; }
+        sealed class Ship { public readonly List<Team> Teams = new List<Team>(); public int Timers; public double LastT = -1; public readonly List<KeyValuePair<int, float>> Pending = new List<KeyValuePair<int, float>>(); }
+        static readonly ConditionalWeakTable<object, StrongBox<float>> Disp = new ConditionalWeakTable<object, StrongBox<float>>();
         static readonly ConditionalWeakTable<object, Ship> Ships = new ConditionalWeakTable<object, Ship>();
 
         // game members
@@ -113,6 +133,7 @@ namespace AlternativeDamageModel
         /// <summary>Called from Compartments.Init (AdmPlugin.ApplyHull): the ship's number of teams, all in the reserve.</summary>
         public static void SetCount(object comp, float displacement, bool isSub, bool isCiv, int iniOverride)
         {
+            try { Disp.GetOrCreateValue(comp).Value = displacement; } catch { }
             if (!_ok || iniOverride > 0) return;   // NumberOfDCTeams in the ship's ini: the game's value stays
             int n = Lookup(isSub ? SubTable : isCiv ? CivTable : WarTable, displacement);
             try
@@ -181,12 +202,264 @@ namespace AlternativeDamageModel
                 if (counts == null) return;
                 if (t.State == St.Moving && t.Section >= 0 && t.Section < 5) { Set(comp, t.Section, counts[t.Section] + 1); t.State = St.InSection; t.Arrived = Now(); }
                 else if (t.State == St.Moving || t.State == St.Injured || t.State == St.Dead) { Set(comp, 5, counts[5] + 1); t.State = St.Pool; t.Section = -1; }
-                t.Knocks = 0;
+                t.Health = 1f; t.Fatigue = 0;
             }
         }
 
         /// <summary>Multiplier of every damage control work rate (Repair* methods, after the crew's rate is read).</summary>
-        public static float Eff(float v) { return IsEnabled() ? v * Effectiveness : v; }
+        public static float WorkMul = 1f;       // set around one section's repair calls (DcControl): teams working amid a fire they do not fight
+        public static float FireWorkEff = 1f;   // [FireAndFlooding] FireWorkEfficiency / 100 (1 = off)
+        public static float Eff(float v) { return IsEnabled() ? v * Effectiveness * WorkMul * ShipMul : v; }
+        /// <summary>The same without the engine penalty: the repair of systems.</summary>
+        public static float EffSys(float v) { return IsEnabled() ? v * Effectiveness * WorkMul : v; }
+        public static float EngineEff = 1f;     // [Systems] NoEngineTeamEffectiveness / 100: the teams' effectiveness (except systems repair) while the ship's engine is out of order (the Engine module, not the propulsion); 1 = off
+        public static Func<object, bool> EngineOut = c => false;
+        public static float ShipMul = 1f;       // of the ship that is ticking now (Tick): its engine penalty
+        /// <summary>The engine penalty of a ship's teams: EngineEff while none of its engines works, else 1.</summary>
+        public static float EngineMulOf(object comp)
+        {
+            if (comp == null || EngineEff >= 1f || !IsEnabled()) return 1f;
+            try { return EngineOut(comp) ? EngineEff : 1f; } catch { return 1f; }
+        }
+
+        // ------------------------------------------------------------ health and fatigue
+
+        public static bool HealthOn { get { return HealthMul > 0f; } }
+        public static float FatigueLimit { get { return FatigueMin * 60f; } }
+        public static float ExhaustedLimit { get { return ExhaustedMin * 60f > FatigueMin * 60f ? ExhaustedMin * 60f : 0f; } }   // 0 = no second level
+
+        /// <summary>The work speed the fatigue allows: rested at 0, tired at the first level, exhausted at the second; linear between.</summary>
+        public static float FatigueMul(double f)
+        {
+            return Math.Max(SpeedExhausted, FatigueCurve(f));   // fatigue never takes the speed below the exhausted one
+        }
+
+        static float FatigueCurve(double f)
+        {
+            float t1 = FatigueLimit, t2 = ExhaustedLimit;
+            if (t1 <= 0f) return 1f;
+            if (f <= 0) return SpeedRested;
+            if (f < t1) return SpeedRested + (SpeedTired - SpeedRested) * (float)(f / t1);
+            if (t2 <= 0f) return SpeedTired;
+            if (f < t2) return SpeedTired + (SpeedExhausted - SpeedTired) * (float)((f - t1) / (t2 - t1));
+            return SpeedExhausted;
+        }
+
+        /// <summary>0 = fresh, 1 = tired, 2 = exhausted.</summary>
+        public static int FatigueLevel(double f)
+        {
+            if (!IsEnabled() || FatigueMin <= 0f) return 0;
+            if (ExhaustedLimit > 0f && f >= ExhaustedLimit) return 2;
+            return f >= FatigueLimit ? 1 : 0;
+        }
+
+        /// <summary>
+        /// The ship's team health in points, 1..100 by displacement (x TeamHealth, rounded to whole points, at least 1): 100 is a ship with a crew of 1000 and more (about 30000 t and up),
+        /// below that it falls with the crew, which grows roughly as displacement^0.6: 1000 t = 12, 4000 t = 29, 10000 t = 50.
+        /// A hit wounds a team by the warhead power of the ammunition (the game's ammunition: 0..196, half of it under 25).
+        /// </summary>
+        public static float MaxHp(object comp)
+        {
+            StrongBox<float> d;
+            float tons = comp != null && Disp.TryGetValue(comp, out d) && d.Value > 0f ? d.Value : 1000f;
+            return MaxHpFor(tons);
+        }
+
+        /// <summary>The team health of a ship of the given displacement (tons), with the Max health multiplier.</summary>
+        public static float MaxHpFor(float tons) { return MaxHpFor(tons, HealthMul); }
+
+        /// <summary>The same with the multiplier given (the settings window's table: values not applied yet).</summary>
+        public static float MaxHpFor(float tons, float mul)
+        {
+            double hp = 100.0 * Math.Pow(Math.Max(1.0, tons) / 30000.0, 0.62);
+            hp = Math.Max(1.0, Math.Min(100.0, hp)) * mul;
+            return (float)Math.Max(1.0, Math.Round(hp));
+        }
+
+        /// <summary>
+        /// The chance that a hit of the given power wounds a team of the given health, before the limit of 100%: 5.4% x power^1.83 / health^1.18 x WoundChance.
+        /// It grows steeply with the warhead and falls with the ship's toughness: warhead 2.2 against health 2 - about 10%, against 100 - about 0.1%;
+        /// warhead 82 against 100 - about 75%. Above 100% the margin keeps a sure wound sure while the multiplier is below 1.
+        /// </summary>
+        public static double WoundOdds(float power, float hp) { return WoundOdds(power, hp, WoundChance); }
+
+        public static double WoundOdds(float power, float hp, double wc)
+        {
+            if (wc <= 0.0 || hp <= 0f || power <= 0f) return 0.0;
+            return 0.054 * Math.Pow(power, 1.83) / Math.Pow(hp, 1.18) * wc;
+        }
+
+        /// <summary>The average wound of a team that is wounded by a hit, as a part of its full health (0..1; what WoundOf does: the strength is uniform up to min(1, 2q), the wound power x HitWound x strength / health, at most the whole).</summary>
+        public static double WoundMean(float power, float hp, double hitWound)
+        {
+            if (hp <= 0f || power <= 0f || hitWound <= 0.0) return 0.0;
+            double q = power / hp, m = Math.Min(1.0, 2.0 * q), k = q * hitWound;
+            if (k * m <= 1.0) return k * m / 2.0;
+            return 1.0 - (1.0 / k) / (2.0 * m);
+        }
+
+        // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound
+        static readonly ConditionalWeakTable<object, StrongBox<float>> LastHit = new ConditionalWeakTable<object, StrongBox<float>>();
+        public static void NoteHit(object comp, float power)
+        {
+            if (comp == null || power <= 0f) return;
+            var b = LastHit.GetOrCreateValue(comp);
+            if (power > b.Value) b.Value = power;
+        }
+
+        /// <summary>
+        /// The wound of a team hit by a warhead of this power, as a part of its full health (0 = not wounded). The chance is 5.4% x power^1.83 / health^1.18 x WoundChance (q = power / health; the bigger the ship, the smaller;
+        /// the bigger the warhead, the larger - even the weakest hit has a small chance); the wound is a random part of the power (x HitWound), at most the whole.
+        /// </summary>
+        static float WoundOf(object comp, float power)
+        {
+            float max = MaxHp(comp);
+            if (max <= 0f || power <= 0f) return 0f;
+            // the chance of a wound: 0.1 x q^1.2 x WoundChance (WoundOdds, over 100% = sure); the strength is a random part of the range up to 2q
+            double q = power / max;
+            if (Rnd.NextDouble() >= WoundOdds(power, max)) return 0f;
+            double strength = Rnd.NextDouble() * Math.Min(1.0, 2.0 * q);
+            return (float)(power * HitWound * strength / max);
+        }
+
+        /// <summary>Hits on a section (Blastzone, ReserveHits) waiting for the next tick: with AnyIntegrity they wound the section's teams.</summary>
+        public static void QueueHit(object comp, int section, float power)
+        {
+            Ship s;
+            if (!_ok || comp == null || !AnyIntegrity || !HealthOn || !IsEnabled() || !Ships.TryGetValue(comp, out s) || section < 0 || section > 4 || s.Pending.Count > 40) return;
+            s.Pending.Add(new KeyValuePair<int, float>(section, power));
+        }
+
+        /// <summary>One queued hit: a random team working in the section gets the roll for a wound; wounded, it walks to the reserve (dead at 0).</summary>
+        static void ApplySectionHit(object comp, Ship s, int section, float power, double now)
+        {
+            var here = s.Teams.FindAll(x => x.State == St.InSection && x.Section == section);
+            if (here.Count == 0) return;
+            var t = here[Rnd.Next(here.Count)];
+            float wound = WoundOf(comp, power);
+            if (wound <= 0f) return;
+            var counts = Counts(comp);
+            if (counts != null && section < counts.Length && counts[section] > 0) Set(comp, section, counts[section] - 1);
+            Leave(t);
+            t.Health -= wound;
+            if (t.Health <= 0f) { t.State = St.Dead; t.Health = 0f; Trace("DC team dead (section " + section + ")"); }
+            else
+            {
+                t.State = St.Injured;
+                t.Total = TransferTime(comp, section);
+                t.Until = now + t.Total;
+                Trace("DC team wounded (section " + section + "), health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture));
+            }
+            t.Section = -1; t.From = section;
+        }
+
+        static float TakeHit(object comp)
+        {
+            StrongBox<float> b;
+            if (!LastHit.TryGetValue(comp, out b) || b.Value <= 0f) return DefaultHit;
+            float v = b.Value; b.Value = 0f;
+            return v;
+        }
+
+        /// <summary>A hit on the central compartment with this chance (%) wounds one team resting in the reserve (ReserveHits).</summary>
+        public static void ReserveHit(object comp, float chancePct, float power)
+        {
+            if (!_ok || comp == null || !ReserveHits || !HealthOn || !IsEnabled() || chancePct <= 0f) return;
+            Ship s;
+            if (!Ships.TryGetValue(comp, out s)) return;
+            var pool = s.Teams.FindAll(x => x.State == St.Pool);
+            if (pool.Count == 0 || Rnd.NextDouble() * 100.0 >= chancePct) return;
+            var t = pool[Rnd.Next(pool.Count)];
+            t.Health -= WoundOf(comp, power);
+            if (t.Health <= 0f)
+            {
+                var counts = Counts(comp);
+                if (counts != null && counts.Length > 5 && counts[5] > 0) Set(comp, 5, counts[5] - 1);
+                Leave(t);
+                t.State = St.Dead; t.Health = 0f; t.Section = -1; t.From = -1;
+                Trace("DC team dead in the reserve (central compartment hit)");
+            }
+            else Trace("DC team in the reserve wounded, health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture));
+        }
+
+        public static bool Wounded(Team t) { return Wounded(t.Health); }
+        public static bool Tired(Team t) { return Tired(t.Fatigue); }
+        public static bool Wounded(float health) { return IsEnabled() && HealthOn && health < 0.995f; }
+        public static bool Tired(double fatigue) { return FatigueLevel(fatigue) >= 1; }
+
+        /// <summary>How well a team works now: its health (not below MinWoundEff) and, when tired, half of that.</summary>
+        public static float EffOf(float health, double fatigue)
+        {
+            if (!IsEnabled()) return 1f;
+            float e = Wounded(health) ? Math.Max(MinWoundEff, health) : 1f;
+            return FatigueMin > 0f ? e * FatigueMul(fatigue) : e;
+        }
+
+        public static float TeamEff(Team t)
+        {
+            if (t == null || !IsEnabled()) return 1f;
+            float e = Wounded(t) ? Math.Max(MinWoundEff, t.Health) : 1f;
+            if (FatigueMin <= 0f) return e;
+            return e * FatigueMul(t.Fatigue);   // wounds and fatigue are separate multipliers
+        }
+
+        /// <summary>" (Wounded)" / " (Tired)" / " (Wounded, Tired)" for the teams that work slower because of it; "" when none.</summary>
+        public static string Status(Team t) { return StatusOf(t.Health, t.Fatigue); }
+
+        public static string StatusOf(float health, double fatigue)
+        {
+            bool w = Wounded(health);
+            int lv = FatigueLevel(fatigue);
+            string f = lv == 2 ? "Exhausted" : lv == 1 ? "Tired" : "";
+            return w && f.Length > 0 ? "Wounded, " + f : w ? "Wounded" : f;
+        }
+
+        /// <summary>Team health and fatigue, every tick: fire wounds, reserve recovery, work builds fatigue.</summary>
+        static void Condition(object comp, Ship s, double dt)
+        {
+            float lim = FatigueLimit;
+            int heavy = -1;
+            foreach (var t in s.Teams)
+            {
+                if (t.State == St.Pool)
+                {
+                    if (HealthOn && t.Health < 1f) t.Health = Math.Min(1f, t.Health + RegenRate / 100f * (float)dt);
+                    if (t.Fatigue > 0) t.Fatigue = Math.Max(0, t.Fatigue - dt * FatigueRecover / 100.0);
+                    if (AutoRest)
+                    {
+                        if (!t.Rest) { if ((HealthOn && t.Health < RestHealth) || FatigueLevel(t.Fatigue) >= 2) t.Rest = true; }
+                        else
+                        {
+                            if (heavy < 0) { bool h = false; try { h = Heavy(comp); } catch { } heavy = h ? 1 : 0; }
+                            // a ship in a bad way takes the teams back sooner: health 50%, rested to fresh (not yet tired); otherwise full health, no fatigue
+                            bool done = heavy == 1 ? (!HealthOn || t.Health >= HeavyHealth) && FatigueLevel(t.Fatigue) == 0 : (!HealthOn || t.Health >= 0.995f) && t.Fatigue <= 0;
+                            if (done) { t.Rest = false; Trace("DC team rested" + (heavy == 1 ? " (shortened: the ship is in a bad way)" : "")); }
+                        }
+                    }
+                }
+                else if (t.State == St.InSection)
+                {
+                    if (lim > 0f && t.Doing != DcControl.TaskNone && t.Doing != DcControl.TaskIdle) t.Fatigue = Math.Min(ExhaustedLimit > 0f ? ExhaustedLimit : 2.0 * lim, t.Fatigue + dt);
+                    if (HealthOn && FireWound > 0f && t.Doing != DcControl.TaskFire && t.Section >= 0 && t.Section < 5)
+                    {
+                        float fire = DcControl.FireLevel(comp, t.Section);
+                        if (fire > 0f)
+                        {
+                            t.Health -= FireWound / 100f * fire * (float)dt;
+                            if (t.Health <= 0f)
+                            {
+                                var counts = Counts(comp);
+                                if (counts != null && t.Section < counts.Length && counts[t.Section] > 0) Set(comp, t.Section, counts[t.Section] - 1);
+                                int sec = t.Section;
+                                Leave(t);
+                                t.State = St.Dead; t.Health = 0f; t.From = sec; t.Section = -1;
+                                Trace("DC team burnt (section " + sec + ")");
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // ------------------------------------------------------------ helpers
 
@@ -299,7 +572,7 @@ namespace AlternativeDamageModel
                     if (t.State != (loc == 5 ? St.Pool : St.InSection) || t.Section != (loc == 5 ? -1 : loc)) Leave(t);
                     t.State = loc == 5 ? St.Pool : St.InSection;
                     t.Section = loc == 5 ? -1 : loc;
-                    if (t.Knocks > 0 && other.Contains(t)) t.Knocks = 0;   // a lost / recovering team the game put back: whole again
+                    if (other.Contains(t)) { t.Health = 1f; t.Fatigue = 0; }   // a lost / recovering team the game put back: whole again
                     if (loc < 5) t.Arrived = now;
                 }
             int removed = spare.Count - k;
@@ -345,12 +618,53 @@ namespace AlternativeDamageModel
             var counts = Counts(comp);
             if (counts == null || counts.Length < 6 || counts[5] < 1 || index < 0 || index > 4) return true;
             var s = Get(comp);
-            var t = s.Teams.Find(x => x.State == St.Pool);
-            if (t == null) { Reconcile(comp, s); t = s.Teams.Find(x => x.State == St.Pool); }
+            var t = PickPool(s);
+            if (t == null) { Reconcile(comp, s); t = PickPool(s); }
             if (t == null) return true;
             Set(comp, 5, counts[5] - 1);
             t.State = St.Moving; t.Section = index; t.From = -1; t.Total = TransferTime(comp, index); t.Until = Now() + t.Total;
             return false;
+        }
+
+        static Team PickPool(Ship s) { return s.Teams.Find(x => x.State == St.Pool && Ready(x)) ?? s.Teams.Find(x => x.State == St.Pool); }
+
+        /// <summary>A team that is not sent to rest (or the rest is over).</summary>
+        public static bool Ready(Team t) { return !AutoRest || !t.Rest; }
+
+        /// <summary>The teams in the reserve that Auto DC may send out: not resting.</summary>
+        public static int ReadyInPool(object comp)
+        {
+            Ship s;
+            if (!_ok || comp == null || !Ships.TryGetValue(comp, out s)) return 0;
+            int n = 0;
+            foreach (var t in s.Teams) if (t.State == St.Pool && Ready(t)) n++;
+            return n;
+        }
+
+        /// <summary>Auto DC, every few seconds: a team in a section with health under 33% or exhausted goes to the reserve to rest (AutoRest).</summary>
+        public static void RestPull(object comp)
+        {
+            if (!_ok || comp == null || !AutoRest || !IsEnabled()) return;
+            try
+            {
+                Ship s;
+                if (!Ships.TryGetValue(comp, out s)) return;
+                foreach (var t in s.Teams.ToArray())
+                {
+                    if (t.State != St.InSection || t.Section < 0 || t.Section > 4) continue;
+                    if (!((HealthOn && t.Health < RestHealth) || FatigueLevel(t.Fatigue) >= 2)) continue;
+                    var counts = Counts(comp);
+                    if (counts == null || counts.Length < 6 || counts[t.Section] < 1) continue;
+                    int from = t.Section;
+                    Set(comp, from, counts[from] - 1);
+                    Leave(t);
+                    t.Rest = true;
+                    if (TransfersOn) { t.State = St.Moving; t.Section = -1; t.From = from; t.Total = TransferTime(comp, from); t.Until = Now() + t.Total; }
+                    else { Set(comp, 5, counts[5] + 1); t.State = St.Pool; t.Section = -1; }
+                    Trace("DC team to rest from section " + from + ", health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture) + ", fatigue " + FatigueLevel(t.Fatigue));
+                }
+            }
+            catch (Exception e) { Trace("DcTeams.RestPull: " + e.Message); }
         }
 
         /// <summary>Prefix of ReturnDCTeamToPool(index): the team leaves the section and walks back to the reserve.</summary>
@@ -457,6 +771,7 @@ namespace AlternativeDamageModel
         public static void Tick(object comp)
         {
             if (!_ok || comp == null) return;
+            ShipMul = EngineMulOf(comp);   // read by Eff in this ship's repair calls (the same OnFixedUpdate)
             if (!IsEnabled())
             {
                 // the game's own rules: only keep the team objects in step with its counts (the tab numbers them)
@@ -502,23 +817,37 @@ namespace AlternativeDamageModel
                         }
                         if (hit == null) break;   // no team of ours missing
                         taken++;
+                        if (AnyIntegrity)
+                        {
+                            // the game's knock-out (integrity under 50%) is not used: the team stays, the hit is rolled for a wound below
+                            Set(comp, hit.Section, counts[hit.Section] + 1);
+                            counts = Counts(comp);
+                            continue;
+                        }
                         int from = hit.Section;
                         Leave(hit);
-                        hit.Knocks++;
-                        if (KnocksToDie > 0 && hit.Knocks >= KnocksToDie) { hit.State = St.Dead; Trace("DC team dead (section " + from + ")"); }
+                        float wound = HealthOn ? WoundOf(comp, TakeHit(comp)) : 0f;
+                        hit.Health -= wound;
+                        if (HealthOn && hit.Health <= 0f) { hit.State = St.Dead; hit.Health = 0f; Trace("DC team dead (section " + from + ")"); }
                         else
                         {
-                            hit.State = St.Injured;
-                            float heal = Heal + (HealSpread > 0f ? (float)(Rnd.NextDouble() * 2.0 - 1.0) * HealSpread : 0f);
-                            hit.Total = Math.Max(0f, heal) + TransferTime(comp, from);
+                            hit.State = St.Injured;   // wounded: walks to the reserve
+                            hit.Total = TransferTime(comp, from);
                             hit.Until = now + hit.Total;
-                            Trace("DC team knocked out (section " + from + "), back in " + hit.Total + " s");
+                            Trace("DC team hit (section " + from + "), health " + hit.Health.ToString("0.00", CultureInfo.InvariantCulture) + ", back in " + hit.Total + " s");
                         }
                         hit.Section = -1; hit.From = from;   // From: where it was hit (shown in its tooltip)
                     }
                     if (taken > 0) timers.RemoveRange(timers.Count - taken, taken);   // the newest ones: those just added
                 }
                 s.Timers = timers == null ? 0 : timers.Count;
+
+                // hits on sections (AnyIntegrity)
+                if (s.Pending.Count > 0)
+                {
+                    foreach (var h in s.Pending) if (AnyIntegrity) ApplySectionHit(comp, s, h.Key, h.Value, now);
+                    s.Pending.Clear();
+                }
 
                 // arrivals and recoveries
                 foreach (var t in s.Teams)
@@ -547,6 +876,10 @@ namespace AlternativeDamageModel
                     }
                 }
 
+                double dt = s.LastT < 0 ? 0 : Math.Min(5.0, Math.Max(0.0, now - s.LastT));
+                s.LastT = now;
+                if (dt > 0) Condition(comp, s, dt);
+
                 int total = Total(comp);
                 if (!InSync(comp, s) || (total > 0 && s.Teams.Count > total)) Reconcile(comp, s);   // the game changed the counts itself (reset, repair, load)
             }
@@ -555,7 +888,7 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ saved games
 
-        /// <summary>"state/section/left/total/knocks/from/stay|..." per team (no ';': the game's ini reader takes it for a comment).</summary>
+        /// <summary>"state/section/left/total/0/from/stay/health/fatigue|..." per team (no ';': the game's ini reader takes it for a comment).</summary>
         public static string Save(object comp)
         {
             Ship s;
@@ -564,8 +897,9 @@ namespace AlternativeDamageModel
             var parts = new List<string>();
             foreach (var t in s.Teams)
                 parts.Add((int)t.State + "/" + t.Section + "/" + Math.Max(0, t.Until - now).ToString("0.#", CultureInfo.InvariantCulture) + "/" +
-                          t.Total.ToString("0.#", CultureInfo.InvariantCulture) + "/" + t.Knocks + "/" + t.From + "/" +
-                          (t.State == St.InSection ? Math.Max(0, now - t.Arrived) : 0).ToString("0", CultureInfo.InvariantCulture));
+                          t.Total.ToString("0.#", CultureInfo.InvariantCulture) + "/" + (t.Rest ? 1 : 0) + "/" + t.From + "/" +
+                          (t.State == St.InSection ? Math.Max(0, now - t.Arrived) : 0).ToString("0", CultureInfo.InvariantCulture) + "/" +
+                          t.Health.ToString("0.###", CultureInfo.InvariantCulture) + "/" + t.Fatigue.ToString("0", CultureInfo.InvariantCulture));
             return string.Join("|", parts.ToArray());
         }
 
@@ -588,6 +922,9 @@ namespace AlternativeDamageModel
                     if (f.Length > 5) int.TryParse(f[5], out from);
                     double stay = 0;
                     if (f.Length > 6) double.TryParse(f[6], NumberStyles.Float, CultureInfo.InvariantCulture, out stay);
+                    double hp = 1, fat = 0;
+                    if (f.Length > 7) double.TryParse(f[7], NumberStyles.Float, CultureInfo.InvariantCulture, out hp);
+                    if (f.Length > 8) double.TryParse(f[8], NumberStyles.Float, CultureInfo.InvariantCulture, out fat);
                     // a broken / hand-edited save: places out of range are the reserve
                     if (sec < -1 || sec > 4) sec = -1;
                     if (from < -1 || from > 4) from = -1;
@@ -595,7 +932,7 @@ namespace AlternativeDamageModel
                     if (state == St.InSection && sec < 0) state = St.Pool;
                     if (state == St.Pool) sec = -1;
                     list.Add(new Team { State = state, Section = sec, From = from, Until = now + Math.Max(0, left), Total = Math.Max(0, total),
-                                        Knocks = Math.Max(0, kn), Arrived = now - Math.Max(0, stay) });
+                                        Health = (float)Math.Max(0, Math.Min(1, hp)), Fatigue = Math.Max(0, fat), Rest = kn == 1, Arrived = now - Math.Max(0, stay) });
                 }
                 if (list.Count == 0) return;
                 var s = Ships.GetOrCreateValue(comp);
@@ -618,7 +955,7 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ read by the UI
 
-        public struct View { public int State; public int Section; public int From; public float Left; public float Total; public float Stay; public int Number; public int Knocks; public bool Back; public object Ref; }
+        public struct View { public int State; public int Section; public int From; public float Left; public float Total; public float Stay; public int Number; public float Health; public float Fatigue; public bool Back; public object Ref; }
 
         /// <summary>Teams that are in no section: moving, recovering, dead (and the reserve as State Pool).</summary>
         public static List<View> Snapshot(object comp)
@@ -632,7 +969,7 @@ namespace AlternativeDamageModel
             {
                 var t = s.Teams[k];
                 list.Add(new View { State = (int)t.State, Section = t.Section, From = t.From, Left = (float)Math.Max(0, t.Until - now), Total = (float)t.Total,
-                                    Stay = (float)(now - t.Arrived), Number = k + 1, Knocks = t.Knocks, Back = t.Back, Ref = t });
+                                    Stay = (float)(now - t.Arrived), Number = k + 1, Health = t.Health, Fatigue = (float)t.Fatigue, Back = t.Back, Ref = t });
             }
             return list;
         }

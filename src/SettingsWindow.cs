@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
 
         // ------------------------------------------------------------ what is shown
-        enum Kind { Number, Integer, Table, Bool }
+        enum Kind { Number, Integer, Table, Speed, Bool, Choice }
 
         sealed class Field
         {
@@ -32,11 +32,13 @@ namespace AlternativeDamageModel
             public Kind Kind;
             public float Step, Min, Max;
             public bool Global;
+            public string[] Options;   // Kind.Choice
         }
 
-        const string TUi = "User Interface", TGen = "Damage Model";
+        const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
         const string TFx = "Effects";
-        static readonly string[] Tabs = { TUi, TFx, TGen, "Hull", "Systems", "Fire & Flooding", "DC Teams", "Sinking" };
+        static readonly string[] Tabs = { TUi, TFx, TGen, TDbg, "Hull", "Systems", "Fire", "Flooding", "DC Teams" };
+        const string HealthKey = "DamageControlTeams/TeamHealthEnabled", FatigueKey = "DamageControlTeams/FatigueEnabled";
         const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
         /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
         static bool LiveKey(string key) { return key == AdmKey || key == UiKey; }
@@ -46,7 +48,6 @@ namespace AlternativeDamageModel
         {
             if (f.Group == ArrowsGroup) return UiKey;
             if (f.Key == "FireAndFlooding/UnattendedFireTime" || f.Key == "FireAndFlooding/UnattendedFireGrowthRate" || f.Key == "FireAndFlooding/UnattendedFireMaxGrowth") return UnattendedKey;
-            if (f.Key == "Effects/ExtraSmokeMinLength") return SmokeKey;
             if (f.Key == "Effects/SmokeStartOpacity" || f.Key == "Effects/SmokeEndOpacity" ||f.Key == "Effects/SmokeModerateFrom" || f.Key == "Effects/SmokeSevereFrom") return DensityKey;
             return null;
         }
@@ -59,7 +60,7 @@ namespace AlternativeDamageModel
             return v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
         }
         /// <summary>Tabs of the damage model: hidden while Alternative Damage Control is off.</summary>
-        static bool ModelTab(string tab) { return tab != TUi && tab != TGen && tab != TFx; }
+        static bool ModelTab(string tab) { return tab != TUi && tab != TGen && tab != TFx && tab != TDbg; }
 
         static readonly List<Field> Fields = new List<Field>();
 
@@ -70,16 +71,17 @@ namespace AlternativeDamageModel
 
         static SettingsWindow()
         {
-            const string H = "Hull", FF = "Fire & Flooding", DC = "DC Teams", S = "Sinking", D = TUi, G = TGen;
+            const string H = "Hull", FF = "Fire", DC = "DC Teams", S = "Flooding", D = TUi, G = TGen;
             Add(D, "Damage Control tab", UiKey, "Detailed view", "applies at once", Kind.Bool, 0, 0, 0, true);
+            Add(D, "Bottom panel", "UI/ColorWeaponStatus", "Weapon status colours", "yellow: part inoperable, red: all", Kind.Bool, 0, 0, 0, true);
+            Add(D, "Map", "UI/ShowEnemyDamage", "Ship damage icons", "fire, water, hull, engine", Kind.Bool, 0, 0, 0, true);
             Add(D, ArrowsGroup, "UI/FloodingOneArrowAt", "Water: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FloodingTwoArrowsAt", "Water: two arrows from", "% a second", Kind.Number, 0.05f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FireOneArrowAt", "Fire: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FireTwoArrowsUpAt", "Fire: two arrows up from", "% a second", Kind.Number, 0.1f, 0f, 20f, true);
             Add(D, ArrowsGroup, "UI/FireTwoArrowsDownAt", "Fire: two arrows down from", "% a second", Kind.Number, 0.05f, 0f, 20f, true);
 
-            Add(TFx, "Fire smoke", SmokeKey, "Extra smoke points", "5 instead of 3, one per section", Kind.Bool, 0, 0, 0, true);
-            Add(TFx, "Fire smoke", "Effects/ExtraSmokeMinLength", "On ships from", "m long", Kind.Number, 10f, 0f, 500f, true);
+            Add(TFx, "Fire smoke", SmokeKey, "Extra smoke points", "by length: <25 m 1, <50 m 2, <75 m 3, else 5", Kind.Bool, 0, 0, 0, true);
             Add(TFx, "Fire smoke", DensityKey, "Tune visuals", "instead of the game's stages", Kind.Bool, 0, 0, 0, true);
             Add(TFx, "Fire smoke", "Effects/SmokeStartOpacity", "Small fire: opacity at start", "% of the game's, fire at 0%", Kind.Number, 5f, 0f, 100f, true);
             Add(TFx, "Fire smoke", "Effects/SmokeEndOpacity", "Small fire: opacity at end", "% of the game's, at moderate", Kind.Number, 5f, 0f, 100f, true);
@@ -87,9 +89,21 @@ namespace AlternativeDamageModel
             Add(TFx, "Fire smoke", "Effects/SmokeSevereFrom", "Severe fire look from", "% of max fire (game 50)", Kind.Number, 5f, 1f, 100f, true);
 
             Add(G, "Damage model", AdmKey, "Alternative Damage Control", "applies at once", Kind.Bool, 0, 0, 0, true);
-            Add(G, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
-            Add(G, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
-            Add(G, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
+            Add(G, "Damage model", "HullIntegrity/DamageSpill", "Damage spills over", "a destroyed compartment: ½ to its neighbour, ¼ to the next", Kind.Bool, 0, 0, 0);
+            Add(G, "Damage model", "General/FixHighTimeCompressionTrimError", "Fix trim compute error", "above 10x time compression", Kind.Bool, 0, 0, 0, true);
+
+            Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SpeedEffect", "Multipliers by speed", "", Kind.Speed, 0, 0, 0);
+
+            Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SmallAiNoSpeedLimit", "Small AI: no speed limit", "AI ships < 50 m: no speed cut", Kind.Bool, 0, 0, 0);
+
+            Add(TDbg, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Logging (BepInEx log)", "General/LogHeel", "List, trim and buoyancy", "", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Visualisation (selected ship)", "General/ShowDeckCorners", "Deck point heights", "wave to hull-only deck, 10 points", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Visualisation (selected ship)", "General/ShowHullCollider", "Hull collider (translucent)", "coll_hull* only", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Visualisation (selected ship)", "General/ShipModelView", "Ship's 3D model", "for the two above", Kind.Choice, 0, 0, 0, true);
+            Fields[Fields.Count - 1].Options = new[] { "Show", "Translucent", "Hide" };
 
             Add(H, "Hull integrity", "HullIntegrity/Warships", "Warships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/CivilianShips", "Civilian ships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
@@ -98,32 +112,61 @@ namespace AlternativeDamageModel
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFireVulnerability", "Fires", "", Kind.Number, 0.1f, 0.1f, 10f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFloodingVulnerability", "Flooding", "", Kind.Number, 0.1f, 0.1f, 10f);
 
+            Add("Systems", "Systems", "Systems/NoEngineTeamEffectiveness", "DC efficiency without engines", "% effectiveness · except systems repair · 100 = off", Kind.Number, 5f, 0f, 100f);
             Add("Systems", "Systems", "Systems/Integrity", "Integrity", "× game", Kind.Number, 0.1f, 0.1f, 20f);
             Add(FF, "Fire", "FireAndFlooding/FlameUpSpeed", "Fire growth", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireHullDamageSpeed", "Fire damage to the hull", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireSpreadPercent", "Fire spread chance", "% per fire check (10 s)", Kind.Number, 0.005f, 0f, 100f);
             Add(FF, "Unattended fire", UnattendedKey, "Grows when nobody fights it", "", Kind.Bool, 0, 0, 0);
+            Add(FF, "Fire and damage control", "FireAndFlooding/FireWorkEfficiency", "Work amid fire", "% effectiveness without fighting the fire · 100 = off", Kind.Number, 5f, 0f, 100f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireTime", "Unattended after", "s without a team", Kind.Number, 10f, 0f, 1200f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireGrowthRate", "Growth added", "% of max growth per fire check (10 s)", Kind.Number, 0.05f, 0f, 100f);
             Add(FF, "Unattended fire", "FireAndFlooding/UnattendedFireMaxGrowth", "Maximum growth rate", "% of max fire a second", Kind.Number, 0.1f, 0f, 100f);
-            Add(FF, "Flooding", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
 
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/WarshipTeams", "Warships", "", Kind.Table, 0, 0, 0);
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/SubmarineTeams", "Submarines", "", Kind.Table, 0, 0, 0);
             Add(DC, "Number of teams - from tons: teams", "DamageControlTeams/CivilianTeams", "Civilian ships", "", Kind.Table, 0, 0, 0);
-            Add(DC, "Work and movement", "DamageControlTeams/DCTeamEffectiveness", "Team effectiveness", "× game", Kind.Number, 0.1f, 0.05f, 5f);
-            Add(DC, "Work and movement", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
-            Add(DC, "Work and movement", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
-            Add(DC, "Work and movement", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
-            Add(DC, "Work and movement", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
-            Add(DC, "Knock-outs", "DamageControlTeams/HealTime", "Recovery time", "s + transfer back", Kind.Number, 10f, 0f, 1200f);
-            Add(DC, "Knock-outs", "DamageControlTeams/HealTimeSpread", "Recovery spread", "± s", Kind.Number, 10f, 0f, 600f);
-            Add(DC, "Knock-outs", "DamageControlTeams/KnockoutsToDeath", "Knock-outs to death", "0 = never", Kind.Integer, 1f, 0f, 9f);
+            Add(DC, "Team speed", "DamageControlTeams/DCTeamEffectiveness", "Team effectiveness", "× game", Kind.Number, 0.1f, 0.05f, 5f);
+            Add(DC, "Team speed", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Team speed", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Water", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
+            Add(DC, "Water", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
+            Add(DC, "Water", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
+            Add(DC, "Water", "DamageControlTeams/MaxPlugSpeed", "Max ship speed for plugging holes", "knots · 0 = no limit", Kind.Number, 1f, 0f, 100f);
+            Add(DC, "Fire", "FireAndFlooding/TeamBlocksFireSpread", "Team stops fire spread", "fire does not spread into a section with a team", Kind.Bool, 0, 0, 0);
+            Add(DC, "Fire", "FireAndFlooding/SubmergedFireDecay", "Fire under water", "% per second per metre under water; 0 = off", Kind.Number, 0.5f, 0f, 20f);
+            Add(DC, "Movement", "DamageControlTeams/TransferSpeed", "Transfer speed", "m/min · 0 = instant", Kind.Number, 5f, 0f, 1000f);
+            Add(DC, "Movement", "DamageControlTeams/MusterTime", "Muster time", "s", Kind.Number, 10f, 0f, 600f);
+            Add(DC, "Switches", "DamageControlTeams/TeamHealthEnabled", "Team health", "wounds and recovery; off = the Health page is hidden", Kind.Bool, 0, 0, 0);
+            Add(DC, "Switches", "DamageControlTeams/FatigueEnabled", "Team fatigue", "off = the Fatigue page is hidden", Kind.Bool, 0, 0, 0);
+            Add(DC, "Health", "DamageControlTeams/TeamHealth", "Max health", "× (1-100 by displacement)", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Health", "DamageControlTeams/HealthRegen", "Recovery speed in reserve", "% health per second", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Health", "DamageControlTeams/FireWound", "Fire wounds", "% per second at fire 100%", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Weapon hits", "DamageControlTeams/WoundsAnyIntegrity", "Wounds at any hull integrity", "not only under 50%", Kind.Bool, 0, 0, 0);
+            Add(DC, "Weapon hits", "DamageControlTeams/WoundChance", "Wound chance", "× chance", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Weapon hits", "DamageControlTeams/HitWound", "Wound strength", "× warhead power", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserve", "Wounds in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
+            Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
+            Add(DC, "Time", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);
+            Add(DC, "Time", "DamageControlTeams/FatigueRecovery", "Recovery speed", "% of the fatigue speed", Kind.Number, 10f, 0f, 1000f);
+            Add(DC, "Efficiency", "DamageControlTeams/SpeedRested", "Speed: rested", "% of normal", Kind.Number, 5f, 0f, 200f);
+            Add(DC, "Efficiency", "DamageControlTeams/SpeedTired", "Speed: tired", "% of normal", Kind.Number, 5f, 0f, 200f);
+            Add(DC, "Efficiency", "DamageControlTeams/SpeedExhausted", "Speed: exhausted", "% of normal", Kind.Number, 5f, 0f, 200f);
 
+            Add(S, "Flooding rate", "FireAndFlooding/FloodingSpeed", "Water coming in", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(S, "Flooding rate", "Sinking/DeckFloodingSpeed", "Water over the deck", "× · 1 = 0.1% per s per m under water", Kind.Number, 0.1f, 0f, 10f);
+            Add(S, "Flooding rate", "Sinking/DeckFloodingDelay", "Time under water", "s before water over the deck starts", Kind.Number, 0.5f, 0f, 60f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/ListLimit", "List", "° · water over the deck edge from 75%", Kind.Number, 0.5f, 5f, 69f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimLimit", "Trim", "° at the reference length", Kind.Number, 0.1f, 1f, 30f);
             Add(S, "Gauge scales (faster flooding from their red zone, 75%)", "Sinking/TrimReferenceLength", "Trim: reference length", "m · 0 = same for all", Kind.Number, 10f, 0f, 500f);
             Add(S, "Sinking from", "Sinking/FloodLimit", "Water in the ship", "% of the hull", Kind.Number, 1f, 5f, 100f);
+            Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLeaks", "Fire reopens leaks", "% of the largest leak a second at fire 100% · 0 = off", Kind.Number, 0.1f, 0f, 20f);
+            Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLimit", "Reopened up to", "% of the largest leak", Kind.Number, 5f, 0f, 100f);
+            Add(S, "Full flooding", "FireAndFlooding/FullFloodSystems", "Systems out of order", "no repair while flooded", Kind.Bool, 0, 0, 0);
+            Add(S, "Full flooding", "FireAndFlooding/FullFloodFireDecay", "Fire put out", "% a second · 0 = off", Kind.Number, 1f, 0f, 100f);
+            Add(TFx, "Sinking and wreck", "Effects/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0, true);
+            Add(TFx, "Sinking and wreck", "Effects/WreckDragFactor", "Wreck drag", "× the game's resistance to the horizontal movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f, true);
+            Add(TFx, "Sinking and wreck", "Effects/BubblesStopMinutes", "Stop bubbles after", "min after sinking starts; 0 = never", Kind.Number, 1f, 0f, 120f, true);
         }
 
         // ------------------------------------------------------------ colours (the game's dark panels)
@@ -162,6 +205,15 @@ namespace AlternativeDamageModel
         static Profile _game;              // Base Game: the "game:" column
         static readonly Dictionary<string, string> _globals = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         static readonly Dictionary<string, string> _globalsFrom = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // debug visualisation toggles: flipping them should show up in the game at once, not wait for Apply/OK -
+        // written straight to their own ConfigEntry as soon as the checkbox changes (Set), same as Commit would do
+        // for every global on Apply, just for these three right away. Cfg.SettingChanged then does the rest
+        // (AdmPlugin.ReadSettings), same path as any other live settings change.
+        static readonly HashSet<string> _liveGlobals = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "General/ShowDeckCorners", "General/ShowHullCollider", "General/ShipModelView",
+        };
 
         static AdmPlugin P { get { return AdmPlugin.Instance; } }
 
@@ -382,7 +434,8 @@ namespace AlternativeDamageModel
             title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var tt = Text("Alternative Damage Model - Settings", CText, 14f); tt.Margin = new Thickness(10f, 0f, 0f, 0f);
             title.Children.Add(tt);
-            var x = new Button { Content = "✕", Width = 28f, Height = 24f, Margin = new Thickness(0f, 0f, 4f, 0f) };
+            var x = new Button { Content = Cross(10f), Width = 28f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 0f, 4f, 0f),
+                                 HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
             x.Click += (o, e) => Close();
             Grid.SetColumn(x, 1);
             title.Children.Add(x);
@@ -430,6 +483,7 @@ namespace AlternativeDamageModel
 
             _body = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 6f, 0f, 6f) };
             var scroll = _scroll = new ScrollViewer { Content = _body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+            scroll.SizeChanged += (o, e) => FitPage();
             var settingsArea = new Border { Child = scroll, Background = B(CCard), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 0f) };
             main.Children.Add(settingsArea);
 
@@ -467,12 +521,19 @@ namespace AlternativeDamageModel
             }
             win.Child = layout;
 
-            _root.Children.Add(ResizeGrip());
+            AddResizeHandles();
 
             _overlay = new Border { Background = B(Color.FromArgb(150, 0, 0, 0)), CornerRadius = new CornerRadius(4f), Visibility = Visibility.Collapsed };
             _root.Children.Add(_overlay);
 
             RebuildProfiles();
+        }
+
+        /// <summary>A drawn ✕ for a button: the font's glyph sat low in the button, cut at the bottom and off centre.</summary>
+        static Path Cross(float size)
+        {
+            return new Path { Data = new StreamGeometry("M0,0 L10,10 M10,0 L0,10"), Stroke = B(CText), StrokeThickness = 1.5f, Stretch = Stretch.Uniform,
+                              Width = size, Height = size, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         }
 
         // drag the window by its title bar
@@ -530,40 +591,72 @@ namespace AlternativeDamageModel
             catch (Exception ex) { _place = 2; Trace("settings window placing: " + ex.Message); }
         }
 
-        const float PixW = 1040f, PixH = 990f;   // +80: the Effects tab
+        const float PixW = 1150f, PixH = 1000f;   // +80: the Effects tab; +10: the Debug tab; +100: the Sinking tab
 
         // ------------------------------------------------------------ size (kept while the game runs)
-        static float _winW = 1040f, _winH = 990f;   // UI units; set from 960 x 990 screen pixels at the first opening
+        static float _winW = 1150f, _winH = 1000f;   // UI units; set from screen pixels at the first opening
         static ScrollViewer _scroll;
 
-        /// <summary>The bottom right corner: drag to resize (560..1600 x 420..1400; the settings area takes the change).</summary>
-        static FrameworkElement ResizeGrip()
+        /// <summary>
+        /// Resizing by the window's edges (5 px strips) and corners (16 px; the bottom right one shows the grip lines):
+        /// 560..1600 x 420..1400, the settings area takes the change. Dragging the left or top side keeps the opposite side in place.
+        /// The size is kept while the game runs.
+        /// </summary>
+        static void AddResizeHandles()
         {
-            var grip = new Border { Width = 16f, Height = 16f, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
-                                    Background = B(Color.FromArgb(0, 0, 0, 0)), Margin = new Thickness(0f, 0f, 1f, 1f) };
-            grip.Child = new Path { Data = new StreamGeometry("M15,4 L4,15 M15,8 L8,15 M15,12 L12,15"), Stroke = B(CDim), StrokeThickness = 1f };
-            try { grip.Cursor = Cursors.SizeNWSE; ToolTipService.SetToolTip(grip, "Drag to resize"); } catch { }
+            for (int sy = -1; sy <= 1; sy++)
+                for (int sx = -1; sx <= 1; sx++)
+                    if (sx != 0 || sy != 0) _root.Children.Add(ResizeHandle(sx, sy));
+        }
+
+        /// <param name="sx">-1 left, 1 right, 0 neither</param>
+        /// <param name="sy">-1 top, 1 bottom, 0 neither</param>
+        static FrameworkElement ResizeHandle(int sx, int sy)
+        {
+            const float Edge = 5f, Corner = 16f;
+            bool corner = sx != 0 && sy != 0;
+            var h = new Border { Background = B(Color.FromArgb(0, 0, 0, 0)),
+                                 HorizontalAlignment = sx < 0 ? HorizontalAlignment.Left : sx > 0 ? HorizontalAlignment.Right : HorizontalAlignment.Stretch,
+                                 VerticalAlignment = sy < 0 ? VerticalAlignment.Top : sy > 0 ? VerticalAlignment.Bottom : VerticalAlignment.Stretch };
+            if (sx != 0) h.Width = corner ? Corner : Edge;
+            if (sy != 0) h.Height = corner ? Corner : Edge;
+            if (sx == 0) h.Margin = new Thickness(Corner, 0f, Corner, 0f);        // the corners belong to the corner handles
+            else if (sy == 0) h.Margin = new Thickness(0f, Corner, 0f, Corner);
+            if (sx > 0 && sy > 0)
+            {
+                h.Margin = new Thickness(0f, 0f, 1f, 1f);
+                h.Child = new Path { Data = new StreamGeometry("M15,4 L4,15 M15,8 L8,15 M15,12 L12,15"), Stroke = B(CDim), StrokeThickness = 1f };
+                try { ToolTipService.SetToolTip(h, "Drag to resize"); } catch { }
+            }
+            try { h.Cursor = corner ? (sx == sy ? Cursors.SizeNWSE : Cursors.SizeNESW) : sx != 0 ? Cursors.SizeWE : Cursors.SizeNS; } catch { }
             bool down = false; Point start = new Point(); float w0 = 0f, h0 = 0f;
-            grip.MouseLeftButtonDown += (o, e) =>
+            h.MouseLeftButtonDown += (o, e) =>
             {
                 down = true; start = e.GetPosition(_top); w0 = _winW; h0 = _winH;
-                grip.CaptureMouse(); e.Handled = true;
+                h.CaptureMouse(); e.Handled = true;
             };
-            grip.MouseMove += (o, e) =>
+            h.MouseMove += (o, e) =>
             {
                 if (!down || _root == null) return;
+                e.Handled = true;   // while resizing the mouse events go no further
                 var p = e.GetPosition(_top);
-                float w = Math.Max(560f, Math.Min(1600f, w0 + (p.X - start.X)));
-                float h = Math.Max(420f, Math.Min(1400f, h0 + (p.Y - start.Y)));
-                float dw = w - _winW, dh = h - _winH;
+                float w = sx == 0 ? _winW : Math.Max(560f, Math.Min(1600f, w0 + sx * (p.X - start.X)));
+                float hh = sy == 0 ? _winH : Math.Max(420f, Math.Min(1400f, h0 + sy * (p.Y - start.Y)));
+                float dw = w - _winW, dh = hh - _winH;
                 if (Math.Abs(dw) < 0.5f && Math.Abs(dh) < 0.5f) return;
-                _winW = w; _winH = h;
-                _root.Width = w; _root.Height = h;
-                // a centred window grows both ways: keep its top left corner in place
-                if (_move != null && _host is Grid) { _move.X += dw / 2f; _move.Y += dh / 2f; }
+                _winW = w; _winH = hh;
+                _root.Width = w; _root.Height = hh;
+                if (_move == null) return;
+                // a window centred in a Grid grows both ways; one placed by its top left corner grows right / down:
+                // move it so that only the dragged side moves
+                bool centred = _host is Grid;
+                if (sx != 0) _move.X += centred ? sx * dw / 2f : (sx < 0 ? -dw : 0f);
+                if (sy != 0) _move.Y += centred ? sy * dh / 2f : (sy < 0 ? -dh : 0f);
             };
-            grip.MouseLeftButtonUp += (o, e) => { if (!down) return; down = false; grip.ReleaseMouseCapture(); e.Handled = true; };
-            return grip;
+            h.MouseLeftButtonUp += (o, e) => { if (!down) return; down = false; h.ReleaseMouseCapture(); e.Handled = true; };
+            h.MouseWheel += (o, e) => { if (down) e.Handled = true; };
+            h.MouseRightButtonDown += (o, e) => { if (down) e.Handled = true; };
+            return h;
         }
 
         static void RebuildProfiles()
@@ -639,11 +732,76 @@ namespace AlternativeDamageModel
             return _work != null && _work.Values.TryGetValue(f.Key, out v) ? v : "";
         }
 
+        /// <summary>A number of the profile being edited (not applied yet); 'def' when there is none.</summary>
+        public static float WorkNumber(string key, float def)
+        {
+            string v; Factor f;
+            if (_work != null && _work.Values.TryGetValue(key, out v) && Factor.TryParse(v, out f)) return f.V;
+            return def;
+        }
+
         static string FromValue(Field f)
         {
             string v;
             if (f.Global) return _globalsFrom.TryGetValue(f.Key, out v) ? v : "";
             return _from != null && _from.Values.TryGetValue(f.Key, out v) ? v : "";
+        }
+
+        /// <summary>The game's own value of a setting (what the "game:" column shows): the entry's default for global keys, the Base Game profile for the rest.</summary>
+        /// <summary>Settings the game has no counterpart of (not "game: x" but the mod's own default).</summary>
+        static readonly string[] Subs = { "Count", "Movement", "Work", "Health", "Wounds", "Fatigue" };
+        static int _sub;
+        /// <summary>The DC Teams tab is split by kind of option: which page a row is on (-1 = the switches above the pages).</summary>
+        static int SubOf(Field f)
+        {
+            if (f.Group == "Switches") return -1;
+            if (f.Group.StartsWith("Number of teams", StringComparison.Ordinal)) return 0;
+            if (f.Group == "Movement") return 1;
+            if (f.Group == "Health") return 3;
+            if (f.Group == "Weapon hits") return 4;
+            if (f.Group == "Time" || f.Group == "Efficiency") return 5;
+            return 2;
+        }
+
+        static bool SubShown(int sub) { return sub == 3 || sub == 4 ? IsOn(HealthKey) : sub == 5 ? IsOn(FatigueKey) : true; }
+
+        // column widths of the rows (stars: the first columns grow with the window too); set per tab from its texts
+        static float _wLabel = 200f, _wGame = 124f;
+
+        static void FitColumns(string tab)
+        {
+            float lab = 150f, game = 70f;
+            foreach (var f in Fields)
+            {
+                if (f.Tab != tab) continue;
+                if (tab == "DC Teams" && (SubOf(f) != _sub && SubOf(f) != -1)) continue;
+                lab = Math.Max(lab, f.Label.Length * 7.3f + 22f);
+                string g = null;
+                try { g = GameText(f); } catch { }
+                if (g != null) foreach (var line in g.Split('\n')) game = Math.Max(game, line.Length * 6.3f + 10f);
+            }
+            _wLabel = Math.Min(280f, lab); _wGame = Math.Min(150f, game);
+        }
+
+        static bool ModOnly(string key)
+        {
+            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
+                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "Systems/NoEngineTeamEffectiveness" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
+                   key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
+                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill";
+        }
+
+        static bool GameValue(Field f, out string v)
+        {
+            v = null;
+            if (f.Global || ModOnly(f.Key))
+            {
+                var e = Entry(f.Key);
+                if (e == null) return false;
+                v = TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType);
+                return true;
+            }
+            return _game != null && _game.Values.TryGetValue(f.Key, out v);
         }
 
         static bool AdmOn()
@@ -672,13 +830,35 @@ namespace AlternativeDamageModel
         /// <summary>A value changed in the window. A built-in profile becomes Custom.</summary>
         static void Set(Field f, string v)
         {
-            if (f.Global) _globals[f.Key] = v;
+            if (f.Global)
+            {
+                _globals[f.Key] = v;
+                if (_liveGlobals.Contains(f.Key))
+                {
+                    var e = Entry(f.Key);
+                    if (e != null) try { e.SetSerializedValue(v); } catch (Exception ex) { Warn(f.Key + ": " + ex.Message); }
+                }
+            }
             else
             {
                 _work.Values[f.Key] = v;
                 BecomeOwn();
+                KeepLevels(f.Key);
             }
             UpdateHeader();
+        }
+
+        /// <summary>"Exhausted after" is never below "Tired after": the other value follows when one is moved past it.</summary>
+        static void KeepLevels(string key)
+        {
+            const string T = "DamageControlTeams/FatigueMinutes", X = "DamageControlTeams/ExhaustedMinutes";
+            if (key != T && key != X) return;
+            string a, b;
+            if (!_work.Values.TryGetValue(T, out a) || !_work.Values.TryGetValue(X, out b)) return;
+            float ta, xb;
+            if (!float.TryParse(a, NumberStyles.Float, CultureInfo.InvariantCulture, out ta) || !float.TryParse(b, NumberStyles.Float, CultureInfo.InvariantCulture, out xb) || xb >= ta) return;
+            _work.Values[X] = a;   // exhausted = tired (the one moved: exhausted too low, or tired too high)
+            ShowTab(_tab);
         }
 
         static void BecomeOwn()
@@ -713,7 +893,7 @@ namespace AlternativeDamageModel
                 var e = Entry(f.Key);
                 return e == null ? "" : "default: " + TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType).Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off");
             }
-            if (f.Key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal))
+            if (ModOnly(f.Key))
             {   // not in the game: the mod's own default
                 var ue = Entry(f.Key);
                 return ue == null ? "" : "default: " + TomlTypeConverter.ConvertToString(ue.DefaultValue, ue.SettingType).Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off");
@@ -721,6 +901,8 @@ namespace AlternativeDamageModel
             string v;
             if (_game == null || !_game.Values.TryGetValue(f.Key, out v)) return "";
             if (f.Kind == Kind.Bool) return "game: " + (v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase) ? "on" : "off");
+            if (f.Kind == Kind.Speed) return "game: no effect";
+            if (f.Key == "DamageControlTeams/MaxPlugSpeed" && Num(v) == 0f) return "game: no limit";
             if (f.Kind == Kind.Table)
             {
                 var t = DcTeams.Parse(v);
@@ -729,9 +911,7 @@ namespace AlternativeDamageModel
                 foreach (var r in t) { teams.Add(r[1].ToString(CultureInfo.InvariantCulture)); if (r[0] > 0) tons.Add(r[0].ToString(CultureInfo.InvariantCulture)); }
                 return "game: " + string.Join("/", teams.ToArray()) + (tons.Count > 0 ? "\nfrom " + string.Join("/", tons.ToArray()) + " t" : "");
             }
-            if (f.Key == "DamageControlTeams/HealTime") return "game: 60-120";
             if (f.Key == "Sinking/TrimReferenceLength" && Num(v) == 0f) return "game: off";
-            if (f.Key == "DamageControlTeams/KnockoutsToDeath" && Num(v) == 0f) return "game: never";
             if ((f.Key == "DamageControlTeams/TransferSpeed" || f.Key == "DamageControlTeams/MusterTime") && Num(v) == 0f) return "game: instant";
             return "game: " + v;
         }
@@ -760,26 +940,111 @@ namespace AlternativeDamageModel
             _body.Children.Clear();
             string group = null;
             bool ui = UiOn();
+            bool dcTab = Tabs[_tab] == "DC Teams";
+            Panel rowHost = _body;
+            if (dcTab && !SubShown(_sub)) _sub = 2;
+            FitColumns(Tabs[_tab]);
+            if (dcTab)
+            {
+                _body.Children.Add(SwitchPanel());
+                _body.Children.Add(SubBar());
+                var page = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 0f, 0f, 6f) };
+                var frame = new Border { Child = page, Background = B(CPanel), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 6f), MinHeight = 120f };
+                _body.Children.Add(frame);
+                _page = frame;
+                frame.Loaded += (o, e) => FitPage();
+                frame.LayoutUpdated += (o, e) => FitPage();
+                rowHost = page;
+            }
             foreach (var f in Fields)
             {
                 if (f.Tab != Tabs[_tab]) continue;
+                if (dcTab && SubOf(f) != _sub) continue;   // (the switches are above the pages)
+                if (!adm && f.Tab == TGen && !f.Global) continue;   // the damage model's own settings: only while it is on
                 string when = ShownWhen(f);
                 if (when != null && !IsOn(when)) continue;   // only while its switch is on
-                if (f.Group != group)
+                try
                 {
-                    // General: the settings profile (of the damage model, hidden while it is off) between the switch and Logging
-                    if (Tabs[_tab] == TGen && group == "Damage model" && adm && _profRow != null)
+                    if (f.Group != group)
                     {
-                        _body.Children.Add(GroupTitle("Settings profile"));
-                        _body.Children.Add(_profRow);
+                        // General: the settings profile (of the damage model, hidden while it is off) between the switch and Logging
+                        if (Tabs[_tab] == TGen && group == "Damage model" && adm && _profRow != null)
+                        {
+                            rowHost.Children.Add(GroupTitle("Settings profile"));
+                            rowHost.Children.Add(_profRow);
+                        }
+                        group = f.Group; rowHost.Children.Add(GroupTitle(group));
                     }
-                    group = f.Group; _body.Children.Add(GroupTitle(group));
+                    rowHost.Children.Add(Row(f));
                 }
-                _body.Children.Add(Row(f));
+                // one bad row must not blank out every row after it - this is why: Trace shows which key and why
+                catch (Exception e) { Trace("Settings row '" + f.Key + "' failed: " + e); }
+            }
+            // same insertion as inside the loop, for when "Damage model" is the last (now: the only) group on the tab -
+            // the loop's own check only fires on a group CHANGE, so it never ran once Logging/Visualisation moved to TDbg
+            if (Tabs[_tab] == TGen && group == "Damage model" && adm && _profRow != null)
+            {
+                _body.Children.Add(GroupTitle("Settings profile"));
+                _body.Children.Add(_profRow);
             }
             if (Tabs[_tab] == "Hull") ShipRows();
             if (Tabs[_tab] == "Systems") ModuleRows();
+            if (Tabs[_tab] == "Flooding") NoDeckRows();
             UpdateHeader();
+        }
+
+        /// <summary>The DC Teams switches in one line, a panel of their own (not in the columns of the rows).</summary>
+        static FrameworkElement SwitchPanel()
+        {
+            var line = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (var f in Fields)
+            {
+                if (f.Tab != "DC Teams" || SubOf(f) != -1) continue;
+                Action refresh;
+                var cb = BoolEditor(f, () => { }, out refresh);
+                // the label is the checkbox's own content: a click anywhere on the highlighted area toggles it
+                var chk = cb as CheckBox;
+                if (chk != null) { chk.Content = Text(f.Label, CText); chk.Padding = new Thickness(10f, 4f, 14f, 4f); chk.HorizontalContentAlignment = HorizontalAlignment.Left; }
+                var box = new Border { Child = cb, Padding = new Thickness(0f), Margin = new Thickness(0f, 0f, 8f, 0f), Background = B(Color.FromArgb(0, 0, 0, 0)) };
+                Hover(box, f.Label, f.Key);
+                line.Children.Add(box);
+            }
+            return new Border { Child = line, Background = B(CPanel), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(3f),
+                                Margin = new Thickness(12f, 8f, 12f, 6f), Padding = new Thickness(4f, 2f, 4f, 2f), HorizontalAlignment = HorizontalAlignment.Left };
+        }
+
+        static Border _page;
+
+        /// <summary>The page panel of the DC Teams tab reaches the bottom of the settings area (the area scrolls, so its height is set from the area's).</summary>
+        static void FitPage()
+        {
+            try
+            {
+                if (_page == null || _scroll == null || _body == null || _page.Parent == null) return;
+                var pt = _page.TranslatePoint(new Point(0f, 0f), _body);
+                float h = (float)_scroll.ActualHeight - pt.Y - 6f - 12f;
+                float use = Math.Max(120f, h);
+                if (Math.Abs(_page.MinHeight - use) > 0.5f) _page.MinHeight = use;
+            }
+            catch { }
+        }
+
+        static FrameworkElement SubBar()
+        {
+            var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 8f, 12f, 0f) };
+            for (int i = 0; i < Subs.Length; i++)
+            {
+                if (!SubShown(i)) continue;
+                int idx = i;
+                bool on = i == _sub;
+                var tb = new Border { Child = Text(Subs[i], on ? CText : CDim), Padding = new Thickness(14f, 5f, 14f, 5f), Margin = new Thickness(0f, 0f, 2f, 0f),
+                                      CornerRadius = new CornerRadius(3f, 3f, 0f, 0f), Background = B(on ? CPanel : CCard), BorderBrush = B(CLine),
+                                      BorderThickness = new Thickness(1f, 1f, 1f, 0f) };
+                try { tb.Cursor = Cursors.Hand; } catch { }
+                tb.MouseLeftButtonUp += (o, e) => { _sub = idx; ShowTab(_tab); e.Handled = true; };
+                bar.Children.Add(tb);
+            }
+            return bar;
         }
 
         static TextBlock GroupTitle(string s)
@@ -790,9 +1055,9 @@ namespace AlternativeDamageModel
         static Grid RowGrid()
         {
             var g = new Grid { Margin = new Thickness(0f), Background = B(Color.FromArgb(0, 0, 0, 0)) };
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200f) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
-            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(124f) });   // "game: 2 by tonnage" on one line
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(_wLabel, GridUnitType.Star), MinWidth = _wLabel });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300f, GridUnitType.Star), MinWidth = 150f });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(_wGame, GridUnitType.Star), MinWidth = _wGame });
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30f) });
             return g;
         }
@@ -807,6 +1072,22 @@ namespace AlternativeDamageModel
             var dot = new Ellipse { Width = 6f, Height = 6f, Fill = B(CWarn), Margin = new Thickness(0f, 0f, 6f, 0f), VerticalAlignment = VerticalAlignment.Center };
             lab.Children.Add(dot);
             lab.Children.Add(Text(f.Label, CText));
+            if (f.Key == "DamageControlTeams/WoundChance")
+            {
+                // (i): a table calculated from the game's ships and ammunition (made when the mouse comes to the icon)
+                var info = DamageControlUi.HeaderIcon(DamageControlUi.InfoIcon());
+                info.Margin = new Thickness(6f, 0f, 0f, 0f);
+                var holder = new Border();   // no frame of its own: the game's tooltip has one
+                try
+                {
+                    ToolTipService.SetToolTip(info, holder);
+                    ToolTipService.SetPlacement(info, PlacementMode.Right);
+                    ToolTipService.SetShowDuration(info, int.MaxValue);
+                }
+                catch (Exception e) { Trace("wound table tip: " + e.Message); }
+                info.MouseEnter += (o, e) => { try { holder.Child = WoundTable.Build(); } catch (Exception x) { Trace("wound table: " + x.Message); } };
+                lab.Children.Add(info);
+            }
             g.Children.Add(lab);
 
             Action mark = () => { dot.Visibility = Differs(f) ? Visibility.Visible : Visibility.Hidden; };
@@ -815,7 +1096,9 @@ namespace AlternativeDamageModel
             switch (f.Kind)
             {
                 case Kind.Bool: editor = BoolEditor(f, mark, out refresh); break;
+                case Kind.Choice: editor = ChoiceEditor(f, mark, out refresh); break;
                 case Kind.Table: editor = TableEditor(f, mark, out refresh); break;
+                case Kind.Speed: editor = SpeedEditor(f, mark, out refresh); break;
                 default: editor = NumberEditor(f, mark, out refresh); break;
             }
             Grid.SetColumn(editor, 1);
@@ -826,8 +1109,8 @@ namespace AlternativeDamageModel
             g.Children.Add(game);
 
             var rst = new Button { Content = "↺", Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right };
-            try { ToolTipService.SetToolTip(rst, "Back to the value of the profile"); } catch { }
-            rst.Click += (o, e) => { Set(f, FromValue(f)); refresh(); mark(); };
+            try { ToolTipService.SetToolTip(rst, "Back to the game's value"); } catch { }
+            rst.Click += (o, e) => { string gv; Set(f, GameValue(f, out gv) ? gv : FromValue(f)); refresh(); mark(); };
             Grid.SetColumn(rst, 3);
             g.Children.Add(rst);
 
@@ -844,6 +1127,7 @@ namespace AlternativeDamageModel
                 var en = key == null || key.StartsWith("#") ? null : Entry(key);
                 string d = en != null && en.Description != null ? en.Description.Description : "";
                 if (key == null || key == "#ships") d = "Ships with their own hull multiplier, chosen from the game's ships (or by ini file name): how many times stronger than in the game; replaces the class value, is not multiplied by it.";
+                else if (key == "#nodeck") d = "Ships that get no Deck Points (Flooding): water over the deck edge is not calculated for them, the old simpler rules are used, as for a ship without a hull collider. Picked from the game's ships or by ini file name.";
                 else if (key == "#modules") d = "Module types (modules.ini) with their own Integrity, set explicitly in place of modules.ini's (the game's value is put in when a type is picked); the Integrity multiplier above does not apply to them. The game's own adjustments keep their proportion: types marked \"× tonnage\" (amber) grow with the ship's displacement - point at one for its final values -, and a ship's own value for a system is changed in the same ratio.";
                 _help.Inlines.Clear();
                 var r = new Run(label); r.FontWeight = FontWeight.Bold; r.Foreground = B(CText);
@@ -880,6 +1164,27 @@ namespace AlternativeDamageModel
             return sp;
         }
 
+        static FrameworkElement ChoiceEditor(Field f, Action mark, out Action refresh)
+        {
+            var cb = new ComboBox { Width = 150f, MinHeight = 24f, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
+            foreach (var o in f.Options) cb.Items.Add(o);
+            Func<int> index = () =>
+            {
+                string cur = Get(f).Trim();
+                for (int i = 0; i < f.Options.Length; i++) if (string.Equals(f.Options[i], cur, StringComparison.OrdinalIgnoreCase)) return i;
+                return 0;
+            };
+            cb.SelectedIndex = index();
+            cb.SelectionChanged += (o, e) =>
+            {
+                int i = cb.SelectedIndex;
+                if (i < 0 || i >= f.Options.Length || string.Equals(f.Options[i], Get(f).Trim(), StringComparison.OrdinalIgnoreCase)) return;
+                Set(f, f.Options[i]); mark();
+            };
+            refresh = () => cb.SelectedIndex = index();
+            return cb;
+        }
+
         static FrameworkElement BoolEditor(Field f, Action mark, out Action refresh)
         {
             var cb = new CheckBox { IsChecked = Get(f).Trim().Equals("true", StringComparison.OrdinalIgnoreCase), VerticalAlignment = VerticalAlignment.Center };
@@ -896,6 +1201,7 @@ namespace AlternativeDamageModel
                     return;
                 }
                 Set(f, v); mark();
+                if (f.Key == HealthKey || f.Key == FatigueKey) { ShowTab(_tab); return; }
                 foreach (var other in Fields) if (ShownWhen(other) == f.Key) { ShowTab(_tab); break; }   // rows that show / hide with it
             };
             refresh = () => cb.IsChecked = Get(f).Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
@@ -972,6 +1278,94 @@ namespace AlternativeDamageModel
             return host;
         }
 
+        static string N(float v) { return v.ToString("0.##", CultureInfo.InvariantCulture); }
+
+        /// <summary>"knots=flooding/fire" points as a table: speed on top, then the flooding and fire multipliers; + adds a point, − removes the last.</summary>
+        static FrameworkElement SpeedEditor(Field f, Action mark, out Action refresh)
+        {
+            var host = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            Action build = null;
+            build = () =>
+            {
+                host.Children.Clear();
+                var rows = SpeedEffect.Parse(Get(f));
+                var list = new List<float[]>();
+                if (rows != null) foreach (var r in rows) list.Add(new[] { r[0], r[1], r[2] });
+                while (list.Count < 2) list.Add(new[] { list.Count == 0 ? 0f : list[0][0] + 50f, list.Count == 0 ? 1f : list[0][1], list.Count == 0 ? 1f : list[0][2] });
+                var grid = new Grid();
+                for (int r = 0; r < 3; r++) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                string[] names = { "speed, knots", "flooding rate", "fire rate" };
+                for (int r = 0; r < 3; r++)
+                {
+                    var l = Text(names[r], CDim, 12f); l.Margin = new Thickness(0f, 0f, 6f, 0f); Grid.SetRow(l, r); grid.Children.Add(l);
+                }
+                Func<bool> save = () =>
+                {
+                    var before = new List<float[]>(list);
+                    list.Sort((a, b) => a[0].CompareTo(b[0]));
+                    bool moved = false;
+                    for (int q = 0; q < list.Count; q++) if (!ReferenceEquals(list[q], before[q])) moved = true;
+                    var parts = new List<string>();
+                    foreach (var r in list) parts.Add(N(r[0]) + "=" + N(r[1]) + "/" + N(r[2]));
+                    Set(f, string.Join(", ", parts.ToArray()));
+                    mark();
+                    return moved;
+                };
+                for (int i = 0; i < list.Count; i++)
+                {
+                    int k = i;
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    var boxes = new TextBox[3];
+                    for (int r = 0; r < 3; r++)
+                    {
+                        int c = r;
+                        var tb = Edit(N(list[k][c]), 52f);
+                        tb.Margin = new Thickness(0f, 1f, 2f, 1f);
+                        Grid.SetColumn(tb, k + 1); Grid.SetRow(tb, c);
+                        boxes[c] = tb; grid.Children.Add(tb);
+                    }
+                    Action commit = () =>
+                    {
+                        bool changed = false;
+                        for (int c = 0; c < 3; c++)
+                        {
+                            float v;
+                            if (!TryNum(boxes[c].Text, out v) || v < 0f) v = list[k][c];   // speeds and multipliers: 0 and up only
+                            v = Math.Min(v, c == 0 ? 999f : 100f);
+                            boxes[c].Text = N(v);
+                            if (Math.Abs(v - list[k][c]) > 1e-6f) { list[k][c] = v; changed = true; }
+                        }
+                        if (!changed) return;
+                        if (save()) build();   // rebuilt only when the points changed their order
+                    };
+                    foreach (var tb in boxes)
+                    {
+                        tb.LostFocus += (o, e) => commit();
+                        tb.KeyDown += (o, e) => { if (e.Key == Key.Return) { commit(); e.Handled = true; } };
+                    }
+                }
+                host.Children.Add(grid);
+                var pm = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(4f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center };
+                var add = new Button { Content = "+", Width = 24f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 1f, 0f, 1f) };
+                var del = new Button { Content = "−", Width = 24f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 1f, 0f, 1f), IsEnabled = list.Count > 2 };
+                try { ToolTipService.SetToolTip(add, "One more point"); ToolTipService.SetToolTip(del, "Remove the last point"); } catch { }
+                add.Click += (o, e) =>
+                {
+                    var last = list[list.Count - 1];
+                    float step = list.Count > 1 ? Math.Max(1f, last[0] - list[list.Count - 2][0]) : 10f;
+                    list.Add(new[] { last[0] + step, last[1], last[2] });
+                    save(); build();
+                };
+                del.Click += (o, e) => { if (list.Count > 2) { list.RemoveAt(list.Count - 1); save(); build(); } };
+                pm.Children.Add(add); pm.Children.Add(del);
+                host.Children.Add(pm);
+            };
+            build();
+            refresh = build;
+            return host;
+        }
+
         // ------------------------------------------------------------ [HullIntegrityPerShip]
 
         static void ShipRows()
@@ -979,6 +1373,89 @@ namespace AlternativeDamageModel
             MapRows("Single ships - × game, instead of the class value", p => p.Ships, ShipNames.Display, ShipNames.Filter, ShipNames.ToIni,
                     "+ Add ship", "a ship from the list, or its ini file name", "Remove: the ship takes the class value again", "#ships",
                     n => "", n => 2f, 0.5f, 0.1f, 20f);
+        }
+
+        const string NoDeckKey = "FireAndFlooding/NoDeckPointsShips";
+
+        static List<string> NoDeckList()
+        {
+            string v;
+            var l = new List<string>();
+            if (_work != null && _work.Values.TryGetValue(NoDeckKey, out v) && v != null)
+                foreach (var n in v.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)) { var t = n.Trim(); if (t.Length > 0 && !l.Contains(t)) l.Add(t); }
+            l.Sort(StringComparer.OrdinalIgnoreCase);
+            return l;
+        }
+
+        static void NoDeckSet(List<string> l)
+        {
+            _work.Values[NoDeckKey] = string.Join(", ", l.ToArray());
+            BecomeOwn(); ShowTab(_tab);
+        }
+
+        /// <summary>Flooding tab: ships that get no Deck Points (flooded by the old, simpler rules). The same list editor as Hull: Single ships.</summary>
+        static void NoDeckRows()
+        {
+            _body.Children.Add(GroupTitle("Ships without Deck Points - flooded by the old rules, as with no hull collider"));
+            foreach (var name in NoDeckList())
+            {
+                string nm = name;
+                var g = RowGrid();
+                var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f) };
+                var lab = Text(ShipNames.Display(nm), CText);
+                lab.VerticalAlignment = VerticalAlignment.Center;
+                try { ToolTipService.SetToolTip(lab, nm); } catch { }
+                g.Children.Add(lab);
+                var rm = new Button { Content = Cross(8f), Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right,
+                                      HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
+                try { ToolTipService.SetToolTip(rm, "Remove: the ship gets Deck Points again"); } catch { }
+                rm.Click += (o, e) => { var l = NoDeckList(); l.RemoveAll(x => string.Equals(x, nm, StringComparison.OrdinalIgnoreCase)); NoDeckSet(l); };
+                Grid.SetColumn(rm, 3); g.Children.Add(rm);
+                Hover(outer, ShipNames.Display(nm), "#nodeck");
+                _body.Children.Add(outer);
+            }
+            var ag = RowGrid();
+            var aouter = new Border { Child = ag, Padding = new Thickness(12f, 4f, 6f, 8f) };
+            var nameBox = new ComboBox { IsEditable = true, Width = 190f, MinHeight = 24f, HorizontalAlignment = HorizontalAlignment.Left, StaysOpenOnEdit = true };
+            Action<string> fill = f =>
+            {
+                nameBox.Items.Clear();
+                foreach (var it in ShipNames.Filter(f, 300)) nameBox.Items.Add(it);
+            };
+            fill("");
+            string lastFilter = "";
+            nameBox.KeyUp += (o, e) =>
+            {
+                if (e.Key == Key.Return || e.Key == Key.Up || e.Key == Key.Down) return;
+                string t = nameBox.Text ?? "";
+                if (t == lastFilter) return;
+                lastFilter = t;
+                fill(t);
+                nameBox.Text = t;
+                try { var tb = nameBox.Template.FindName("PART_EditableTextBox", nameBox) as TextBox; if (tb != null) tb.CaretIndex = t.Length; } catch { }
+                nameBox.IsDropDownOpen = nameBox.Items.Count > 0 && t.Length > 0;
+            };
+            nameBox.GotFocus += (o, e) => Typing(true);
+            nameBox.LostFocus += (o, e) => Typing(false);
+            ag.Children.Add(nameBox);
+            var err = Text("", CErr, 11f); err.Margin = new Thickness(8f, 0f, 0f, 0f);
+            var addB = new Button { Content = "+ Add ship", Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(8f, 0f, 0f, 0f), MinHeight = 24f };
+            addB.Click += (o, e) =>
+            {
+                string n = ShipNames.ToIni((nameBox.SelectedItem as string ?? nameBox.Text ?? "").Trim());
+                if (n.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) n = n.Substring(0, n.Length - 4);
+                if (n.Length == 0) { err.Text = "a ship from the list, or its ini file name"; return; }
+                string bad = AdmPlugin.BadKey(n);
+                if (bad != null) { err.Text = bad; return; }
+                var l = NoDeckList();
+                if (!l.Exists(x => string.Equals(x, n, StringComparison.OrdinalIgnoreCase))) l.Add(n);
+                NoDeckSet(l);
+            };
+            var asp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            asp.Children.Add(addB); asp.Children.Add(err);
+            Grid.SetColumn(asp, 1); ag.Children.Add(asp);
+            Hover(aouter, "Add ship", "#nodeck");
+            _body.Children.Add(aouter);
         }
 
         static void ModuleRows()
@@ -1100,7 +1577,8 @@ namespace AlternativeDamageModel
                 var detail = detailOf == null ? null : detailOf(name, Num(kv.Value));
                 if (detail != null) try { ToolTipService.SetToolTip(gt, detail); } catch { }
                 Grid.SetColumn(gt, 2); g.Children.Add(gt);
-                var rm = new Button { Content = "✕", Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right };
+                var rm = new Button { Content = Cross(8f), Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right,
+                                      HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
                 try { ToolTipService.SetToolTip(rm, removeTip); } catch { }
                 rm.Click += (o, e) => { mapOf(_work).Remove(name); BecomeOwn(); ShowTab(_tab); };
                 Grid.SetColumn(rm, 3); g.Children.Add(rm);
