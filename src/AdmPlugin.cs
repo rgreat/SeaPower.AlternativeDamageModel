@@ -544,12 +544,12 @@ namespace AlternativeDamageModel
             {
                 float uNow = UnityEngine.Time.unscaledTime;
                 bool wantTexts = Enabled && _weaponColor, wantIcons = Enabled && _enemyDmg;
-                try { UiScan.Tick(uNow, WeaponStatusColors.Root(), ContactIntel.Ready && (wantIcons || ContactIntel.NotesMade), WeaponStatusColors.Ready && wantTexts); }
-                catch (Exception e) { Trace("UiScan.Tick: " + e.Message); }
-                try { WeaponStatusColors.Tick(uNow, wantTexts); }
-                catch (Exception e) { Trace("WeaponStatusColors.Tick: " + e.Message); }
-                try { ContactIntel.Tick(uNow, wantIcons); }
-                catch (Exception e) { Trace("ContactIntel.Tick: " + e.Message); }
+                try { UiScan.Start(WeaponStatusColors.Root()); }
+                catch (Exception e) { Trace("UiScan.Start: " + e.Message); }
+                try { WeaponStatusColors.SetOn(WeaponStatusColors.Ready && wantTexts); }
+                catch (Exception e) { Trace("WeaponStatusColors.SetOn: " + e.Message); }
+                try { ContactIntel.SetOn(ContactIntel.Ready && wantIcons); }
+                catch (Exception e) { Trace("ContactIntel.SetOn: " + e.Message); }
                 try { EnemyStatus.Tick(UnityEngine.Time.unscaledTime); } catch (Exception e) { Trace("EnemyStatus.Tick: " + e.Message); }
             }
             if (_uiReady)

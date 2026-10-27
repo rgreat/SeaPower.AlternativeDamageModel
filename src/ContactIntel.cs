@@ -469,7 +469,7 @@ namespace AlternativeDamageModel
         static readonly ConditionalWeakTable<object, VmState> States = new ConditionalWeakTable<object, VmState>();
         static readonly ConditionalWeakTable<SolidColorBrush, SolidColorBrush> Greys = new ConditionalWeakTable<SolidColorBrush, SolidColorBrush>();
         static PropertyInfo _mBrush, _mLine4;
-        static float _nextScan;
+        static bool _on;
 
         static readonly ConditionalWeakTable<SolidColorBrush, SolidColorBrush> GreyMade = new ConditionalWeakTable<SolidColorBrush, SolidColorBrush>();   // the grey brushes themselves
 
@@ -500,6 +500,8 @@ namespace AlternativeDamageModel
                     st.Next = t + 1f + (float)(__instance.GetHashCode() & 255) / 1000f;
                     var unit = _mUnit.GetValue(__instance, null);
                     st.Info = unit != null ? Of(unit) : new Info();
+                    var cv = UiScan.IconOf(__instance);
+                    if (cv != null) SetNote(cv, st.Info);
                 }
                 if (_mBrush == null)
                 {
@@ -517,7 +519,7 @@ namespace AlternativeDamageModel
                     }
                 }
                 // no map canvas found to hang the note under the icon on: it goes to the game's own info lines
-                if (st.Info.Any && UiScan.IconWalks >= 4 && !UiScan.FoundIcons && _mLine4 != null)
+                if (st.Info.Any && UiScan.Failed && _mLine4 != null)
                 {
                     var cur = _mLine4.GetValue(__instance, null) as string;
                     _mLine4.GetSetMethod(true).Invoke(__instance, new object[] { string.IsNullOrEmpty(cur) ? st.Info.Text : cur + " " + st.Info.Text });
@@ -528,31 +530,32 @@ namespace AlternativeDamageModel
 
 
         public static bool Ready { get { return _ok; } }
-        public static bool NotesMade;   // a note was made: while there are notes, UiScan keeps finding the icons (to hide them when the feature is off)
-
-        /// <summary>Called every frame; works once a second: puts the notes under the map icons (a Grid "AdmIntel" in each icon canvas) - on the canvases UiScan found.</summary>
-        public static void Tick(float now, bool on)
+        /// <summary>The setting changed (called every frame, acts on a change only): the notes are shown or all hidden.</summary>
+        public static void SetOn(bool on)
         {
-            if (!_ok) return;
-            if (now < _nextScan) return;
-            _nextScan = now + 1f;
-            try { Apply(on); } catch (Exception e) { Trace("ContactIntel.Apply: " + e.Message); }
+            if (!_ok || on == _on) return;
+            _on = on;
+            try
+            {
+                foreach (var cv in UiScan.Icons.ToArray())
+                {
+                    object dc = null;
+                    try { dc = cv.DataContext; } catch { }
+                    VmState st;
+                    SetNote(cv, on && dc != null && States.TryGetValue(dc, out st) ? st.Info : new Info());
+                }
+            }
+            catch (Exception e) { Trace("ContactIntel.SetOn: " + e.Message); }
         }
 
-        static void Apply(bool on)
+        /// <summary>A map icon appeared (or got its view model): its note is put under it.</summary>
+        public static void IconLoaded(Canvas cv)
         {
-            var icons = UiScan.Icons;
-            for (int i = 0; i < icons.Count; i++)
-            {
-                var cv = icons[i];
-                object dc = null;
-                try { dc = cv.DataContext; } catch { }
-                VmState st;
-                Info info = new Info();
-                if (on && dc != null && States.TryGetValue(dc, out st)) info = st.Info;
-                SetNote(cv, info);
-            }
-            if (!on) NotesMade = false;   // all hidden now; a note made later sets it again
+            if (!_ok || !_on) return;
+            object dc = null;
+            try { dc = cv.DataContext; } catch { }
+            VmState st;
+            if (dc != null && States.TryGetValue(dc, out st)) SetNote(cv, st.Info);
         }
 
         static readonly SolidColorBrush[] Levels = {
@@ -609,7 +612,6 @@ namespace AlternativeDamageModel
                 Canvas.SetLeft(host, 11.25f - 45f);   // the icon is 22.5 wide: its centre is 11.25
                 Canvas.SetTop(host, 25f);
                 cv.Children.Add(host);
-                NotesMade = true;
                 tb = null;
                 for (int k = 0; k < cv.Children.Count; k++) { var g = cv.Children[k] as Grid; if (g != null && g.Name == "AdmIntel") { tb = g.Children[0] as StackPanel; break; } }
                 if (tb == null) return;

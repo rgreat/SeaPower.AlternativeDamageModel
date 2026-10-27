@@ -4,6 +4,7 @@ Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.
 [Advanced] = on in the Advanced profile only.
 
 - New: (i) after "Wound chance" in the settings shows a table of wound chances calculated from the game's own ships and ammunition (mods included). Under each chance it shows the average wound in % of the team's health (follows "Wound strength").
+- Fixed: Wreck drag no longer floods the log with Unity warnings (and lags the game) once a wreck rests on the bottom.
 - Fixed: arrows of fires and flooding no longer slide onto the % text when a colour or a level changes.
 - Fixed: DC teams no longer go back to the reserve (or are taken off a section) while it still has hull or systems work.
 - Auto DC takes the fastest growing fire or leak first: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure (Fire / Flooding priority change the order of their group).

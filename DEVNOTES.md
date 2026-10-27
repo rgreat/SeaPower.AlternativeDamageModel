@@ -993,3 +993,10 @@ MusterTime 60 с, HealTime 90 с, HealTimeSpread 0, KnockoutsToDeath 2 (Transfer
 - `SectionEffects.Tick`: работает раз в 0,1 игровой секунды с накопленным dt (интегралы те же).
 - `DeckCorners.UpdateLabels`: списки/массивы вершин переиспользуются (рисуется каждый кадр, пока видны линии).
 - Просмотрено и оставлено: `DcControl.CheckPrefix` (буферы уже общие), `DcTeams.Tick` (дешёвые проверки), UI-тик DC (0,25 с, подписи), `FireSmoke` (раз в секунду), `DcAuto` (раз в 2 с).
+
+### 2026-10-27 (77): wreck drag skips kinematic bodies; UI elements are caught by events instead of a timed tree walk
+- Bug report: with Wreck drag on, a wreck resting on the bottom made Unity log "kinematic body" warnings ~50 times a second (a velocity write to a rigidbody the game had frozen) and the game lagged. `WreckDrag.Tick` now returns when `Rigidbody.isKinematic` is true (read by reflection, once resolved in `Init`).
+- `UiScan` rewritten: no more walk every 2 s. `EventManager.RegisterClassHandler` for Canvas and TextBlock `Loaded`/`Unloaded` (registered once, when `MainGameView.Instance` first exists; one walk then takes what is already on screen). Map icon canvases ("UnitIcon") go to `UiScan.Icons` and are mapped by their DataContext (`UiScan.IconOf(viewModel)`, kept up to date by `DataContextChanged`); text blocks bound to a `WeaponEntry` go to `UiScan.Texts`.
+- `ContactIntel`: the note is put under the icon from `MapUnitViewModel.Update` postfix when the view model's info is recomputed, and from `IconLoaded` when the canvas appears; `SetOn(bool)` (called every frame, acts on a change only) shows or hides all notes. The "no canvas found" fallback to the game's info line now only applies if the handlers could not be registered (`UiScan.Failed`).
+- `WeaponStatusColors`: on `Attach` the entry's systems' `Inoperable` (an `IObservable<bool>`) are subscribed; the colour changes the moment a system is lost or repaired. `Detach` (block unloaded) ends the subscriptions of an entry with no blocks left. `SetOn(bool)` as above.
+- No timers, no periodic tree walks left in these two features.

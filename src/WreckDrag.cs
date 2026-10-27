@@ -19,7 +19,7 @@ namespace AlternativeDamageModel
 
         static bool _init, _ok, _traced;
         static FieldInfo _fObp, _fRb, _fVessel;
-        static PropertyInfo _pDrag, _pVel;
+        static PropertyInfo _pDrag, _pVel, _pKinematic;
 
         static void Init(object comp)
         {
@@ -34,6 +34,7 @@ namespace AlternativeDamageModel
                 var tRb = _fRb == null ? null : _fRb.FieldType;
                 _pDrag = tRb == null ? null : (tRb.GetProperty("linearDamping") ?? tRb.GetProperty("drag"));
                 _pVel = tRb == null ? null : (tRb.GetProperty("linearVelocity") ?? tRb.GetProperty("velocity"));
+                _pKinematic = tRb == null ? null : tRb.GetProperty("isKinematic");
                 _ok = _fObp != null && _fVessel != null && _fRb != null && _pDrag != null && _pVel != null;
             }
             catch (Exception e) { Trace("WreckDrag.Init: " + e.Message); _ok = false; }
@@ -51,6 +52,7 @@ namespace AlternativeDamageModel
                 if (_fVessel.GetValue(comp) == null || !SubmergedFlooding.IsDestroyed(comp)) return;
                 var rb = _fRb.GetValue(_fObp.GetValue(comp));
                 if (rb == null) return;
+                if (_pKinematic != null && (bool)_pKinematic.GetValue(rb, null)) return;   // a wreck at rest on the bottom: the game froze it (kinematic), Unity warns at every velocity write
                 float drag = Convert.ToSingle(_pDrag.GetValue(rb, null));
                 float k = 1f + (Factor - 1f) * drag * UnityEngine.Time.fixedDeltaTime;
                 var v = (UnityEngine.Vector3)_pVel.GetValue(rb, null);
