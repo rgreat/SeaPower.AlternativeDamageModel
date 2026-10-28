@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -30,6 +31,9 @@ namespace AlternativeDamageModel
         static string _origHeader;                 // the tab's own title, put back when a unit of the player is selected
         public static bool Active;                 // the window shows a contact now
         static object _vehicle;                    // the contact (Vehicle)
+        static object _dcTab;                      // the Damage Control tab of the view model SwitchPostfix last served (its own, not the view's DataContext)
+        static WeakReference _vmRef;
+        static readonly ConditionalWeakTable<object, object> Hooked = new ConditionalWeakTable<object, object>();
 
         public static bool Init(Harmony harmony, Assembly asm)
         {
@@ -93,11 +97,11 @@ namespace AlternativeDamageModel
             try
             {
                 if (!_ok) return;
-                bool want = false;
+                bool want = false, fresh = false;   // fresh: the first time for this contact - only then the tab is chosen
                 if (IsEnabled() && _fUnit.GetValue(__instance) == null)
                 {
                     var v = SelectedContact();
-                    if (v != null && ContactIntel.HasCompartments(v)) { _vehicle = v; want = true; }
+                    if (v != null && ContactIntel.HasCompartments(v)) { fresh = !Active || !ReferenceEquals(_vehicle, v); _vehicle = v; want = true; }
                 }
                 if (want)
                 {
@@ -111,12 +115,16 @@ namespace AlternativeDamageModel
                     }
                     _pAvail.SetValue(eng, false, null);
                     _pAvail.SetValue(dc, true, null);
-                    _pSelected.SetValue(dc, true, null);
+                    // the game calls SwitchUnit at every refresh of the window while a contact is selected: the user's choice of another tab is left alone
+                    if (fresh) _pSelected.SetValue(dc, true, null);
                     Active = true;
+                    _dcTab = dc; _vmRef = new WeakReference(__instance);
+                    Hook(dc);
+                    if (fresh) Show("switch", true);
                 }
                 else if (Active)
                 {
-                    Active = false; _vehicle = null;
+                    Active = false; _vehicle = null; _dcTab = null;
                     if (_pHeader != null && _origHeader != null) _pHeader.SetValue(_pDcTab.GetValue(__instance, null), _origHeader, null);
                     if (_fUnit.GetValue(__instance) == null)
                     {
@@ -132,6 +140,67 @@ namespace AlternativeDamageModel
                 }
             }
             catch (Exception e) { Trace("EnemyStatus.SwitchPostfix: " + e.Message); }
+        }
+
+        /// <summary>The Damage State overlay belongs to the Damage Control tab only: any other tab of the window (the game's or another mod's) selected - it is hidden.</summary>
+        static bool DcTabSelected()
+        {
+            try { return _dcTab == null || _pSelected == null || !(_pSelected.GetValue(_dcTab, null) is bool) || (bool)_pSelected.GetValue(_dcTab, null); }
+            catch { return true; }
+        }
+
+        /// <summary>Follows the tab's own IsSelected: the game unselects the other tabs when one is clicked, so this fires at every change of tab.</summary>
+        static void Hook(object tab)
+        {
+            var inpc = tab as INotifyPropertyChanged;
+            object x;
+            if (inpc == null || Hooked.TryGetValue(tab, out x)) return;
+            Hooked.Add(tab, tab);
+            inpc.PropertyChanged += (s, e) => { if (e.PropertyName == "IsSelected") Show("tab", false); };
+        }
+
+        /// <summary>Puts the overlays' visibility right now (no waiting for the next tick) and, with the debug trace on, tells what the tabs are.</summary>
+        static void Show(string why, bool refill)
+        {
+            try
+            {
+                bool dcSel = DcTabSelected();
+                bool show = Active && IsEnabled() && _vehicle != null && dcSel;
+                var vis = show ? Visibility.Visible : Visibility.Collapsed;
+                var sb = new System.Text.StringBuilder();
+                foreach (var view in DamageControlUi.StatusViewElements())
+                {
+                    Card p;
+                    if (Panels.TryGetValue(view, out p) && p.Root != null)
+                    {
+                        if (p.Root.Visibility != vis) p.Root.Visibility = vis;
+                        if (refill) p.Next = 0f;
+                    }
+                    object dc = null; try { dc = view.DataContext; } catch { }
+                    sb.Append(" view.DataContext=").Append(dc == null ? "null" : dc.GetType().Name);
+                }
+                Trace("EnemyStatus." + why + ": active=" + Active + " dcSelected=" + dcSel + " overlay=" + vis + sb + " tabs: " + Tabs());
+            }
+            catch (Exception e) { Trace("EnemyStatus.Show: " + e.Message); }
+        }
+
+        static string Tabs()
+        {
+            try
+            {
+                var vm = _vmRef == null ? null : _vmRef.Target;
+                var list = vm == null ? null : vm.GetType().GetProperty("Tabs").GetValue(vm, null) as System.Collections.IEnumerable;
+                if (list == null) return "-";
+                var sb = new System.Text.StringBuilder();
+                foreach (var t in list)
+                {
+                    var tt = t.GetType();
+                    sb.Append(tt.GetProperty("Kind").GetValue(t, null)).Append(':').Append(_pHeader.GetValue(t, null))
+                      .Append(" avail=").Append(_pAvail.GetValue(t, null)).Append(" sel=").Append(_pSelected.GetValue(t, null)).Append("; ");
+                }
+                return sb.ToString();
+            }
+            catch (Exception e) { return "? " + e.Message; }
         }
 
         static string NameOf(object vehicle)
@@ -172,7 +241,7 @@ namespace AlternativeDamageModel
                     Panels.Add(view, p);
                 }
                 if (p.Root == null) continue;
-                bool show = Active && IsEnabled() && _vehicle != null;
+                bool show = Active && IsEnabled() && _vehicle != null && DcTabSelected();
                 var vis = show ? Visibility.Visible : Visibility.Collapsed;
                 if (p.Root.Visibility != vis) p.Root.Visibility = vis;
                 if (!show || now < p.Next) continue;

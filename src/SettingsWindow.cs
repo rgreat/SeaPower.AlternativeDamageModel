@@ -75,6 +75,7 @@ namespace AlternativeDamageModel
             Add(D, "Damage Control tab", UiKey, "Detailed view", "applies at once", Kind.Bool, 0, 0, 0, true);
             Add(D, "Bottom panel", "UI/ColorWeaponStatus", "Weapon status colours", "yellow: part inoperable, red: all", Kind.Bool, 0, 0, 0, true);
             Add(D, "Map", "UI/ShowEnemyDamage", "Ship damage icons", "fire, water, hull, engine", Kind.Bool, 0, 0, 0, true);
+            Add(D, "Map", "UI/HideUnobservedTargets3D", "Hide unseen targets in 3D", "not observed visually", Kind.Bool, 0, 0, 0, false);
             Add(D, ArrowsGroup, "UI/FloodingOneArrowAt", "Water: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FloodingTwoArrowsAt", "Water: two arrows from", "% a second", Kind.Number, 0.05f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FireOneArrowAt", "Fire: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
@@ -145,6 +146,8 @@ namespace AlternativeDamageModel
             Add(DC, "Weapon hits", "DamageControlTeams/WoundsAnyIntegrity", "Wounds at any hull integrity", "not only under 50%", Kind.Bool, 0, 0, 0);
             Add(DC, "Weapon hits", "DamageControlTeams/WoundChance", "Wound chance", "× chance", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Weapon hits", "DamageControlTeams/HitWound", "Wound strength", "× warhead power", Kind.Number, 0.1f, 0f, 20f);
+            Add(DC, "Weapon hits", "DamageControlTeams/HealTime", "Concussion time", "s in the reserve · 0 = off", Kind.Number, 10f, 0f, 1200f);
+            Add(DC, "Weapon hits", "DamageControlTeams/HealTimeSpread", "Concussion spread", "± s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserve", "Wounds in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
             Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
             Add(DC, "Time", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);
@@ -163,7 +166,7 @@ namespace AlternativeDamageModel
             Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLeaks", "Fire reopens leaks", "% of the largest leak a second at fire 100% · 0 = off", Kind.Number, 0.1f, 0f, 20f);
             Add(S, "Fire and leaks", "FireAndFlooding/FireReopenLimit", "Reopened up to", "% of the largest leak", Kind.Number, 5f, 0f, 100f);
             Add(S, "Full flooding", "FireAndFlooding/FullFloodSystems", "Systems out of order", "no repair while flooded", Kind.Bool, 0, 0, 0);
-            Add(S, "Full flooding", "FireAndFlooding/FullFloodFireDecay", "Fire put out", "% a second · 0 = off", Kind.Number, 1f, 0f, 100f);
+            Add(S, "Full flooding", "FireAndFlooding/FullFloodFireDecay", "Fire put out by water", "% a second · 0 = off", Kind.Number, 1f, 0f, 100f);
             Add(TFx, "Sinking and wreck", "Effects/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0, true);
             Add(TFx, "Sinking and wreck", "Effects/WreckDragFactor", "Wreck drag", "× the game's resistance to the horizontal movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f, true);
             Add(TFx, "Sinking and wreck", "Effects/BubblesStopMinutes", "Stop bubbles after", "min after sinking starts; 0 = never", Kind.Number, 1f, 0f, 120f, true);
@@ -788,7 +791,7 @@ namespace AlternativeDamageModel
             return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
                    key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "Systems/NoEngineTeamEffectiveness" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
                    key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
-                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill";
+                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/HealTime" || key == "DamageControlTeams/HealTimeSpread" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill";
         }
 
         static bool GameValue(Field f, out string v)

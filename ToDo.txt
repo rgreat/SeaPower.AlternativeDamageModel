@@ -39,6 +39,21 @@ In progress:
 -----------------------------
 To Do:
 
+- Иконки состояний на карте расположить под всеми другими объектами, но над самой картой.
+- Слабые и отремонтированные повреждения HULL не должны отображаться на иконках.
+- Легкие затопления у врагов не должны отображаться на иконках, ибо их не видно.
+- Повреждения двигателя надо детектировать и отображать только после регистрации попаданий в корабль.
+- При наличии нескольких источников картины повреждений писать в source все: visual, sonar, radar. 
+- Опция: Скрывать визуально не наблюлаемые цели в 3D. по умолчанию - false
+
 - Добавить файлы локализации под языки игры
+
+Setting linear velocity of a kinematic body is not supported.
+Setting linear velocity of a kinematic body is not supported.
+Setting linear velocity of a kinematic body is not supported.
+Setting linear velocity of a kinematic body is not supported.
+Setting linear velocity of a kinematic body is not supported.
+
+
 
 Себе: Проверить mesh. Проекты Гневный, Спокойный-У, Комар, Дон, Pegasus, Luda I, Heku и правила валидности mesh.

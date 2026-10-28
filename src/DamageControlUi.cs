@@ -1160,6 +1160,16 @@ namespace AlternativeDamageModel
             var hs = Headers.GetOrCreateValue(tb);
             if (anchor != null) hs.Anchor = anchor;
             bool full = _full;
+            // the tab of a contact that is not the player's ("Damage State", EnemyStatus): no (i), no gear
+            if (EnemyStatus.Active && (tb.Text ?? "").StartsWith("Damage State", StringComparison.Ordinal))
+            {
+                if (hs.Text != null)
+                {
+                    if (tb.Text.StartsWith(hs.Text + "  ", StringComparison.Ordinal)) { tb.Inlines.Clear(); tb.Inlines.Add(new Run(hs.Text)); }   // ours: the icons come off
+                    hs.Text = null; hs.Shown = null;
+                }
+                return;
+            }
             if (hs.Shown != null && tb.Text == hs.Shown && hs.Full == full) return;
             string text = tb.Text ?? "";
             if (hs.Text != null && text.StartsWith(hs.Text + "  ", StringComparison.Ordinal))
@@ -1297,7 +1307,7 @@ namespace AlternativeDamageModel
                 icons.Children.Add(row);
             }
             text.Children.Add(icons);
-            line("Auto DC off: click a team to give it a task (underlined = has one).", CGrey, 13f);
+            line("Auto DC off: click a team to give it a task (a red ! = has one).", CGrey, 13f);
             line("DC Priority: what all teams do first.", CGrey, 13f);
             line("Point at an arrow: why it changes.", CGrey, 13f);
             line("Point at LIST / TRIM / LEVEL: water per compartment.", CGrey, 13f);
@@ -1674,11 +1684,11 @@ namespace AlternativeDamageModel
             c.HeaderShown = tb.Text;
         }
 
-        static readonly Color CHover = Color.FromArgb(56, 255, 255, 255), CManual = Color.FromRgb(255, 200, 60);
+        static readonly Color CHover = Color.FromArgb(56, 255, 255, 255);
 
         /// <summary>
         /// One icon per team, showing what it does. Auto DC off: an icon lights up under the mouse and a click opens a menu to give
-        /// that team a task by hand (kept while the team stays in the compartment); a team with a task given by hand is underlined.
+        /// that team a task by hand (kept while the team stays in the compartment); a team with a task given by hand has a small red ! next to it.
         /// </summary>
         sealed class Sections { public string[] Names; public int[] Order; }
 
@@ -1693,7 +1703,7 @@ namespace AlternativeDamageModel
         /// <summary>
         /// One icon per team in the section, showing what it does, then (grey) the teams on their way here, with their time.
         /// Auto DC off: an icon lights up under the mouse; a click opens a menu - for a working team its task and "Move to section",
-        /// for a team on the way "Cancel Transfer". A team with a task given by hand is underlined.
+        /// for a team on the way "Cancel Transfer". A team with a task given by hand has a small red ! next to it.
         /// </summary>
         static void RenderTeams(Col c, object comp, int i, int n, Sections sec, List<DcTeams.View> moving)
         {
@@ -1868,11 +1878,11 @@ namespace AlternativeDamageModel
                             return sb.ToString();
                         }
                         case DcTeams.St.Injured:
-                            return dc + "wounded, going to the reserve\nThere in " + Clock(v.Left) + (kn != null ? "\n" + kn : "");
+                            return dc + "concussed, going to the reserve\nThere in " + Clock(v.Left) + (kn != null ? "\n" + kn : "");
                         case DcTeams.St.Dead:
                             return dc + "lost" + (v.From >= 0 ? " (" + SectionName(names, v.From) + ")" : "");
                         case DcTeams.St.Pool:
-                            return dc + "free, in reserve" + (kn != null ? "\n" + kn : "") +
+                            return dc + (v.Stun > 0f ? "concussed, in reserve\nBack to work in " + Clock(v.Stun) : "free, in reserve") + (kn != null ? "\n" + kn : "") +
                                    (DcTeams.Wounded(v.Health) && DcTeams.RegenRate > 0f ? "\nHealed in " + Clock((1f - v.Health) / (DcTeams.RegenRate / 100f)) : "") +
                                    "";
                         default:
@@ -1884,14 +1894,21 @@ namespace AlternativeDamageModel
             return "DC team";
         }
 
-        static Border Frame(UIElement icon, int index, bool underline)
+        /// <summary>The small red "!" of a team with a task given by hand: next to its icon (and next to the task's icon in the menu).</summary>
+        static FrameworkElement WithBang(UIElement icon)
+        {
+            var sp = new StackPanel { Orientation = Orientation.Horizontal };
+            sp.Children.Add(icon);
+            sp.Children.Add(new TextBlock { Text = "!", FontSize = 12f, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.FromRgb(230, 50, 40)), Margin = new Thickness(0f, 1f, 0f, 0f), VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false });
+            return sp;
+        }
+
+        static Border Frame(UIElement icon, int index, bool marked)
         {
             return new Border
             {
-                Child = icon, Padding = new Thickness(2f, 1f, 2f, 1f), CornerRadius = new CornerRadius(2f),
+                Child = marked ? WithBang(icon) : icon, Padding = new Thickness(2f, 1f, 2f, 1f), CornerRadius = new CornerRadius(2f),
                 Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0)),   // transparent but hit-testable
-                BorderBrush = new SolidColorBrush(CManual),
-                BorderThickness = new Thickness(0f, 0f, 0f, underline ? 2f : 0f),
                 Margin = new Thickness(index == 0 ? 0f : 3f, 0f, 0f, 0f)
             };
         }
@@ -2007,7 +2024,7 @@ namespace AlternativeDamageModel
         static MenuItem MenuEntry(string text, FrameworkElement icon, bool current, object comp, object team, int task)
         {
             var item = new MenuItem { Header = text, IsChecked = current };
-            if (icon != null) item.Icon = icon;
+            if (icon != null) item.Icon = current && task != TaskNone ? WithBang(icon) : icon;   // the task given by hand: a red ! at its icon
             item.Click += (s, e) =>
             {
                 DcControl.SetForced(comp, team, task);
@@ -2241,7 +2258,7 @@ namespace AlternativeDamageModel
             return cv;
         }
 
-        /// <summary>A team's icon: highlighted when the team is tired, with a health bar along its top edge when it is wounded.</summary>
+        /// <summary>A team's icon: highlighted when the team is tired, with a health bar just above its top edge (not over the picture) when it is wounded.</summary>
         static FrameworkElement Icon(int task, object teamRef)
         {
             var cv = (Canvas)Icon(task);
@@ -2254,11 +2271,11 @@ namespace AlternativeDamageModel
             if (DcTeams.Wounded(t))
             {
                 float h = Math.Max(0f, Math.Min(1f, t.Health)), w = 16f * h;
-                cv.Children.Add(new Path { Data = new StreamGeometry("M0,0 L16,0 L16,3 L0,3 Z"), Fill = new SolidColorBrush(Color.FromArgb(220, 20, 20, 20)) });
+                cv.Children.Add(new Path { Data = new StreamGeometry("M0,-4 L16,-4 L16,-1 L0,-1 Z"), Fill = new SolidColorBrush(Color.FromArgb(220, 20, 20, 20)) });
                 if (w > 0.1f)
                     cv.Children.Add(new Path
                     {
-                        Data = new StreamGeometry("M0,0 L" + w.ToString("0.##", CultureInfo.InvariantCulture) + ",0 L" + w.ToString("0.##", CultureInfo.InvariantCulture) + ",3 L0,3 Z"),
+                        Data = new StreamGeometry("M0,-4 L" + w.ToString("0.##", CultureInfo.InvariantCulture) + ",-4 L" + w.ToString("0.##", CultureInfo.InvariantCulture) + ",-1 L0,-1 Z"),
                         Fill = new SolidColorBrush(h > 0.6f ? Color.FromRgb(90, 200, 90) : h > 0.3f ? Color.FromRgb(230, 200, 60) : Color.FromRgb(225, 70, 60))
                     });
             }
@@ -2277,7 +2294,7 @@ namespace AlternativeDamageModel
                 case TaskSystems: return "repairing systems";
                 case IconKnocked: case IconDead: return "lost";
                 case IconTransit: return "on the move (In Transfer)";
-                case IconInjured: return "wounded, going to the reserve (In Transfer)";
+                case IconInjured: return "concussed, going to the reserve (In Transfer)";
                 default: return "no task";
             }
         }

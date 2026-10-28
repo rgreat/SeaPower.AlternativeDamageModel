@@ -12,8 +12,8 @@ namespace AlternativeDamageModel
     /// are coloured by the state of the weapon systems behind them (WeaponEntry.WeaponSystems, BaseSystem.Inoperable):
     /// all working - the game's own colour; some inoperable - yellow; all inoperable - red.
     /// The panel is found from MainGameView.Instance: a text block whose DataContext is a WeaponEntry and whose text is the entry's
-    /// Label or AmmoAmountText. The tree is scanned once a second; colours are put back (ClearValue) when the weapons work again
-    /// or the setting is switched off.
+    /// Label or AmmoAmountText. The blocks are caught when the game creates them (UiScan); a system's Inoperable flag is watched, so the colour changes
+    /// the moment the weapon is lost or repaired. Colours are put back (ClearValue) when the weapons work again or the setting is switched off.
     /// </summary>
     static class WeaponStatusColors
     {
@@ -27,8 +27,9 @@ namespace AlternativeDamageModel
         static FieldInfo _mainInstance;
         static PropertyInfo _pLabel, _pAmmoText, _pSystems, _pInoperable;
         static PropertyInfo _pValue;
-        static float _next;
-        static readonly List<WeakReference> Colored = new List<WeakReference>();
+        static bool _on;
+        static readonly HashSet<TextBlock> Colored = new HashSet<TextBlock>();
+        static readonly Dictionary<object, List<IDisposable>> Subs = new Dictionary<object, List<IDisposable>>();
 
         public static void Init(Assembly asm)
         {
@@ -60,7 +61,7 @@ namespace AlternativeDamageModel
 
         public static bool Ready { get { return _ok; } }
 
-        /// <summary>A text block bound to a weapon entry (UiScan collects these in its walk).</summary>
+        /// <summary>A text block bound to a weapon entry.</summary>
         public static bool Candidate(TextBlock tb)
         {
             if (!_ok) return false;
@@ -69,28 +70,74 @@ namespace AlternativeDamageModel
             return dc != null && _entryType.IsInstanceOfType(dc);
         }
 
-        /// <summary>Called every frame; works once a second on the text blocks UiScan found (it walks the tree itself, every 2 s).</summary>
-        public static void Tick(float now, bool on)
+        /// <summary>The setting changed: off puts the game's colours back, on colours what is on screen. Called every frame, acts on a change only.</summary>
+        public static void SetOn(bool on)
+        {
+            if (!_ok || on == _on) return;
+            _on = on;
+            try
+            {
+                if (!on) ClearAll();
+                else foreach (var tb in UiScan.Texts.ToArray()) Paint(tb);
+            }
+            catch (Exception e) { Trace("WeaponStatusColors.SetOn: " + e.Message); }
+        }
+
+        /// <summary>A weapon text block appeared: its entry's systems are watched (their Inoperable flag) and the block is coloured by the state.</summary>
+        public static void Attach(TextBlock tb)
         {
             if (!_ok) return;
-            if (!on)
+            object dc = null;
+            try { dc = tb.DataContext; } catch { }
+            if (dc == null) return;
+            if (!Subs.ContainsKey(dc))
             {
-                if (Colored.Count > 0) ClearAll();
-                return;
+                var list = new List<IDisposable>();
+                Subs[dc] = list;
+                var systems = _pSystems.GetValue(dc, null) as IEnumerable;
+                if (systems != null)
+                    foreach (var s in systems)
+                    {
+                        var rp = s == null ? null : _pInoperable.GetValue(s, null) as IObservable<bool>;
+                        if (rp == null) continue;
+                        try { list.Add(rp.Subscribe(new Watch(dc))); } catch (Exception e) { Trace("WeaponStatusColors.Subscribe: " + e.Message); }
+                    }
             }
-            if (now < _next) return;
-            _next = now + 1f;
-            try { Apply(); } catch (Exception e) { Trace("WeaponStatusColors.Apply: " + e.Message); }
+            if (_on) Paint(tb);
+        }
+
+        /// <summary>The text block is gone: its colour is forgotten and, when it was the last of its entry, the entry's subscriptions end.</summary>
+        public static void Detach(TextBlock tb)
+        {
+            Colored.Remove(tb);
+            object dc = null;
+            try { dc = tb.DataContext; } catch { }
+            if (dc == null) return;
+            foreach (var other in UiScan.Texts) { try { if (ReferenceEquals(other.DataContext, dc)) return; } catch { } }
+            List<IDisposable> list;
+            if (Subs.TryGetValue(dc, out list)) { foreach (var d in list) try { d.Dispose(); } catch { } Subs.Remove(dc); }
         }
 
         static void ClearAll()
         {
-            foreach (var w in Colored)
-            {
-                var tb = w.Target as TextBlock;
-                if (tb != null) try { tb.ClearValue(TextBlock.ForegroundProperty); } catch { }
-            }
+            foreach (var tb in Colored) try { tb.ClearValue(TextBlock.ForegroundProperty); } catch { }
             Colored.Clear();
+        }
+
+        /// <summary>A system of the entry became inoperable or works again.</summary>
+        sealed class Watch : IObserver<bool>
+        {
+            readonly WeakReference _entry;
+            public Watch(object entry) { _entry = new WeakReference(entry); }
+            public void OnNext(bool value)
+            {
+                var entry = _entry.Target;
+                if (entry == null || !_on) return;
+                try { foreach (var tb in UiScan.Texts.ToArray()) if (ReferenceEquals(tb.DataContext, entry)) Paint(tb); }
+                catch (Exception e) { Trace("WeaponStatusColors.Watch: " + e.Message); }
+            }
+            public void OnError(Exception error) { }
+            public void OnCompleted() { }
         }
 
         /// <summary>0 - works (or nothing known), 1 - some systems inoperable, 2 - all of them.</summary>
@@ -111,41 +158,25 @@ namespace AlternativeDamageModel
             return n == 0 || bad == 0 ? 0 : bad < n ? 1 : 2;
         }
 
-        static void Apply()
+        /// <summary>Colours one text block (the label or the ammo count) by the state of its entry's weapon systems.</summary>
+        static void Paint(TextBlock tb)
         {
-            var texts = UiScan.Texts;
-            var seen = new HashSet<TextBlock>();
-            for (int i = 0; i < texts.Count; i++)
+            object dc = null;
+            try { dc = tb.DataContext; } catch { }
+            if (dc == null || !_entryType.IsInstanceOfType(dc)) return;
+            string text = tb.Text;
+            if (string.IsNullOrEmpty(text) || !(text == (string)_pLabel.GetValue(dc, null) || text == (string)_pAmmoText.GetValue(dc, null))) return;
+            int st = State(dc);
+            Brush want = st == 2 ? Red : st == 1 ? Yellow : null;
+            if (want == null)
             {
-                var tb = texts[i];
-                object dc = null;
-                try { dc = tb.DataContext; } catch { }
-                if (dc == null || !_entryType.IsInstanceOfType(dc)) continue;
-                string text = tb.Text;
-                if (string.IsNullOrEmpty(text) || !(text == (string)_pLabel.GetValue(dc, null) || text == (string)_pAmmoText.GetValue(dc, null))) continue;
-                seen.Add(tb);
-                int st = State(dc);
-                Brush want = st == 2 ? Red : st == 1 ? Yellow : null;
-                if (want == null)
-                {
-                    if (Tracked(tb)) { tb.ClearValue(TextBlock.ForegroundProperty); Untrack(tb); }
-                }
-                else
-                {
-                    if (!ReferenceEquals(tb.Foreground, want)) tb.Foreground = want;
-                    if (!Tracked(tb)) Colored.Add(new WeakReference(tb));
-                }
+                if (Colored.Remove(tb)) tb.ClearValue(TextBlock.ForegroundProperty);
             }
-            // coloured blocks that are gone (another unit selected) are forgotten
-            Colored.RemoveAll(w => { var t = w.Target as TextBlock; return t == null || !seen.Contains(t); });
+            else
+            {
+                if (!ReferenceEquals(tb.Foreground, want)) tb.Foreground = want;
+                Colored.Add(tb);
+            }
         }
-
-        static bool Tracked(TextBlock tb)
-        {
-            foreach (var w in Colored) if (ReferenceEquals(w.Target, tb)) return true;
-            return false;
-        }
-
-        static void Untrack(TextBlock tb) { Colored.RemoveAll(w => ReferenceEquals(w.Target, tb)); }
     }
 }

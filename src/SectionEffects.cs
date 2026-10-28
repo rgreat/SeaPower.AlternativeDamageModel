@@ -13,7 +13,8 @@ namespace AlternativeDamageModel
     ///  2. A fully flooded section (water above 75%, the mean of its two sides) loses its systems: each is brought down to the
     ///     severe damage level and made inoperable, and kept there while the water stays above 75% (so repairs do nothing;
     ///     <see cref="Locked"/> tells the teams not to try).
-    ///  3. A fully flooded section puts its fire out: FullFloodFireDecay % of the maximum fire a second, and the fire stops growing.
+    ///  3. Water limits the fire: a section's fire cannot be stronger than (100 - the section's water %) of its maximum. A stronger fire falls to that limit at
+    ///     FullFloodFireDecay % of the maximum a second, and a fire at the limit stops growing.
     /// </summary>
     static class SectionEffects
     {
@@ -24,7 +25,7 @@ namespace AlternativeDamageModel
         public static float ReopenLimit = 50f;   // [FireAndFlooding] FireReopenLimit: % of the largest leak
         public const float FullLevel = 75f;     // a section is fully flooded above this % of water (the mean of its two sides)
         public static bool SystemsOut;           // [FireAndFlooding] FullFloodSystems
-        public static float FireDecay;           // [FireAndFlooding] FullFloodFireDecay: % of the maximum fire a second; 0 = off
+        public static float FireDecay;           // [FireAndFlooding] FullFloodFireDecay: % of the maximum fire a second it falls to the limit set by the water; 0 = off
 
         sealed class State { public float[] MaxLeak = new float[10]; public bool[] Full = new bool[5]; public float Acc; }
         const float Step = 0.1f;   // game seconds between the runs: the rates are applied for the whole time gathered, a few dozen reflection calls per ship are not paid in every physics tick
@@ -114,17 +115,20 @@ namespace AlternativeDamageModel
                         }
                     }
 
-                    // 2. and 3. a fully flooded section
+                    // 2. a fully flooded section loses its systems; 3. water limits the fire: it cannot be stronger than (100 - water %) of its maximum
                     float water = (F(_pFloodPct.GetValue(p, null)) + F(_pFloodPct.GetValue(s, null))) * 0.5f;
-                    bool full = (SystemsOut || FireDecay > 0f) && FullLevel > 0f && water > FullLevel;
-                    st.Full[i] = full && SystemsOut;
-                    if (!full) continue;
-                    if (SystemsOut) SwampSystems(sc, i, water);
-                    if (FireDecay > 0f && (sev > 0f || grow > 0f) && max > 0f)
+                    bool full = SystemsOut && FullLevel > 0f && water > FullLevel;
+                    st.Full[i] = full;
+                    if (full) SwampSystems(sc, i, water);
+                    if (FireDecay > 0f && water > 0f && (sev > 0f || grow > 0f) && max > 0f)
                     {
-                        if (sev > 0f) _pSev.SetValue(sc, Math.Max(0f, sev - FireDecay / 100f * max * dt), null);
-                        if (grow > 0f) _fScGrow.SetValue(sc, 0f);
-                        if (!_fireTraced) { _fireTraced = true; Trace("SectionEffects: section " + (i + 1) + " is flooded to " + water.ToString("0") + "%, its fire dies down at " + FireDecay.ToString("0.#") + " %/s"); }
+                        float cap = max * Math.Max(0f, 100f - water) / 100f;
+                        if (sev > cap)
+                        {
+                            _pSev.SetValue(sc, Math.Max(cap, sev - FireDecay / 100f * max * dt), null);
+                            if (!_fireTraced) { _fireTraced = true; Trace("SectionEffects: section " + (i + 1) + " is flooded to " + water.ToString("0") + "%, its fire (" + (sev / max * 100f).ToString("0") + "%) dies down to " + (100f - water).ToString("0") + "% at " + FireDecay.ToString("0.#") + " %/s"); }
+                        }
+                        if (sev >= cap && grow > 0f) _fScGrow.SetValue(sc, 0f);   // at the limit the fire does not grow
                     }
                 }
             }

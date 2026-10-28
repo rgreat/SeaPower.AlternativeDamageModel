@@ -10,7 +10,7 @@ namespace AlternativeDamageModel
     /// Auto DC that keeps the walking down (replaces Compartments.CheckDCTeamsAllocation while the mod is on and transfers take
     /// time - [DamageControlTeams] TransferSpeed or MusterTime not 0). The game sends every free team, one per tick, to the single worst
     /// section and recalls all of them every minute; with walking teams that keeps them on the move all the time. Here, every 2 s:
-    ///  1. every section's work is rated in the order of the ship's DC Priority (Auto: fire rate > leak rate > fires > flooding > systems > hull;
+    ///  1. every section's work is rated in the order of the ship's DC Priority (Auto: leak rate > fire rate > fires > flooding > systems > hull;
     ///     Fire: fire rate > fires > leak rate > flooding > ...; Flooding: leak rate > flooding > fire rate > fires > ...). Hull counts from 5% to restore, systems from medium damage. Fire and water are watched
     ///     for how fast they grow (smoothed over ~10 s), as well as for how bad they are;
     ///  2. each section with work wants one team; a section with fire or flooding wants one more if it is bad (leak rate ≥ 0.5,
@@ -103,7 +103,7 @@ namespace AlternativeDamageModel
             {
                 case DcControl.ModeFire: return new[] { FireRate, Fire, Leak, Pump, Systems, Hull };
                 case DcControl.ModeFlooding: return new[] { Leak, Pump, FireRate, Fire, Systems, Hull };
-                default: return new[] { FireRate, Leak, Fire, Pump, Systems, Hull };
+                default: return new[] { Leak, FireRate, Fire, Pump, Systems, Hull };
             }
         }
 

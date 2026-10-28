@@ -81,10 +81,12 @@ namespace AlternativeDamageModel
             {
                 var hitObject = __args[0];
                 var hc = __args[1] as UnityEngine.Component;
-                if (hitObject == null || hc == null || (bool)__args[2]) return;
+                if (hitObject == null || hc == null) return;
+                WoundStats.Calls++;
+                if ((bool)__args[2]) { WoundStats.Blocked++; return; }
                 var parts = hc.transform.name.ToLowerInvariant().Split('_');
                 int number;
-                if (parts.Length < 3 || parts[0] != "flooding" || !int.TryParse(parts[2], out number)) return;
+                if (parts.Length < 3 || parts[0] != "flooding" || !int.TryParse(parts[2], out number)) { WoundStats.NotSection++; return; }
                 var map = null as IDictionary;
                 if (!_init)
                 {
