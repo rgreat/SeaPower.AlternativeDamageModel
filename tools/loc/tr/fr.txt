@@ -1,0 +1,575 @@
+1|Une section en feu rouvre ses voies d'eau colmatées : % de la plus grande voie d'eau de la section par seconde à feu 100% (moins pour un feu plus petit). 0 = désactivé.
+2|Un feu ne se propage pas dans un compartiment où se trouve une équipe de lutte contre les avaries (elle l'arrête à la porte). Désactivé = comme dans le jeu.
+3|Un feu qu'aucune équipe de lutte contre les avaries ne combat pendant un moment grandit de plus en plus vite : à chaque contrôle de feu (FireCheckTime, 10 s) son taux de croissance augmente comme si la section était de nouveau touchée. Désactivé = comme dans le jeu (un feu ne grandit que par les coups au but).
+4|Une section entièrement inondée (eau au-dessus de 75%) : ses systèmes sont gravement endommagés, rendus inopérants et ne peuvent être réparés tant qu'elle reste inondée.
+5|Un coup sur un compartiment déjà détruit n'est pas perdu : la moitié des dégâts va au compartiment voisin (du même bord, vers le milieu du navire) ; s'il est détruit aussi, un quart va au suivant. L'excédent d'un coup qui détruit un compartiment se répartit de la même façon.
+6|Un coup sur une section peut blesser ses équipes à toute intégrité. Désactivé = comme dans le jeu : seule une section touchée d'intégrité inférieure à 50% peut mettre une équipe hors de combat, avec la chance dégâts x (1 - intégrité), au plus 20%. Activé = chaque coup sur une section avec équipes obtient le jet de blessure (voir Wound chance) ; une équipe blessée va en réserve.
+7|Une voie d'eau rouverte par le feu regrandit jusqu'à ce % de la plus grande voie d'eau qu'ait eue la section.
+8|Une section sous la mer éteint son feu : le feu perd ce % de son maximum par seconde pour chaque mètre dont le bord de pont de la section est sous l'eau (1 = autant de % par seconde que de mètres). Nécessite les points de pont du navire (comme l'envahissement par le pont). 0 = désactivé.
+9|Une équipe ne peut pas colmater les brèches tant que le navire va plus vite que cela, en nœuds. 0 = pas de limite.
+10|Une équipe dans une section en feu perd cette part de sa santé complète par seconde à feu 100%, sauf si au moins une équipe de la section combat le feu (moins pour un feu plus faible).
+11|Une équipe en réserve récupère cette part de sa santé complète par seconde.
+12|Les navires de l'IA (pas les vôtres) de moins de 50 m ne sont pas ralentis par l'envahissement : la réduction de vitesse du jeu due aux brèches et à l'eau est désactivée pour eux (ils continuent, comme des kamikazes). Le bouton « Limit Speed » de vos navires est distinct.
+13|Chance qu'un feu violent (à partir de 50% de son maximum) se propage aux sections voisines, en % par contrôle de feu : le jeu contrôle toutes les FireCheckTime (10 s) avec une chance de 0,0133% - presque jamais. 0.0133 = comme dans le jeu ; 1.0 = 1% par contrôle (environ une fois par 17 minutes de feu violent), 0 = jamais.
+14|Colore les boutons d'armes du panneau du bas de l'unité sélectionnée selon l'état de ses systèmes d'armes : tout fonctionne - couleur du jeu, une partie de ce type hors service - jaune, tout hors service - rouge.
+15|Commotion : une équipe blessée par une arme (dans une section touchée ou en réserve) reste commotionnée ce nombre de secondes après son entrée en réserve ; Auto DC ne la renvoie pas au travail avant la fin de la commotion. Elle court en parallèle de la santé de l'équipe, qui a sa propre récupération. 0 = pas de commotion.
+16|Contre-envahissement (tâche d'équipe donnée à la main) : vitesse à laquelle l'eau est admise dans un compartiment, en multiple de la vitesse d'épuisement. L'eau va du côté opposé à la gîte, ou du côté ayant le moins d'eau quand le navire est droit.
+17|Le contre-envahissement n'admet de l'eau d'un côté d'un compartiment que jusqu'à ce % (la limite propre du compartiment dans le jeu s'applique aussi).
+18|Efficacité de la lutte contre les avaries tant que le moteur du navire (le module Engine utilisé, pas la propulsion) est hors service : efficacité des équipes en % (feux, brèches, eau, coque ; la réparation des systèmes n'est pas touchée). Affichée dans les infobulles des équipes et dans la ligne Forecast de l'onglet Damage Control. 100 = désactivé.
+19|Les équipes de lutte contre les avaries dans une section en feu qui ne le combattent pas travaillent à ce % de leur efficacité. 100 = désactivé.
+20|Équipes de lutte contre les avaries d'un navire civil selon le déplacement : tonnes=équipes.
+21|Équipes de lutte contre les avaries d'un sous-marin selon le déplacement : tonnes=équipes.
+22|Équipes de lutte contre les avaries d'un navire de guerre de surface selon le déplacement : tonnes=équipes, à partir de ce nombre de tonnes. NumberOfDCTeams dans l'ini d'un navire fixe toujours son propre nombre.
+23|Débogage : dessine les colliders de coque seule (coll_hull*) du navire sélectionné en surimpression translucide avec un fil de fer lumineux de leurs vrais triangles, pour comparer directement avec le modèle 3D visible.
+24|Débogage : pour le navire sélectionné dans le panneau Unit Status, dessine une ligne de la vague actuelle à la hauteur de pont estimée sur l'axe de la proue et de la poupe de la coque, et sur une paire bâbord/tribord par section du modèle de dégâts (son propre point central en longueur) - colliders de coque seulement, pas les tourelles, mâts ni autres sous-modèles. Vert : le point passe au-dessus de la vague ; rouge : la vague est par-dessus.
+25|Débogage : comment le modèle 3D du navire sélectionné (sous-modèles compris) est dessiné, pour voir ShowDeckCorners/ShowHullCollider : Show (comme dans le jeu), Translucent (transparent à 70%) ou Hide.
+26|Diagnostic : tant qu'un navire gîte ou assiette sensiblement, écrit toutes les 2 secondes dans le journal BepInEx : gîte, assiette, hauteur, flottabilité contre poids, volume immergé, eau dans le navire et s'il coule / a chaviré.
+27|Diagnostic : écrit dans le journal BepInEx chaque feu déclenché par un coup et chaque changement de stade d'un feu (navire, compartiment, temps de mission, gravité et croissance en % du maximum du compartiment, équipes de lutte contre les avaries présentes). Fonctionne aussi mod désactivé dans le menu Mods, pour comparer avec le jeu.
+28|Ne dessine pas dans la vue 3D les cibles des autres camps qui ne sont pas observées visuellement (connues seulement par radar, sonar ou données). Vos unités sont toujours dessinées.
+29|Active la journalisation détaillée et BepInEx/AlternativeDamageModel.trace.txt.
+30|Le feu a l'aspect de sa force (part de son maximum) au lieu des stades du jeu : petit, modéré à partir de SmokeModerateFrom, violent à partir de SmokeSevereFrom (jeu : 25% / 50%) ; la fumée du petit feu passe de SmokeStartOpacity à SmokeEndOpacity. Seulement l'aspect - les dégâts et la propagation restent ceux du jeu. Désactivé = comme dans le jeu.
+31|Ligne de feu : une flèche quand le feu change plus vite que cela, en % de son maximum par seconde.
+32|Ligne de feu : deux flèches vers le bas quand le feu est éteint plus vite que cela, en % de son maximum par seconde.
+33|Ligne de feu : deux flèches vers le haut quand le feu grandit plus vite que cela, en % de son maximum par seconde.
+34|Corrige une erreur du jeu lui-même : au-dessus de 10x de compression du temps, l'assiette d'un navire croît avec la compression (une vedette de 25 m à 47 nœuds : 2,6 degrés jusqu'à 10x, 9 à 100x) - de quoi couler un navire court, rapide et indemne. Le jeu déplace un navire d'un pas par tick de physique, et au-dessus de 10x ce pas est étiré alors que le couple de flottabilité est pris autour du centre de masse d'avant le pas. Activé : ce pas supplémentaire est omis, l'assiette reste celle de 10x à toute compression ; jusqu'à 10x rien ne change. Navires de surface seulement. Désactivé : le comportement du jeu.
+35|Ligne d'envahissement et plan d'envahissement : une flèche quand le niveau d'eau change plus vite que cela, en % du compartiment par seconde.
+36|Ligne d'envahissement et plan d'envahissement : deux flèches quand le niveau d'eau change plus vite que cela, en % du compartiment par seconde.
+37|Quatre petites icônes sous l'icône d'un navire sur la carte (le vôtre aussi) : feu (force totale des feux), eau, coque (classée comme dans le panneau Damage Control) et moteur ; jaune / orange / rouge selon la gravité, et une icône de carte plus grise quand le navire va couler (sous 20 minutes selon la tendance d'envahissement / coque). Un contact : feu, eau, coque et moteur seulement en vue directe ; au sonar - le moteur seul (jaune : une partie perdue, rouge : rien ne marche) ; au radar - une estimation pour un navire touché ces 10 dernières minutes, marquée « ? » (jaune : 10 nœuds ou moins, rouge : moins de 3) ; rien par ESM ou sans contact, et rien pour un navire coulé. La ligne Fires de l'onglet Damage Control utilise la même force totale. L'Unit Status d'un contact montre un onglet Damage State avec la même information en mots.
+38|Santé d'une équipe de lutte contre les avaries, un multiplicateur de son maximum, qui est de 1..100 points selon le déplacement du navire (100 = équipage de 1000 et plus, environ 30000 t ; 1000 t = 24, 10000 t = 101). Affichée dans l'infobulle de l'équipe comme part du total. Une équipe à 0 est morte. Les équipes blessées travaillent plus lentement (autant que leur santé, pas moins de 25%). 0 = les équipes ne sont jamais blessées (un coup sort tout de même une équipe de sa section).
+39|Vitesse à laquelle un feu ronge la coque de sa section (intégrité de ses deux compartiments). 1.0 = comme dans le jeu. Les dégâts aux systèmes de la section ne changent pas.
+40|Vitesse à laquelle une équipe en réserve se débarrasse de la fatigue, % de la vitesse à laquelle elle s'accumule en travaillant. 100 = aussi vite ; 50 = le repos dure deux fois plus que le travail.
+41|Vitesse de marche d'une équipe à travers le navire, mètres par minute (la réserve est au milieu). Un transfert = MusterTime + le trajet, arrondi à 10 s. 0 = pas de temps de marche ; avec MusterTime aussi à 0, les équipes se déplacent aussitôt et Auto DC est celui du jeu.
+42|Vitesse à laquelle les équipes de lutte contre les avaries épuisent l'eau. 1.0 = comme dans le jeu.
+43|Vitesse à laquelle les équipes de lutte contre les avaries éteignent les feux. 1.0 = comme dans le jeu.
+44|Vitesse à laquelle les feux grandissent d'eux-mêmes, entre les coups. 1.0 = comme dans le jeu, 2.0 = deux fois plus vite, 0.5 = moitié moins vite.
+45|Vitesse à laquelle l'eau entre par les brèches d'un compartiment. 1.0 = comme dans le jeu.
+46|Combien de fois la coque des navires civils (fichiers ini civ_*) est plus solide que dans le jeu. 1.0 = comme dans le jeu.
+47|Combien de fois la coque des sous-marins est plus solide que dans le jeu. 1.0 = comme dans le jeu.
+48|Combien de fois la coque des navires de guerre de surface est plus solide que dans le jeu. 1.0 = comme dans le jeu, 2.0 = deux fois plus solide. Les navires individuels reçoivent leur propre valeur dans la section [HullIntegrityPerShip], une ligne par navire : nom du fichier ini = multiplicateur (p. ex. usn_bb_iowa = 3.0).
+49|Ce qu'accomplit une équipe (colmatage, lutte contre le feu, épuisement, réparations de coque et de systèmes) par rapport au jeu. 1.0 = comme dans le jeu.
+50|Dans quelle mesure la gîte suit l'envahissement inégal. La différence d'eau entre bâbord et tribord d'une section (qui fait gîter le navire) est multipliée par cela ; la moyenne de la section est conservée, donc le tirant d'eau et l'assiette n'en changent pas. 1 = comme dans le jeu, 2 = deux fois la gîte pour la même différence.
+51|Comment la vitesse du navire modifie la croissance des feux et l'eau qui entre (par les brèches et par le bord de pont) : nœuds=multiplicateur d'envahissement/de feu, une ligne brisée par les points. La vitesse est prise en valeur absolue ; en dessous du premier point et au-dessus du dernier valent les multiplicateurs extrêmes.
+52|Langue des textes du mod : en, ru, cn, de, es, fr, ko, ja ou vn. Vide = la langue du jeu. Les textes sont dans le dossier lang du mod (lang/<code>.ini) ; un texte manquant s'affiche en anglais.
+53|Gîte, degrés : l'échelle complète de l'indicateur LIST. À partir de sa zone rouge (75%) l'eau passe par le bord de pont et inonde vite tous les compartiments du bord bas (jeu : à 45). Elle ne coule pas le navire à elle seule ; le chavirement à 70 degrés si, comme dans le jeu.
+54|Mètres. La limite d'assiette dépend de la longueur du navire : plus le navire est long, plus tôt son avant ou son arrière plonge au même angle (tan limite = tan TrimLimit x (TrimReferenceLength / longueur)^0.442 ; avec 5.2 à 100 : 30 m 8.8, 60 m 6.5, 150 m 4.4, 300 m 3.2 degrés). 0 = TrimLimit pour tous les navires (comme dans le jeu).
+55|Minutes (temps de jeu, la compression compte) après le début du naufrage d'un navire, quand son effet de bulles de naufrage cesse d'émettre (le jeu ne l'arrête jamais tant que l'épave existe). Économise des ressources dans les longues missions. 0 = jamais, comme dans le jeu.
+56|Minutes de travail dans une section jusqu'à ce qu'une équipe soit fatiguée (premier niveau) ; sa vitesse baisse selon les réglages Speed. La réserve ôte la fatigue aussi vite que le travail la construit. Affichée dans l'infobulle de l'équipe ; l'icône d'une équipe fatiguée est mise en évidence. 0 = pas de fatigue.
+57|Minutes de travail jusqu'à ce qu'une équipe soit épuisée, le second niveau de fatigue (au plus : la fatigue cesse de croître là). Pas au-dessus de « Tired after » = pas de second niveau.
+58|Multiplicateur de la chance qu'un coup blesse une équipe (0.5 = moitié moins probable, 2 = deux fois ; le résultat est au plus 100%). Étape 1 (seulement tant que Wounds at any hull integrity est désactivé) - le jeu décide si un coup sort une équipe de sa section (seule une section touchée d'intégrité inférieure à 50% : dégâts x (1 - intégrité), au plus 20%). Étape 2 - le mod décide de la blessure : la chance croît fortement avec la puissance de l'ogive (environ puissance^1.8) et baisse avec la santé de l'équipe (environ santé^1.2) - ogive 2.2 contre santé 2 : environ 10%, contre 100 : 0,1% ; ogive 82 contre 100 : environ 75% ; bien au-dessus, plus de 100%. Elle est multipliée par ce multiplicateur puis limitée à 100% (avec Wounds at any hull integrity désactivé, une équipe non blessée quitte quand même la section). Une ogive plus puissante augmente la chance. Un navire plus grand la réduit : ses équipes sont plus robustes (plus de santé) et ses compartiments plus grands, un coup tombe moins probablement là où est l'équipe. Même le coup le plus faible a une petite chance. Exemple, ogive 25 : contre santé 12 environ 100%, contre 29 environ 37%, contre 100 environ 9%. 0 = jamais blessées.
+59|Multiplicateur de la force d'une blessure : au plus la puissance de l'ogive de la munition (0..196, la moitié des munitions du jeu sous 25) x cela, en points de santé de l'équipe (1..100 selon le déplacement). Une équipe blessée va en réserve.
+60|Nombre de points de feu et de fumée selon la longueur du navire au lieu des trois du jeu : moins de 25 m 1, moins de 50 m 2, moins de 75 m 3, à partir de 75 m 5 (un par section, chacun montrant le feu de sa section). Pour les navires apparaissant à partir de maintenant.
+61|Dispersion aléatoire du temps de commotion, secondes dans chaque sens : HealTime 90 avec 30 = 60 à 120 s, comme dans le jeu. 0 = toujours HealTime.
+62|Résistance au mouvement HORIZONTAL d'un navire détruit, en multiple de la traînée linéaire du jeu (25 pour presque tous les navires) : l'épave perd plus tôt son erre. 1 = comme dans le jeu. L'enfoncement (mouvement vertical) et la rotation (chavirement) ne sont pas ralentis.
+63|Secondes (temps de jeu, la compression compte) pendant lesquelles le point de pont d'un compartiment doit rester d'affilée sous la mer avant que l'eau commence à entrer par le pont (voir DeckFloodingSpeed). Un point qui refait surface remet le minuteur à zéro. Par défaut 3.
+64|Secondes dont une équipe a besoin pour se préparer avant chaque transfert. Annuler un transfert pendant qu'elle se prépare ne coûte aucun temps.
+65|Profil de réglages utilisé, choisi dans le jeu : Unit Status -> Damage Control -> l'engrenage à côté de (i). Ce fichier ne contient que les réglages généraux ([General], [UI]) ; les valeurs du modèle de dégâts sont dans le fichier du profil : les profils intégrés dans le dossier Profiles du mod (lecture seule), les vôtres dans StreamingAssets/user/AdvancedDamageControl/Profiles. Modifier un profil intégré dans le jeu l'enregistre comme Custom. Les modifications du fichier du profil utilisé, ou de ce nom, sont prises en compte pendant que le jeu tourne.
+66|Navires (noms de fichiers ini, séparés par des virgules ; modifiés dans la fenêtre de réglages, onglet Flooding) qui ne reçoivent pas de Deck Points : ils sont inondés selon les anciennes règles plus simples, comme un navire sans collider de coque.
+67|Petit feu : opacité de la fumée des nouvelles particules à 0% du maximum du feu, % de celle du jeu.
+68|Petit feu : opacité de la fumée des nouvelles particules à SmokeModerateFrom, % de celle du jeu ; entre les deux, uniformément selon la force du feu.
+69|Fatigue des équipes activée : le travail la construit, la réserve l'ôte, une équipe fatiguée travaille à demi-vitesse. Désactivé = pas de fatigue ; ses réglages sont masqués.
+70|Santé des équipes activée : blessures par les coups et les feux, récupération en réserve, les équipes blessées travaillent plus lentement. Désactivé = règles du jeu (un coup met une équipe hors de combat un moment, pas de blessures) ; les autres réglages de santé sont masqués.
+71|La vue détaillée de Unit Status -> Damage Control (l'affichage du mod) : intégrité de la coque par bord à côté du nom de chaque section, une icône par équipe de lutte contre les avaries (sa tâche ; tâches et déplacements à la main avec Auto DC désactivé), eau et feu en % avec flèches de tendance, DC Priority, les cartes d'équipe, les indicateurs LIST / TRIM / LEVEL avec le plan d'envahissement, infobulles, la légende (i). Désactivé : la vue propre du jeu (l'engrenage de la fenêtre de réglages reste).
+72|Le modèle de dégâts et la lutte contre les avaries du mod : solidité de la coque et des systèmes, effets secondaires, vitesses de feu et d'envahissement, propagation du feu, équipes de lutte contre les avaries (nombres, efficacité, transferts à pied, mises hors de combat, l'Auto DC optimisé, déplacement d'équipes isolées), limites de gîte / assiette / naufrage. DC Priority et les tâches données à la main relèvent de la vue détaillée et restent. Désactivé : les dégâts et la lutte contre les avaries propres au jeu (la vue de l'onglet Damage Control reste). Peut être basculé à tout moment : les navires en mer suivent aussitôt (solidité de la coque et nombre d'équipes reviennent à ceux du jeu ou du mod ; les équipes en mouvement arrivent, celles hors de combat se rétablissent).
+73|Aspect du feu modéré à partir de cette force, % du maximum du feu (jeu : 25%).
+74|Aspect du feu violent à partir de cette force, % du maximum du feu (jeu : 50%).
+75|Les équipes se reposent dans le compartiment central : un coup dessus peut blesser une équipe qui attend en réserve (la chance est celle du jeu pour une équipe mise hors de combat dans une section touchée : dégâts x (1 - intégrité), seulement sous 50% d'intégrité). Une équipe au repos blessée reste en réserve.
+76|Assiette, degrés, pour un navire long de TrimReferenceLength : l'échelle complète de l'indicateur TRIM. À partir de sa zone rouge (75%) l'extrémité qui s'enfonce est vite inondée : de chaque bord son compartiment le plus extérieur, quand il est plein le suivant, et ainsi de suite. Le navire ne coule pas aussitôt, contrairement au jeu (8 degrés avec une section inondée).
+77|Feu sans surveillance : de combien le taux de croissance augmente à chaque contrôle de feu, en % du taux de croissance maximal du feu (un coup ordinaire ajoute 0,1-0,8%).
+78|Feu sans surveillance : son taux de croissance n'est relevé que jusqu'à cette valeur, en % du maximum du feu par seconde.
+79|Feu sans surveillance : secondes sans équipe combattant le feu (depuis son début, ou la dernière fois qu'une équipe l'a combattu) avant qu'il ne grandisse plus vite.
+80|Vulnérabilité de la coque à l'envahissement par les brèches ouvertes par les coups (tous types d'armes). 1.0 = chaque brèche laisse entrer autant d'eau que dans le jeu, et les brèches au-dessus de la flottaison commencent à fuir après les mêmes dégâts que dans le jeu (la coque plus solide ne retient pas l'eau). 2.0 = deux fois plus d'eau ; 0.5 = moitié moins.
+81|Vulnérabilité de la coque aux obus de canon (missiles, torpilles et bombes ne sont pas concernés). Les obus de canon prennent une part de la limite de naufrage d'un navire qui dépend de la taille de la coque. 1.0 = chaque obus prend autant que dans le jeu ; la coque plus solide survit simplement à plus de coups. 2.0 = les obus frappent comme si la coque était deux fois plus petite ; 0.5 = comme si elle était deux fois plus grande (les obus moyens peuvent cesser de blesser les grands navires).
+82|Vulnérabilité du navire aux feux déclenchés par les coups (tous types d'armes). La coque plus solide retient aussi les feux dans la même proportion : avec Warships = 5.0 un coup déclenche un feu 5 fois plus faible (relativement au compartiment) que dans le jeu. 1.0 = ce comportement normal du mod. 2.0 = feux deux fois plus forts qui grandissent deux fois plus vite ; 0.5 = moitié moins forts. 1.0 avec tous les multiplicateurs de coque à 1.0 = comme dans le jeu.
+83|L'eau dans une section limite son feu : il ne peut pas être plus fort que (100 - % d'eau de la section) du maximum. Un feu plus fort retombe à cette limite à ce % du maximum par seconde. 0 = désactivé.
+84|Eau dans tout le navire, % (moyenne de ses compartiments), à partir de laquelle il coule, comme dans le jeu (jeu : 40 ; les sous-marins gardent les 50 du jeu). Aussi l'échelle complète de l'indicateur LEVEL.
+85|Eau par le bord de pont, un multiplicateur. Pour les navires dont les points de pont sont connus (l'algorithme complet de collider de coque) : quand le point de pont d'un compartiment est resté DeckFloodingDelay secondes d'affilée sous la mer (temps de jeu, la compression compte), le compartiment prend de l'eau que la lutte contre les avaries ne peut arrêter - 1.0 = 0,1% de son volume par seconde par mètre d'immersion (plus profond = plus vite) ; un compartiment plein passe l'eau au voisin non plein le plus bas, et ainsi de suite le long de la chaîne. Pour les autres navires : vitesse à laquelle l'extrémité qui s'enfonce (assiette au-delà de sa limite) ou le bord bas (gîte au-delà de sa limite) prend l'eau par le bord de pont - mécanique propre au mod, pas dans le jeu. 2.0 = deux fois plus vite, 0.5 = moitié moins, 0 = désactivé.
+86|Quand un navire commence à couler, le jeu place son centre de masse à l'origine de la coque ((0, 1, 0) s'il a chaviré) : le centre de masse saute, et avec lui chaque couple sur la coque. Activé = le centre de masse reste où il était. Désactivé = comme dans le jeu.
+87|Pendant qu'une équipe colmate les brèches d'un compartiment (la tâche Flooding Rate), elle en épuise l'eau en même temps : cette part de la vitesse d'épuisement (0.5 = moitié, 0 = désactivé). Une équipe à qui l'on ordonne un contre-envahissement n'épuise que du côté où cela n'aggrave ni la gîte ni l'assiette.
+88|Vitesse de travail d'une équipe reposée, % (point de départ de la courbe de fatigue). La vitesse baisse en ligne droite d'ici jusqu'au niveau fatigué.
+89|Vitesse de travail d'une équipe qui vient de se fatiguer, %. Entre les niveaux fatigué et épuisé la vitesse baisse en ligne droite.
+90|Vitesse de travail d'une équipe épuisée, % ; elle y reste tant que l'équipe continue de travailler.
+91|Écrit une ligne dans le journal BepInEx pour chaque navire qui entre dans une mission : son intégrité de coque dans le jeu et avec le mod.
+92|+ Ajouter un navire
+93|Revenir à la valeur du jeu
+94|Supprimer le profil « {0} » ?
+95|Faire glisser pour redimensionner
+96|Intégrité sur un navire de guerre de {0}.
+97|Son fichier est supprimé. Si c'est le profil utilisé, Advanced est utilisé.
+98|Un point de plus
+99|Un palier de plus : plus d'équipes à partir de plus de tonnes
+100|Pointez un réglage pour voir ce qu'il fait.
+101|Retirer le dernier point
+102|Retirer le dernier palier
+103|Retirer : le navire reçoit de nouveau des Deck Points
+104|Enregistré dans {0}
+105|un nombre positif
+106|un navire de la liste, ou le nom de son fichier ini
+107|basé sur {0}
+108|par défaut : {0}
+109|modifié
+110|à partir de {0} t
+111|jeu : instantané
+112|jeu : sans effet
+113|jeu : sans limite
+114|jeu : désactivé
+115|jeu : {0}
+116|utilisé
+117|désactivé
+118|activé
+119|le profil
+120|dépend du tonnage
+121|type inconnu
+122|{0} t : {1}
+123|● diffère de {0}   ↺ = y revenir
+124|Panneau du bas
+125|Onglet Damage Control
+126|Modèle de dégâts
+127|Efficacité
+128|Feu
+129|Feu et lutte contre les avaries
+130|Feu et voies d'eau
+131|Fumée du feu
+132|Vitesse d'envahissement
+133|Envahissement total
+134|Échelles des indicateurs (envahissement plus rapide à partir de leur zone rouge, 75%)
+135|Santé
+136|Intégrité de la coque
+137|Journal (journal BepInEx)
+138|Carte
+139|Déplacement
+140|Nombre d'équipes - à partir de tonnes : équipes
+141|Vitesse du navire : effet sur l'envahissement et le feu
+142|Naufrage et épave
+143|Naufrage à partir de
+144|Interrupteurs
+145|Systèmes
+146|Vitesse des équipes
+147|Temps
+148|Feu sans surveillance
+149|Visualisation (navire sélectionné)
+150|Vulnérabilité de la coque plus solide
+151|Eau
+152|Coups d'armes
+153|Types de module (modules.ini) avec leur propre intégrité (Integrity), fixée explicitement à la place de celle de modules.ini (la valeur du jeu est reprise quand un type est choisi) ; le multiplicateur Integrity ci-dessus ne s'applique pas à eux. Les ajustements propres au jeu gardent leur proportion : les types marqués « × tonnage » (ambre) croissent avec le déplacement du navire - pointez-en un pour ses valeurs finales -, et la valeur propre d'un système du navire change dans la même proportion.
+154|Navires sans Deck Points (Flooding) : l'eau par le bord de pont n'est pas calculée pour eux, les anciennes règles plus simples s'appliquent, comme pour un navire sans collider de coque. Choisis parmi les navires du jeu ou par nom de fichier ini.
+155|Navires avec leur propre multiplicateur de coque, choisis parmi les navires du jeu (ou par nom de fichier ini) : combien de fois plus solides que dans le jeu ; remplace la valeur de la classe, n'est pas multiplié par elle.
+156|Alternative Damage Control
+157|Navires civils
+158|Dispersion de la commotion
+159|Durée de la commotion
+160|Limite de contre-envahissement
+161|Contre-envahissement
+162|Lutte contre les avaries sans moteurs
+163|Les dégâts se reportent
+164|Trace de débogage
+165|Hauteurs des points de pont
+166|Vue détaillée
+167|Épuisée après
+168|Extinction
+169|Points de fumée supplémentaires
+170|Dégâts du feu à la coque
+171|Croissance du feu
+172|Feu éteint par l'eau
+173|Le feu rouvre les voies d'eau
+174|Chance de propagation du feu
+175|Feu sous l'eau
+176|Blessures par le feu
+177|Feu : une flèche à partir de
+178|Feu : deux flèches vers le bas à partir de
+179|Feu : deux flèches vers le haut à partir de
+180|Feux
+181|Corriger l'erreur de calcul de l'assiette
+182|Envahissement
+183|Grandit quand personne ne le combat
+184|Croissance ajoutée
+185|Obus de canon
+186|Masquer les cibles non vues en 3D
+187|Collider de coque (translucide)
+188|Coque de chaque navire
+189|Intégrité
+190|Garder le centre de masse
+191|Gîte
+192|Gîte, assiette et flottabilité
+193|Santé max.
+194|Vitesse max. du navire pour colmater
+195|Taux de croissance maximal
+196|Aspect du feu modéré à partir de
+197|Multiplicateurs selon la vitesse
+198|Temps de rassemblement
+199|Épuisement
+200|Épuisement pendant le colmatage
+201|Vitesse de récupération
+202|Vitesse de récupération en réserve
+203|Rouverte jusqu'à
+204|Aspect du feu violent à partir de
+205|Icônes de dégâts des navires
+206|Modèle 3D du navire
+207|Petite IA : pas de limite de vitesse
+208|Petit feu : opacité à la fin
+209|Petit feu : opacité au début
+210|Vitesse : épuisée
+211|Vitesse : reposée
+212|Vitesse : fatiguée
+213|Arrêter les bulles après
+214|Sous-marins
+215|Systèmes hors service
+216|Efficacité des équipes
+217|Fatigue des équipes
+218|Santé des équipes
+219|L'équipe arrête la propagation du feu
+220|Temps sous l'eau
+221|Fatiguée après
+222|Vitesse de transfert
+223|Assiette
+224|Assiette : longueur de référence
+225|Ajuster l'aspect
+226|Sans surveillance après
+227|Navires de guerre
+228|Entrée d'eau
+229|Eau dans le navire
+230|Eau sur le pont
+231|Eau : une flèche à partir de
+232|Eau : deux flèches à partir de
+233|Couleurs d'état des armes
+234|Travail dans le feu
+235|Chance de blessure
+236|Force de la blessure
+237|Blessures à toute intégrité de coque
+238|Blessures en réserve
+239|Traînée de l'épave
+240|Masquer
+241|Afficher
+242|Translucide
+243|Équipes DC
+244|Modèle de dégâts
+245|Débogage
+246|Effets
+247|Coque
+248|Flèches de tendance
+249|Interface utilisateur
+250|+ Ajouter un type
+251|Ajouter un navire
+252|Alternative Damage Model - Réglages
+253|Appliquer
+254|Annuler
+255|Nombre
+256|Supprimer
+257|Fatigue
+258|OK
+259|Profil
+260|Retirer : le navire reprend la valeur de la classe
+261|Retirer : le type reprend le multiplicateur ci-dessus
+262|Renommer le profil
+263|Renommer…
+264|Revenir au profil
+265|Enregistrer
+266|Enregistrer sous…
+267|Enregistrer le profil sous
+268|Profil de réglages
+269|Navires sans Deck Points - inondés selon les anciennes règles, comme sans collider de coque
+270|Navires individuels - × jeu, au lieu de la valeur de la classe
+271|Types de système individuels - Integrity, au lieu du multiplicateur ci-dessus
+272|Travail
+273|Blessures
+274|un type de module de la liste (modules.ini)
+275|taux de feu
+276|taux d'envahissement
+277|vitesse, nœuds
+278|équipes
+279|tonnes
+280|% par seconde
+281|% par seconde · 0 = désactivé
+282|% d'efficacité sans combattre le feu · 100 = désactivé
+283|% d'efficacité · sauf réparation des systèmes · 100 = désactivé
+284|% de santé par seconde
+285|% dans un côté de compartiment
+286|% du feu max. (jeu 25)
+287|% du feu max. (jeu 50)
+288|% du feu max. par seconde
+289|% de la croissance max. par contrôle de feu (10 s)
+290|% du normal
+291|% de la vitesse de fatigue
+292|% de celui du jeu, à modéré
+293|% de celui du jeu, feu à 0%
+294|% de la coque
+295|% de la plus grande voie d'eau
+296|% de la plus grande voie d'eau par seconde à feu 100% · 0 = désactivé
+297|% par contrôle de feu (10 s)
+298|% par seconde à feu 100%
+299|% par seconde par mètre sous l'eau ; 0 = désactivé
+300|navires IA < 50 m : pas de réduction de vitesse
+301|un compartiment détruit : ½ au voisin, ¼ au suivant
+302|au-dessus de 10x de compression du temps
+303|s'applique aussitôt
+304|selon la longueur : <25 m 1, <50 m 2, <75 m 3, sinon 5
+305|les coups au compartiment central blessent les équipes au repos
+306|coll_hull* seulement
+307|le feu ne se propage pas dans une section avec une équipe
+308|feu, eau, coque, moteur
+309|pour les deux ci-dessus
+310|au lieu des stades du jeu
+311|nœuds · 0 = pas de limite
+312|m · 0 = identique pour tous
+313|m/min · 0 = instantané
+314|min après le début du naufrage ; 0 = jamais
+315|min de travail
+316|pas de réparation tant qu'inondé
+317|non observé visuellement
+318|pas seulement sous 50%
+319|désactivé = la page Fatigue est masquée
+320|s
+321|s avant que l'eau par le pont commence
+322|s en réserve · 0 = désactivé
+323|s sans équipe
+324|vague jusqu'au pont de coque seule, 10 points
+325|quand le naufrage commence (le jeu le réinitialise)
+326|blessures et récupération ; désactivé = la page Health est masquée
+327|jaune : partie inopérante, rouge : tout
+328|° à la longueur de référence
+329|° · eau par le bord de pont à partir de 75%
+330|± s
+331|× (1-100 selon le déplacement)
+332|× chance
+333|× jeu
+334|× épuisement · 0 = désactivé
+335|× épuisement · à la main seulement
+336|× la résistance du jeu au mouvement horizontal d'un navire détruit
+337|× puissance de l'ogive
+338|× · 1 = 0,1% par s par m sous l'eau
+339|Ajouter un type
+340|« {0} » est un profil intégré.
+341|40 caractères au maximum.
+342|Un profil de ce nom existe déjà.
+343|Les profils intégrés ne peuvent pas être supprimés.
+344|Les profils intégrés ne peuvent pas être renommés.
+345|Interdit dans un nom : ; # [ ]
+346|Interdit dans un nom : {0}
+347|Profil introuvable.
+348|Saisissez un nom.
+349|saut de ligne
+350|interdit : {0}
+351|tabulation
+352|Perdu
+353|En train de couler
+354|Coule dans ~{0} min
+355|Stable
+356|forte gîte à bâbord
+357|forte gîte à tribord
+358|forte assiette sur l'avant
+359|forte assiette sur l'arrière
+360|gîte à bâbord
+361|gîte à tribord
+362|radar
+363|estimation radar
+364|piste radar (estimée)
+365|sonar
+366|sonar (bruit moteur)
+367|assiette sur l'avant
+368|assiette sur l'arrière
+369|visuel
+370|observation visuelle
+371|observation visuelle (non identifié)
+372|Occupé : {0} d'abord {1}
+373|Endommage la coque et les systèmes
+374|Épuisée
+375|Incendie {0}
+376|L'incendie {0} le brûle
+377|Croît de {0}%/s tout seul
+378|Touché il y a {0} s
+379|Impacts
+380|Brèches : +{0}%/s
+381|Gîte {0}° : eau sur le pont
+382|Le réduit :
+383|Léger
+384|Modéré
+385|Aucune équipe ici
+386|Rien ne l'augmente maintenant
+387|Seule la lutte contre les avaries l'éteint
+388|Bâbord
+389|L'augmente :
+390|Grave
+391|Navire trop rapide pour boucher les brèches : plus de {0} nœuds
+392|Se propage aux sections voisines
+393|Tribord
+394|Équipe en route
+395|La voie d'eau grandit : coque {0}, aucune équipe
+396|Le navire coule
+397|Fatiguée
+398|Sans surveillance {0} s : croît plus vite
+399|Soudable jusqu'à {0}
+400|Blessée
+401|une équipe
+402|en baisse
+403|plus vite : vitesse du navire
+404|l'autre bord d'abord
+405|répare
+406|coule : plus vite
+407|plus lent : vitesse du navire
+408|{0} contre-inondent : +{1}%/s
+409|{0} bouchent l'autre bord
+410|{0} pompent en bouchant : −{1}%/s
+411|{0} pompent : −{1}%/s
+412|{0} soudent
+413|Coque bâbord {0}
+414|Coque tribord {0}
+415|Assiette {0}° sur l'avant : eau sur le pont
+416|Assiette {0}° sur l'arrière : eau sur le pont
+417|Une équipe de lutte contre les avaries libre, en réserve
+418|Moteur hors service : efficacité LCA {0}%
+419|Incendies :
+420|Prévision :
+421|Impacts sur le navire : {0}
+422|In Transfer
+423|En réserve
+424|Aucune
+425|Pas encore
+426|Au repos
+427|explosion
+428|bâbord
+429|section {0}
+430|tribord
+431|arrêté par le blindage
+432|la réserve
+433|Le bord du pont touche la mer à une gîte de {0}° · assiette {1}° (zones rouges)
+434|Gîte 45° · Assiette 8° (celles du jeu)
+435|Limite de gîte {0}° · Limite d'assiette {1}°
+436|Afficher les niveaux de pont en 3D
+437|Sous-marin : la gîte et l'assiette n'inondent rien
+438|Eau {0} · coule à {1}%
+439|inonde plus vite depuis les zones rouges
+440|En réparation
+441|En réparation : +{0} par minute (+{1} de son intégrité)
+442|Irréparable
+443|Dégâts : {0}, intégrité {1} / {2} ({3})
+444|Détruit : irréparable
+445|Niveau {0} dans {1}
+446|Aucune équipe de lutte contre les avaries dans la section
+447|Réparé autant que possible
+448|Système
+449|Le jeu permet de le réparer jusqu'à {0} (un niveau de mieux que le pire atteint)
+450|La section est inondée : pas de réparation
+451|Attend une équipe
+452|détruit
+453|léger
+454|moyen
+455|aucun
+456|hors service
+457|grave
+458|Une section = compartiment bâbord + tribord :
+459|Arrière  41% / 47%  - coque, bâbord / tribord
+460|Paramètres d'Alternative Damage Model
+461|Auto
+462|LCA auto désactivée : cliquez sur une équipe pour lui donner une tâche (un ! rouge = en a une).
+463|Retour au travail dans {0}
+464|À la main : {0}
+465|Cancel Transfer
+466|Clic : annuler
+467|Clic : tâche
+468|Clic : tâche / déplacer
+469|DC Priority
+470|DC Priority : ce que toutes les équipes font en premier.
+471|DC team
+472|Damage State
+473|Désactivé
+474|Efficacité {0}%
+475|Activé
+476|Moteur hors service : {0}% d'efficacité (sauf réparation des systèmes)
+477|Fatigue {0}%
+478|Incendie  64%  - % de son maximum
+479|Inondation  23% / 5%  - eau à l'intérieur
+480|Roue dentée à côté de (i) : paramètres et profils.
+481|Soigné dans {0}
+482|Santé {0}%
+483|Ici {0}
+484|Limit Speed
+485|Move to section
+486|Oui : le jeu réduit la vitesse du navire pendant l'inondation (10 nœuds avec brèches ouvertes, 10-25 nœuds selon l'eau dans les sections).\nNon : pas de réduction, le navire garde la vitesse ordonnée - l'eau entre plus vite et les incendies brûlent plus fort.
+487|Une icône = une équipe de lutte contre les avaries :
+488|Pointez LIST / TRIM / LEVEL : eau par compartiment.
+489|Pointez une flèche : pourquoi la valeur change.
+490|Flèche rouge : pire, verte : mieux, deux : vite.
+491|Tâche à la main
+492|Là-bas dans {0}
+493|To Reserve
+494|Ce que les équipes de lutte contre les avaries font en premier, sur tout le navire.
+495|sonnée, va en réserve
+496|sonnée, va en réserve (In Transfer)
+497|sonnée, en réserve
+498|contre-inondation
+499|épuisée
+500|lutte contre l'incendie
+501|libre, en réserve
+502|se prépare
+503|ici
+504|perdue
+505|jamais
+506|pas de tâche
+507|rien à faire
+508|en déplacement (In Transfer)
+509|bouche une voie d'eau
+510|pompe l'eau
+511|répare les systèmes
+512|réserve
+513|repos {0}
+514|vitesse trop élevée
+515|fatiguée
+516|soude la coque
+517|blessée : plus lente
+518|{0} restant
+519|Auto : Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. L'incendie ou la voie d'eau qui croît le plus vite d'abord.
+520|DC Priority : Fire - les équipes traitent les menaces dans cet ordre : Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
+521|DC Priority : Flooding - les équipes traitent les menaces dans cet ordre : Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
+522|Fire first : Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. La LCA auto envoie les équipes libres d'abord au pire incendie.
+523|Flooding first : Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. La LCA auto envoie les équipes libres aux voies d'eau, puis à l'eau.
+524|Attitude : {0}
+525|Contact
+526|Contact {0}
+527|Damage State — {0}
+528|Moteur : presque arrêté
+529|Moteur : sans propulsion
+530|Moteur : une partie de la propulsion perdue
+531|Moteur : lent
+532|Incendie : {0}
+533|Inondation : {0}
+534|Coque : {0}
+535|Aucun dégât visible
+536|Pas de données : hors de vue directe
+537|Va bientôt couler
+538|Source : {0}
+539|se disloque
+540|critique
+541|endommagé
+542|très endommagé
+543|important
+544|mineur
+545|modéré
+546|léger
+547|légèrement endommagé
+548|Bord du pont {0} m sous l'eau depuis {1} sur {2} s
+549|Bord du pont {0} m sous l'eau : +{1}%/s
+550|Débordement depuis {0} : +{1}%/s
+551|Inclinaison vers la mer : gîte {0}° bb / {1}° tb · assiette {2}° arrière / {3}° avant
+552|plein : passe à {0}
+553|Bâbord {0}
+554|Tribord {0}
+555|% par impact avec les Max health, Wound chance et Wound strength actuels (la chance est limitée à 100). En dessous : la blessure qu'une équipe reçoit en moyenne, en % de sa santé
+556|Munitions
+557|Chance qu'un impact blesse une équipe
+558|Déplacement, t
+559|Pas encore de données du jeu.
+560|Puissance
+561|Santé de l'équipe, HP
+562|bouchent (arrête la voie d'eau)
+563|incendie
+564|luttent contre
+565|éteignent
+566|voie d'eau
+567|Langue
+568|Langue du mod
+569|s'applique à la réouverture de cette fenêtre
+570|Langue du jeu
+571|Multiplicateur de la chance qu'un impact sur le compartiment central blesse une équipe au repos dans la réserve ; il s'ajoute à Wound chance (0.5 = deux fois moins probable, 0 = les équipes au repos ne sont jamais blessées). Ne fonctionne qu'avec Wounds in reserve.
+572|Chance de blessure en réserve
+573|jeu : pas d'équivalent
+574|Revenir à la valeur du profil Base Game
+575|Revenir à la valeur par défaut

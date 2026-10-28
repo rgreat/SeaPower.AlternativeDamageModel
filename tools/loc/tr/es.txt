@@ -1,0 +1,575 @@
+1|Una sección en llamas reabre sus vías de agua taponadas: % de la mayor vía de agua de la sección por segundo con fuego al 100% (menos con un fuego menor). 0 = desactivado.
+2|Un fuego no se propaga a un compartimento donde hay un equipo de control de averías (lo detiene en la puerta). Desactivado = como en el juego.
+3|Un fuego que ningún equipo de control de averías combate durante un tiempo crece cada vez más rápido: en cada comprobación de fuego (FireCheckTime, 10 s) su ritmo de crecimiento sube como si la sección fuera alcanzada de nuevo. Desactivado = como en el juego (un fuego solo crece por impactos).
+4|Una sección totalmente inundada (agua por encima del 75%): sus sistemas pasan a daño grave, quedan inoperativos y no pueden repararse mientras siga inundada.
+5|Un impacto en un compartimento ya destruido no se pierde: la mitad del daño pasa al compartimento vecino (del mismo lado, hacia el centro del barco); si también está destruido, un cuarto pasa al siguiente. El excedente de un impacto que destruye un compartimento se reparte igual.
+6|Un impacto en una sección puede herir a sus equipos con cualquier integridad. Desactivado = como en el juego: solo una sección alcanzada con integridad inferior al 50% puede dejar fuera a un equipo, con probabilidad daño x (1 - integridad), como máximo 20%. Activado = cada impacto en una sección con equipos recibe la tirada de herida (véase Wound chance); un equipo herido va a la reserva.
+7|Una vía de agua reabierta por el fuego vuelve a crecer hasta este % de la mayor vía de agua que ha tenido la sección.
+8|Una sección bajo el mar apaga su fuego: el fuego pierde este % de su máximo por segundo por cada metro que el borde de cubierta de la sección esté bajo el agua (1 = tantos % por segundo como metros). Necesita los puntos de cubierta del barco (como la inundación por cubierta). 0 = desactivado.
+9|Un equipo no puede taponar agujeros mientras el barco vaya más rápido que esto, en nudos. 0 = sin límite.
+10|Un equipo en una sección en llamas pierde esta parte de su salud completa por segundo con fuego al 100%, salvo que al menos un equipo de la sección combata el fuego (menos con un fuego menor).
+11|Un equipo en la reserva recupera esta parte de su salud completa por segundo.
+12|Los barcos de la IA (no los propios) de menos de 50 m no se frenan por la inundación: el recorte de velocidad del juego por agujeros y agua está desactivado para ellos (siguen adelante, como kamikazes). El botón «Limit Speed» de tus barcos es aparte.
+13|Probabilidad de que un fuego grave (desde el 50% de su máximo) se propague a las secciones vecinas, en % por comprobación de fuego: el juego comprueba cada FireCheckTime (10 s) con una probabilidad del 0,0133% - casi nunca. 0.0133 = como en el juego; 1.0 = 1% por comprobación (una vez cada 17 minutos de fuego grave), 0 = nunca.
+14|Colorea los botones de armas del panel inferior de la unidad seleccionada según el estado de sus sistemas de armas: todo funciona - color del juego, parte de ese tipo inoperativa - amarillo, todo inoperativo - rojo.
+15|Conmoción: un equipo herido por un arma (en una sección alcanzada o en la reserva) queda conmocionado estos segundos después de estar en la reserva; Auto DC no lo devuelve al trabajo hasta que pase la conmoción. Corre junto a la salud del equipo, que tiene su propia recuperación. 0 = sin conmoción.
+16|Contrainundación (tarea de un equipo dada a mano): con qué rapidez se deja entrar agua en un compartimento, como múltiplo de la velocidad de achique. El agua va al lado opuesto a la escora o, con el barco derecho, al lado con menos agua.
+17|La contrainundación deja entrar agua en un lado de un compartimento solo hasta este % (el límite propio del compartimento en el juego también se aplica).
+18|Eficacia del control de averías mientras el motor del barco (el módulo Engine en uso, no la propulsión) está fuera de servicio: eficacia de los equipos en % (fuegos, vías de agua, agua, casco; la reparación de sistemas no se ve afectada). Se muestra en las pistas de los equipos y en la línea Forecast de la pestaña Damage Control. 100 = desactivado.
+19|Los equipos de control de averías en una sección con fuego que no lo combaten trabajan a este % de su eficacia. 100 = desactivado.
+20|Equipos de control de averías de un barco civil por desplazamiento: toneladas=equipos.
+21|Equipos de control de averías de un submarino por desplazamiento: toneladas=equipos.
+22|Equipos de control de averías de un buque de guerra de superficie por desplazamiento: toneladas=equipos, desde esas toneladas. NumberOfDCTeams en el ini de un barco sigue fijando su propio número.
+23|Depuración: dibuja los colliders solo del casco (coll_hull*) del barco seleccionado como una superposición translúcida más una malla brillante de sus triángulos reales, para compararlos directamente con el modelo 3D visible.
+24|Depuración: para el barco seleccionado en el panel Unit Status, dibuja una línea desde la ola actual hasta la altura estimada de cubierta en la línea central de proa y popa del casco, y en un par babor/estribor por sección del modelo de daños (su propio punto central en la eslora) - solo colliders del casco, no torretas, mástiles ni otros submodelos. Verde: el punto queda por encima de la ola; rojo: la ola lo cubre.
+25|Depuración: cómo se dibuja el modelo 3D del barco seleccionado (submodelos incluidos), para ver ShowDeckCorners/ShowHullCollider: Show (como en el juego), Translucent (70% transparente) o Hide.
+26|Diagnóstico: mientras un barco escora o cabecea de forma notable, escribe en el log de BepInEx cada 2 segundos: escora, asiento, altura, flotabilidad frente a peso, volumen sumergido, agua en el barco y si se hunde / ha volcado.
+27|Diagnóstico: escribe en el log de BepInEx cada fuego iniciado por un impacto y cada cambio de etapa de un fuego (barco, compartimento, tiempo de misión, gravedad y crecimiento en % del máximo del compartimento, equipos de control de averías allí). Funciona también con el mod desactivado en el menú Mods, para comparar con el juego.
+28|No dibuja en la vista 3D los objetivos de otros bandos que no se observan visualmente (conocidos solo por radar, sonar o datos). Tus unidades se dibujan siempre.
+29|Activa el registro detallado y BepInEx/AlternativeDamageModel.trace.txt.
+30|El fuego se ve según su fuerza (parte de su máximo) en lugar de las etapas del juego: pequeño, moderado desde SmokeModerateFrom, grave desde SmokeSevereFrom (juego: 25% / 50%); el humo del fuego pequeño crece de SmokeStartOpacity a SmokeEndOpacity. Solo el aspecto: el daño y la propagación siguen siendo los del juego. Desactivado = como en el juego.
+31|Fila de fuego: una flecha cuando el fuego cambia más rápido que esto, en % de su máximo por segundo.
+32|Fila de fuego: dos flechas hacia abajo cuando el fuego se apaga más rápido que esto, en % de su máximo por segundo.
+33|Fila de fuego: dos flechas hacia arriba cuando el fuego crece más rápido que esto, en % de su máximo por segundo.
+34|Corrige un error del propio juego: por encima de 10x de compresión de tiempo, el asiento de un barco crece con la compresión (una lancha de 25 m a 47 nudos: 2,6 grados hasta 10x, 9 a 100x), suficiente para hundir un barco corto, rápido e ileso. El juego mueve un barco un paso por tick de física, y por encima de 10x ese paso se estira mientras el par de flotabilidad se toma respecto al centro de masas de antes del paso. Activado: ese paso extra se omite, de modo que el asiento se queda como a 10x con cualquier compresión; hasta 10x no cambia nada. Solo barcos de superficie. Desactivado: el comportamiento del juego.
+35|Fila de inundación y plan de inundación: una flecha cuando el nivel de agua cambia más rápido que esto, en % del compartimento por segundo.
+36|Fila de inundación y plan de inundación: dos flechas cuando el nivel de agua cambia más rápido que esto, en % del compartimento por segundo.
+37|Cuatro iconos pequeños bajo el icono de un barco en el mapa (también el tuyo): fuego (la fuerza total de los fuegos), agua, casco (clasificado como en el panel Damage Control) y motor; amarillo / naranja / rojo según la gravedad, y un icono de mapa más gris cuando el barco va a hundirse (en 20 minutos según la tendencia de inundación / casco). Un contacto: fuego, agua, casco y motor solo a la vista directa; por sonar - solo el motor (amarillo: parte perdida, rojo: nada funciona); por radar - una estimación para un barco alcanzado en los últimos 10 minutos, marcada con '?' (amarillo: 10 nudos o menos, rojo: menos de 3); nada por ESM o sin contacto, y nada para un barco hundido. La línea Fires de la pestaña Damage Control usa la misma fuerza total. El Unit Status de un contacto muestra una pestaña Damage State con la misma información en palabras.
+38|Salud de un equipo de control de averías, un multiplicador de su máximo, que es de 1..100 puntos según el desplazamiento del barco (100 = tripulación de 1000 o más, unas 30000 t; 1000 t = 24, 10000 t = 101). Se muestra en la pista del equipo como parte del total. Un equipo a 0 está muerto. Los equipos heridos trabajan más despacio (tanto como su salud, no menos del 25%). 0 = los equipos nunca resultan heridos (un impacto aún saca a un equipo de su sección).
+39|Con qué rapidez un fuego devora el casco de su sección (integridad de sus dos compartimentos). 1.0 = como en el juego. El daño a los sistemas de la sección no cambia.
+40|Con qué rapidez un equipo en la reserva se libra de la fatiga, % de la velocidad con que se acumula trabajando. 100 = igual de rápido; 50 = el descanso dura el doble que el trabajo.
+41|Con qué rapidez camina un equipo por el barco, metros por minuto (la reserva está en el centro). Un traslado = MusterTime + el camino, redondeado a 10 s. 0 = sin tiempo de camino; con MusterTime también 0, los equipos se mueven al instante y Auto DC es el del juego.
+42|Con qué rapidez los equipos de control de averías achican agua. 1.0 = como en el juego.
+43|Con qué rapidez los equipos de control de averías apagan fuegos. 1.0 = como en el juego.
+44|Con qué rapidez crecen los fuegos por sí solos, entre impactos. 1.0 = como en el juego, 2.0 = el doble de rápido, 0.5 = la mitad.
+45|Con qué rapidez entra agua por los agujeros de un compartimento. 1.0 = como en el juego.
+46|Cuántas veces más fuerte es el casco de los barcos civiles (archivos ini civ_*) que en el juego. 1.0 = como en el juego.
+47|Cuántas veces más fuerte es el casco de los submarinos que en el juego. 1.0 = como en el juego.
+48|Cuántas veces más fuerte es el casco de los buques de guerra de superficie que en el juego. 1.0 = como en el juego, 2.0 = el doble de fuerte. Los barcos individuales reciben su propio valor en la sección [HullIntegrityPerShip], una línea por barco: nombre del archivo ini = multiplicador (p. ej. usn_bb_iowa = 3.0).
+49|Cuánto hace un equipo (taponar, combatir fuego, achicar, reparar casco y sistemas) en comparación con el juego. 1.0 = como en el juego.
+50|Cuánto sigue la escora a la inundación desigual. La diferencia de agua entre babor y estribor de una sección (que escora el barco) se multiplica por esto; se mantiene la media de la sección, de modo que el calado y el asiento no cambian por ello. 1 = como en el juego, 2 = el doble de escora con la misma diferencia.
+51|Cómo la velocidad del barco cambia el crecimiento de los fuegos y el agua que entra (por agujeros y por el borde de cubierta): nudos=multiplicador de inundación/fuego, una línea quebrada por los puntos. La velocidad se toma en valor absoluto; por debajo del primer punto y por encima del último valen los multiplicadores de los extremos.
+52|Idioma de los textos del mod: en, ru, cn, de, es, fr, ko, ja o vn. Vacío = el idioma del juego. Los textos están en la carpeta lang del mod (lang/<código>.ini); un texto que falta se muestra en inglés.
+53|Escora, grados: la escala completa del indicador LIST. Desde su zona roja (75%) el agua pasa por el borde de cubierta e inunda rápido todos los compartimentos del lado bajo (juego: a 45). No hunde el barco por sí sola; el vuelco a 70 grados sí, como en el juego.
+54|Metros. El límite de asiento depende de la eslora: cuanto más largo el barco, antes se hunde la proa o la popa con el mismo ángulo (tan límite = tan TrimLimit x (TrimReferenceLength / eslora)^0.442; con 5.2 a 100: 30 m 8.8, 60 m 6.5, 150 m 4.4, 300 m 3.2 grados). 0 = TrimLimit para todos los barcos (como en el juego).
+55|Minutos (tiempo de juego, la compresión cuenta) tras empezar a hundirse un barco, cuando su efecto de burbujas de hundimiento deja de emitir (el juego nunca lo detiene mientras exista el naufragio). Ahorra recursos en misiones largas. 0 = nunca, como en el juego.
+56|Minutos de trabajo en una sección hasta que un equipo se cansa (primer nivel); su velocidad cae según los ajustes Speed. La reserva quita la fatiga tan rápido como el trabajo la acumula. Se muestra en la pista del equipo; el icono de un equipo cansado se resalta. 0 = sin fatiga.
+57|Minutos de trabajo hasta que un equipo se agota, el segundo nivel de fatiga (como máximo: la fatiga deja de crecer ahí). No más que «Tired after» = sin segundo nivel.
+58|Multiplicador de la probabilidad de que un impacto hiera a un equipo (0.5 = la mitad de probable, 2 = el doble; el resultado es como máximo 100%). Paso 1 (solo mientras Wounds at any hull integrity esté desactivado) - el juego decide si un impacto saca a un equipo de su sección (solo una sección alcanzada con integridad inferior al 50%: daño x (1 - integridad), como máximo 20%). Paso 2 - el mod decide la herida: la probabilidad crece mucho con la potencia de la cabeza de guerra (aprox. potencia^1.8) y cae con la salud del equipo (aprox. salud^1.2) - cabeza 2.2 contra salud 2: cerca del 10%, contra 100: 0,1%; cabeza 82 contra 100: cerca del 75%; muy por encima, más del 100%. Se multiplica por este multiplicador y se limita a 100% (con Wounds at any hull integrity desactivado, un equipo no herido igualmente deja la sección). Una cabeza más potente sube la probabilidad. Un barco mayor la baja: sus equipos son más duros (más salud) y sus compartimentos mayores, así que un impacto cae con menos probabilidad donde está el equipo. Incluso el impacto más débil tiene una pequeña probabilidad. Ejemplo, cabeza 25: contra salud 12 cerca del 100%, contra 29 cerca del 37%, contra 100 cerca del 9%. 0 = nunca heridos.
+59|Multiplicador de la fuerza de una herida: como máximo la potencia de la cabeza de guerra de la munición (0..196, la mitad de la munición del juego por debajo de 25) x esto, en puntos de la salud del equipo (1..100 según desplazamiento). Un equipo herido va a la reserva.
+60|Número de puntos de fuego y humo según la eslora en lugar de los tres del juego: menos de 25 m 1, menos de 50 m 2, menos de 75 m 3, desde 75 m 5 (uno por sección, cada uno muestra el fuego de su sección). Para barcos que aparezcan a partir de ahora.
+61|Dispersión aleatoria del tiempo de conmoción, segundos en cada sentido: HealTime 90 con 30 = de 60 a 120 s, como en el juego. 0 = siempre HealTime.
+62|Resistencia al movimiento HORIZONTAL de un barco destruido, multiplicando la resistencia lineal del juego (25 para casi todos los barcos): el naufragio pierde antes el rumbo. 1 = como en el juego. El hundimiento (movimiento vertical) y el giro (vuelco) no se frenan.
+63|Segundos (tiempo de juego, la compresión cuenta) que el punto de cubierta de un compartimento debe seguir bajo el mar seguidos antes de que empiece a entrar agua por la cubierta (véase DeckFloodingSpeed). Un punto que emerge reinicia el temporizador. Por defecto 3.
+64|Segundos que un equipo necesita para prepararse antes de cada traslado. Cancelar un traslado mientras aún se prepara no cuesta tiempo.
+65|Perfil de ajustes en uso, elegido en el juego: Unit Status -> Damage Control -> el engranaje junto a (i). Este archivo contiene solo los ajustes generales ([General], [UI]); los valores del modelo de daños están en el archivo del perfil: los integrados en la carpeta Profiles del mod (solo lectura), los tuyos en StreamingAssets/user/AdvancedDamageControl/Profiles. Cambiar un perfil integrado en el juego lo guarda como Custom. Los cambios en el archivo del perfil en uso, o en este nombre, se recogen mientras el juego se ejecuta.
+66|Barcos (nombres de archivos ini, separados por comas; se editan en la ventana de ajustes, pestaña Flooding) que no reciben Deck Points: se inundan con las reglas antiguas, más simples, como un barco sin collider de casco.
+67|Fuego pequeño: opacidad del humo de las partículas nuevas al 0% del máximo del fuego, % del juego.
+68|Fuego pequeño: opacidad del humo de las partículas nuevas en SmokeModerateFrom, % del juego; entre ambos, de forma uniforme según la fuerza del fuego.
+69|Fatiga de equipos activada: trabajar la acumula, la reserva la quita, un equipo cansado trabaja a media velocidad. Desactivado = sin fatiga; sus ajustes se ocultan.
+70|Salud de equipos activada: heridas por impactos y fuegos, recuperación en la reserva, los equipos heridos trabajan más despacio. Desactivado = reglas del juego (un impacto deja fuera a un equipo un tiempo, sin heridas); los demás ajustes de salud se ocultan.
+71|La vista detallada de Unit Status -> Damage Control (la pantalla del mod): integridad del casco por lado junto al nombre de cada sección, un icono por equipo de control de averías (su tarea; tareas y movimientos a mano con Auto DC desactivado), agua y fuego en % con flechas de tendencia, DC Priority, las tarjetas de equipo, los indicadores LIST / TRIM / LEVEL con el plan de inundación, pistas, la leyenda (i). Desactivado: la vista propia del juego (el engranaje de la ventana de ajustes permanece).
+72|El modelo de daños y el control de averías del mod: resistencia del casco y de los sistemas, efectos secundarios, velocidades de fuego e inundación, propagación del fuego, equipos de control de averías (números, eficacia, traslados a pie, bajas, el Auto DC optimizado, mover equipos sueltos), límites de escora / asiento / hundimiento. DC Priority y las tareas dadas a mano pertenecen a la vista detallada y permanecen. Desactivado: el daño y el control de averías propios del juego (la vista de la pestaña Damage Control permanece). Se puede cambiar en cualquier momento: los barcos en el mar lo siguen al instante (resistencia del casco y número de equipos vuelven a los del juego o del mod; los equipos en marcha llegan, los que estaban fuera se recuperan).
+73|Aspecto del fuego moderado desde esta fuerza, % del máximo del fuego (juego: 25%).
+74|Aspecto del fuego grave desde esta fuerza, % del máximo del fuego (juego: 50%).
+75|Los equipos descansan en el compartimento central: un impacto en él puede herir a un equipo que espera en la reserva (la probabilidad es la del juego para un equipo dejado fuera en una sección alcanzada: daño x (1 - integridad), solo con integridad inferior al 50%). Un equipo herido en reposo se queda en la reserva.
+76|Asiento, grados, para un barco de TrimReferenceLength de eslora: la escala completa del indicador TRIM. Desde su zona roja (75%) el extremo que se hunde se inunda rápido: en cada lado su compartimento más externo, cuando está lleno el siguiente, y así. El barco no se hunde de inmediato, a diferencia del juego (8 grados con una sección inundada).
+77|Fuego desatendido: cuánto sube el ritmo de crecimiento en cada comprobación de fuego, en % del ritmo máximo de crecimiento del fuego (un impacto normal añade 0,1-0,8%).
+78|Fuego desatendido: su ritmo de crecimiento solo se eleva hasta esto, en % del máximo del fuego por segundo.
+79|Fuego desatendido: segundos sin equipo que combata el fuego (desde que empezó o la última vez que un equipo lo combatió) antes de que empiece a crecer más rápido.
+80|Vulnerabilidad del casco a la inundación por agujeros hechos por impactos (todos los tipos de arma). 1.0 = cada agujero deja entrar tanta agua como en el juego, y los agujeros sobre la línea de flotación empiezan a gotear tras el mismo daño que en el juego (el casco más fuerte no frena el agua). 2.0 = el doble de agua; 0.5 = la mitad.
+81|Vulnerabilidad del casco a los proyectiles de cañón (misiles, torpedos y bombas no se ven afectados). Los proyectiles de cañón se llevan una parte del límite de hundimiento de un barco que depende del tamaño del casco. 1.0 = cada proyectil se lleva tanto como en el juego; el casco más fuerte simplemente sobrevive a más impactos. 2.0 = los proyectiles golpean como si el casco fuera la mitad de grande; 0.5 = como si fuera el doble (los proyectiles medios pueden dejar de dañar a barcos grandes).
+82|Vulnerabilidad del barco a los fuegos iniciados por impactos (todos los tipos de arma). El casco más fuerte también frena los fuegos en la misma proporción: con Warships = 5.0 un impacto inicia un fuego 5 veces más débil (relativo al compartimento) que en el juego. 1.0 = este comportamiento normal del mod. 2.0 = fuegos el doble de fuertes que crecen el doble de rápido; 0.5 = la mitad de fuertes. 1.0 con todos los multiplicadores de casco 1.0 = como en el juego.
+83|El agua en una sección limita su fuego: no puede ser más fuerte que (100 - % de agua de la sección) del máximo. Un fuego más fuerte baja a ese límite a este % del máximo por segundo. 0 = desactivado.
+84|Agua en todo el barco, % (la media de sus compartimentos), a partir de la cual se hunde, como en el juego (juego: 40; los submarinos mantienen los 50 del juego). También la escala completa del indicador LEVEL.
+85|Agua por el borde de cubierta, un multiplicador. Para barcos con puntos de cubierta conocidos (el algoritmo completo de collider de casco): cuando el punto de cubierta de un compartimento ha estado bajo el mar DeckFloodingDelay segundos seguidos (tiempo de juego, la compresión cuenta), el compartimento recibe agua que el control de averías no puede detener - 1.0 = 0,1% de su volumen por segundo por metro de inmersión (más hondo = más rápido); un compartimento lleno pasa el agua al vecino no lleno más bajo, y sigue por la cadena. Para otros barcos: con qué rapidez el extremo que se hunde (por asiento más allá de su límite) o el lado bajo (por escora más allá de su límite) recibe agua por el borde de cubierta - mecánica propia del mod, no del juego. 2.0 = el doble de rápido, 0.5 = la mitad, 0 = desactivado.
+86|Cuando un barco empieza a hundirse, el juego pone su centro de masas en el origen del casco ((0, 1, 0) si ha volcado): el centro de masas salta, y con él todo par sobre el casco. Activado = el centro de masas se queda donde estaba. Desactivado = como en el juego.
+87|Mientras un equipo tapona los agujeros de un compartimento (la tarea Flooding Rate), a la vez achica agua de él: esta parte de la velocidad de achique (0.5 = la mitad, 0 = desactivado). Un equipo ordenado a contrainundar achica solo del lado donde eso no empeora la escora ni el asiento.
+88|Velocidad de trabajo de un equipo descansado, % (el punto de partida de la curva de fatiga). La velocidad cae en línea recta desde aquí hasta el nivel de cansado.
+89|Velocidad de trabajo de un equipo que acaba de cansarse, %. Entre los niveles de cansado y agotado la velocidad cae en línea recta.
+90|Velocidad de trabajo de un equipo agotado, %; se queda ahí mientras el equipo siga trabajando.
+91|Escribe una línea en el log de BepInEx por cada barco que entra en una misión: su integridad de casco en el juego y con el mod.
+92|+ Añadir barco
+93|Volver al valor del juego
+94|¿Eliminar el perfil «{0}»?
+95|Arrastra para cambiar el tamaño
+96|Integridad en un buque de guerra de {0}.
+97|Su archivo se elimina. Si es el perfil en uso, pasa a usarse Advanced.
+98|Un punto más
+99|Un escalón más: más equipos desde más toneladas
+100|Señala un ajuste para ver qué hace.
+101|Quitar el último punto
+102|Quitar el último escalón
+103|Quitar: el barco vuelve a tener Deck Points
+104|Guardado en {0}
+105|un número positivo
+106|un barco de la lista o el nombre de su archivo ini
+107|basado en {0}
+108|por defecto: {0}
+109|editado
+110|desde {0} t
+111|juego: instantáneo
+112|juego: sin efecto
+113|juego: sin límite
+114|juego: desactivado
+115|juego: {0}
+116|en uso
+117|desactivado
+118|activado
+119|el perfil
+120|depende del tonelaje
+121|tipo desconocido
+122|{0} t: {1}
+123|● difiere de {0}   ↺ = volver a él
+124|Panel inferior
+125|Pestaña Damage Control
+126|Modelo de daños
+127|Eficacia
+128|Fuego
+129|Fuego y control de averías
+130|Fuego y vías de agua
+131|Humo del fuego
+132|Velocidad de inundación
+133|Inundación total
+134|Escalas de indicadores (inundación más rápida desde su zona roja, 75%)
+135|Salud
+136|Integridad del casco
+137|Registro (log de BepInEx)
+138|Mapa
+139|Movimiento
+140|Número de equipos - desde toneladas: equipos
+141|Velocidad del barco: efecto en inundación y fuego
+142|Hundimiento y naufragio
+143|Hundimiento desde
+144|Interruptores
+145|Sistemas
+146|Velocidad de los equipos
+147|Tiempo
+148|Fuego desatendido
+149|Visualización (barco seleccionado)
+150|Vulnerabilidad del casco más fuerte
+151|Agua
+152|Impactos de armas
+153|Tipos de módulo (modules.ini) con su propia integridad (Integrity), fijada explícitamente en lugar de la de modules.ini (al elegir un tipo se pone el valor del juego); el multiplicador de Integrity de arriba no se aplica a ellos. Los ajustes propios del juego mantienen su proporción: los tipos marcados «× tonelaje» (ámbar) crecen con el desplazamiento del barco - señala uno para ver sus valores finales -, y el valor propio de un sistema del barco cambia en la misma proporción.
+154|Barcos sin Deck Points (Flooding): para ellos no se calcula el agua sobre el borde de cubierta, se usan las reglas antiguas más simples, como para un barco sin collider de casco. Se eligen entre los barcos del juego o por nombre de archivo ini.
+155|Barcos con su propio multiplicador de casco, elegidos entre los barcos del juego (o por nombre de archivo ini): cuántas veces más fuertes que en el juego; sustituye el valor de la clase, no se multiplica por él.
+156|Alternative Damage Control
+157|Barcos civiles
+158|Dispersión de la conmoción
+159|Tiempo de conmoción
+160|Límite de contrainundación
+161|Contrainundación
+162|Control de averías sin motores
+163|El daño se traslada
+164|Traza de depuración
+165|Alturas de los puntos de cubierta
+166|Vista detallada
+167|Agotado tras
+168|Extinción
+169|Puntos de humo adicionales
+170|Daño del fuego al casco
+171|Crecimiento del fuego
+172|Fuego apagado por agua
+173|El fuego reabre vías de agua
+174|Probabilidad de propagación del fuego
+175|Fuego bajo el agua
+176|Heridas por fuego
+177|Fuego: una flecha desde
+178|Fuego: dos flechas abajo desde
+179|Fuego: dos flechas arriba desde
+180|Fuegos
+181|Corregir error de cálculo del asiento
+182|Inundación
+183|Crece cuando nadie lo combate
+184|Crecimiento añadido
+185|Proyectiles de cañón
+186|Ocultar objetivos no vistos en 3D
+187|Collider del casco (translúcido)
+188|Casco de cada barco
+189|Integridad
+190|Mantener centro de masas
+191|Escora
+192|Escora, asiento y flotabilidad
+193|Salud máx.
+194|Vel. máx. del barco para taponar agujeros
+195|Ritmo máximo de crecimiento
+196|Aspecto de fuego moderado desde
+197|Multiplicadores por velocidad
+198|Tiempo de reunión
+199|Achique
+200|Achique al taponar agujeros
+201|Velocidad de recuperación
+202|Velocidad de recuperación en reserva
+203|Reabierta hasta
+204|Aspecto de fuego grave desde
+205|Iconos de daños de los barcos
+206|Modelo 3D del barco
+207|IA pequeña: sin límite de velocidad
+208|Fuego pequeño: opacidad al final
+209|Fuego pequeño: opacidad al inicio
+210|Velocidad: agotado
+211|Velocidad: descansado
+212|Velocidad: cansado
+213|Detener burbujas tras
+214|Submarinos
+215|Sistemas fuera de servicio
+216|Eficacia de los equipos
+217|Fatiga de los equipos
+218|Salud de los equipos
+219|El equipo detiene la propagación del fuego
+220|Tiempo bajo el agua
+221|Cansado tras
+222|Velocidad de traslado
+223|Asiento
+224|Asiento: eslora de referencia
+225|Ajustar el aspecto
+226|Desatendido tras
+227|Buques de guerra
+228|Entrada de agua
+229|Agua en el barco
+230|Agua sobre la cubierta
+231|Agua: una flecha desde
+232|Agua: dos flechas desde
+233|Colores del estado de armas
+234|Trabajo entre el fuego
+235|Probabilidad de herida
+236|Fuerza de la herida
+237|Heridas con cualquier integridad de casco
+238|Heridas en la reserva
+239|Resistencia del naufragio
+240|Ocultar
+241|Mostrar
+242|Translúcido
+243|Equipos DC
+244|Modelo de daños
+245|Depuración
+246|Efectos
+247|Casco
+248|Flechas de tendencia
+249|Interfaz de usuario
+250|+ Añadir tipo
+251|Añadir barco
+252|Alternative Damage Model - Ajustes
+253|Aplicar
+254|Cancelar
+255|Número
+256|Eliminar
+257|Fatiga
+258|OK
+259|Perfil
+260|Quitar: el barco vuelve al valor de la clase
+261|Quitar: el tipo vuelve al multiplicador de arriba
+262|Renombrar perfil
+263|Renombrar…
+264|Restablecer al perfil
+265|Guardar
+266|Guardar como…
+267|Guardar perfil como
+268|Perfil de ajustes
+269|Barcos sin Deck Points - inundados con las reglas antiguas, como sin collider de casco
+270|Barcos individuales - × juego, en lugar del valor de la clase
+271|Tipos de sistema individuales - Integrity, en lugar del multiplicador de arriba
+272|Trabajo
+273|Heridas
+274|un tipo de módulo de la lista (modules.ini)
+275|ritmo de fuego
+276|ritmo de inundación
+277|velocidad, nudos
+278|equipos
+279|toneladas
+280|% por segundo
+281|% por segundo · 0 = desactivado
+282|% de eficacia sin combatir el fuego · 100 = desactivado
+283|% de eficacia · salvo reparación de sistemas · 100 = desactivado
+284|% de salud por segundo
+285|% en un lado del compartimento
+286|% del fuego máx. (juego 25)
+287|% del fuego máx. (juego 50)
+288|% del fuego máx. por segundo
+289|% del crecimiento máx. por comprobación de fuego (10 s)
+290|% de lo normal
+291|% de la velocidad de fatiga
+292|% del juego, en moderado
+293|% del juego, fuego al 0%
+294|% del casco
+295|% de la mayor vía de agua
+296|% de la mayor vía de agua por segundo con fuego al 100% · 0 = desactivado
+297|% por comprobación de fuego (10 s)
+298|% por segundo con fuego al 100%
+299|% por segundo por metro bajo el agua; 0 = desactivado
+300|barcos de IA < 50 m: sin recorte de velocidad
+301|un compartimento destruido: ½ al vecino, ¼ al siguiente
+302|por encima de 10x de compresión de tiempo
+303|se aplica al instante
+304|por eslora: <25 m 1, <50 m 2, <75 m 3, si no 5
+305|los impactos en el compartimento central hieren a equipos en reposo
+306|solo coll_hull*
+307|el fuego no se propaga a una sección con equipo
+308|fuego, agua, casco, motor
+309|para los dos de arriba
+310|en lugar de las etapas del juego
+311|nudos · 0 = sin límite
+312|m · 0 = igual para todos
+313|m/min · 0 = instantáneo
+314|min tras empezar el hundimiento; 0 = nunca
+315|min de trabajo
+316|sin reparación mientras esté inundado
+317|no observado visualmente
+318|no solo por debajo del 50%
+319|desactivado = la página Fatigue se oculta
+320|s
+321|s antes de que empiece el agua sobre la cubierta
+322|s en la reserva · 0 = desactivado
+323|s sin equipo
+324|ola hasta cubierta solo de casco, 10 puntos
+325|cuando empieza el hundimiento (el juego lo restablece)
+326|heridas y recuperación; desactivado = la página Health se oculta
+327|amarillo: parte inoperativa, rojo: todo
+328|° a la eslora de referencia
+329|° · agua sobre el borde de cubierta desde el 75%
+330|± s
+331|× (1-100 según desplazamiento)
+332|× probabilidad
+333|× juego
+334|× achique · 0 = desactivado
+335|× achique · solo a mano
+336|× la resistencia del juego al movimiento horizontal de un barco destruido
+337|× potencia de la cabeza de guerra
+338|× · 1 = 0,1% por s por m bajo el agua
+339|Añadir tipo
+340|«{0}» es un perfil integrado.
+341|40 caracteres como máximo.
+342|Ya existe un perfil con este nombre.
+343|Los perfiles integrados no se pueden eliminar.
+344|Los perfiles integrados no se pueden renombrar.
+345|No permitido en el nombre: ; # [ ]
+346|No permitido en el nombre: {0}
+347|Perfil no encontrado.
+348|Escribe un nombre.
+349|salto de línea
+350|no permitido: {0}
+351|tabulador
+352|Perdido
+353|Hundiéndose
+354|Se hunde en ~{0} min
+355|Estable
+356|fuerte escora a babor
+357|fuerte escora a estribor
+358|fuerte asiento de proa
+359|fuerte asiento de popa
+360|escora a babor
+361|escora a estribor
+362|radar
+363|estimación por radar
+364|traza de radar (estimada)
+365|sónar
+366|sónar (ruido del motor)
+367|asiento de proa
+368|asiento de popa
+369|visual
+370|observación visual
+371|observación visual (sin identificar)
+372|Ocupado: {0} primero {1}
+373|Daña el casco y los sistemas
+374|Agotado
+375|Incendio {0}
+376|El incendio {0} lo quema
+377|Crece solo {0}%/s
+378|Impacto hace {0} s
+379|Impactos
+380|Brechas: +{0}%/s
+381|Escora {0}°: agua sobre la cubierta
+382|Lo reduce:
+383|Leve
+384|Moderado
+385|Ningún equipo aquí
+386|Nada lo aumenta ahora
+387|Solo el control de averías lo apaga
+388|Babor
+389|Lo aumenta:
+390|Grave
+391|Barco demasiado rápido para taponar brechas: más de {0} nudos
+392|Se propaga a las secciones contiguas
+393|Estribor
+394|Equipo en camino
+395|La vía crece: casco {0}, sin equipo
+396|El barco se hunde
+397|Cansado
+398|Sin atender {0} s: crece más rápido
+399|Soldable hasta {0}
+400|Herido
+401|un equipo
+402|cayendo
+403|más rápido: velocidad del barco
+404|primero el otro costado
+405|reparando
+406|hundiéndose: más rápido
+407|más lento: velocidad del barco
+408|{0} contrainundando: +{1}%/s
+409|{0} taponando el otro costado
+410|{0} bombean mientras taponan: −{1}%/s
+411|{0} achicando: −{1}%/s
+412|{0} soldando
+413|Casco de babor {0}
+414|Casco de estribor {0}
+415|Asiento {0}° de proa: agua sobre la cubierta
+416|Asiento {0}° de popa: agua sobre la cubierta
+417|Un equipo de control de averías libre, esperando en la reserva
+418|Motor fuera de servicio: eficacia de CA {0}%
+419|Incendios:
+420|Pronóstico:
+421|Impactos en el barco: {0}
+422|In Transfer
+423|En reserva
+424|Ninguno
+425|Aún ninguno
+426|Descansando
+427|explosión
+428|babor
+429|sección {0}
+430|estribor
+431|detenido por el blindaje
+432|la reserva
+433|El borde de cubierta toca el mar con escora {0}° · asiento {1}° (zonas rojas)
+434|Escora 45° · Asiento 8° (los del juego)
+435|Límite de escora {0}° · Límite de asiento {1}°
+436|Mostrar niveles de cubierta en 3D
+437|Submarino: la escora y el asiento no inundan nada
+438|Agua {0} · se hunde al {1}%
+439|inunda más rápido desde las zonas rojas
+440|En reparación
+441|En reparación: +{0} por minuto (+{1} de su integridad)
+442|No se puede reparar
+443|Daño: {0}, integridad {1} / {2} ({3})
+444|Destruido: no se puede reparar
+445|Nivel {0} en {1}
+446|Ningún equipo de control de averías en la sección
+447|Reparado hasta donde se puede
+448|Sistema
+449|El juego permite repararlo hasta {0} (un nivel mejor que el peor que tuvo)
+450|La sección está inundada: no hay reparación
+451|Esperando un equipo
+452|destruido
+453|ligero
+454|medio
+455|ninguno
+456|fuera de servicio
+457|grave
+458|Una sección = compartimento de babor + estribor:
+459|Popa  41% / 47%  - casco, babor / estribor
+460|Ajustes de Alternative Damage Model
+461|Auto
+462|CA auto desactivado: haz clic en un equipo para darle una tarea (un ! rojo = ya tiene una).
+463|Vuelve al trabajo en {0}
+464|A mano: {0}
+465|Cancel Transfer
+466|Clic: cancelar
+467|Clic: tarea
+468|Clic: tarea / mover
+469|DC Priority
+470|DC Priority: qué hacen primero todos los equipos.
+471|DC team
+472|Damage State
+473|Desactivado
+474|Eficacia {0}%
+475|Activado
+476|Motor fuera de servicio: {0}% de eficacia (salvo reparación de sistemas)
+477|Fatiga {0}%
+478|Incendio  64%  - % de su máximo
+479|Inundación  23% / 5%  - agua dentro
+480|Engranaje junto a (i): ajustes y perfiles.
+481|Curado en {0}
+482|Salud {0}%
+483|Aquí {0}
+484|Limit Speed
+485|Move to section
+486|Sí: el juego reduce la velocidad del barco mientras hay inundación (10 nudos con brechas abiertas, 10-25 nudos según el agua en las secciones).\nNo: sin reducción, el barco mantiene la velocidad ordenada - el agua entra más rápido y los incendios arden más.
+487|Un icono = un equipo de control de averías:
+488|Señala LIST / TRIM / LEVEL: agua por compartimento.
+489|Señala una flecha: por qué cambia.
+490|Flecha roja: peor, verde: mejor, dos: rápido.
+491|Tarea manual
+492|Allí en {0}
+493|To Reserve
+494|Qué trabajo hacen primero los equipos de control de averías en todo el barco.
+495|aturdido, va a la reserva
+496|aturdido, va a la reserva (In Transfer)
+497|aturdido, en reserva
+498|contrainundando
+499|agotado
+500|combatiendo el incendio
+501|libre, en reserva
+502|preparándose
+503|aquí
+504|perdido
+505|nunca
+506|sin tarea
+507|nada que hacer
+508|en movimiento (In Transfer)
+509|taponando una vía de agua
+510|achicando agua
+511|reparando sistemas
+512|reserva
+513|descanso {0}
+514|velocidad demasiado alta
+515|cansado
+516|soldando el casco
+517|herido: más lento
+518|quedan {0}
+519|Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. Primero el incendio o la vía de agua que crece más rápido.
+520|DC Priority: Fire - los equipos atienden las amenazas en este orden: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
+521|DC Priority: Flooding - los equipos atienden las amenazas en este orden: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
+522|Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. El CA auto envía los equipos libres primero al peor incendio.
+523|Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. El CA auto envía los equipos libres a las vías de agua y luego al agua.
+524|Actitud: {0}
+525|Contacto
+526|Contacto {0}
+527|Damage State — {0}
+528|Motor: casi parado
+529|Motor: sin propulsión
+530|Motor: parte de la propulsión perdida
+531|Motor: lento
+532|Incendio: {0}
+533|Inundación: {0}
+534|Casco: {0}
+535|No se ve daño
+536|Sin datos: no está a la vista directa
+537|Se hunde pronto
+538|Fuente: {0}
+539|se está partiendo
+540|crítico
+541|dañado
+542|muy dañado
+543|grave
+544|leve
+545|moderado
+546|ligero
+547|ligeramente dañado
+548|Borde de cubierta {0} m bajo el agua durante {1} de {2} s
+549|Borde de cubierta {0} m bajo el agua: +{1}%/s
+550|Desbordamiento desde {0}: +{1}%/s
+551|Inclinación hacia el mar: escora {0}° Br / {1}° Er · asiento {2}° popa / {3}° proa
+552|lleno: pasa a {0}
+553|Babor {0}
+554|Estribor {0}
+555|% por impacto con los Max health, Wound chance y Wound strength actuales (la probabilidad se limita a 100). Debajo: la herida que recibe un equipo, de media, en % de su salud
+556|Munición
+557|Probabilidad de que un impacto hiera a un equipo
+558|Desplazamiento, t
+559|Aún no hay datos del juego.
+560|Potencia
+561|Salud del equipo, HP
+562|taponando (detiene la vía de agua)
+563|incendio
+564|combatiendo
+565|apagando
+566|vía de agua
+567|Idioma
+568|Idioma del mod
+569|se aplica al reabrir esta ventana
+570|Idioma del juego
+571|Multiplicador de la probabilidad de que un impacto en el compartimento central hiera a un equipo que descansa en la reserva; se aplica además de Wound chance (0.5 = la mitad de probable, 0 = los equipos en reposo nunca son heridos). Solo funciona con Wounds in reserve.
+572|Probabilidad de herida en la reserva
+573|juego: sin equivalente
+574|Volver al valor del perfil Base Game
+575|Volver al valor predeterminado

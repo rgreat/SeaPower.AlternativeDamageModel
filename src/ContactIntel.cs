@@ -24,7 +24,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
         public static Func<bool> IsEnabled = () => false;
 
-        public struct Info { public int Fire, Flood, Hull, Engine; public bool Guess, Seen, Ident, Sinking, Dead; public int EtaMin; public string Cause, Via, Attitude; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine + (Guess ? "?" : "") : "") : null; } } }
+        public struct Info { public int Fire, Flood, Hull, Engine; public bool Guess, Seen, Ident, Sinking, Dead; public int EtaMin; public string Cause, Via, Attitude, EngineVia; public bool Doomed; public bool Any { get { return Fire + Flood + Hull + Engine > 0; } } public string Text { get { return Any ? (Fire > 0 ? "F" + Fire + " " : "") + (Flood > 0 ? "W" + Flood + " " : "") + (Hull > 0 ? "H" + Hull + " " : "") + (Engine > 0 ? "E" + Engine + (Guess ? "?" : "") : "") : null; } } }
 
         // ------------------------------------------------------------ reflection
 
@@ -33,12 +33,18 @@ namespace AlternativeDamageModel
         static FieldInfo _vObject;
         static PropertyInfo _vSensors, _vObserved, _vIdentified, _vDormant, _rpValue;
         static PropertyInfo _oCompartments, _oDestroyed, _cFlood, _cInt, _oPlayer;
-        static FieldInfo _oPower, _cBase, _cSys, _cCount, _scMax, _oTaskforce, _cSinking, _cFires, _cProp, _cImmobile, _cMaxInt, _gPlayerTf;
+        static FieldInfo _oPower, _cBase, _cSys, _cCount, _scMax, _oTaskforce, _cSinking, _cFires, _cProp, _cImmobile, _gPlayerTf;
         static PropertyInfo _sInoperable, _sDamage, _scSev;
         static MethodInfo _oSpeed;
         static PropertyInfo _gameTime;
         static Type _tSub;
         static PropertyInfo _mUnit;
+        static FieldInfo _cPortC, _cStarC, _fcCurI, _fcMaxI;
+        static PropertyInfo _fcAllowed;
+        static Type _tGizmoHost;
+        static DependencyProperty _dpGizmo, _dpLayer, _dpLat, _dpLon;
+        sealed class Note { public Grid Host; public FrameworkElement Gizmo; public object Vm; }
+        static readonly ConditionalWeakTable<Canvas, Note> Notes = new ConditionalWeakTable<Canvas, Note>();
 
         public static bool Init(Harmony harmony, Assembly asm)
         {
@@ -73,9 +79,25 @@ namespace AlternativeDamageModel
                 _sInoperable = tSys.GetProperty("Inoperable", all);
                 _sDamage = tSys.GetProperty("CurrentDamageType", all);
                 _cBase = tComp.GetField("_baseObject", all); _cSys = tComp.GetField("_systemCompartments", all); _cCount = tComp.GetField("_compartmentsCount", all);
+                _cPortC = tComp.GetField("_portCompartments", all); _cStarC = tComp.GetField("_starboardCompartments", all);
+                var tFc = asm.GetType("SeaPower.FloodingCompartment");
+                if (tFc != null) { _fcCurI = tFc.GetField("_currentIntegrity", all); _fcMaxI = tFc.GetField("_maxIntegrity", all); _fcAllowed = tFc.GetProperty("MaxAllowedIntegrity", all); }
                 var tSc = asm.GetType("SeaPower.SystemCompartment");
                 _scSev = tSc.GetProperty("FireSeverity", all); _scMax = tSc.GetField("_maxFireSeverity", all);
                 _oSpeed = tObj.GetMethod("getVelocityInKnots", all);
+                try
+                {
+                    _tGizmoHost = asm.GetType("SeapowerUI.GizmoHost");
+                    var tMp = asm.GetType("MapControl.MapPanel");
+                    if (_tGizmoHost != null && tMp != null)
+                    {
+                        _dpGizmo = _tGizmoHost.GetField("GizmoProperty", all).GetValue(null) as DependencyProperty;
+                        _dpLayer = _tGizmoHost.GetField("LayerProperty", all).GetValue(null) as DependencyProperty;
+                        _dpLat = tMp.GetField("LatitudeProperty", all).GetValue(null) as DependencyProperty;
+                        _dpLon = tMp.GetField("LongitudeProperty", all).GetValue(null) as DependencyProperty;
+                    }
+                }
+                catch (Exception e) { _tGizmoHost = null; Trace("ContactIntel: layer host unavailable: " + e.Message); }
                 var tMapVm = asm.GetType("SeapowerUI.MapUnitViewModel");
                 _mUnit = tMapVm == null ? null : tMapVm.GetProperty("Unit", all);
                 _ok = _tVehicle != null && _vObject != null && _vSensors != null && _oCompartments != null && _cFlood != null && _cInt != null &&
@@ -129,7 +151,7 @@ namespace AlternativeDamageModel
         // SensorTypeSet bits
         const long Visual = 2, Tv = 4, Radar = 8 | 0x10 | 0x20, Sonar = 0x40 | 0x80;
 
-        static bool Mine(object obj)
+        public static bool Mine(object obj)
         {
             try
             {
@@ -137,6 +159,31 @@ namespace AlternativeDamageModel
                 var tf = _oTaskforce == null ? null : _oTaskforce.GetValue(obj);
                 var mine = _gPlayerTf == null ? null : _gPlayerTf.GetValue(null);
                 return tf != null && ReferenceEquals(tf, mine);
+            }
+            catch { return false; }
+        }
+
+        /// <summary>The hull damage that is left cannot be welded any more (every damaged compartment is at its MaxAllowedIntegrity): it is repaired as far as it can be.</summary>
+        static bool HullWeldedUp(object comp)
+        {
+            try
+            {
+                if (_cPortC == null || _cStarC == null || _fcCurI == null || _fcMaxI == null || _fcAllowed == null) return false;
+                var port = _cPortC.GetValue(comp) as Array; var star = _cStarC.GetValue(comp) as Array;
+                if (port == null || star == null) return false;
+                int n = Math.Min(5, Math.Min(port.Length, star.Length));
+                bool damaged = false;
+                for (int side = 0; side < 2; side++)
+                    for (int i = 0; i < n; i++)
+                    {
+                        var fc = (side == 0 ? port : star).GetValue(i);
+                        if (fc == null) continue;
+                        float max = Convert.ToSingle(_fcMaxI.GetValue(fc)), cur = Convert.ToSingle(_fcCurI.GetValue(fc));
+                        if (max <= 0f || cur >= max * 0.9995f) continue;
+                        damaged = true;
+                        if (Convert.ToSingle(_fcAllowed.GetValue(fc, null)) - cur > max * 0.0005f) return false;   // something can still be welded
+                    }
+                return damaged;
             }
             catch { return false; }
         }
@@ -162,6 +209,7 @@ namespace AlternativeDamageModel
                 bool seen = mine || (sensors & (Visual | Tv)) != 0 || (_vObserved != null && (bool)_vObserved.GetValue(vehicle, null));
                 bool ident = mine || Flag(_vIdentified.GetValue(vehicle, null));
                 bool radar = (sensors & Radar) != 0, sonar = (sensors & Sonar) != 0;
+                bool hit = mine || HitLog.Records(comp).Count > 0;   // the engine of an enemy is judged only once hits on the ship are registered
                 if (!seen && !radar && !sonar) return none;
 
                 bool sinking = (bool)_cSinking.GetValue(comp);
@@ -186,14 +234,16 @@ namespace AlternativeDamageModel
                     // direct sight: the fires' total strength, water and hull by the panel's classes, the engine
                     info.Fire = FireStage(FireTotal(comp));
                     info.Flood = sinking ? 4 : FloodStage(flood);
+                    if (!mine && info.Flood <= 1) info.Flood = 0;   // light flooding of an enemy cannot be seen
                     info.Hull = HullStage(hull, ModelOn());
-                    info.Engine = dead ? 4 : EngineLevel(prop);
-                    Latch(obj, info.Engine);
+                    if (info.Hull <= 1 || HullWeldedUp(comp)) info.Hull = 0;   // light damage and damage repaired as far as it can be are not shown
+                    info.Engine = hit ? (dead ? 4 : EngineLevel(prop)) : 0;   // an enemy's engine: only after hits on the ship are registered
+                    if (hit) Latch(obj, info.Engine);
                 }
                 else if (sonar)
                 {
-                    info.Engine = dead ? 4 : EngineLevel(prop);   // heard: engines and screws
-                    Latch(obj, info.Engine);
+                    info.Engine = hit ? (dead ? 4 : EngineLevel(prop)) : 0;   // heard: engines and screws (after hits)
+                    if (hit) Latch(obj, info.Engine);
                     doomed = sinking; info.Doomed = doomed;
                 }
                 else if (radar)
@@ -215,10 +265,24 @@ namespace AlternativeDamageModel
                 }
                 else info.Doomed = false;
                 info.Seen = seen; info.Ident = ident; info.Sinking = sinking; info.Dead = dead;
+                // the sinking forecast by flooding is shown only when the flooding itself is detected (an enemy's light flooding, or one not seen at all, is not)
+                if (!mine && !sinking && cause == "flooding" && info.Flood == 0) { soon = false; info.Doomed = false; }
                 info.EtaMin = !sinking && soon && minutes < 1e6 ? Math.Max(1, (int)Math.Ceiling(minutes)) : 0;
                 info.Cause = cause;
                 info.Attitude = seen ? Attitude(obj) : "";
-                info.Via = seen ? (ident ? "visual observation" : "visual observation, not identified") : sonar ? "sonar (engine noise)" : radar ? "radar track (estimate)" : "";
+                var via = new List<string>();
+                if (seen) via.Add(ident ? Loc.T("visual observation") : Loc.T("visual observation (not identified)"));
+                if (sonar) via.Add(Loc.T("sonar (engine noise)"));
+                if (radar) via.Add(Loc.T("radar track (estimate)"));
+                info.Via = string.Join(", ", via.ToArray());
+                if (!mine && info.Engine > 0)
+                {
+                    var ev = new List<string>();
+                    if (seen) ev.Add(Loc.T("visual"));
+                    if (sonar) ev.Add(Loc.T("sonar"));
+                    if (radar) ev.Add(info.Guess ? Loc.T("radar estimate") : Loc.T("radar"));
+                    info.EngineVia = string.Join(", ", ev.ToArray());
+                }
                 return info;
             }
             catch (Exception e) { Trace("ContactIntel.Of: " + e.Message); return none; }
@@ -328,22 +392,22 @@ namespace AlternativeDamageModel
         /// </summary>
         public static void Forecast(object comp, out string main, out string sub, out int sev)
         {
-            main = "Stable"; sub = ""; sev = 0;
+            main = Loc.T("Stable"); sub = ""; sev = 0;
             try
             {
                 var obj = _cBase == null ? null : _cBase.GetValue(comp);
                 if (obj == null) return;
-                if (_oDestroyed != null && (bool)_oDestroyed.GetValue(obj, null)) { main = "Lost"; sev = 2; return; }
+                if (_oDestroyed != null && (bool)_oDestroyed.GetValue(obj, null)) { main = Loc.T("Lost"); sev = 2; return; }
                 bool sinking = (bool)_cSinking.GetValue(comp);
                 float flood = Convert.ToSingle(_cFlood.GetValue(comp, null)), hull = Convert.ToSingle(_cInt.GetValue(comp, null));
-                if (sinking) { main = "Sinking"; sev = 2; return; }
+                if (sinking) { main = Loc.T("Sinking"); sev = 2; return; }
                 string cause; double eta = Trend(obj, false, flood, hull, out cause);
                 if (eta == double.MaxValue) return;
                 double min = eta / 60.0;
                 if (min > 90.0) return;
-                main = "Sinks in ~" + Math.Max(1, (int)Math.Ceiling(min)) + " min";
+                main = Loc.F("Sinks in ~{0} min", Math.Max(1, (int)Math.Ceiling(min)));
                 sev = min <= 20.0 ? 2 : 1;
-                sub = cause;
+                sub = Loc.T(cause);
             }
             catch (Exception e) { Trace("ContactIntel.Forecast: " + e.Message); }
         }
@@ -367,7 +431,13 @@ namespace AlternativeDamageModel
                 double t = Now();
                 int n = a.T.Count;
                 if (n > 0 && (t < a.T[n - 1] || t - a.T[n - 1] > 30.0)) { a.T.Clear(); a.Roll.Clear(); a.Pitch.Clear(); n = 0; }   // time went back (load) or a long gap
-                if (n == 0 || t - a.T[n - 1] >= 0.5) { a.T.Add(t); a.Roll.Add(ang(e.z)); a.Pitch.Add(ang(e.x)); }
+                if (n == 0 || t - a.T[n - 1] >= 0.5)
+                {
+                    // planing boats and hydrofoils trim and heel by design with speed and turn: that is taken off (DynAttitude)
+                    float fp, fr;
+                    DynAttitude.Fix(_oCompartments.GetValue(obj, null), ang(e.x), ang(e.z), out fp, out fr);
+                    a.T.Add(t); a.Roll.Add(fr); a.Pitch.Add(fp);
+                }
                 while (a.T.Count > 2 && t - a.T[0] > Window) { a.T.RemoveAt(0); a.Roll.RemoveAt(0); a.Pitch.RemoveAt(0); }
                 if (a.T[a.T.Count - 1] - a.T[0] < MinSpan) return "";   // too short to tell a list from a wave
                 float sr = 0f, sp = 0f;
@@ -375,8 +445,8 @@ namespace AlternativeDamageModel
                 float roll = sr / a.T.Count, pitch = sp / a.T.Count;
                 var parts = new List<string>();
                 float ar = Math.Abs(roll), ap = Math.Abs(pitch);
-                if (ar >= 4f) parts.Add((ar >= 12f ? "heavy " : "") + "list to " + (roll > 0 ? "port" : "starboard"));   // +z: port side down
-                if (ap >= 1.5f) parts.Add((ap >= 4f ? "heavy " : "") + "trim by the " + (pitch > 0 ? "bow" : "stern"));   // +x: the bow down
+                if (ar >= 4f) parts.Add(roll > 0 ? (ar >= 12f ? Loc.T("heavy list to port") : Loc.T("list to port")) : (ar >= 12f ? Loc.T("heavy list to starboard") : Loc.T("list to starboard")));   // +z: port side down
+                if (ap >= 1.5f) parts.Add(pitch > 0 ? (ap >= 4f ? Loc.T("heavy trim by the bow") : Loc.T("trim by the bow")) : (ap >= 4f ? Loc.T("heavy trim by the stern") : Loc.T("trim by the stern")));   // +x: the bow down
                 return string.Join(", ", parts.ToArray());
             }
             catch { return ""; }
@@ -393,6 +463,19 @@ namespace AlternativeDamageModel
                 if (ps == null) return false;
                 if (_sInoperable != null && Flag(_sInoperable.GetValue(ps, null))) return true;
                 return _sDamage != null && Convert.ToInt32(_sDamage.GetValue(ps, null)) >= 4;   // DamageType.Destroyed
+            }
+            catch { return false; }
+        }
+
+        /// <summary>Any damage at all: water, hull, fire, a lost engine, or sinking (the Forecast card is shown only then).</summary>
+        public static bool AnyDamage(object comp)
+        {
+            if (!_ok || comp == null) return false;
+            try
+            {
+                if ((bool)_cSinking.GetValue(comp)) return true;
+                float flood = Convert.ToSingle(_cFlood.GetValue(comp, null)), hull = Convert.ToSingle(_cInt.GetValue(comp, null));
+                return FloodStage(flood) > 0 || HullStage(hull, ModelOn()) > 0 || FireTotal(comp) > 0f || EngineOut(comp);
             }
             catch { return false; }
         }
@@ -465,10 +548,11 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ the map: a note under the icon, a grey icon
 
-        sealed class VmState { public float Next; public Info Info; }
+        sealed class VmState { public float Next; public Info Info; public bool Greyed; }
         static readonly ConditionalWeakTable<object, VmState> States = new ConditionalWeakTable<object, VmState>();
         static readonly ConditionalWeakTable<SolidColorBrush, SolidColorBrush> Greys = new ConditionalWeakTable<SolidColorBrush, SolidColorBrush>();
         static PropertyInfo _mBrush, _mLine4;
+        static MethodInfo _mInvalidate;   // game 0.8.7+: the icon colour is recomputed only when the display is marked dirty
         static bool _on;
 
         static readonly ConditionalWeakTable<SolidColorBrush, SolidColorBrush> GreyMade = new ConditionalWeakTable<SolidColorBrush, SolidColorBrush>();   // the grey brushes themselves
@@ -486,6 +570,20 @@ namespace AlternativeDamageModel
             return g;
         }
 
+        /// <summary>The icon was made grey and the ship will not sink any more (or the option went off): the game 0.8.7+ keeps the colour it was given until its display is marked dirty - mark it
+        /// (the game before 0.8.7 recomputes the colour at every Update by itself).</summary>
+        static void Ungrey(object vm, VmState st)
+        {
+            if (!st.Greyed) return;
+            st.Greyed = false;
+            try
+            {
+                if (_mInvalidate == null) _mInvalidate = vm.GetType().GetMethod("InvalidateContactDisplay", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+                if (_mInvalidate != null) _mInvalidate.Invoke(vm, null);
+            }
+            catch (Exception e) { Trace("ContactIntel.Ungrey: " + e.Message); }
+        }
+
         /// <summary>After MapUnitViewModel.Update: the contact's note (once a second) and, for a ship that will sink, the greyer icon.</summary>
         static void UpdatePostfix(object __instance)
         {
@@ -493,7 +591,7 @@ namespace AlternativeDamageModel
             {
                 if (!_ok) return;
                 var st = States.GetOrCreateValue(__instance);
-                if (!IsEnabled()) { st.Info = new Info(); return; }
+                if (!IsEnabled()) { st.Info = new Info(); Ungrey(__instance, st); return; }
                 float t = UnityEngine.Time.unscaledTime;
                 if (t >= st.Next)
                 {
@@ -508,8 +606,10 @@ namespace AlternativeDamageModel
                     _mBrush = __instance.GetType().GetProperty("UnitColorBrush", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                     _mLine4 = __instance.GetType().GetProperty("ContactInfoLine4", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 }
+                if (!st.Info.Doomed) Ungrey(__instance, st);
                 if (st.Info.Doomed && _mBrush != null)
                 {
+                    st.Greyed = true;
                     var b = _mBrush.GetValue(__instance, null) as SolidColorBrush;
                     SolidColorBrush already;
                     if (b != null && !GreyMade.TryGetValue(b, out already))   // not again and again: a set raises a property change
@@ -587,38 +687,76 @@ namespace AlternativeDamageModel
             if (!ReferenceEquals(p.Fill, b)) p.Fill = b;
         }
 
+        /// <summary>The note lives on the map layer under all the other objects (UNASSIGNED_INFO, 1), above the map itself; where that is impossible it is a child of the unit icon.</summary>
+        static Note NewNote(Canvas cv, StackPanel tb)
+        {
+            var host = new Grid { Name = "AdmIntel", Width = 90f, IsHitTestVisible = false };
+            host.Children.Add(tb);
+            var n = new Note { Host = host };
+            object vm = null;
+            try { vm = cv.DataContext; } catch { }
+            if (_tGizmoHost != null && _dpGizmo != null && _dpLayer != null && _dpLat != null && _dpLon != null && vm != null)
+            {
+                try
+                {
+                    var pos = new Canvas { IsHitTestVisible = false };
+                    pos.SetBinding(UIElement.VisibilityProperty, new Binding("Visibility") { Source = cv, Mode = BindingMode.OneWay });   // 0.8.7 merges icons of a group: a collapsed icon takes its note with it
+                    pos.SetBinding(_dpLat, new Binding("Latitude") { Source = vm, Mode = BindingMode.OneWay });
+                    pos.SetBinding(_dpLon, new Binding("Longitude") { Source = vm, Mode = BindingMode.OneWay });
+                    Canvas.SetLeft(host, -45f);          // centred under the icon, whose centre is the position itself
+                    Canvas.SetTop(host, 13.75f);
+                    pos.Children.Add(host);
+                    var g = (FrameworkElement)Activator.CreateInstance(_tGizmoHost);
+                    g.SetValue(_dpLayer, 1);
+                    g.SetValue(_dpGizmo, pos);
+                    cv.Children.Add(g);
+                    n.Gizmo = g; n.Vm = vm;
+                    return n;
+                }
+                catch (Exception e) { Trace("ContactIntel: layer note failed: " + e.Message); n.Gizmo = null; }
+            }
+            Canvas.SetLeft(host, 11.25f - 45f);   // the icon is 22.5 wide: its centre is 11.25
+            Canvas.SetTop(host, 25f);
+            cv.Children.Add(host);
+            return n;
+        }
+
         static void SetNote(Canvas cv, Info info)
         {
+            Note note;
             StackPanel tb = null;
-            int n = cv.Children.Count;
-            for (int k = 0; k < n; k++)
-            {
-                var c = cv.Children[k] as Grid;
-                if (c != null && c.Name == "AdmIntel" && c.Children.Count > 0) { tb = c.Children[0] as StackPanel; break; }
-            }
+            if (Notes.TryGetValue(cv, out note) && note.Host.Children.Count > 0) tb = note.Host.Children[0] as StackPanel;
             if (!info.Any)
             {
-                if (tb != null) { var hg = VisualTreeHelper.GetParent(tb) as UIElement; if (hg != null) hg.Visibility = Visibility.Collapsed; }
+                if (note != null) note.Host.Visibility = Visibility.Collapsed;
                 return;
             }
             if (tb == null)
             {
-                // a fixed-width grid centred under the icon (the icons inside are packed to its centre)
                 tb = new StackPanel { Name = "AdmIntel", Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, IsHitTestVisible = false };
                 for (int k = 0; k < 4; k++) tb.Children.Add(NewIcon(k, k == 3 ? 17f : 15f, 0.75f));
                 tb.Children.Add(new TextBlock { Text = "?", FontSize = 11f, FontWeight = FontWeight.Bold, Margin = new Thickness(0f, -2f, 0f, 0f), Foreground = Levels[1] });
-                var host = new Grid { Name = "AdmIntel", Width = 90f, IsHitTestVisible = false };
-                host.Children.Add(tb);
-                Canvas.SetLeft(host, 11.25f - 45f);   // the icon is 22.5 wide: its centre is 11.25
-                Canvas.SetTop(host, 25f);
-                cv.Children.Add(host);
-                tb = null;
-                for (int k = 0; k < cv.Children.Count; k++) { var g = cv.Children[k] as Grid; if (g != null && g.Name == "AdmIntel") { tb = g.Children[0] as StackPanel; break; } }
-                if (tb == null) return;
+                note = NewNote(cv, tb);
+                Notes.Remove(cv); Notes.Add(cv, note);
+            }
+            else
+            {
+                object vm = null;
+                try { vm = cv.DataContext; } catch { }
+                if (note.Gizmo != null && vm != null && !ReferenceEquals(vm, note.Vm))
+                {
+                    // the icon got another view model: the note follows it
+                    var pos = VisualTreeHelper.GetParent(note.Host) as FrameworkElement;
+                    if (pos != null)
+                    {
+                        pos.SetBinding(_dpLat, new Binding("Latitude") { Source = vm, Mode = BindingMode.OneWay });
+                        pos.SetBinding(_dpLon, new Binding("Longitude") { Source = vm, Mode = BindingMode.OneWay });
+                    }
+                    note.Vm = vm;
+                }
             }
             tb.Visibility = Visibility.Visible;
-            var hostGrid = VisualTreeHelper.GetParent(tb) as UIElement;
-            if (hostGrid != null) hostGrid.Visibility = Visibility.Visible;
+            note.Host.Visibility = Visibility.Visible;
             int[] lv = { info.Fire, info.Flood, info.Hull, info.Engine };
             var q = tb.Children[4] as TextBlock;
             if (q != null) q.Visibility = info.Guess ? Visibility.Visible : Visibility.Collapsed;

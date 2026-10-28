@@ -1,0 +1,575 @@
+1|Ein brennender Abschnitt öffnet seine verschlossenen Lecks wieder: % des größten Lecks des Abschnitts pro Sekunde bei Brand 100% (weniger bei kleinerem Brand). 0 = aus.
+2|Ein Brand breitet sich nicht in ein Abteil aus, in dem ein Schadenskontrolltrupp ist (er hält das Feuer an der Tür auf). Aus = wie im Spiel.
+3|Ein Brand, den längere Zeit kein Schadenskontrolltrupp bekämpft, wächst immer schneller: bei jeder Brandprüfung (FireCheckTime, 10 s) steigt seine Wachstumsrate, als wäre der Abschnitt erneut getroffen worden. Aus = wie im Spiel (ein Brand wächst nur durch Treffer).
+4|Ein voll gefluteter Abschnitt (Wasser über 75%): seine Systeme werden schwer beschädigt, fallen aus und können nicht repariert werden, solange er geflutet bleibt.
+5|Ein Treffer auf ein bereits zerstörtes Abteil geht nicht verloren: die Hälfte des Schadens geht an das Nachbarabteil (dieselbe Seite, zur Schiffsmitte hin); ist es ebenfalls zerstört, geht ein Viertel an das übernächste. Der Überschuss eines Treffers, der ein Abteil zerstört, verteilt sich genauso.
+6|Ein Treffer auf einen Abschnitt kann seine Trupps bei jeder Integrität verwunden. Aus = wie im Spiel: nur ein getroffener Abschnitt mit Integrität unter 50% kann einen Trupp ausschalten, mit der Chance Schaden x (1 - Integrität), höchstens 20%. An = jeder Treffer auf einen Abschnitt mit Trupps erhält den Verwundungswurf (siehe Wound chance); ein verwundeter Trupp geht in die Reserve.
+7|Ein vom Feuer wieder geöffnetes Leck wächst bis zu diesem % des größten Lecks des Abschnitts zurück.
+8|Ein Abschnitt unter Wasser löscht sein Feuer: das Feuer verliert dieses % seines Maximums pro Sekunde für jeden Meter, den die Deckskante des Abschnitts unter Wasser liegt (1 = so viele % pro Sekunde wie Meter). Benötigt die Deckspunkte des Schiffs (wie beim Fluten über das Deck). 0 = aus.
+9|Ein Trupp kann keine Lecks stopfen, solange das Schiff schneller als dies ist, in Knoten. 0 = keine Grenze.
+10|Ein Trupp in einem brennenden Abschnitt verliert pro Sekunde so viel seiner vollen Gesundheit bei Brand 100%, sofern nicht mindestens ein Trupp des Abschnitts das Feuer bekämpft (weniger bei geringerem Brand).
+11|Ein Trupp in der Reserve erholt pro Sekunde so viel seiner vollen Gesundheit.
+12|KI-Schiffe (nicht die eigenen) unter 50 m werden durch Fluten nicht langsamer: die Geschwindigkeitsbremse des Spiels durch Lecks und Wasser ist für sie aus (sie fahren weiter, wie Kamikaze). Die Schaltfläche „Limit Speed“ der eigenen Schiffe ist davon getrennt.
+13|Chance eines schweren Brandes (ab 50% seines Maximums), sich auf Nachbarabschnitte auszubreiten, in % pro Brandprüfung: das Spiel prüft alle FireCheckTime (10 s) mit einer Chance von 0,0133% - praktisch nie. 0.0133 = wie im Spiel; 1.0 = 1% pro Prüfung (etwa einmal in 17 Minuten schweren Brandes), 0 = nie.
+14|Färbt die Waffenschaltflächen der unteren Leiste der gewählten Einheit nach dem Zustand ihrer Waffensysteme: alles funktioniert - Spielfarbe, ein Teil dieses Typs ausgefallen - gelb, alles ausgefallen - rot.
+15|Gehirnerschütterung: ein von einer Waffe verwundeter Trupp (in einem getroffenen Abschnitt oder in der Reserve) bleibt nach Eintritt in die Reserve so viele Sekunden benommen; Auto DC schickt ihn erst nach Ablauf wieder an die Arbeit. Sie läuft neben der Gesundheit des Trupps, die ihre eigene Erholung hat. 0 = keine Gehirnerschütterung.
+16|Gegenfluten (eine von Hand gegebene Trupp-Aufgabe): wie schnell Wasser in ein Abteil gelassen wird, als Vielfaches der Auspumpgeschwindigkeit. Das Wasser geht auf die der Schlagseite gegenüberliegende Seite, bei aufrechtem Schiff auf die Seite mit weniger Wasser.
+17|Gegenfluten lässt Wasser nur bis zu diesem % in eine Seite eines Abteils (die eigene Grenze des Abteils im Spiel gilt ebenfalls).
+18|Effizienz der Schadenskontrolle, solange der Motor des Schiffs (das genutzte Engine-Modul, nicht der Antrieb) ausgefallen ist: Wirksamkeit der Trupps in % (Brände, Lecks, Wasser, Rumpf; die Reparatur von Systemen bleibt unberührt). Wird in den Trupp-Hinweisen und in der Zeile Forecast des Reiters Damage Control gezeigt. 100 = aus.
+19|Schadenskontrolltrupps in einem Abschnitt mit Brand, die ihn nicht bekämpfen, arbeiten mit diesem % ihrer Wirksamkeit. 100 = aus.
+20|Schadenskontrolltrupps eines Zivilschiffs nach Verdrängung: Tonnen=Trupps.
+21|Schadenskontrolltrupps eines U-Boots nach Verdrängung: Tonnen=Trupps.
+22|Schadenskontrolltrupps eines Überwasser-Kriegsschiffs nach Verdrängung: Tonnen=Trupps, ab so vielen Tonnen. NumberOfDCTeams in der ini eines Schiffs setzt weiterhin seine eigene Zahl.
+23|Debug: zeichnet die reinen Rumpf-Collider (coll_hull*) des gewählten Schiffs als durchscheinende Überlagerung samt hellem Drahtgitter ihrer tatsächlichen Dreiecke, zum direkten Vergleich mit dem sichtbaren 3D-Modell.
+24|Debug: zeichnet für das im Unit-Status-Panel gewählte Schiff eine Linie von der aktuellen Welle zur geschätzten Deckshöhe an der Mittellinie von Bug und Heck des Rumpfes sowie an einem Backbord-/Steuerbord-Paar je Abschnitt des Schadensmodells (sein eigener Mittelpunkt in der Länge) - nur Rumpf-Collider, nicht Türme, Masten oder andere Untermodelle. Grün: der Punkt liegt über der Welle; rot: die Welle steht darüber.
+25|Debug: wie das 3D-Modell des gewählten Schiffs (auch Untermodelle) gezeichnet wird, damit ShowDeckCorners/ShowHullCollider sichtbar sind: Show (wie im Spiel), Translucent (70% durchsichtig) oder Hide.
+26|Diagnose: solange ein Schiff merklich Schlagseite oder Trimm hat, schreibt es alle 2 Sekunden ins BepInEx-Log: Schlagseite, Trimm, Höhe, Auftrieb gegen Gewicht, getauchtes Volumen, Wasser im Schiff und ob es sinkt / gekentert ist.
+27|Diagnose: schreibt jeden durch einen Treffer entstandenen Brand und jeden Stufenwechsel eines Brandes ins BepInEx-Log (Schiff, Abteil, Missionszeit, Stärke und Wachstum in % des Abteilmaximums, dortige Schadenskontrolltrupps). Funktioniert auch bei im Mods-Menü ausgeschaltetem Mod, zum Vergleich mit dem Spiel.
+28|Zeichnet in der 3D-Ansicht keine Ziele anderer Seiten, die nicht visuell beobachtet werden (nur per Radar, Sonar oder Daten bekannt). Eigene Einheiten werden immer gezeichnet.
+29|Aktiviert ausführliche Protokollierung und BepInEx/AlternativeDamageModel.trace.txt.
+30|Der Brand sieht nach seiner Stärke (Anteil des Maximums) statt nach den Stufen des Spiels aus: klein, mäßig ab SmokeModerateFrom, schwer ab SmokeSevereFrom (Spiel: 25% / 50%); der Rauch des kleinen Brandes wächst von SmokeStartOpacity bis SmokeEndOpacity. Nur die Optik - Schaden und Ausbreitung bleiben die des Spiels. Aus = wie im Spiel.
+31|Brandzeile: ein Pfeil, wenn sich der Brand schneller ändert als dies, in % seines Maximums pro Sekunde.
+32|Brandzeile: zwei Pfeile nach unten, wenn der Brand schneller gelöscht wird als dies, in % seines Maximums pro Sekunde.
+33|Brandzeile: zwei Pfeile nach oben, wenn der Brand schneller wächst als dies, in % seines Maximums pro Sekunde.
+34|Behebt einen Fehler des Spiels selbst: über 10x Zeitraffer wächst der Trimm eines Schiffs mit dem Zeitraffer (ein 25-m-Boot bei 47 kn: 2,6 Grad bis 10x, 9 bei 100x) - genug, um ein kurzes, schnelles, unbeschädigtes Schiff zu versenken. Das Spiel bewegt ein Schiff um einen Schritt pro Physik-Tick, und über 10x wird dieser Schritt gedehnt, während das Auftriebsmoment weiter um den Massenschwerpunkt vor dem Schritt genommen wird. An: dieser zusätzliche Schritt entfällt, sodass der Trimm bei jedem Zeitraffer der von 10x bleibt; bis 10x ändert sich nichts. Nur Überwasserschiffe. Aus: Verhalten des Spiels.
+35|Flutzeile und Flutplan: ein Pfeil, wenn sich der Wasserstand schneller ändert als dies, in % des Abteils pro Sekunde.
+36|Flutzeile und Flutplan: zwei Pfeile, wenn sich der Wasserstand schneller ändert als dies, in % des Abteils pro Sekunde.
+37|Vier kleine Symbole unter dem Schiffssymbol auf der Karte (auch Ihres): Feuer (Gesamtstärke der Brände), Wasser, Rumpf (wie im Damage-Control-Panel eingestuft) und Motor; gelb / orange / rot nach Schwere, und ein grauer werdendes Kartensymbol, wenn das Schiff sinken wird (binnen 20 Minuten nach dem Flut-/Rumpftrend). Ein Kontakt: Feuer, Wasser, Rumpf und Motor nur bei direkter Sicht; per Sonar - nur der Motor (gelb: Teil verloren, rot: nichts funktioniert); per Radar - eine Schätzung für ein in den letzten 10 Minuten getroffenes Schiff, mit '?' markiert (gelb: 10 Knoten oder weniger, rot: unter 3); nichts per ESM oder ohne Kontakt, und nichts für ein gesunkenes Schiff. Die Zeile Fires des Reiters Damage Control nutzt dieselbe Gesamtstärke. Der Unit Status eines Kontakts zeigt einen Reiter Damage State mit denselben Informationen in Worten.
+38|Gesundheit eines Schadenskontrolltrupps, ein Multiplikator seines Maximums, das je nach Verdrängung des Schiffs 1..100 Punkte beträgt (100 = Besatzung von 1000 und mehr, etwa 30000 t; 1000 t = 24, 10000 t = 101). Im Hinweis des Trupps als Teil des vollen Wertes gezeigt. Ein Trupp bei 0 ist tot. Verwundete Trupps arbeiten langsamer (so viel wie ihre Gesundheit, nicht unter 25%). 0 = Trupps werden nie verwundet (ein Treffer wirft einen Trupp dennoch aus seinem Abschnitt).
+39|Wie schnell ein Brand den Rumpf seines Abschnitts zerfrisst (Integrität beider Abteile). 1.0 = wie im Spiel. Der Schaden an den Systemen des Abschnitts bleibt unverändert.
+40|Wie schnell ein Trupp in der Reserve Ermüdung abbaut, in % der Geschwindigkeit, mit der sie sich bei der Arbeit aufbaut. 100 = gleich schnell; 50 = Erholung dauert doppelt so lang wie die Arbeit.
+41|Wie schnell ein Trupp durch das Schiff läuft, Meter pro Minute (die Reserve liegt in der Mitte). Eine Verlegung = MusterTime + der Weg, auf 10 s gerundet. 0 = keine Laufzeit; bei MusterTime ebenfalls 0 bewegen sich Trupps sofort und Auto DC ist das des Spiels.
+42|Wie schnell Schadenskontrolltrupps Wasser auspumpen. 1.0 = wie im Spiel.
+43|Wie schnell Schadenskontrolltrupps Brände löschen. 1.0 = wie im Spiel.
+44|Wie schnell Brände von selbst wachsen, zwischen Treffern. 1.0 = wie im Spiel, 2.0 = doppelt so schnell, 0.5 = halb so schnell.
+45|Wie schnell Wasser durch die Lecks eines Abteils eindringt. 1.0 = wie im Spiel.
+46|Wievielmal stärker der Rumpf ziviler Schiffe (ini-Dateien civ_*) als im Spiel ist. 1.0 = wie im Spiel.
+47|Wievielmal stärker der Rumpf von U-Booten als im Spiel ist. 1.0 = wie im Spiel.
+48|Wievielmal stärker der Rumpf von Überwasser-Kriegsschiffen als im Spiel ist. 1.0 = wie im Spiel, 2.0 = doppelt so stark. Einzelne Schiffe erhalten ihren eigenen Wert im Abschnitt [HullIntegrityPerShip], eine Zeile je Schiff: ini-Dateiname = Multiplikator (z. B. usn_bb_iowa = 3.0).
+49|Wie viel ein Trupp schafft (Lecks stopfen, Feuer bekämpfen, Pumpen, Rumpf- und Systemreparaturen) im Vergleich zum Spiel. 1.0 = wie im Spiel.
+50|Wie stark die Schlagseite ungleichmäßigem Fluten folgt. Der Wasserunterschied zwischen Backbord- und Steuerbordseite eines Abschnitts (er neigt das Schiff) wird damit multipliziert; der Mittelwert des Abschnitts bleibt, sodass Tiefgang und Trimm sich dadurch nicht ändern. 1 = wie im Spiel, 2 = doppelte Schlagseite bei gleichem Unterschied.
+51|Wie die Geschwindigkeit des Schiffs das Wachstum von Bränden und das eindringende Wasser (durch Lecks und über die Deckskante) ändert: Knoten=Flut-/Brand-Multiplikator, ein Streckenzug durch die Punkte. Die Geschwindigkeit wird als Betrag genommen; unter dem ersten und über dem letzten Punkt gelten die Endmultiplikatoren.
+52|Sprache der Texte des Mods: en, ru, cn, de, es, fr, ko, ja oder vn. Leer = die Sprache des Spiels. Die Texte liegen im Ordner lang des Mods (lang/<Code>.ini); ein fehlender Text wird englisch angezeigt.
+53|Schlagseite, Grad: die volle Skala der LIST-Anzeige. Ab ihrer roten Zone (75% davon) kommt Wasser über die Deckskante und flutet alle Abteile der tiefen Seite schnell (Spiel: bei 45). Das Schiff sinkt dadurch nicht von selbst; Kentern bei 70 Grad schon, wie im Spiel.
+54|Meter. Die Trimmgrenze hängt von der Schiffslänge ab: je länger das Schiff, desto früher geht Bug oder Heck bei gleichem Winkel unter (tan Grenze = tan TrimLimit x (TrimReferenceLength / Länge)^0.442; mit 5.2 bei 100: 30 m 8.8, 60 m 6.5, 150 m 4.4, 300 m 3.2 Grad). 0 = TrimLimit für jedes Schiff (wie im Spiel).
+55|Minuten (Spielzeit, Zeitraffer zählt) nach Sinkbeginn eines Schiffs, wenn sein Sinkblasen-Effekt aufhört zu emittieren (das Spiel stoppt ihn nie, solange das Wrack existiert). Spart Ressourcen in langen Missionen. 0 = nie, wie im Spiel.
+56|Minuten Arbeit in einem Abschnitt, bis ein Trupp müde ist (erste Stufe); seine Geschwindigkeit sinkt gemäß den Speed-Einstellungen. Die Reserve baut Ermüdung so schnell ab, wie die Arbeit sie aufbaut. Im Hinweis des Trupps gezeigt; das Symbol eines müden Trupps ist hervorgehoben. 0 = keine Ermüdung.
+57|Minuten Arbeit, bis ein Trupp erschöpft ist, die zweite Stufe der Ermüdung (höchstens: dort hört die Ermüdung auf zu wachsen). Nicht über „Tired after“ = keine zweite Stufe.
+58|Multiplikator der Chance, dass ein Treffer einen Trupp verwundet (0.5 = halb so wahrscheinlich, 2 = doppelt; das Ergebnis ist höchstens 100%). Schritt 1 (nur solange Wounds at any hull integrity aus ist) - das Spiel entscheidet, ob ein Treffer einen Trupp überhaupt aus seinem Abschnitt wirft (nur ein getroffener Abschnitt mit Integrität unter 50%: Schaden x (1 - Integrität), höchstens 20%). Schritt 2 - der Mod entscheidet die Verwundung: die Chance steigt steil mit der Gefechtskopfleistung (etwa Leistung^1.8) und fällt mit der Gesundheit des Trupps (etwa Gesundheit^1.2) - Gefechtskopf 2.2 gegen Gesundheit 2: etwa 10%, gegen 100: 0,1%; Gefechtskopf 82 gegen 100: etwa 75%; weit darüber über 100%. Sie wird mit diesem Multiplikator multipliziert und dann auf 100% begrenzt (bei ausgeschaltetem Wounds at any hull integrity verlässt ein nicht verwundeter Trupp den Abschnitt trotzdem). Ein stärkerer Gefechtskopf erhöht die Chance. Ein größeres Schiff senkt sie: seine Trupps sind zäher (mehr Gesundheit) und seine Abteile größer, ein Treffer landet seltener dort, wo der Trupp ist. Selbst der schwächste Treffer hat eine kleine Chance. Beispiel, Gefechtskopf 25: gegen Gesundheit 12 etwa 100%, gegen 29 etwa 37%, gegen 100 etwa 9%. 0 = nie verwundet.
+59|Multiplikator der Stärke einer Verwundung: höchstens die Gefechtskopfleistung der Munition (0..196, die Hälfte der Munition des Spiels unter 25) x dies, in Punkten der Trupp-Gesundheit (1..100 nach Verdrängung). Ein verwundeter Trupp geht in die Reserve.
+60|Anzahl der Feuer- und Rauchpunkte nach Schiffslänge statt der drei des Spiels: unter 25 m 1, unter 50 m 2, unter 75 m 3, ab 75 m 5 (einer je Abschnitt, jeder zeigt das Feuer seines Abschnitts). Für ab jetzt erscheinende Schiffe.
+61|Zufällige Streuung der Betäubungszeit, Sekunden in jede Richtung: HealTime 90 mit 30 = 60 bis 120 s, wie im Spiel. 0 = immer HealTime.
+62|Widerstand gegen die HORIZONTALE Bewegung eines zerstörten Schiffs, als Vielfaches des linearen Widerstands des Spiels (25 bei fast jedem Schiff): das Wrack verliert früher die Fahrt. 1 = wie im Spiel. Sinken (vertikale Bewegung) und Drehen (Kentern) werden nicht gebremst.
+63|Sekunden (Spielzeit, Zeitraffer zählt), die der Deckspunkt eines Abteils hintereinander unter Wasser sein muss, bevor Wasser über das Deck eindringt (siehe DeckFloodingSpeed). Ein auftauchender Punkt setzt den Timer zurück. Standard 3.
+64|Sekunden, die ein Trupp vor jeder Verlegung zur Bereitschaft braucht. Das Abbrechen einer Verlegung, solange er sich noch bereit macht, kostet keine Zeit.
+65|Verwendetes Einstellungsprofil, im Spiel gewählt: Unit Status -> Damage Control -> das Zahnrad neben (i). Diese Datei enthält nur die allgemeinen Einstellungen ([General], [UI]); die Werte des Schadensmodells stehen in der Datei des Profils: eingebaute im Ordner Profiles des Mods (schreibgeschützt), eigene in StreamingAssets/user/AdvancedDamageControl/Profiles. Das Ändern eines eingebauten Profils im Spiel speichert es als Custom. Änderungen an der Datei des verwendeten Profils oder an diesem Namen werden während des Spiels übernommen.
+66|Schiffe (ini-Dateinamen, durch Komma getrennt; im Einstellungsfenster bearbeitet, Reiter Flooding), die keine Deck Points erhalten: sie werden nach den alten, einfacheren Regeln geflutet, wie ein Schiff ohne Rumpf-Collider.
+67|Kleiner Brand: Rauchdeckkraft neuer Partikel bei 0% des Brandmaximums, % des Spiels.
+68|Kleiner Brand: Rauchdeckkraft neuer Partikel bei SmokeModerateFrom, % des Spiels; dazwischen gleichmäßig nach der Brandstärke.
+69|Trupp-Ermüdung an: Arbeit baut sie auf, die Reserve baut sie ab, ein müder Trupp arbeitet mit halber Geschwindigkeit. Aus = keine Ermüdung; ihre Einstellungen sind ausgeblendet.
+70|Trupp-Gesundheit an: Verwundungen durch Treffer und Brände, Erholung in der Reserve, verwundete Trupps arbeiten langsamer. Aus = Regeln des Spiels (ein Treffer wirft einen Trupp für eine Weile aus, keine Verwundungen); die übrigen Gesundheitseinstellungen sind ausgeblendet.
+71|Die Detailansicht von Unit Status -> Damage Control (die Anzeige des Mods): Rumpfintegrität je Seite neben dem Namen jedes Abschnitts, ein Symbol je Schadenskontrolltrupp (seine Aufgabe; Aufgaben und Verlegungen von Hand bei ausgeschaltetem Auto DC), Wasser und Feuer in % mit Trendpfeilen, DC Priority, die Trupp-Karten, die Anzeigen LIST / TRIM / LEVEL mit Flutplan, Hinweise, die Legende (i). Aus: die eigene Ansicht des Spiels (das Zahnrad des Einstellungsfensters bleibt).
+72|Schadensmodell und Schadenskontrolle des Mods: Rumpf- und Systemstärke, Nebeneffekte, Brand- und Fluttempo, Brandausbreitung, Schadenskontrolltrupps (Anzahl, Wirksamkeit, Laufverlegungen, Ausfälle, das optimierte Auto DC, Verschieben einzelner Trupps), Grenzen für Schlagseite / Trimm / Sinken. DC Priority und von Hand gegebene Aufgaben gehören zur Detailansicht und bleiben. Aus: Schaden und Schadenskontrolle des Spiels (die Ansicht des Reiters Damage Control bleibt). Jederzeit umschaltbar: Schiffe auf See folgen sofort (Rumpfstärke und Truppzahlen zurück zu denen des Spiels oder des Mods; Trupps unterwegs kommen an, ausgefallene erholen sich).
+73|Optik des mäßigen Brandes ab dieser Stärke, % des Brandmaximums (Spiel: 25%).
+74|Optik des schweren Brandes ab dieser Stärke, % des Brandmaximums (Spiel: 50%).
+75|Die Trupps ruhen im zentralen Abteil: ein Treffer darauf kann einen in der Reserve wartenden Trupp verwunden (die Chance ist die des Spiels für einen in einem getroffenen Abschnitt ausgeschalteten Trupp: Schaden x (1 - Integrität), nur unter 50% Integrität). Ein verwundeter ruhender Trupp bleibt in der Reserve.
+76|Trimm, Grad, für ein TrimReferenceLength langes Schiff: die volle Skala der TRIM-Anzeige. Ab ihrer roten Zone (75% davon) flutet das absinkende Ende schnell: auf jeder Seite das äußerste Abteil, ist es voll das nächste, und so weiter. Das Schiff sinkt nicht sofort, anders als im Spiel (8 Grad bei einem gefluteten Abschnitt).
+77|Unbeaufsichtigter Brand: um wie viel die Wachstumsrate bei jeder Brandprüfung steigt, in % der maximalen Wachstumsrate des Brandes (ein gewöhnlicher Treffer fügt 0,1-0,8% hinzu).
+78|Unbeaufsichtigter Brand: seine Wachstumsrate wird nur bis hierher erhöht, in % des Brandmaximums pro Sekunde.
+79|Unbeaufsichtigter Brand: Sekunden ohne Trupp, der das Feuer bekämpft (ab seinem Beginn oder dem letzten Einsatz eines Trupps), bevor es schneller zu wachsen beginnt.
+80|Verwundbarkeit des Rumpfes für Fluten durch Lecks aus Treffern (alle Waffentypen). 1.0 = jedes Leck lässt so viel Wasser ein wie im Spiel, und Lecks über der Wasserlinie beginnen nach demselben Schaden zu lecken wie im Spiel (der stärkere Rumpf hält das Wasser nicht zurück). 2.0 = doppelt so viel Wasser; 0.5 = halb so viel.
+81|Verwundbarkeit des Rumpfes für Geschützgranaten (Raketen, Torpedos und Bomben sind nicht betroffen). Geschützgranaten nehmen einen Anteil an der Sinkgrenze eines Schiffs, der von der Rumpfgröße abhängt. 1.0 = jede Granate nimmt so viel wie im Spiel; der stärkere Rumpf überlebt einfach mehr Treffer. 2.0 = Granaten treffen, als wäre der Rumpf halb so groß; 0.5 = als wäre er doppelt so groß (mittlere Granaten können großen Schiffen nicht mehr schaden).
+82|Verwundbarkeit des Schiffs für durch Treffer entstandene Brände (alle Waffentypen). Der stärkere Rumpf hält Brände im gleichen Verhältnis zurück: bei Warships = 5.0 löst ein Treffer einen 5-mal schwächeren Brand (relativ zum Abteil) aus als im Spiel. 1.0 = dieses normale Verhalten des Mods. 2.0 = doppelt so starke Brände, die doppelt so schnell wachsen; 0.5 = halb so stark. 1.0 bei allen Rumpfmultiplikatoren 1.0 = wie im Spiel.
+83|Wasser in einem Abschnitt begrenzt sein Feuer: es kann nicht stärker sein als (100 - Wasser-% des Abschnitts) des Maximums. Ein stärkeres Feuer fällt mit diesem % des Maximums pro Sekunde auf diese Grenze. 0 = aus.
+84|Wasser im ganzen Schiff, % (Mittel seiner Abteile), ab dem es sinkt, wie im Spiel (Spiel: 40; U-Boote behalten die 50 des Spiels). Auch die volle Skala der LEVEL-Anzeige.
+85|Wasser über die Deckskante, ein Multiplikator. Für Schiffe mit bekannten Deckspunkten (der volle Rumpf-Collider-Algorithmus): war der Deckspunkt eines Abteils DeckFloodingDelay Sekunden hintereinander unter Wasser (Spielzeit, Zeitraffer zählt), nimmt das Abteil Wasser auf, das die Schadenskontrolle nicht stoppen kann - 1.0 = 0,1% seines Volumens pro Sekunde je Meter Eintauchtiefe (tiefer = schneller); ein volles Abteil gibt das Wasser an den tiefstgelegenen nicht vollen Nachbarn weiter, und so die Kette entlang. Für andere Schiffe: wie schnell das absinkende Ende (bei Trimm über der Grenze) oder die tiefe Seite (bei Schlagseite über der Grenze) Wasser über die Deckskante aufnimmt - die eigene Mechanik des Mods, nicht im Spiel. 2.0 = doppelt so schnell, 0.5 = halb, 0 = aus.
+86|Wenn ein Schiff zu sinken beginnt, setzt das Spiel seinen Massenschwerpunkt in den Rumpfursprung ((0, 1, 0), falls es gekentert ist): der Schwerpunkt springt, und mit ihm jedes Drehmoment auf den Rumpf. An = der Schwerpunkt bleibt, wo er war. Aus = wie im Spiel.
+87|Während ein Trupp die Lecks eines Abteils stopft (die Aufgabe Flooding Rate), pumpt er gleichzeitig Wasser heraus: dieser Anteil der Auspumpgeschwindigkeit (0.5 = halb, 0 = aus). Ein zum Gegenfluten befohlener Trupp pumpt nur von der Seite, auf der das Schlagseite und Trimm nicht verschlechtert.
+88|Arbeitsgeschwindigkeit eines ausgeruhten Trupps, % (Startpunkt der Ermüdungskurve). Die Geschwindigkeit fällt linear von hier bis zur Stufe „müde“.
+89|Arbeitsgeschwindigkeit eines gerade müde gewordenen Trupps, %. Zwischen den Stufen „müde“ und „erschöpft“ fällt die Geschwindigkeit linear.
+90|Arbeitsgeschwindigkeit eines erschöpften Trupps, %; sie bleibt dort, solange der Trupp weiterarbeitet.
+91|Schreibt für jedes Schiff, das in eine Mission eintritt, eine Zeile ins BepInEx-Log: seine Rumpfintegrität im Spiel und mit dem Mod.
+92|+ Schiff hinzufügen
+93|Zurück zum Wert des Spiels
+94|Profil „{0}“ löschen?
+95|Ziehen zum Ändern der Größe
+96|Integrität auf einem Kriegsschiff von {0}.
+97|Seine Datei wird gelöscht. Ist es das verwendete Profil, wird Advanced verwendet.
+98|Ein weiterer Punkt
+99|Eine weitere Stufe: mehr Trupps ab mehr Tonnen
+100|Zeigen Sie auf eine Einstellung, um zu sehen, was sie bewirkt.
+101|Letzten Punkt entfernen
+102|Letzte Stufe entfernen
+103|Entfernen: das Schiff erhält wieder Deck Points
+104|Gespeichert in {0}
+105|eine positive Zahl
+106|ein Schiff aus der Liste oder der Name seiner ini-Datei
+107|basiert auf {0}
+108|Standard: {0}
+109|geändert
+110|ab {0} t
+111|Spiel: sofort
+112|Spiel: ohne Wirkung
+113|Spiel: keine Grenze
+114|Spiel: aus
+115|Spiel: {0}
+116|in Verwendung
+117|aus
+118|an
+119|das Profil
+120|tonnageabhängig
+121|unbekannter Typ
+122|{0} t: {1}
+123|● weicht von {0} ab   ↺ = zurück dazu
+124|Untere Leiste
+125|Reiter Damage Control
+126|Schadensmodell
+127|Effizienz
+128|Brand
+129|Brand und Schadenskontrolle
+130|Brand und Lecks
+131|Brandrauch
+132|Fluttempo
+133|Volle Flutung
+134|Anzeigeskalen (schnelleres Fluten ab ihrer roten Zone, 75%)
+135|Gesundheit
+136|Rumpfintegrität
+137|Protokoll (BepInEx-Log)
+138|Karte
+139|Bewegung
+140|Anzahl der Trupps - ab Tonnen: Trupps
+141|Schiffsgeschwindigkeit: Einfluss auf Fluten und Brand
+142|Sinken und Wrack
+143|Sinken ab
+144|Schalter
+145|Systeme
+146|Trupp-Geschwindigkeit
+147|Zeit
+148|Unbeaufsichtigter Brand
+149|Visualisierung (gewähltes Schiff)
+150|Verwundbarkeit des stärkeren Rumpfes
+151|Wasser
+152|Waffentreffer
+153|Modultypen (modules.ini) mit eigener Integrität (Integrity), ausdrücklich anstelle der Angabe in modules.ini gesetzt (der Wert des Spiels wird beim Wählen eines Typs eingetragen); der Integrity-Multiplikator oben gilt für sie nicht. Die Anpassungen des Spiels behalten ihr Verhältnis: mit „× Tonnage“ markierte Typen (bernsteinfarben) wachsen mit der Verdrängung des Schiffs - zeigen Sie auf einen für seine Endwerte -, und der eigene Wert eines Systems im Schiff ändert sich im selben Verhältnis.
+154|Schiffe ohne Deck Points (Flooding): für sie wird Wasser über die Deckskante nicht berechnet, es gelten die alten einfacheren Regeln, wie bei einem Schiff ohne Rumpf-Collider. Aus den Schiffen des Spiels oder per ini-Dateiname gewählt.
+155|Schiffe mit eigenem Rumpfmultiplikator, aus den Schiffen des Spiels gewählt (oder per ini-Dateiname): wievielmal stärker als im Spiel; ersetzt den Klassenwert, wird nicht damit multipliziert.
+156|Alternative Damage Control
+157|Zivilschiffe
+158|Streuung der Betäubung
+159|Betäubungszeit
+160|Gegenflutgrenze
+161|Gegenfluten
+162|Schadenskontrolle ohne Motoren
+163|Schaden fließt weiter
+164|Debug-Trace
+165|Höhen der Deckspunkte
+166|Detailansicht
+167|Erschöpft nach
+168|Löschen
+169|Zusätzliche Rauchpunkte
+170|Brandschaden am Rumpf
+171|Brandwachstum
+172|Feuer durch Wasser gelöscht
+173|Feuer öffnet Lecks
+174|Brandausbreitungschance
+175|Feuer unter Wasser
+176|Brandverwundungen
+177|Brand: ein Pfeil ab
+178|Brand: zwei Pfeile nach unten ab
+179|Brand: zwei Pfeile nach oben ab
+180|Brände
+181|Trimm-Rechenfehler beheben
+182|Fluten
+183|Wächst, wenn niemand es bekämpft
+184|Hinzugefügtes Wachstum
+185|Geschützgranaten
+186|Unbeobachtete Ziele in 3D ausblenden
+187|Rumpf-Collider (durchscheinend)
+188|Rumpf jedes Schiffs
+189|Integrität
+190|Massenschwerpunkt behalten
+191|Schlagseite
+192|Schlagseite, Trimm und Auftrieb
+193|Max. Gesundheit
+194|Max. Schiffsgeschwindigkeit zum Lecks stopfen
+195|Maximale Wachstumsrate
+196|Mäßiger Brand ab
+197|Multiplikatoren nach Geschwindigkeit
+198|Sammelzeit
+199|Auspumpen
+200|Pumpen beim Lecks stopfen
+201|Erholungsgeschwindigkeit
+202|Erholungsgeschwindigkeit in der Reserve
+203|Wieder geöffnet bis
+204|Schwerer Brand ab
+205|Schadenssymbole der Schiffe
+206|3D-Modell des Schiffs
+207|Kleine KI: keine Geschwindigkeitsgrenze
+208|Kleiner Brand: Deckkraft am Ende
+209|Kleiner Brand: Deckkraft am Anfang
+210|Geschwindigkeit: erschöpft
+211|Geschwindigkeit: ausgeruht
+212|Geschwindigkeit: müde
+213|Blasen stoppen nach
+214|U-Boote
+215|Ausgefallene Systeme
+216|Wirksamkeit der Trupps
+217|Trupp-Ermüdung
+218|Trupp-Gesundheit
+219|Trupp stoppt Brandausbreitung
+220|Zeit unter Wasser
+221|Müde nach
+222|Verlegungsgeschwindigkeit
+223|Trimm
+224|Trimm: Bezugslänge
+225|Optik anpassen
+226|Unbeaufsichtigt nach
+227|Kriegsschiffe
+228|Eindringendes Wasser
+229|Wasser im Schiff
+230|Wasser über dem Deck
+231|Wasser: ein Pfeil ab
+232|Wasser: zwei Pfeile ab
+233|Waffenstatusfarben
+234|Arbeit im Feuer
+235|Verwundungschance
+236|Verwundungsstärke
+237|Verwundungen bei jeder Rumpfintegrität
+238|Verwundungen in der Reserve
+239|Wrackwiderstand
+240|Ausblenden
+241|Anzeigen
+242|Durchscheinend
+243|DC-Trupps
+244|Schadensmodell
+245|Debug
+246|Effekte
+247|Rumpf
+248|Trendpfeile
+249|Benutzeroberfläche
+250|+ Typ hinzufügen
+251|Schiff hinzufügen
+252|Alternative Damage Model - Einstellungen
+253|Anwenden
+254|Abbrechen
+255|Anzahl
+256|Löschen
+257|Ermüdung
+258|OK
+259|Profil
+260|Entfernen: das Schiff nimmt wieder den Klassenwert
+261|Entfernen: der Typ nimmt wieder den Multiplikator oben
+262|Profil umbenennen
+263|Umbenennen…
+264|Auf Profil zurücksetzen
+265|Speichern
+266|Speichern unter…
+267|Profil speichern unter
+268|Einstellungsprofil
+269|Schiffe ohne Deck Points - nach den alten Regeln geflutet, wie ohne Rumpf-Collider
+270|Einzelne Schiffe - × Spiel, statt des Klassenwerts
+271|Einzelne Systemtypen - Integrity, statt des Multiplikators oben
+272|Arbeit
+273|Verwundungen
+274|ein Modultyp aus der Liste (modules.ini)
+275|Brandrate
+276|Flutrate
+277|Geschwindigkeit, Knoten
+278|Trupps
+279|Tonnen
+280|% pro Sekunde
+281|% pro Sekunde · 0 = aus
+282|% Wirksamkeit ohne Brandbekämpfung · 100 = aus
+283|% Wirksamkeit · außer Systemreparatur · 100 = aus
+284|% Gesundheit pro Sekunde
+285|% in einer Abteilseite
+286|% des Brandmaximums (Spiel 25)
+287|% des Brandmaximums (Spiel 50)
+288|% des Brandmaximums pro Sekunde
+289|% des max. Wachstums pro Brandprüfung (10 s)
+290|% des Normalen
+291|% der Ermüdungsgeschwindigkeit
+292|% des Spiels, bei mäßig
+293|% des Spiels, Brand bei 0%
+294|% des Rumpfes
+295|% des größten Lecks
+296|% des größten Lecks pro Sekunde bei Brand 100% · 0 = aus
+297|% pro Brandprüfung (10 s)
+298|% pro Sekunde bei Brand 100%
+299|% pro Sekunde pro Meter unter Wasser; 0 = aus
+300|KI-Schiffe < 50 m: keine Geschwindigkeitsbremse
+301|ein zerstörtes Abteil: ½ an den Nachbarn, ¼ an den nächsten
+302|über 10x Zeitraffer
+303|wirkt sofort
+304|nach Länge: <25 m 1, <50 m 2, <75 m 3, sonst 5
+305|Treffer im zentralen Abteil verwunden ruhende Trupps
+306|nur coll_hull*
+307|Feuer breitet sich nicht in einen Abschnitt mit Trupp aus
+308|Feuer, Wasser, Rumpf, Motor
+309|für die zwei oben
+310|statt der Stufen des Spiels
+311|Knoten · 0 = keine Grenze
+312|m · 0 = für alle gleich
+313|m/min · 0 = sofort
+314|min nach Sinkbeginn; 0 = nie
+315|min Arbeit
+316|keine Reparatur bei Flutung
+317|nicht visuell beobachtet
+318|nicht nur unter 50%
+319|aus = die Seite Fatigue ist ausgeblendet
+320|s
+321|s, bevor Wasser über das Deck beginnt
+322|s in der Reserve · 0 = aus
+323|s ohne Trupp
+324|Welle bis Rumpf-Deck, 10 Punkte
+325|wenn das Sinken beginnt (das Spiel setzt ihn zurück)
+326|Verwundungen und Erholung; aus = die Seite Health ist ausgeblendet
+327|gelb: Teil ausgefallen, rot: alles
+328|° bei der Bezugslänge
+329|° · Wasser über der Deckskante ab 75%
+330|± s
+331|× (1-100 nach Verdrängung)
+332|× Chance
+333|× Spiel
+334|× Auspumpen · 0 = aus
+335|× Auspumpen · nur von Hand
+336|× Widerstand des Spiels gegen die horizontale Bewegung eines zerstörten Schiffs
+337|× Gefechtskopfleistung
+338|× · 1 = 0,1% pro s pro m unter Wasser
+339|Typ hinzufügen
+340|„{0}“ ist ein eingebautes Profil.
+341|Höchstens 40 Zeichen.
+342|Ein Profil mit diesem Namen existiert bereits.
+343|Eingebaute Profile können nicht gelöscht werden.
+344|Eingebaute Profile können nicht umbenannt werden.
+345|Im Namen nicht erlaubt: ; # [ ]
+346|Im Namen nicht erlaubt: {0}
+347|Profil nicht gefunden.
+348|Name eingeben.
+349|Zeilenumbruch
+350|nicht erlaubt: {0}
+351|Tabulator
+352|Verloren
+353|Sinkt
+354|Sinkt in ~{0} Min.
+355|Stabil
+356|starke Schlagseite nach Backbord
+357|starke Schlagseite nach Steuerbord
+358|starke Bugtrimmung
+359|starke Hecktrimmung
+360|Schlagseite nach Backbord
+361|Schlagseite nach Steuerbord
+362|Radar
+363|Radarschätzung
+364|Radarspur (Schätzung)
+365|Sonar
+366|Sonar (Maschinengeräusch)
+367|Bugtrimmung
+368|Hecktrimmung
+369|visuell
+370|visuelle Beobachtung
+371|visuelle Beobachtung (nicht identifiziert)
+372|Beschäftigt: {0} zuerst {1}
+373|Beschädigt Rumpf und Systeme
+374|Erschöpft
+375|Brand {0}
+376|Brand {0} brennt hier
+377|Wächst von selbst um {0}%/s
+378|Treffer vor {0} s
+379|Treffer
+380|Lecks: +{0}%/s
+381|Schlagseite {0}°: Wasser über dem Deck
+382|Senkt es:
+383|Gering
+384|Mittel
+385|Kein Trupp hier
+386|Nichts erhöht es jetzt
+387|Nur der Schadenskontrolltrupp löscht ihn
+388|Backbord
+389|Erhöht es:
+390|Schwer
+391|Schiff zu schnell zum Abdichten: über {0} kn
+392|Breitet sich auf Nachbarsektionen aus
+393|Steuerbord
+394|Trupp unterwegs
+395|Das Leck wächst: Rumpf {0}, kein Trupp
+396|Das Schiff sinkt
+397|Müde
+398|Unbeaufsichtigt {0} s: wächst schneller
+399|Schweißbar bis {0}
+400|Verwundet
+401|ein Trupp
+402|fällt
+403|schneller: Schiffsgeschwindigkeit
+404|zuerst die andere Seite
+405|repariert
+406|sinkt: schneller
+407|langsamer: Schiffsgeschwindigkeit
+408|{0} Gegenfluten: +{1}%/s
+409|{0} dichten die andere Seite ab
+410|{0} pumpen beim Abdichten: −{1}%/s
+411|{0} pumpen aus: −{1}%/s
+412|{0} schweißen
+413|Backbord-Rumpf {0}
+414|Steuerbord-Rumpf {0}
+415|Bugtrimmung {0}°: Wasser über dem Deck
+416|Hecktrimmung {0}°: Wasser über dem Deck
+417|Ein freier Schadenskontrolltrupp wartet in der Reserve
+418|Maschine ausgefallen: SK-Effizienz {0}%
+419|Brände:
+420|Prognose:
+421|Treffer auf dem Schiff: {0}
+422|In Transfer
+423|In Reserve
+424|Keine
+425|Noch keine
+426|Erholt sich
+427|Explosion
+428|Backbord
+429|Sektion {0}
+430|Steuerbord
+431|von Panzerung gestoppt
+432|die Reserve
+433|Deckskante berührt die See bei Schlagseite {0}° · Trimmung {1}° (rote Zonen)
+434|Schlagseite 45° · Trimmung 8° (wie im Spiel)
+435|Schlagseitengrenze {0}° · Trimmgrenze {1}°
+436|Deckebenen in 3D zeigen
+437|U-Boot: Schlagseite und Trimmung fluten nichts
+438|Wasser {0} · sinkt bei {1}%
+439|flutet aus den roten Zonen schneller
+440|Wird repariert
+441|Wird repariert: +{0} pro Minute (+{1} der Integrität)
+442|Nicht reparierbar
+443|Schaden: {0}, Integrität {1} / {2} ({3})
+444|Zerstört: nicht reparierbar
+445|Stufe {0} in {1}
+446|Kein Schadenskontrolltrupp in der Sektion
+447|So weit repariert wie möglich
+448|System
+449|Das Spiel erlaubt die Reparatur bis {0} (eine Stufe besser als der schlechteste Zustand)
+450|Die Sektion ist geflutet: keine Reparatur
+451|Wartet auf einen Trupp
+452|zerstört
+453|leicht
+454|mittel
+455|keiner
+456|ausgefallen
+457|schwer
+458|Eine Sektion = Backbord- + Steuerbordabteil:
+459|Heck  41% / 47%  - Rumpf, Backbord / Steuerbord
+460|Einstellungen von Alternative Damage Model
+461|Auto
+462|Auto-SK aus: Trupp anklicken, um ihm eine Aufgabe zu geben (rotes ! = hat eine).
+463|Wieder im Dienst in {0}
+464|Von Hand: {0}
+465|Cancel Transfer
+466|Klick: abbrechen
+467|Klick: Aufgabe
+468|Klick: Aufgabe / verlegen
+469|DC Priority
+470|DC Priority: was alle Trupps zuerst tun.
+471|DC team
+472|Damage State
+473|Aus
+474|Effizienz {0}%
+475|Ein
+476|Maschine ausgefallen: {0}% Wirksamkeit (außer Systemreparatur)
+477|Ermüdung {0}%
+478|Brand  64%  - % des Maximums
+479|Flutung  23% / 5%  - Wasser im Schiff
+480|Zahnrad neben (i): Einstellungen und Profile.
+481|Geheilt in {0}
+482|Gesundheit {0}%
+483|Hier {0}
+484|Limit Speed
+485|Move to section
+486|Ein: Das Spiel drosselt die Schiffsgeschwindigkeit bei Flutung (10 kn bei offenen Lecks, 10-25 kn je nach Wasser in den Sektionen).\nAus: keine Drosselung, das Schiff hält die befohlene Geschwindigkeit - das Wasser dringt schneller ein, Brände brennen heller.
+487|Ein Symbol = ein Schadenskontrolltrupp:
+488|Auf LIST / TRIM / LEVEL zeigen: Wasser je Abteil.
+489|Auf einen Pfeil zeigen: warum sich der Wert ändert.
+490|Roter Pfeil: schlechter, grün: besser, zwei: schnell.
+491|Aufgabe von Hand
+492|In {0} dort
+493|To Reserve
+494|Was die Schadenskontrolltrupps auf dem ganzen Schiff zuerst tun.
+495|benommen, geht in die Reserve
+496|benommen, geht in die Reserve (In Transfer)
+497|benommen, in Reserve
+498|Gegenfluten
+499|erschöpft
+500|bekämpft den Brand
+501|frei, in Reserve
+502|macht sich bereit
+503|hier
+504|verloren
+505|nie
+506|keine Aufgabe
+507|nichts zu tun
+508|unterwegs (In Transfer)
+509|dichtet ein Leck ab
+510|pumpt Wasser aus
+511|repariert Systeme
+512|Reserve
+513|Ruhe {0}
+514|Geschwindigkeit zu hoch
+515|müde
+516|schweißt den Rumpf
+517|verwundet: langsamer
+518|{0} übrig
+519|Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. Der am schnellsten wachsende Brand oder das Leck zuerst.
+520|DC Priority: Fire - die Trupps nehmen Gefahren in dieser Reihenfolge: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
+521|DC Priority: Flooding - die Trupps nehmen Gefahren in dieser Reihenfolge: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
+522|Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. Auto-SK schickt freie Trupps zuerst zum schlimmsten Brand.
+523|Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. Auto-SK schickt freie Trupps zu Lecks, dann zum Wasser.
+524|Lage: {0}
+525|Kontakt
+526|Kontakt {0}
+527|Damage State — {0}
+528|Maschine: fast gestoppt
+529|Maschine: manövrierunfähig
+530|Maschine: Teil des Antriebs verloren
+531|Maschine: langsam
+532|Brand: {0}
+533|Flutung: {0}
+534|Rumpf: {0}
+535|Kein Schaden sichtbar
+536|Keine Daten: nicht in direkter Sicht
+537|Sinkt bald
+538|Quelle: {0}
+539|bricht auseinander
+540|kritisch
+541|beschädigt
+542|schwer beschädigt
+543|schwer
+544|gering
+545|mäßig
+546|leicht
+547|leicht beschädigt
+548|Deckskante {0} m unter Wasser seit {1} von {2} s
+549|Deckskante {0} m unter Wasser: +{1}%/s
+550|Überlauf aus {0}: +{1}%/s
+551|Neigung zur See: Schlagseite {0}° Bb / {1}° Stb · Trimmung {2}° Heck / {3}° Bug
+552|voll: geht weiter nach {0}
+553|Backbord {0}
+554|Steuerbord {0}
+555|% pro Treffer bei den jetzt gesetzten Max health, Wound chance und Wound strength (die Chance ist auf 100 begrenzt). Darunter: die Verwundung, die ein Trupp im Mittel erhält, in % seiner Gesundheit
+556|Munition
+557|Chance, dass ein Treffer einen Trupp verwundet
+558|Verdrängung, t
+559|Noch keine Spieldaten.
+560|Leistung
+561|Truppgesundheit, HP
+562|dichten ab (stoppt das Leck)
+563|Brand
+564|bekämpfen
+565|löschen
+566|Leck
+567|Sprache
+568|Sprache des Mods
+569|gilt nach erneutem Öffnen des Fensters
+570|Spielsprache
+571|Multiplikator der Chance, dass ein Treffer im zentralen Abteil einen in der Reserve ruhenden Trupp verwundet; zusätzlich zu Wound chance (0.5 = halb so wahrscheinlich, 0 = ruhende Trupps werden nie verwundet). Wirkt nur mit Wounds in reserve.
+572|Verwundungschance in der Reserve
+573|Spiel: kein Gegenstück
+574|Auf den Wert des Profils Base Game zurücksetzen
+575|Auf den Standardwert zurücksetzen

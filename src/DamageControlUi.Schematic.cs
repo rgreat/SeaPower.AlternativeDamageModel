@@ -92,7 +92,7 @@ namespace AlternativeDamageModel
             s.Limits = new TextBlock { FontSize = 10f, Foreground = new SolidColorBrush(CDim), Margin = new Thickness(0f, 4f, 0f, 0f) };
             root.Children.Add(s.Limits);
             // the deck points of this ship in 3D, all the time (clicked: the panel is shown over the screen, not as a tooltip - tooltips take no clicks)
-            s.Pin = new CheckBox { Content = "Show deck levels in 3D", FontSize = 11f, Foreground = new SolidColorBrush(Color.FromRgb(230, 232, 235)), Margin = new Thickness(0f, 5f, 0f, 0f) };
+            s.Pin = new CheckBox { Content = Loc.T("Show deck levels in 3D"), FontSize = 11f, Foreground = new SolidColorBrush(Color.FromRgb(230, 232, 235)), Margin = new Thickness(0f, 5f, 0f, 0f) };
             root.Children.Add(s.Pin);
             s.Root = new Border { Child = root, Padding = new Thickness(6f, 4f, 6f, 6f), Background = new SolidColorBrush(Color.FromRgb(30, 33, 38)),
                                   BorderBrush = new SolidColorBrush(Color.FromRgb(70, 76, 86)), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(4f) };
@@ -258,22 +258,21 @@ namespace AlternativeDamageModel
             }
             float total = 0f;
             try { total = Convert.ToSingle(_compFloodPct.GetValue(comp, null), CultureInfo.InvariantCulture); } catch { }
-            string title = "Water " + Pct(total) + " · sinks at " + SinkAt(comp).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+            string title = Loc.F("Water {0} · sinks at {1}%", Pct(total), SinkAt(comp).ToString("0.#", CultureInfo.InvariantCulture));
             if (s.Title.Text != title) s.Title.Text = title;
             // the list / trim limits of this ship (the gauges' full scales; faster flooding from their red zones)
             string lim;
             float L = DcTeams.ShipLength(comp);
-            if (IsSub(comp)) lim = "Submarine: list and trim flood nothing";
+            if (IsSub(comp)) lim = Loc.T("Submarine: list and trim flood nothing");
             else if (ModelOn() && SubmergedFlooding.Covers(comp))
             {
                 float tl, tt; SubmergedFlooding.TouchAngles(comp, out tl, out tt);
-                lim = SubmergedFlooding.MarginText(comp) ?? ("Deck edge touches the sea at list " + tl.ToString("0.#", CultureInfo.InvariantCulture) + "° · trim " + tt.ToString("0.0", CultureInfo.InvariantCulture) + "° (red zones)");
+                lim = SubmergedFlooding.MarginText(comp) ?? Loc.F("Deck edge touches the sea at list {0}° · trim {1}° (red zones)", tl.ToString("0.#", CultureInfo.InvariantCulture), tt.ToString("0.0", CultureInfo.InvariantCulture));
             }
             else if (ModelOn())
-                lim = "List limit " + Limits.ListFull.ToString("0.#", CultureInfo.InvariantCulture) + "° · Trim limit " +
-                      Limits.Trim(L).ToString("0.0", CultureInfo.InvariantCulture) + "°" + (L > 0f ? " (" + L.ToString("0", CultureInfo.InvariantCulture) + " m)" : "") +
-                      " · floods faster from the red zones";
-            else lim = "List 45° · Trim 8° (the game's)";
+                lim = Loc.F("List limit {0}° · Trim limit {1}°", Limits.ListFull.ToString("0.#", CultureInfo.InvariantCulture), Limits.Trim(L).ToString("0.0", CultureInfo.InvariantCulture)) + (L > 0f ? " (" + L.ToString("0", CultureInfo.InvariantCulture) + " m)" : "") +
+                      " · " + Loc.T("floods faster from the red zones");
+            else lim = Loc.T("List 45° · Trim 8° (the game's)");
             // two lines (it was too wide): at the first " · "
             int dot = lim.IndexOf(" · ", StringComparison.Ordinal);
             if (dot > 0) lim = lim.Substring(0, dot) + "\n" + lim.Substring(dot + 3);

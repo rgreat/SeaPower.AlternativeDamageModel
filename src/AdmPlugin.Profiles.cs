@@ -160,7 +160,7 @@ namespace AlternativeDamageModel
         {
             key = key ?? "";
             if (key.Trim().Length == 0) return "empty";
-            foreach (char ch in "=\n\t\\\"'[]") if (key.IndexOf(ch) >= 0) return "not allowed: " + (ch == '\n' ? "line break" : ch == '\t' ? "tab" : ch.ToString());
+            foreach (char ch in "=\n\t\\\"'[]") if (key.IndexOf(ch) >= 0) return Loc.F("not allowed: {0}", ch == '\n' ? Loc.T("line break") : ch == '\t' ? Loc.T("tab") : ch.ToString());
             return null;
         }
 
@@ -178,11 +178,11 @@ namespace AlternativeDamageModel
         public static string BadName(string name)
         {
             name = (name ?? "").Trim();
-            if (name.Length == 0) return "Type a name.";
-            if (name.Length > 40) return "40 characters at most.";
-            if (IsBuiltIn(name)) return "\"" + name + "\" is a built-in profile.";
-            foreach (char ch in Path.GetInvalidFileNameChars()) if (name.IndexOf(ch) >= 0) return "Not allowed in a name: " + ch;
-            if (name.IndexOf(';') >= 0 || name.IndexOf('#') >= 0 || name.IndexOf('[') >= 0 || name.IndexOf(']') >= 0) return "Not allowed in a name: ; # [ ]";
+            if (name.Length == 0) return Loc.T("Type a name.");
+            if (name.Length > 40) return Loc.T("40 characters at most.");
+            if (IsBuiltIn(name)) return Loc.F("\"{0}\" is a built-in profile.", name);
+            foreach (char ch in Path.GetInvalidFileNameChars()) if (name.IndexOf(ch) >= 0) return Loc.F("Not allowed in a name: {0}", ch.ToString());
+            if (name.IndexOf(';') >= 0 || name.IndexOf('#') >= 0 || name.IndexOf('[') >= 0 || name.IndexOf(']') >= 0) return Loc.T("Not allowed in a name: ; # [ ]");
             return null;
         }
 
@@ -521,15 +521,15 @@ namespace AlternativeDamageModel
 
         public string RenameProfile(string from, string to)
         {
-            if (IsBuiltIn(from)) return "Built-in profiles cannot be renamed.";
+            if (IsBuiltIn(from)) return Loc.T("Built-in profiles cannot be renamed.");
             string bad = BadName(to);
             if (bad != null) return bad;
             to = to.Trim();
             try
             {
                 string a = UserFile(from), b = UserFile(to);
-                if (!File.Exists(a)) return "Profile not found.";
-                if (File.Exists(b) && !string.Equals(a, b, StringComparison.OrdinalIgnoreCase)) return "A profile with this name exists.";
+                if (!File.Exists(a)) return Loc.T("Profile not found.");
+                if (File.Exists(b) && !string.Equals(a, b, StringComparison.OrdinalIgnoreCase)) return Loc.T("A profile with this name exists.");
                 var p = LoadProfile(from);
                 File.Delete(a);
                 WriteProfileFile(b, p.Copy(to));
@@ -546,7 +546,7 @@ namespace AlternativeDamageModel
 
         public string DeleteProfile(string name)
         {
-            if (IsBuiltIn(name)) return "Built-in profiles cannot be deleted.";
+            if (IsBuiltIn(name)) return Loc.T("Built-in profiles cannot be deleted.");
             try
             {
                 string f = UserFile(name);

@@ -26,7 +26,7 @@ namespace AlternativeDamageModel
 
         static readonly int[][] Orders =
         {
-            new[] { TaskLeak, TaskFire, TaskPump, TaskSystems, TaskHull },   // Auto (a growing fire goes first in DcAuto)
+            new[] { TaskLeak, TaskFire, TaskPump, TaskSystems, TaskHull },   // Auto: leak rate, fire, flooding, systems, structure (DcAuto: leak rate > fire rate > fires ...; a fire of any strength keeps one team in its section, see Allocate below)
             new[] { TaskFire, TaskLeak, TaskPump, TaskSystems, TaskHull },   // fire first
             new[] { TaskLeak, TaskPump, TaskFire, TaskSystems, TaskHull },   // flooding first
         };
@@ -466,16 +466,24 @@ namespace AlternativeDamageModel
                     for (int m = 0; m < nRest; m++) _did[_rest[m]] = did;
                 }
 
-                // the rest: the first task in the order that has work
+                // the rest: the first task in the order that has work; in Auto a fire of any strength in the section keeps one of its teams fighting it
                 if (nFree > 0)
                 {
-                    teams[i] = nFree;
-                    _grpEff = GroupEff(_free, 0, nFree);
+                    int from = 0;
+                    if (mode == ModeAuto && nFree >= 2 && FireIn(comp, i))
+                    {
+                        teams[i] = 1;
+                        _grpEff = GroupEff(_free, 0, 1);
+                        if (Work(TaskFire, comp, i, null)) { _did[_free[0]] = TaskFire; from = 1; }
+                    }
+                    int cnt = nFree - from;
+                    teams[i] = cnt;
+                    _grpEff = GroupEff(_free, from, cnt);
                     int did = TaskIdle;
                     foreach (var t in Orders[mode])
                         if (Work(t, comp, i, null)) { did = t; break; }
-                    for (int m = 0; m < nFree; m++) _did[_free[m]] = did;
-                    returnTeam = did == TaskIdle && nFree == n && autoDc && !StayWhenIdle(comp);   // as the game: nothing to do -> back to the pool
+                    for (int m = from; m < nFree; m++) _did[_free[m]] = did;
+                    returnTeam = from == 0 && did == TaskIdle && nFree == n && autoDc && !StayWhenIdle(comp);   // as the game: nothing to do -> back to the pool
                 }
             }
             finally { teams[i] = n; _grpEff = 1f; }   // our temporary counts never stay

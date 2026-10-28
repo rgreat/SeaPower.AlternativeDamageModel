@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -30,6 +31,9 @@ namespace AlternativeDamageModel
         static string _origHeader;                 // the tab's own title, put back when a unit of the player is selected
         public static bool Active;                 // the window shows a contact now
         static object _vehicle;                    // the contact (Vehicle)
+        static object _dcTab;                      // the Damage Control tab of the view model SwitchPostfix last served (its own, not the view's DataContext)
+        static WeakReference _vmRef;
+        static readonly ConditionalWeakTable<object, object> Hooked = new ConditionalWeakTable<object, object>();
 
         public static bool Init(Harmony harmony, Assembly asm)
         {
@@ -93,11 +97,11 @@ namespace AlternativeDamageModel
             try
             {
                 if (!_ok) return;
-                bool want = false;
+                bool want = false, fresh = false;   // fresh: the first time for this contact - only then the tab is chosen
                 if (IsEnabled() && _fUnit.GetValue(__instance) == null)
                 {
                     var v = SelectedContact();
-                    if (v != null && ContactIntel.HasCompartments(v)) { _vehicle = v; want = true; }
+                    if (v != null && ContactIntel.HasCompartments(v)) { fresh = !Active || !ReferenceEquals(_vehicle, v); _vehicle = v; want = true; }
                 }
                 if (want)
                 {
@@ -107,16 +111,20 @@ namespace AlternativeDamageModel
                     if (_pHeader != null)
                     {
                         if (_origHeader == null) _origHeader = Convert.ToString(_pHeader.GetValue(dc, null));
-                        if (_origHeader != "Damage State") _pHeader.SetValue(dc, "Damage State", null);
+                        if (_origHeader != "Damage State" && _origHeader != Loc.T("Damage State")) _pHeader.SetValue(dc, Loc.T("Damage State"), null);
                     }
                     _pAvail.SetValue(eng, false, null);
                     _pAvail.SetValue(dc, true, null);
-                    _pSelected.SetValue(dc, true, null);
+                    // the game calls SwitchUnit at every refresh of the window while a contact is selected: the user's choice of another tab is left alone
+                    if (fresh) _pSelected.SetValue(dc, true, null);
                     Active = true;
+                    _dcTab = dc; _vmRef = new WeakReference(__instance);
+                    Hook(dc);
+                    if (fresh) Show("switch", true);
                 }
                 else if (Active)
                 {
-                    Active = false; _vehicle = null;
+                    Active = false; _vehicle = null; _dcTab = null;
                     if (_pHeader != null && _origHeader != null) _pHeader.SetValue(_pDcTab.GetValue(__instance, null), _origHeader, null);
                     if (_fUnit.GetValue(__instance) == null)
                     {
@@ -134,6 +142,67 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("EnemyStatus.SwitchPostfix: " + e.Message); }
         }
 
+        /// <summary>The Damage State overlay belongs to the Damage Control tab only: any other tab of the window (the game's or another mod's) selected - it is hidden.</summary>
+        static bool DcTabSelected()
+        {
+            try { return _dcTab == null || _pSelected == null || !(_pSelected.GetValue(_dcTab, null) is bool) || (bool)_pSelected.GetValue(_dcTab, null); }
+            catch { return true; }
+        }
+
+        /// <summary>Follows the tab's own IsSelected: the game unselects the other tabs when one is clicked, so this fires at every change of tab.</summary>
+        static void Hook(object tab)
+        {
+            var inpc = tab as INotifyPropertyChanged;
+            object x;
+            if (inpc == null || Hooked.TryGetValue(tab, out x)) return;
+            Hooked.Add(tab, tab);
+            inpc.PropertyChanged += (s, e) => { if (e.PropertyName == "IsSelected") Show("tab", false); };
+        }
+
+        /// <summary>Puts the overlays' visibility right now (no waiting for the next tick) and, with the debug trace on, tells what the tabs are.</summary>
+        static void Show(string why, bool refill)
+        {
+            try
+            {
+                bool dcSel = DcTabSelected();
+                bool show = Active && IsEnabled() && _vehicle != null && dcSel;
+                var vis = show ? Visibility.Visible : Visibility.Collapsed;
+                var sb = new System.Text.StringBuilder();
+                foreach (var view in DamageControlUi.StatusViewElements())
+                {
+                    Card p;
+                    if (Panels.TryGetValue(view, out p) && p.Root != null)
+                    {
+                        if (p.Root.Visibility != vis) p.Root.Visibility = vis;
+                        if (refill) p.Next = 0f;
+                    }
+                    object dc = null; try { dc = view.DataContext; } catch { }
+                    sb.Append(" view.DataContext=").Append(dc == null ? "null" : dc.GetType().Name);
+                }
+                Trace("EnemyStatus." + why + ": active=" + Active + " dcSelected=" + dcSel + " overlay=" + vis + sb + " tabs: " + Tabs());
+            }
+            catch (Exception e) { Trace("EnemyStatus.Show: " + e.Message); }
+        }
+
+        static string Tabs()
+        {
+            try
+            {
+                var vm = _vmRef == null ? null : _vmRef.Target;
+                var list = vm == null ? null : vm.GetType().GetProperty("Tabs").GetValue(vm, null) as System.Collections.IEnumerable;
+                if (list == null) return "-";
+                var sb = new System.Text.StringBuilder();
+                foreach (var t in list)
+                {
+                    var tt = t.GetType();
+                    sb.Append(tt.GetProperty("Kind").GetValue(t, null)).Append(':').Append(_pHeader.GetValue(t, null))
+                      .Append(" avail=").Append(_pAvail.GetValue(t, null)).Append(" sel=").Append(_pSelected.GetValue(t, null)).Append("; ");
+                }
+                return sb.ToString();
+            }
+            catch (Exception e) { return "? " + e.Message; }
+        }
+
         static string NameOf(object vehicle)
         {
             try
@@ -142,9 +211,9 @@ namespace AlternativeDamageModel
                 bool ident = _vIdent != null && ContactIntel.Flag(_vIdent.GetValue(vehicle, null));
                 var obj = ContactIntel.ObjectOf(vehicle);
                 string name = ident && obj != null && _oName != null ? Convert.ToString(_oName.GetValue(obj, null)) : null;
-                return string.IsNullOrEmpty(name) ? "Contact " + id : name + " (" + id + ")";
+                return string.IsNullOrEmpty(name) ? Loc.F("Contact {0}", id) : name + " (" + id + ")";
             }
-            catch { return "Contact"; }
+            catch { return Loc.T("Contact"); }
         }
 
         // ------------------------------------------------------------ the panel over the tab's content
@@ -172,7 +241,7 @@ namespace AlternativeDamageModel
                     Panels.Add(view, p);
                 }
                 if (p.Root == null) continue;
-                bool show = Active && IsEnabled() && _vehicle != null;
+                bool show = Active && IsEnabled() && _vehicle != null && DcTabSelected();
                 var vis = show ? Visibility.Visible : Visibility.Collapsed;
                 if (p.Root.Visibility != vis) p.Root.Visibility = vis;
                 if (!show || now < p.Next) continue;
@@ -227,36 +296,37 @@ namespace AlternativeDamageModel
 
         static void SetText(TextBlock tb, string s) { if (tb.Text != s) tb.Text = s; }
 
-        static readonly string[] FireWords = { "", "minor", "moderate", "severe" };
-        static readonly string[] WaterWords = { "", "slight", "moderate", "heavy", "critical" };
-        static readonly string[] HullWords = { "", "slightly damaged", "damaged", "heavily damaged", "breaking up" };
+        static string FireWord(int n) { return Loc.T(n <= 1 ? "minor" : n == 2 ? "moderate" : "severe"); }
+        static string WaterWord(int n) { return Loc.T(n <= 1 ? "slight" : n == 2 ? "moderate" : n == 3 ? "heavy" : "critical"); }
+        static string HullWord(int n) { return Loc.T(n <= 1 ? "slightly damaged" : n == 2 ? "damaged" : n == 3 ? "heavily damaged" : "breaking up"); }
 
         static void Fill(Card p, FrameworkElement view)
         {
             var i = ContactIntel.Of(_vehicle);
-            SetText(p.Title, "Damage State — " + NameOf(_vehicle));
+            SetText(p.Title, Loc.F("Damage State — {0}", NameOf(_vehicle)));
             string fc = ""; int sev = 0;
-            if (i.Sinking) { fc = "Sinking"; sev = 2; }
-            else if (i.Seen && i.Ident && i.EtaMin > 0) { int m = (i.EtaMin + 4) / 5 * 5; fc = "Sinks in ~" + m + " min" + (string.IsNullOrEmpty(i.Cause) ? "" : " (" + i.Cause + ")"); sev = i.EtaMin <= 20 ? 2 : 1; }
-            else if (i.Seen && !i.Ident && i.EtaMin > 0) { fc = "Sinking soon"; sev = 1; }
+            if (i.Sinking) { fc = Loc.T("Sinking"); sev = 2; }
+            else if (i.Seen && i.Ident && i.EtaMin > 0) { int m = (i.EtaMin + 4) / 5 * 5; fc = Loc.F("Sinks in ~{0} min", m) + (string.IsNullOrEmpty(i.Cause) ? "" : " (" + Loc.T(i.Cause) + ")"); sev = i.EtaMin <= 20 ? 2 : 1; }
+            else if (i.Seen && !i.Ident && i.EtaMin > 0) { fc = Loc.T("Sinking soon"); sev = 1; }
             SetText(p.Forecast, fc);
             p.Forecast.Visibility = fc.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             p.Forecast.Foreground = ContactIntelBrush(sev);
-            SetText(p.Via, string.IsNullOrEmpty(i.Via) ? "" : "Source: " + i.Via);
+            SetText(p.Via, string.IsNullOrEmpty(i.Via) ? "" : Loc.F("Source: {0}", i.Via));
             string att = i.Attitude ?? "";
             bool any = i.Any || att.Length > 0;
-            SetText(p.Empty, any ? "" : i.Seen ? "No damage visible" : "No data: not in direct sight");
+            SetText(p.Empty, any ? "" : i.Seen ? Loc.T("No damage visible") : Loc.T("No data: not in direct sight"));
             p.Empty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
             int[] lv = { i.Fire, i.Flood, i.Hull, i.Engine };
             if (lv[1] == 0 && att.Length > 0) lv[1] = 1;   // only the attitude is seen: the water icon, yellow
             string[] txt =
             {
-                lv[0] > 0 ? "Fire: " + FireWords[Math.Min(lv[0], 3)] : "",
-                i.Flood > 0 ? "Flooding: " + WaterWords[Math.Min(i.Flood, 4)] + (att.Length > 0 ? ", " + att : "") : att.Length > 0 ? "Attitude: " + att : "",
-                lv[2] > 0 ? "Hull: " + HullWords[Math.Min(lv[2], 4)] : "",
-                lv[3] > 0 ? (lv[3] >= 4 ? "Engine: dead in the water" : "Engine: part of propulsion lost") + (i.Guess ? " ?" : "") : ""
+                lv[0] > 0 ? Loc.F("Fire: {0}", FireWord(lv[0])) : "",
+                i.Flood > 0 ? Loc.F("Flooding: {0}", WaterWord(i.Flood)) + (att.Length > 0 ? ", " + att : "") : att.Length > 0 ? Loc.F("Attitude: {0}", att) : "",
+                lv[2] > 0 ? Loc.F("Hull: {0}", HullWord(lv[2])) : "",
+                lv[3] > 0 ? (lv[3] >= 4 ? Loc.T("Engine: dead in the water") : Loc.T("Engine: part of propulsion lost")) + (i.Guess ? " ?" : "") : ""
             };
-            if (lv[3] > 0 && i.Guess) txt[3] = (lv[3] >= 4 ? "Engine: almost stopped" : "Engine: slow") + " ?";
+            if (lv[3] > 0 && i.Guess) txt[3] = (lv[3] >= 4 ? Loc.T("Engine: almost stopped") : Loc.T("Engine: slow")) + " ?";
+            if (lv[3] > 0 && !string.IsNullOrEmpty(i.EngineVia)) txt[3] += " (" + i.EngineVia + ")";
             for (int k = 0; k < 4; k++)
             {
                 p.Rows[k].Visibility = lv[k] > 0 ? Visibility.Visible : Visibility.Collapsed;

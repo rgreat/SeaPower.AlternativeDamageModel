@@ -238,8 +238,19 @@ namespace AlternativeDamageModel
                 catch (Exception e) { Trace("Deck corners hull piece log: " + e.Message); }
                 Vector3[] points = null; bool exact = false; float width = 0.01f;
                 bool sizeOk = ColliderLengthOk(unit, obp, shipT, hull);
-                try { exact = sizeOk && LocalPoints(shipT, hull, out points, out width); }
-                catch (Exception e) { Trace("Deck corners LocalPoints '" + SafeName(unit) + "': " + e); exact = false; }
+                if (!sizeOk) { if (_why == null) _why = "hull collider length check failed"; }
+                else
+                {
+                    _why = null;
+                    try { exact = LocalPoints(shipT, hull, out points, out width); }
+                    catch (Exception e) { Trace("Deck corners LocalPoints '" + SafeName(unit) + "': " + e); _why = "exception in LocalPoints: " + e.Message; exact = false; }
+                }
+                if (!exact)
+                {
+                    string msg = "Deck corners: '" + SafeName(unit) + "' hull mesh rejected as invalid - " + (_why ?? "unknown reason") + " [hull pieces: " + hull.Count + "]";
+                    Trace(msg);
+                    if (_warnedOnce.Add("rejected:" + SafeName(unit))) Warn(msg);
+                }
                 sp.Exact = exact; sp.Points = exact ? points : null; sp.Width = width;
                 keep = true; return sp;
             }
@@ -269,33 +280,90 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("Deck corners Select: " + e.Message); }
         }
 
-        /// <summary>A hull collider whose length differs from the ship's own length (ini Length, metres) by more than
-        /// MaxLengthMismatch is treated as bad (a broken or partial collider mesh in a mod): no points, old rules,
-        /// orange overlay. If the length is unknown (0) the check is skipped.</summary>
-        const float MaxLengthMismatch = 0.10f;
+        /// <summary>A hull collider is good when its length is within MaxLengthMismatch of the ini Length. Only when that fails it is judged by the ship's own visible hull model
+        /// (the renderers of its hull parts, measured in the ship's frame): the ini Length is often not the model's (Komar 38.6 m for a 25 m boat, Pegasus 34 m for 40 m, Don and Luda 20-25% short). A collider that
+        /// covers less than MinCover or more than MaxCover of the model's length is treated as bad (a broken or partial collider mesh in a mod): no points,
+        /// old rules, orange overlay. No model length found: the check is skipped.</summary>
+        const float MaxLengthMismatch = 0.15f;   // against the ini Length (the first check)
+        const float MinCover = 1f - MaxLengthMismatch;   // the same 15% against the model
+        const float MaxOver = 1.3f;                      // a collider longer than the length is not a partial one: good up to 1.3 times (Luda I +25%, Don +21%, Pegasus +17% are real)
         const float UnityToMetre = 67.200066f;   // the game's UNITY_TO_METER
+        [ThreadStatic] static string _why;   // why the last check rejected the hull mesh (for the log)
+
+        /// <summary>The model's length along the ship's z, metres: the hull parts' meshes (all meshes if no part is called hull), the collider overlay excluded.</summary>
+        static bool ModelLength(object unit, Transform shipT, out float metres, out string how)
+        {
+            metres = 0f; how = "";
+            var go = ShipGameObject(unit);
+            if (go == null) return false;
+            Matrix4x4 worldToShip = shipT.worldToLocalMatrix;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                float zMin = float.PositiveInfinity, zMax = float.NegativeInfinity; int n = 0;
+                foreach (var r in go.GetComponentsInChildren<Renderer>(false))
+                {
+                    if (r == null || !r.enabled || !(r is MeshRenderer || r is SkinnedMeshRenderer) || _colliderOverlays.Contains(r.gameObject)) continue;
+                    if (pass == 0 && !IsHullPart(r, go)) continue;
+                    Mesh mesh = null;
+                    var sk = r as SkinnedMeshRenderer;
+                    if (sk != null) mesh = sk.sharedMesh;
+                    else { var mf = r.GetComponent<MeshFilter>(); if (mf != null) mesh = mf.sharedMesh; }
+                    if (mesh == null) continue;
+                    Matrix4x4 m = worldToShip * r.transform.localToWorldMatrix;
+                    Bounds mb = mesh.bounds;
+                    for (int ix = -1; ix <= 1; ix += 2)
+                        for (int iy = -1; iy <= 1; iy += 2)
+                            for (int iz = -1; iz <= 1; iz += 2)
+                            {
+                                float z = m.MultiplyPoint3x4(mb.center + Vector3.Scale(mb.extents, new Vector3(ix, iy, iz))).z;
+                                zMin = Mathf.Min(zMin, z); zMax = Mathf.Max(zMax, z);
+                            }
+                    n++;
+                }
+                if (n > 0 && zMax > zMin)
+                {
+                    metres = (zMax - zMin) * Mathf.Abs(shipT.lossyScale.z) * UnityToMetre;
+                    how = (pass == 0 ? "hull parts" : "all meshes") + ": " + n;
+                    return true;
+                }
+            }
+            return false;
+        }
+
         static bool ColliderLengthOk(object unit, object obp, Transform shipT, List<Component> hull)
         {
             try
             {
-                var pl = obp.GetType().GetProperty("_length", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                if (pl == null) return true;
-                float shipLen = Convert.ToSingle(pl.GetValue(obp, null));
-                if (shipLen <= 0.5f) return true;
                 var pieces = PieceBoxes(shipT, hull);
                 if (pieces.Count == 0) return true;
                 float zMin = pieces[0].Min.z, zMax = pieces[0].Max.z;
                 foreach (var p in pieces) { zMin = Mathf.Min(zMin, p.Min.z); zMax = Mathf.Max(zMax, p.Max.z); }
                 // world units are not metres: the game's METER_TO_UNITY = 0.0148809375 (1 unit = 67.2 m)
                 float collLen = (zMax - zMin) * Mathf.Abs(shipT.lossyScale.z) * UnityToMetre;
-                float diff = Mathf.Abs(collLen - shipLen) / shipLen;
-                Trace("Deck corners: hull collider length " + collLen.ToString("F1") + " m, ship length " + shipLen.ToString("F1") + " m (" + (diff * 100f).ToString("F0") + "% off)");
-                if (diff > MaxLengthMismatch)
+                float iniLen = 0f;
+                var pl = obp.GetType().GetProperty("_length", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                if (pl != null) iniLen = Convert.ToSingle(pl.GetValue(obp, null));
+                // 1) as before: the collider is within MaxLengthMismatch of the ini Length -> good
+                float iniDiff = iniLen > 0.5f ? (collLen >= iniLen ? 0f : (iniLen - collLen) / iniLen) : 0f;   // too short only: a partial collider is short
+                if (iniLen > 0.5f && collLen > iniLen * MaxOver) iniDiff = collLen / iniLen - 1f;
+                Trace("Deck corners: hull collider length " + collLen.ToString("F1") + " m, ini length " + iniLen.ToString("F1") + " m (" + (iniDiff * 100f).ToString("F0") + "% off)");
+                if (iniLen <= 0.5f || iniDiff <= MaxLengthMismatch) return true;
+                // 2) only when that failed: against the visible hull model (the ini Length is often not the model's)
+                float modelLen; string how;
+                string iniWhy = "hull collider " + collLen.ToString("F1") + " m vs ini length " + iniLen.ToString("F1") + " m (" + (iniDiff * 100f).ToString("F0") + "% off, limit " + (MaxLengthMismatch * 100f).ToString("F0") + "%)";
+                if (!ModelLength(unit, shipT, out modelLen, out how))
                 {
-                    if (_warnedOnce.Add("badlen:" + SafeName(unit))) Warn("Deck corners: '" + SafeName(unit) + "' hull collider is " + collLen.ToString("F0") + " m long vs ship " + shipLen.ToString("F0") + " m; treated as bad (no deck points, old flooding rules).");
+                    _why = iniWhy + "; the model length is unknown";
                     return false;
                 }
-                return true;
+                float cover = collLen / modelLen;
+                Trace("Deck corners: model length " + modelLen.ToString("F1") + " m (" + how + "); collider covers " + (cover * 100f).ToString("F0") + "% of it");
+                if (cover >= MinCover && cover <= MaxOver) return true;
+                var sb = new System.Text.StringBuilder();
+                sb.Append(iniWhy + " and covers " + (cover * 100f).ToString("F0") + "% of the model (" + modelLen.ToString("F1") + " m, " + how + "; allowed " + (MinCover * 100f).ToString("F0") + ".." + (MaxOver * 100f).ToString("F0") + "%); lossyScale.z " + shipT.lossyScale.z.ToString("F4") + "; pieces:");
+                for (int i = 0; i < hull.Count && i < pieces.Count; i++) sb.Append(" '" + hull[i].gameObject.name + "' z " + pieces[i].Min.z.ToString("F3") + ".." + pieces[i].Max.z.ToString("F3") + ";");
+                _why = sb.ToString();
+                return false;
             }
             catch (Exception e) { Trace("Deck corners ColliderLengthOk: " + e.Message); return true; }
         }
@@ -582,10 +650,10 @@ namespace AlternativeDamageModel
                 {
                     if (_warnedOnce.Add("unreadable:" + mesh.name))
                         Warn("Deck corners: hull mesh '" + mesh.name + "' is not readable and the GPU read-back failed; no deck points for this ship (old flooding rules).");
-                    tris = null; return false;
+                    _why = "mesh '" + mesh.name + "' is not readable (Read/Write off) and the GPU read-back failed"; tris = null; return false;
                 }
-                if (v == null || t == null) { tris = null; return false; }
-                if (v.Length == 0 || t.Length == 0) { tris = null; return false; }
+                if (v == null || t == null) { _why = "mesh '" + mesh.name + "' vertices / triangles could not be read"; tris = null; return false; }
+                if (v.Length == 0 || t.Length == 0) { _why = "mesh '" + mesh.name + "' is empty (" + v.Length + " vertices, " + t.Length + " indices)"; tris = null; return false; }
                 Matrix4x4 m = worldToShip * mc.transform.localToWorldMatrix;
                 var lv = new Vector3[v.Length];
                 for (int i = 0; i < v.Length; i++) lv[i] = m.MultiplyPoint3x4(v[i]);
@@ -715,7 +783,7 @@ namespace AlternativeDamageModel
         {
             points = null; width = 0.01f;
             var pieces = PieceBoxes(shipT, hull);
-            if (pieces.Count == 0) return false;
+            if (pieces.Count == 0) { _why = "no hull piece has a mesh"; return false; }
             Vector3 bMin = pieces[0].Min, bMax = pieces[0].Max;
             foreach (var p in pieces) { bMin = Vector3.Min(bMin, p.Min); bMax = Vector3.Max(bMax, p.Max); }
             float zBow = bMin.z, zStern = bMax.z;
@@ -723,14 +791,21 @@ namespace AlternativeDamageModel
             float beamTol = Mathf.Max(1e-4f, (bMax.x - bMin.x) * 0.03f);
 
             List<Tri> tris;
-            if (!TryHullTriangles(shipT, hull, out tris)) return false;
+            if (!TryHullTriangles(shipT, hull, out tris)) { if (_why == null) _why = "hull triangles could not be read"; return false; }
+            if (tris.Count == 0) { _why = "hull meshes have no triangles"; return false; }
 
             var list = new List<Vector3>(PointCount);
             for (int i = 0; i < Sections; i++)
             {
                 float z = zBow + (zStern - zBow) * (i + 0.5f) / Sections;
                 float xp, yp, xs, ys;
-                if (!DeckCornerAtMesh(tris, z, true, beamTol, out xp, out yp) || !DeckCornerAtMesh(tris, z, false, beamTol, out xs, out ys)) return false;
+                bool okP = DeckCornerAtMesh(tris, z, true, beamTol, out xp, out yp), okS = DeckCornerAtMesh(tris, z, false, beamTol, out xs, out ys);
+                if (!okP || !okS)
+                {
+                    _why = "no deck corner at section " + (i + 1) + "/" + Sections + " (z " + z.ToString("F3") + "): " + (!okP && !okS ? "neither side" : !okP ? "port side" : "starboard side") +
+                           " has no triangle edge crossing that z (hull z " + zBow.ToString("F3") + ".." + zStern.ToString("F3") + ", x " + bMin.x.ToString("F3") + ".." + bMax.x.ToString("F3") + ", y " + bMin.y.ToString("F3") + ".." + bMax.y.ToString("F3") + ", " + tris.Count + " triangles)";
+                    return false;
+                }
                 list.Add(new Vector3(xp * (1f - InwardShift), yp, z));
                 list.Add(new Vector3(xs * (1f - InwardShift), ys, z));
             }

@@ -1,13 +1,16 @@
-Alternative Damage Model - change list
+Version 1.4.0.
 
-Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.8.5.
+Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.6-0.8.7.
 [Advanced] = on in the Advanced profile only.
 
 - New: (i) after "Wound chance" in the settings shows a table of wound chances calculated from the game's own ships and ammunition (mods included). Under each chance it shows the average wound in % of the team's health (follows "Wound strength").
+- Changed: water now limits fire in a section at any flooding level: a fire cannot be stronger than 100% minus the section's average flooding % (it dies down to that limit; Full flooding > Fire put out by water, 0 = off).
 - Fixed: Wreck drag no longer floods the log with Unity warnings (and lags the game) once a wreck rests on the bottom.
 - Fixed: arrows of fires and flooding no longer slide onto the % text when a colour or a level changes.
 - Fixed: DC teams no longer go back to the reserve (or are taken off a section) while it still has hull or systems work.
-- Auto DC takes the fastest growing fire or leak first: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure (Fire / Flooding priority change the order of their group).
+- Auto DC takes the fastest growing leak or fire first: Flooding Rate > Fire Rate > Fires > Flooding > Systems > Structure (Fire / Flooding priority change the order of their group). In a section with a fire (any strength) one team always fights it.
+- NEW (Damage Control Teams > Weapon hits): concussion. A team wounded by a hit stays in the reserve for Concussion time (+- spread) after it gets there; A concussed team is out of action: no Auto DC and no order by hand can send it until the concussion has passed. It runs next to the team's health and recovery.
+- The Forecast card is centred between its neighbours and shown only while the ship has damage; the health bar of a wounded team is drawn above its icon, not over it. Teams get tired while walking as they do at work. A team with a task given by hand is marked by a small red ! (also on its icon in the orders menu) instead of the yellow underline.
 - NEW (User Interface > Map): four small icons under a ship's icon on the map (yours too): fire (total strength of the fires), flooding, hull (classes of the Damage Control panel), engine (yellow / orange / red), and a greyer map icon for a ship that will sink. A contact: all four in direct sight, the engine only by sonar, a '?' guess about a slow ship hit lately by radar, nothing by ESM.
 - The Fires line of the Damage Control tab now classes the fires by their total strength (the number of burning sections stays in brackets).
 - NEW (Damage Control tab): a "Forecast" card in the empty middle of the summary row: Stable / Sinks in ~N min (by flooding or hull damage) / Sinking, by the trend of the last minute.
@@ -37,3 +40,18 @@ Changes since the Workshop version (build 20261015.0114), for Sea Power 0.8.3-0.
 - NEW [Advanced] (Systems tab): "DC efficiency without engines" (NoEngineTeamEffectiveness, 50 = % effectiveness; 100 = off). While the ship's Engine (the power system in use, not the propulsion / screws) is out of order, its damage control teams work at that effectiveness at fires, leaks, water and hull (repair of systems is not affected). Shown in the teams' hints ("Engine out: 50% effectiveness") and as a warning in the Forecast line of the Damage Control tab.
 - Auto DC no longer leaves free teams idle while a section has work: when nobody else is needed, it adds one more team to the section with the fewest teams every 10 s (up to 4 in a section), from the reserve or from a section with no work.
 - Faster: repeated work in the mod's per-tick and per-second code was cut (the ship's speed is read once per frame, one UI tree walk every 2 s instead of two every second, fewer allocations in flooding code).
+- Map damage icons now sit under all other map objects. Light hull damage (and hull damage repaired as far as possible) and light flooding of other ships are not shown; an enemy's engine damage is shown only after hits on the ship are registered; the source line lists all sources (visual, sonar, radar).
+- NEW (User Interface > Map): "Hide unseen targets in 3D" (default off): contacts not observed visually are not drawn in the 3D view.
+- Fixed: list and trim of fast planing boats and hydrofoils no longer include the game's built-in speed and turn tilt (Damage State and the DC gauges).
+- Fixed: deck points are no longer refused for some ships whose ini length differs from the model (Komar, Pegasus, Don, Luda I): if the ini length check fails, the hull collider is checked against the model.
+- Fixed: deck points are no longer refused for Luda I, Pegasus and Don (their hull colliders are longer than the ini length, which is fine; only a collider that is too short is refused).
+- Fixed: no sinking forecast by flooding for a ship whose flooding is not detected.
+- Damage State: the engine line now says by which sources it is known (visual, sonar, radar).
+- Works with Sea Power 0.8.7 (and still with 0.8.6): the game's new enemy-side rules for hit-wounded damage control teams, and the new map icon refresh, are followed.
+- NEW: the mod's texts are translated: English, Russian, Chinese, German, Spanish, French, Korean, Japanese, Vietnamese. The language is the game's; User Interface > Language ("Mod language", shown after the window is reopened) or [General] Language in the .cfg sets another one. The texts are in the lang folder next to the dll (lang/<code>.ini; copy en.ini to make a new language). The translations are machine-made, Korean / Japanese / Chinese / Vietnamese are not checked by native speakers; names that come from the game stay as they are.
+- Fixed: the Forecast card was not centred on the Damage Control tab (it sat to the right when the Auto DC card is beside it); it is centred on the ship image now.
+- Faster: the per-tick code of flooding, trim, sections and damage control teams reads the game's fields without the slow reflection path (it falls back to the old way by itself if a game update changes a field).
+- NEW (DC Teams > Weapon hits) [Advanced]: "Wounds in reserve chance" (HitsInReserveChance, Advanced 0.5): a multiplier of the chance that a hit on the central compartment wounds a team resting in the reserve, on top of Wound chance.
+- The Multipliers by speed table (Damage Model) is turned: one point per row, so it fits the form however many points there are.
+- The settings window shows "default: x" and under it "game: y" (the value of the Base Game profile where the game has such a rule), or "game: no analogue" for mechanics the game does not have; the reset button says what it resets to.
+- Changed: the Advanced profile takes the author's values: Warships 3.0, Damage spills over off, Time under water 5 s, Water over the deck 0.5, faster fire growth (0.3) and hull damage by fire 0.5 (spread chance 2.5%), speed multipliers 2/1.75, 3/3, 5/5 above 30 kn, team effectiveness 0.5, Transfer speed 100, Tired after 30 min, Exhausted after 60 min, Recovery speed 200%, Speed: tired 90%.

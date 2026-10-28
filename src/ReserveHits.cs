@@ -17,6 +17,7 @@ namespace AlternativeDamageModel
 
         static bool _init, _ok;
         static FieldInfo _fWeaponType, _fAp, _fPower, _fDmgMul, _fImpact, _fSecondary, _fImpactComp, _fCompObp, _fTaskforce, _fEnemy, _fReduction;
+        static PropertyInfo _pIsAi;   // game 0.8.7+: Taskforce.IsAI (every enemy side); before: the one Globals._enemyTaskforce
         static PropertyInfo _pCivilian, _pIntegrity;
         static MethodInfo _mFlooding;
         static readonly BindingFlags All = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -44,6 +45,7 @@ namespace AlternativeDamageModel
                 _fTaskforce = Field(hitObject.GetType(), "_taskforce");
                 var tGlobals = asm.GetType("SeaPower.Globals");
                 _fEnemy = tGlobals == null ? null : Field(tGlobals, "_enemyTaskforce");
+                _pIsAi = _fTaskforce == null ? null : _fTaskforce.FieldType.GetProperty("IsAI", All);
                 _fReduction = tGlobals == null ? null : Field(tGlobals, "_dcTeamDisableReduction");
                 if (_mFlooding != null) _pIntegrity = _mFlooding.ReturnType.GetProperty("CurrentIntegrityPercent", All);
                 if (_fCompObp != null) _pCivilian = _fCompObp.FieldType.GetProperty("_isCivilian", All);
@@ -81,10 +83,12 @@ namespace AlternativeDamageModel
             {
                 var hitObject = __args[0];
                 var hc = __args[1] as UnityEngine.Component;
-                if (hitObject == null || hc == null || (bool)__args[2]) return;
+                if (hitObject == null || hc == null) return;
+                WoundStats.Calls++;
+                if ((bool)__args[2]) { WoundStats.Blocked++; return; }
                 var parts = hc.transform.name.ToLowerInvariant().Split('_');
                 int number;
-                if (parts.Length < 3 || parts[0] != "flooding" || !int.TryParse(parts[2], out number)) return;
+                if (parts.Length < 3 || parts[0] != "flooding" || !int.TryParse(parts[2], out number)) { WoundStats.NotSection++; return; }
                 var map = null as IDictionary;
                 if (!_init)
                 {
@@ -115,7 +119,9 @@ namespace AlternativeDamageModel
                 float integ = Convert.ToSingle(_pIntegrity.GetValue(fc, null));
                 if (integ >= 50f) return;
                 float chance = power * (1f - integ / 100f);
-                bool enemy = _fTaskforce != null && _fEnemy != null && ReferenceEquals(_fTaskforce.GetValue(hitObject), _fEnemy.GetValue(null));
+                var tf = _fTaskforce == null ? null : _fTaskforce.GetValue(hitObject);
+                bool enemy = _pIsAi != null ? tf != null && (bool)_pIsAi.GetValue(tf, null)
+                                            : _fEnemy != null && ReferenceEquals(tf, _fEnemy.GetValue(null));
                 if (enemy)
                 {
                     bool civ = false;

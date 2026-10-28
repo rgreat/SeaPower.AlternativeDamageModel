@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativedamagemodel";
         public const string PluginName = "Alternative Damage Model";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.4.0";
 
         /// <summary>Build number (UTC build time, yyyyMMdd.HHmm) stamped into the dll by the csproj; shows which dll is running.</summary>
         public static readonly string BuildId = ReadBuildId();
@@ -60,7 +60,7 @@ namespace AlternativeDamageModel
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _reserveChanceEntry, _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _stunEntry, _stunSpreadEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _speedEffectEntry;
         ConfigEntry<Factor> _maxPlugEntry;
@@ -70,7 +70,8 @@ namespace AlternativeDamageModel
         static FieldInfo _fCompCount;
         static Dictionary<string, float> _perShip = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
-        ConfigEntry<bool> _enemyDmgEntry, _debugEntry, _logShipsEntry, _logFiresEntry, _logHeelEntry, _uiEntry, _weaponColorEntry, _admEntry, _deckCornersEntry, _showHullEntry, _fixTrimTcEntry;
+        ConfigEntry<string> _langEntry;
+        ConfigEntry<bool> _hide3dEntry, _enemyDmgEntry, _debugEntry, _logShipsEntry, _logFiresEntry, _logHeelEntry, _uiEntry, _weaponColorEntry, _admEntry, _deckCornersEntry, _showHullEntry, _fixTrimTcEntry;
         ConfigEntry<string> _shipViewEntry;
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
@@ -231,6 +232,10 @@ namespace AlternativeDamageModel
                 "sinking limits. DC Priority and tasks given by hand belong to the detailed view and stay. " +
                 "Off: the game's own damage and damage control (the Damage Control tab view stays). Can be switched at any time: ships at sea " +
                 "follow at once (hull strength and team numbers back to the game's or the mod's; teams on the move arrive, knocked-out ones recover).");
+            _langEntry = Cfg.Bind("General", "Language", "",
+                "Language of the mod's texts: en, ru, cn, de, es, fr, ko, ja or vn. Empty = the language of the game. The texts are in the lang folder " +
+                "of the mod (lang/<code>.ini); a missing text is shown in English.");
+            Loc.Forced = () => _langEntry.Value;
             _debugEntry = Cfg.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/AlternativeDamageModel.trace.txt.");
             _logFiresEntry = Cfg.Bind("General", "LogFires", false,
@@ -276,7 +281,7 @@ namespace AlternativeDamageModel
             _fullSystemsEntry = Pcfg.Bind("FireAndFlooding", "FullFloodSystems", true,
                 "A fully flooded section (water above 75%): its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.");
             _fullFireEntry = Pcfg.Bind("FireAndFlooding", "FullFloodFireDecay", new Factor(10f),
-                "A fully flooded section puts its fire out: % of the maximum fire per second. 0 = off.");
+                "Water in a section limits its fire: it cannot be stronger than (100 - the section's water %) of the maximum. A stronger fire falls to that limit at this % of the maximum per second. 0 = off.");
             _fireEffEntry = Pcfg.Bind("FireAndFlooding", "FireWorkEfficiency", new Factor(75f),
                 "Damage control teams in a section with a fire that are not fighting it work at this % of their effectiveness. 100 = off.");
             _noDeckEntry = Pcfg.Bind("FireAndFlooding", "NoDeckPointsShips", "",
@@ -381,6 +386,9 @@ namespace AlternativeDamageModel
             _reserveHitsEntry = Pcfg.Bind("DamageControlTeams", "HitsInReserve", true,
                 "The teams rest in the central compartment: a hit on it can wound a team waiting in the reserve (the chance is the game's for a " +
                 "team knocked out in a hit section: damage x (1 - integrity), only under 50% integrity). A wounded resting team stays in the reserve.");
+            _reserveChanceEntry = Pcfg.Bind("DamageControlTeams", "HitsInReserveChance", new Factor(0.5f),
+                "Multiplier of the chance that a hit on the central compartment wounds a team resting in the reserve; it comes on top of Wound chance " +
+                "(0.5 = half as likely, 0 = resting teams are never wounded). Works only with Wounds in reserve.");
             _healthEntry = Pcfg.Bind("DamageControlTeams", "TeamHealth", new Factor(1f),
                 "Health of a damage control team, a multiplier of its maximum, which is 1..100 points by the ship's displacement (100 = a crew of 1000 and more, about 30000 t; " +
                 "1000 t = 24, 10000 t = 101). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
@@ -388,11 +396,16 @@ namespace AlternativeDamageModel
             _regenEntry = Pcfg.Bind("DamageControlTeams", "HealthRegen", new Factor(0.5f),
                 "A team in the reserve recovers this much of its full health a second.");
             _fireWoundEntry = Pcfg.Bind("DamageControlTeams", "FireWound", new Factor(1f),
-                "A team in a burning section that is not fighting the fire loses this much of its full health a second at fire 100% " +
+                "A team in a burning section loses this much of its full health a second at fire 100% unless at least one team of the section is fighting the fire " +
                 "(less at a lower fire level).");
             _hitWoundEntry = Pcfg.Bind("DamageControlTeams", "HitWound", new Factor(1f),
                 "Multiplier of the strength of a wound: at most the warhead power of the ammunition (0..196, half of the game's ammunition under 25) x this, " +
                 "in points of the team's health (1..100 by displacement). A wounded team walks to the reserve.");
+            _stunEntry = Pcfg.Bind("DamageControlTeams", "HealTime", new Factor(90f),
+                "Concussion: a team wounded by a weapon (a hit section, or the reserve) is concussed for this many seconds after it is in the reserve; " +
+                "Auto DC does not send it back to work until the concussion has passed. It runs next to the team's health, which has its own recovery. 0 = no concussion.");
+            _stunSpreadEntry = Pcfg.Bind("DamageControlTeams", "HealTimeSpread", new Factor(0f),
+                "Random spread of the concussion time, seconds either way: HealTime 90 with 30 = 60 to 120 s, as in the game. 0 = always HealTime.");
             _woundChanceEntry = Pcfg.Bind("DamageControlTeams", "WoundChance", new Factor(1f),
                 "Multiplier of the chance that a hit wounds a team (0.5 = half as likely, 2 = twice; the result is at most 100%). Step 1 (only while Wounds at any hull integrity is off) - the game decides whether a hit takes a team out of its section at all " +
                 "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod decides the wound: the chance grows steeply with the warhead power (about power^1.8) and falls with the team's health (about health^1.2) - " +
@@ -456,6 +469,8 @@ namespace AlternativeDamageModel
             _weaponColorEntry = Cfg.Bind("UI", "ColorWeaponStatus", true,
                 "Colours the weapon buttons of the selected unit's bottom panel by the state of their weapon systems: " +
                 "all working - the game's colour, some of that type inoperable - yellow, all of them inoperable - red.");
+            _hide3dEntry = Cfg.Bind("UI", "HideUnobservedTargets3D", false,
+                "Do not draw in the 3D view the targets of other sides that are not observed visually (known by radar, sonar or data only). Your own units are always drawn.");
             _enemyDmgEntry = Cfg.Bind("UI", "ShowEnemyDamage", true,
                 "Four small icons under a ship's icon on the map (yours too): fire (the fires' total strength), water, hull (as classed on the Damage Control panel) " +
                 "and engine; yellow / orange / red by severity, and a greyer map icon when the ship is going to sink (within 20 minutes by the flooding / hull trend). " +
@@ -550,6 +565,8 @@ namespace AlternativeDamageModel
                 catch (Exception e) { Trace("WeaponStatusColors.SetOn: " + e.Message); }
                 try { ContactIntel.SetOn(ContactIntel.Ready && wantIcons); }
                 catch (Exception e) { Trace("ContactIntel.SetOn: " + e.Message); }
+                if (_hide3dWas && !(Enabled && _hide3d)) HideUnseen.RestoreAll();
+                _hide3dWas = Enabled && _hide3d;
                 try { EnemyStatus.Tick(UnityEngine.Time.unscaledTime); } catch (Exception e) { Trace("EnemyStatus.Tick: " + e.Message); }
             }
             if (_uiReady)
@@ -885,7 +902,10 @@ namespace AlternativeDamageModel
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);
             DcTeams.FireWound = Math.Max(0f, _fireWoundEntry.Value.V);
             DcTeams.WoundChance = Math.Max(0f, _woundChanceEntry.Value.V);
+            DcTeams.ReserveWoundChance = Math.Max(0f, _reserveChanceEntry.Value.V);
             DcTeams.HitWound = Math.Max(0f, _hitWoundEntry.Value.V);
+            DcTeams.StunTime = Math.Max(0f, _stunEntry.Value.V);
+            DcTeams.StunSpread = Math.Max(0f, _stunSpreadEntry.Value.V);
             DcTeams.FatigueRecover = Math.Max(0f, _fatigueRecoverEntry.Value.V);
             DcTeams.ExhaustedMin = Math.Max(Math.Max(0f, _fatigueEntry.Value.V), Math.Max(0f, _exhaustEntry.Value.V));   // never below 'Tired after'
             DcTeams.SpeedRested = Math.Max(0f, _speedRestedEntry.Value.V) / 100f;
@@ -914,6 +934,7 @@ namespace AlternativeDamageModel
             _uiOn = _uiEntry.Value;
             _weaponColor = _weaponColorEntry.Value;
             _enemyDmg = _enemyDmgEntry.Value;
+            _hide3d = _hide3dEntry.Value;
             try { ApplyUiSettings(); } catch (Exception e) { Trace("ApplyUiSettings: " + e.Message); }
 
             var map = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
@@ -1331,9 +1352,11 @@ namespace AlternativeDamageModel
             TimeCompressionFix.IsEnabled = () => Enabled && _fixTrimTc;
             TimeCompressionFix.Trace = Trace; TimeCompressionFix.Warn = Warn;
             if (TimeCompressionFix.Init(harmony, asm)) ok++; else failed++;
-            WeaponStatusColors.Trace = Trace; UiScan.Trace = Trace; WeaponStatusColors.Init(asm);
-            ContactIntel.Trace = Trace; ContactIntel.IsEnabled = () => Enabled && _enemyDmg;
+            WoundStats.Trace = Trace; WeaponStatusColors.Trace = Trace; UiScan.Trace = Trace; WeaponStatusColors.Init(asm);
+            Loc.Trace = Trace; DynAttitude.Trace = Trace; ContactIntel.Trace = Trace; ContactIntel.IsEnabled = () => Enabled && _enemyDmg;
             if (ContactIntel.Init(harmony, asm)) ok++; else failed++;
+            HideUnseen.Trace = Trace; HideUnseen.IsEnabled = () => Enabled && _hide3d;
+            if (HideUnseen.Init(harmony, asm)) ok++; else failed++;
             EnemyStatus.Trace = Trace; EnemyStatus.IsEnabled = () => Enabled && _enemyDmg;
             if (EnemyStatus.Init(harmony, asm)) ok++; else failed++;
             if (TrimFlooding.InitList(harmony, asm)) ok++; else failed++;
@@ -1887,7 +1910,7 @@ namespace AlternativeDamageModel
             DamageControlUi.Tick(UnityEngine.Time.unscaledTime, Enabled && _uiOn, Enabled);
         }
 
-        static bool _weaponColor, _enemyDmg;
+        static bool _weaponColor, _enemyDmg, _hide3d, _hide3dWas;
         static int ParseShipView(string v)
         {
             v = (v ?? "").Trim();

@@ -28,6 +28,8 @@ namespace AlternativeDamageModel
 
         static bool _init, _ok;
         static FieldInfo _fBase, _fVessel, _fCount, _fPort, _fStar, _fCur, _fMax, _fWater, _fObject;
+        static Fld<float> _gCur, _gMax, _gWater;   // fast access in the tick (Fast.cs)
+        static Fld<Array> _gPort, _gStar;
         static Func<float> _gameDt;
 
         sealed class State
@@ -68,6 +70,8 @@ namespace AlternativeDamageModel
                 var getter = tGt == null ? null : tGt.GetProperty("fixedDeltaTime", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
                 var m = getter == null ? null : getter.GetGetMethod(true);
                 if (m != null) _gameDt = (Func<float>)Delegate.CreateDelegate(typeof(Func<float>), m);
+                if (_fCur != null && _fMax != null && _fWater != null && _fPort != null && _fStar != null)
+                { _gCur = new Fld<float>(_fCur); _gMax = new Fld<float>(_fMax); _gWater = new Fld<float>(_fWater); _gPort = new Fld<Array>(_fPort); _gStar = new Fld<Array>(_fStar); }
                 _ok = _fBase != null && _fVessel != null && _fCount != null && _fPort != null && _fStar != null && _fCur != null && _fMax != null && _fWater != null && _fObject != null && _gameDt != null;
             }
             catch (Exception e) { Trace("SubmergedFlooding.Init: " + e.Message); _ok = false; }
@@ -238,8 +242,7 @@ namespace AlternativeDamageModel
             State s;
             if (!States.TryGetValue(comp, out s) || s.M == null) return null;
             var ci = System.Globalization.CultureInfo.InvariantCulture;
-            return "Tilt to the sea: list " + s.M[0].ToString("0.#", ci) + "° port / " + s.M[1].ToString("0.#", ci) + "° stbd · trim " +
-                   s.M[2].ToString("0.0", ci) + "° stern / " + s.M[3].ToString("0.0", ci) + "° bow";
+            return Loc.F("Tilt to the sea: list {0}° port / {1}° stbd · trim {2}° stern / {3}° bow", s.M[0].ToString("0.#", ci), s.M[1].ToString("0.#", ci), s.M[2].ToString("0.0", ci), s.M[3].ToString("0.0", ci));
         }
 
         /// <summary>
@@ -291,14 +294,14 @@ namespace AlternativeDamageModel
             return arr.GetValue(k % n);
         }
 
-        static bool Full(object fc) { return (float)_fCur.GetValue(fc) >= (float)_fMax.GetValue(fc) * 0.999f; }
+        static bool Full(object fc) { return _gCur.Get(fc) >= _gMax.Get(fc) * 0.999f; }
 
         /// <summary>"Port Aft midships": the side and the section's name as the game writes it in the section's header.</summary>
         static string Name(State s, int k, string[] names)
         {
             int l = k % s.Count;
-            string sec = names != null && l < names.Length && !string.IsNullOrEmpty(names[l]) ? names[l] : "section " + (l + 1);
-            return (k < s.Count ? "Port " : "Starboard ") + sec;
+            string sec = names != null && l < names.Length && !string.IsNullOrEmpty(names[l]) ? names[l] : Loc.F("section {0}", l + 1);
+            return Loc.F(k < s.Count ? "Port {0}" : "Starboard {0}", sec);
         }
 
         /// <summary>Prefix of Compartments.OnFixedUpdate.</summary>
@@ -314,7 +317,7 @@ namespace AlternativeDamageModel
                 float dt = _gameDt();
                 if (dt <= 0f) return;
                 int n = s.Count, total = 2 * n;
-                var portArr = _fPort.GetValue(comp) as Array; var starArr = _fStar.GetValue(comp) as Array;
+                var portArr = _gPort.Get(comp); var starArr = _gStar.Get(comp);
                 if (s.Fcs == null || !ReferenceEquals(portArr, s.PortArr) || !ReferenceEquals(starArr, s.StarArr))
                 {
                     if (portArr == null || starArr == null) return;
@@ -330,14 +333,14 @@ namespace AlternativeDamageModel
                 {
                     var fc = s.Fcs[k];
                     worldY[k] = ltw.MultiplyPoint3x4(s.P.Points[s.Map[k]]).y;
-                    float water = (float)_fWater.GetValue(fc);
+                    float water = _gWater.Get(fc);
                     if (destroyed && !s.Deep)
                     {
                         // the game stops sampling the waves for a destroyed ship (Compartments' wave job skips IsDestroyed): its water level stays as it was
                         // at the moment of destruction - take the wave at the point ourselves
                         Vector3 wp = ltw.MultiplyPoint3x4(s.P.Points[s.Map[k]]);
                         float wv = DeckCorners.QueryWave(wp.x, wp.z);
-                        if (!float.IsNaN(wv)) { water = wv; _fWater.SetValue(fc, wv); }
+                        if (!float.IsNaN(wv)) { water = wv; _gWater.Set(fc, wv); }
                     }
                     float depth = float.IsNaN(water) ? -1f : (water - worldY[k]) * UnityToMetre;
                     s.Depth[k] = depth;
@@ -363,12 +366,12 @@ namespace AlternativeDamageModel
                     for (int guard = 0; guard < total && amount > 1e-6f; guard++)
                     {
                         var fc = s.Fcs[at];
-                        float cur = (float)_fCur.GetValue(fc), max = (float)_fMax.GetValue(fc);
+                        float cur = _gCur.Get(fc), max = _gMax.Get(fc);
                         float space = Math.Max(0f, max - cur);
                         float add = Math.Min(amount, space);
                         if (add > 0f)
                         {
-                            _fCur.SetValue(fc, cur + add);
+                            _gCur.Set(fc, cur + add);
                             if (at != k) { s.Got[at] += add / dt; s.GotFrom[at] = k; }
                             amount -= add;
                         }
@@ -475,16 +478,16 @@ namespace AlternativeDamageModel
                 int k = (port ? 0 : s.Count) + i;
                 if (k < 0 || k >= 2 * s.Count) return list;
                 if (s.Depth[k] > 0f && s.Under[k] < Delay)
-                    list.Add("Deck edge " + s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m under water for " + ((int)s.Under[k]) + " of " + ((int)Delay) + " s");
+                    list.Add(Loc.F("Deck edge {0} m under water for {1} of {2} s", s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), (int)s.Under[k], (int)Delay));
                 float sm = SpeedEffect.Flood(comp);
-                string spd = sm > 1.005f ? " (faster: ship speed)" : sm < 0.995f ? " (slower: ship speed)" : "";
+                string spd = sm > 1.005f ? " (" + Loc.T("faster: ship speed") + ")" : sm < 0.995f ? " (" + Loc.T("slower: ship speed") + ")" : "";
                 if (s.Own[k] > 0f)
                 {
-                    string t = "Deck edge " + s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m under water: +" + s.Own[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s" + spd;
-                    if (s.PassedTo[k] >= 0) t += ", full: goes to " + Name(s, s.PassedTo[k], names);
+                    string t = Loc.F("Deck edge {0} m under water: +{1}%/s", s.Depth[k].ToString("0.0", System.Globalization.CultureInfo.InvariantCulture), s.Own[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)) + spd;
+                    if (s.PassedTo[k] >= 0) t += ", " + Loc.F("full: goes to {0}", Name(s, s.PassedTo[k], names));
                     list.Add(t);
                 }
-                if (s.GotFrom[k] >= 0) list.Add("Overflow from " + Name(s, s.GotFrom[k], names) + ": +" + s.Got[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%/s" + spd);
+                if (s.GotFrom[k] >= 0) list.Add(Loc.F("Overflow from {0}: +{1}%/s", Name(s, s.GotFrom[k], names), s.Got[k].ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)) + spd);
             }
             catch (Exception e) { Trace("SubmergedFlooding.Reasons: " + e.Message); }
             return list;
