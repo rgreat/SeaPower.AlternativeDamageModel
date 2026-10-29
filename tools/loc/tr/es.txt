@@ -573,3 +573,11 @@
 573|juego: sin equivalente
 574|Volver al valor del perfil Base Game
 575|Volver al valor predeterminado
+576|Varios sistemas de una sección pueden priorizarse para reparación a la vez (botón «!» de cada sistema): la sección los repara uno tras otro, en el orden en que se marcaron. Desactivado = como en el juego: el «!» de un sistema desactiva el del otro.
+577|Varias prioridades de reparación
+578|«!» de varios sistemas de una sección · reparados por turno
+579|Contrainundación (tarea manual de un equipo): con qué rapidez entra agua en un compartimento, en múltiplos de la velocidad de achique. Un equipo inunda un costado o lo achica solo donde reduce la escora o el asiento (primero el más peligroso de los dos), mantiene su acción al menos 10 s y no inunda cuando el agua del buque ha llegado a la banda roja del indicador LEVEL.
+580|Auto DC contrainunda: cuando la escora o el asiento llega al 70% de la zona roja de su indicador (hasta que baje al 40%), un equipo va a la sección donde dejar entrar agua a un costado o achicarla quita más inclinación y trabaja como un equipo con la orden de contrainundar (véase Contrainundación). Desactivado = Auto DC no contrainunda.
+581|Contrainundación de Auto DC
+582|con escora / asiento peligrosos
+583|Auto DC contrainunda: mientras las vías de agua sigan dejando entrar agua y la escora o el asiento llegue al 40% de la zona roja de su indicador (hasta que baje al 20%), un equipo va a la sección donde dejar entrar agua a un costado o achicarla quita más inclinación y trabaja como un equipo con la orden de contrainundar (véase Contrainundación). Desactivado = Auto DC no contrainunda.

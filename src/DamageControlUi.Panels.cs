@@ -118,6 +118,12 @@ namespace AlternativeDamageModel
             if (ModelOn() && SubmergedFlooding.TouchAngles(comp, out l, out t)) return t / Limits.FloodFrom;
             return ModelOn() ? Limits.Trim(DcTeams.ShipLength(comp)) : 8f / Limits.FloodFrom;
         }
+        /// <summary>The list (degrees) where the LIST gauge's red zone starts, for the counterflooding teams.</summary>
+        public static float ListRed(object comp) { return Math.Max(1f, ListScale(comp) * Limits.FloodFrom); }
+        /// <summary>The trim (degrees) where the TRIM gauge's red zone starts.</summary>
+        public static float TrimRed(object comp) { return Math.Max(0.5f, TrimScale(comp) * Limits.FloodFrom); }
+        /// <summary>The water in the ship (% of the hull) where the LEVEL gauge's red band starts.</summary>
+        public static float LevelDangerAt(object comp) { return 0.8f * SinkAt(comp); }
         /// <summary>Water in the ship (% of the hull) at which it sinks.</summary>
         public static float SinkAt(object comp) { return IsSub(comp) ? 50f : ModelOn() ? Limits.LevelFull : 40f; }
 

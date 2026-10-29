@@ -573,3 +573,11 @@
 573|Spiel: kein Gegenstück
 574|Auf den Wert des Profils Base Game zurücksetzen
 575|Auf den Standardwert zurücksetzen
+576|Mehrere Systeme einer Sektion können gleichzeitig bevorzugt repariert werden (Knopf „!“ bei jedem System): die Sektion repariert sie nacheinander, in der Reihenfolge der Auswahl. Aus = wie im Spiel: das „!“ eines Systems schaltet das der anderen aus.
+577|Mehrere Reparaturprioritäten
+578|„!“ bei mehreren Systemen einer Sektion · nacheinander repariert
+579|Gegenfluten (Aufgabe eines Trupps von Hand): wie schnell Wasser in ein Abteil eingelassen wird, als Vielfaches der Lenzgeschwindigkeit. Ein Trupp flutet eine Seite oder lenzt sie nur dort, wo es Krängung oder Trimmung verringert (die gefährlichere zuerst), behält seine Aktion mindestens 10 s und flutet nichts mehr, wenn das Wasser im Schiff den roten Bereich der LEVEL-Anzeige erreicht hat.
+580|Auto DC flutet gegen: erreicht Krängung oder Trimmung 70% des roten Bereichs ihrer Anzeige (bis sie auf 40% gesunken ist), geht ein Trupp in die Sektion, in der Wassereinlass in eine Seite oder Lenzen am meisten Neigung abbaut, und arbeitet wie ein Trupp mit dem Auftrag Gegenfluten (siehe Gegenfluten). Aus = Auto DC flutet nicht gegen.
+581|Gegenfluten durch Auto DC
+582|bei gefährlicher Krängung / Trimmung
+583|Auto DC flutet gegen: solange Lecks noch Wasser einlassen und Krängung oder Trimmung 40% des roten Bereichs ihrer Anzeige erreicht (bis sie auf 20% gesunken ist), geht ein Trupp in die Sektion, in der Wassereinlass in eine Seite oder Lenzen am meisten Neigung abbaut, und arbeitet wie ein Trupp mit dem Auftrag Gegenfluten (siehe Gegenfluten). Aus = Auto DC flutet nicht gegen.

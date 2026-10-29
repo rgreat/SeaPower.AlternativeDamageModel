@@ -573,3 +573,11 @@
 573|trò chơi: không có tương ứng
 574|Quay về giá trị của hồ sơ Base Game
 575|Quay về giá trị mặc định
+576|Nhiều hệ thống của một khoang có thể được ưu tiên sửa chữa cùng lúc (nút “!” của từng hệ thống): khoang sửa lần lượt theo thứ tự đã đặt. Tắt = như trong game: “!” của hệ thống này sẽ tắt “!” của hệ thống kia.
+577|Nhiều ưu tiên sửa chữa
+578|“!” của nhiều hệ thống trong khoang · sửa lần lượt
+579|Phản ngập (nhiệm vụ đội làm thủ công): tốc độ cho nước vào khoang, tính theo bội số tốc độ bơm thoát. Đội chỉ bơm nước vào hoặc bơm ra một mạn khi việc đó giảm nghiêng hoặc chúi (cái nguy hiểm hơn được xử lý trước), giữ hành động ít nhất 10 giây và không bơm vào nữa khi nước trong tàu đã đến dải đỏ của đồng hồ LEVEL.
+580|Auto DC phản ngập: khi độ nghiêng hoặc chúi đạt 70% vùng đỏ của đồng hồ (cho đến khi giảm còn 40%), một đội đến khoang mà việc cho nước vào một mạn hoặc bơm ra giảm nghiêng nhiều nhất, và làm việc như đội được lệnh phản ngập (xem Phản ngập). Tắt = Auto DC không phản ngập.
+581|Phản ngập của Auto DC
+582|khi nghiêng / chúi nguy hiểm
+583|Auto DC phản ngập: khi các lỗ thủng vẫn còn cho nước vào và độ nghiêng hoặc chúi đạt 40% vùng đỏ của đồng hồ (cho đến khi giảm còn 20%), một đội đến khoang mà việc cho nước vào một mạn hoặc bơm ra giảm nghiêng nhiều nhất, và làm việc như đội được lệnh phản ngập (xem Phản ngập). Tắt = Auto DC không phản ngập.

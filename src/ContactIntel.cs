@@ -41,8 +41,27 @@ namespace AlternativeDamageModel
         static PropertyInfo _mUnit;
         static FieldInfo _cPortC, _cStarC, _fcCurI, _fcMaxI;
         static PropertyInfo _fcAllowed;
-        static Type _tGizmoHost;
+        static Type _tGizmoHost, _tMapPanel;
+        static bool _layerTried;
         static DependencyProperty _dpGizmo, _dpLayer, _dpLat, _dpLon;
+
+        /// <summary>The Noesis properties of the layer host, read once when the first note is made (Noesis is running then); false: not available.</summary>
+        static bool LayerHostReady()
+        {
+            if (_layerTried) return _dpGizmo != null && _dpLayer != null && _dpLat != null && _dpLon != null;
+            _layerTried = true;
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            try
+            {
+                if (_tGizmoHost == null || _tMapPanel == null) return false;
+                _dpGizmo = _tGizmoHost.GetField("GizmoProperty", all).GetValue(null) as DependencyProperty;
+                _dpLayer = _tGizmoHost.GetField("LayerProperty", all).GetValue(null) as DependencyProperty;
+                _dpLat = _tMapPanel.GetField("LatitudeProperty", all).GetValue(null) as DependencyProperty;
+                _dpLon = _tMapPanel.GetField("LongitudeProperty", all).GetValue(null) as DependencyProperty;
+            }
+            catch (Exception e) { _tGizmoHost = null; Trace("ContactIntel: layer host unavailable: " + e.Message); }
+            return _dpGizmo != null && _dpLayer != null && _dpLat != null && _dpLon != null;
+        }
         sealed class Note { public Grid Host; public FrameworkElement Gizmo; public object Vm; }
         static readonly ConditionalWeakTable<Canvas, Note> Notes = new ConditionalWeakTable<Canvas, Note>();
 
@@ -85,19 +104,10 @@ namespace AlternativeDamageModel
                 var tSc = asm.GetType("SeaPower.SystemCompartment");
                 _scSev = tSc.GetProperty("FireSeverity", all); _scMax = tSc.GetField("_maxFireSeverity", all);
                 _oSpeed = tObj.GetMethod("getVelocityInKnots", all);
-                try
-                {
-                    _tGizmoHost = asm.GetType("SeapowerUI.GizmoHost");
-                    var tMp = asm.GetType("MapControl.MapPanel");
-                    if (_tGizmoHost != null && tMp != null)
-                    {
-                        _dpGizmo = _tGizmoHost.GetField("GizmoProperty", all).GetValue(null) as DependencyProperty;
-                        _dpLayer = _tGizmoHost.GetField("LayerProperty", all).GetValue(null) as DependencyProperty;
-                        _dpLat = tMp.GetField("LatitudeProperty", all).GetValue(null) as DependencyProperty;
-                        _dpLon = tMp.GetField("LongitudeProperty", all).GetValue(null) as DependencyProperty;
-                    }
-                }
-                catch (Exception e) { _tGizmoHost = null; Trace("ContactIntel: layer host unavailable: " + e.Message); }
+                // only the types here: reading their static fields runs the static constructors, which register Noesis properties, and Noesis is not
+                // ready yet while the plugin starts (the game crashes) - the properties are taken at the first use, in a mission (LayerHostReady)
+                _tGizmoHost = asm.GetType("SeapowerUI.GizmoHost");
+                _tMapPanel = asm.GetType("MapControl.MapPanel");
                 var tMapVm = asm.GetType("SeapowerUI.MapUnitViewModel");
                 _mUnit = tMapVm == null ? null : tMapVm.GetProperty("Unit", all);
                 _ok = _tVehicle != null && _vObject != null && _vSensors != null && _oCompartments != null && _cFlood != null && _cInt != null &&
@@ -695,7 +705,7 @@ namespace AlternativeDamageModel
             var n = new Note { Host = host };
             object vm = null;
             try { vm = cv.DataContext; } catch { }
-            if (_tGizmoHost != null && _dpGizmo != null && _dpLayer != null && _dpLat != null && _dpLon != null && vm != null)
+            if (vm != null && LayerHostReady())
             {
                 try
                 {

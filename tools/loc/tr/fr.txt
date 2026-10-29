@@ -573,3 +573,11 @@
 573|jeu : pas d'équivalent
 574|Revenir à la valeur du profil Base Game
 575|Revenir à la valeur par défaut
+576|Plusieurs systèmes d'une section peuvent être réparés en priorité en même temps (bouton « ! » de chaque système) : la section les répare l'un après l'autre, dans l'ordre où ils ont été choisis. Désactivé = comme dans le jeu : le « ! » d'un système désactive celui de l'autre.
+577|Plusieurs priorités de réparation
+578|« ! » de plusieurs systèmes d'une section · réparés à tour de rôle
+579|Contre-inondation (tâche manuelle d'une équipe) : vitesse d'entrée de l'eau dans un compartiment, en multiple de la vitesse d'épuisement. Une équipe inonde un bord ou l'épuise seulement là où cela réduit la gîte ou l'assiette (le plus dangereux des deux d'abord), garde son action au moins 10 s et n'inonde rien quand l'eau dans le navire a atteint la zone rouge de l'indicateur LEVEL.
+580|Auto DC contre-inonde : quand la gîte ou l'assiette atteint 70% de la zone rouge de son indicateur (jusqu'à redescendre à 40%), une équipe va dans la section où laisser entrer l'eau d'un bord ou l'épuiser retire le plus de bande, et travaille comme une équipe à qui l'on a ordonné la contre-inondation (voir Contre-inondation). Désactivé = Auto DC ne contre-inonde pas.
+581|Contre-inondation d'Auto DC
+582|en cas de gîte / assiette dangereuse
+583|Auto DC contre-inonde : tant que des brèches laissent encore entrer l'eau et que la gîte ou l'assiette atteint 40% de la zone rouge de son indicateur (jusqu'à redescendre à 20%), une équipe va dans la section où laisser entrer l'eau d'un bord ou l'épuiser retire le plus de bande, et travaille comme une équipe à qui l'on a ordonné la contre-inondation (voir Contre-inondation). Désactivé = Auto DC ne contre-inonde pas.

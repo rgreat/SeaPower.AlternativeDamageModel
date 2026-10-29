@@ -166,6 +166,8 @@ namespace AlternativeDamageModel
                 if (sinking) Line(up, Loc.T("The ship is sinking"));
 
                 // ---- what lowers it (the teams' own speeds, whether or not they can beat the inflow)
+                if (counter.Count > 0 && DcControl.CounterPumpSide(comp, i) == (port ? 1 : -1) && delta > 1e-4f)
+                    Line(down, Loc.F("{0} pumping out: \u2212{1}%/s", Who(counter), R(TeamWork(counter) * perTeam)) + Tail(counter));
                 if (pumping.Count > 0)
                 {
                     bool now = drainPort == port || deltaOther <= 1e-4f;   // the game pumps one side at a time

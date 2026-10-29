@@ -118,6 +118,7 @@ namespace AlternativeDamageModel
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFloodingVulnerability", "Flooding", "", Kind.Number, 0.1f, 0.1f, 10f);
 
             Add("Systems", "Systems", "Systems/NoEngineTeamEffectiveness", "DC efficiency without engines", "% effectiveness · except systems repair · 100 = off", Kind.Number, 5f, 0f, 100f);
+            Add("Systems", "Systems", "Systems/SeveralPriorities", "Several repair priorities", "\"!\" of several systems in a section · repaired in turn", Kind.Bool, 0, 0, 0);
             Add("Systems", "Systems", "Systems/Integrity", "Integrity", "× game", Kind.Number, 0.1f, 0.1f, 20f);
             Add(FF, "Fire", "FireAndFlooding/FlameUpSpeed", "Fire growth", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireHullDamageSpeed", "Fire damage to the hull", "× game", Kind.Number, 0.1f, 0f, 10f);
@@ -137,6 +138,7 @@ namespace AlternativeDamageModel
             Add(DC, "Water", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
             Add(DC, "Water", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
             Add(DC, "Water", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
+            Add(DC, "Water", "FireAndFlooding/AutoCounterflood", "Auto DC counterflooding", "in a dangerous list / trim", Kind.Bool, 0, 0, 0);
             Add(DC, "Water", "DamageControlTeams/MaxPlugSpeed", "Max ship speed for plugging holes", "knots · 0 = no limit", Kind.Number, 1f, 0f, 100f);
             Add(DC, "Fire", "FireAndFlooding/TeamBlocksFireSpread", "Team stops fire spread", "fire does not spread into a section with a team", Kind.Bool, 0, 0, 0);
             Add(DC, "Fire", "FireAndFlooding/SubmergedFireDecay", "Fire under water", "% per second per metre under water; 0 = off", Kind.Number, 0.5f, 0f, 20f);
@@ -794,7 +796,7 @@ namespace AlternativeDamageModel
         static bool ModOnly(string key)
         {
             return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
-                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "DamageControlTeams/HitsInReserveChance" || key == "Systems/NoEngineTeamEffectiveness" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
+                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "DamageControlTeams/HitsInReserveChance" || key == "Systems/NoEngineTeamEffectiveness" || key == "Systems/SeveralPriorities" || key == "FireAndFlooding/AutoCounterflood" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
                    key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
                    key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/HealTime" || key == "DamageControlTeams/HealTimeSpread" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill";
         }
@@ -905,7 +907,7 @@ namespace AlternativeDamageModel
             "DamageControlTeams/SpeedRested", "DamageControlTeams/SpeedTired", "DamageControlTeams/SpeedExhausted",
             "FireAndFlooding/UnattendedFireGrowth", "FireAndFlooding/UnattendedFireTime", "FireAndFlooding/UnattendedFireGrowthRate", "FireAndFlooding/UnattendedFireMaxGrowth",
             "FireAndFlooding/TeamBlocksFireSpread", "FireAndFlooding/FireReopenLeaks", "FireAndFlooding/FireReopenLimit", "FireAndFlooding/SubmergedFireDecay",
-            "FireAndFlooding/FullFloodSystems", "FireAndFlooding/FullFloodFireDecay", "HullIntegrity/DamageSpill", "Systems/NoEngineTeamEffectiveness",
+            "FireAndFlooding/FullFloodSystems", "FireAndFlooding/FullFloodFireDecay", "HullIntegrity/DamageSpill", "Systems/NoEngineTeamEffectiveness", "Systems/SeveralPriorities", "FireAndFlooding/AutoCounterflood",
             "UI/DetailedView", "UI/ColorWeaponStatus", "UI/ShowEnemyDamage", "UI/HideUnobservedTargets3D", "Effects/ExtraSmokeEmitters", "Effects/SmokeBySeverity",
         };
 
