@@ -13,571 +13,557 @@
 13|Xác suất đám cháy nặng (từ 50% mức tối đa) lan sang các khu vực kế bên, tính bằng % mỗi lần kiểm tra cháy: game kiểm tra mỗi FireCheckTime (10 giây) với xác suất 0,0133% - hầu như không bao giờ. 0.0133 = như trong game; 1.0 = 1% mỗi lần kiểm tra (khoảng một lần mỗi 17 phút cháy nặng), 0 = không bao giờ.
 14|Tô màu các nút vũ khí ở bảng dưới của đơn vị đang chọn theo trạng thái hệ thống vũ khí: tất cả hoạt động - màu của game, một phần loại đó mất khả năng hoạt động - vàng, tất cả mất khả năng hoạt động - đỏ.
 15|Chấn động: đội bị vũ khí làm bị thương (ở khu vực bị trúng hoặc ở lực lượng dự bị) bị choáng trong chừng này giây sau khi vào lực lượng dự bị; Auto DC không cho nó quay lại làm việc cho đến khi hết choáng. Nó chạy song song với máu của đội, vốn có hồi phục riêng. 0 = không chấn động.
-16|Làm ngập đối trọng (nhiệm vụ giao tay cho đội): tốc độ cho nước vào khoang, bằng bội số tốc độ bơm ra. Nước vào mạn đối diện với phía nghiêng, hoặc vào mạn có ít nước hơn khi tàu thẳng.
-17|Làm ngập đối trọng chỉ cho nước vào một mạn của khoang tới % này (giới hạn riêng của khoang trong game vẫn có hiệu lực).
-18|Hiệu quả kiểm soát thiệt hại khi động cơ của tàu (mô-đun Engine đang dùng, không phải chân vịt) hỏng: hiệu quả của các đội theo % (cháy, rò, nước, thân tàu; sửa hệ thống không bị ảnh hưởng). Hiển thị trong gợi ý của đội và ở dòng Forecast của thẻ Damage Control. 100 = tắt.
-19|Các đội kiểm soát thiệt hại trong khu vực có cháy mà không chữa cháy làm việc ở % này hiệu quả của họ. 100 = tắt.
-20|Các đội kiểm soát thiệt hại của tàu dân sự theo lượng giãn nước: tấn=đội.
-21|Các đội kiểm soát thiệt hại của tàu ngầm theo lượng giãn nước: tấn=đội.
-22|Các đội kiểm soát thiệt hại của tàu chiến mặt nước theo lượng giãn nước: tấn=đội, từ số tấn đó trở lên. NumberOfDCTeams trong ini của tàu vẫn đặt số riêng của nó.
-23|Gỡ lỗi: vẽ các lưới collider chỉ có thân tàu (coll_hull*) của tàu đang chọn thành lớp phủ mờ cùng khung dây sáng của các tam giác thực của chúng, để so sánh trực tiếp với mô hình 3D nhìn thấy.
-24|Gỡ lỗi: với tàu đang chọn trong bảng Unit Status, vẽ một đường từ con sóng hiện tại tới chiều cao boong ước tính ở đường tâm mũi và đuôi thân tàu, và ở một cặp mạn trái/phải cho mỗi khu vực của mô hình hư hại (điểm giữa riêng theo chiều dài) - chỉ collider thân tàu, không phải tháp pháo, cột buồm hay mô hình con khác. Xanh: điểm cao hơn sóng; đỏ: sóng ở trên nó.
-25|Gỡ lỗi: cách vẽ mô hình 3D của tàu đang chọn (cả mô hình con), để có thể thấy ShowDeckCorners/ShowHullCollider: Show (như game), Translucent (trong suốt 70%) hoặc Hide.
-26|Chẩn đoán: khi tàu nghiêng hoặc chúi rõ rệt, ghi vào log BepInEx mỗi 2 giây: nghiêng, chúi, độ cao, lực nổi so với trọng lượng, thể tích chìm, nước trong tàu và tàu có đang chìm / lật không.
-27|Chẩn đoán: ghi vào log BepInEx mọi đám cháy do phát trúng gây ra và mọi thay đổi giai đoạn của đám cháy (tàu, khoang, thời gian nhiệm vụ, mức độ và tăng trưởng theo % của mức tối đa của khoang, các đội kiểm soát thiệt hại ở đó). Hoạt động cả khi mod bị tắt trong menu Mods, để so sánh với game.
-28|Không vẽ trong chế độ xem 3D các mục tiêu của phe khác không được quan sát bằng mắt (chỉ biết qua radar, sonar hoặc dữ liệu). Đơn vị của bạn luôn được vẽ.
-29|Bật ghi log chi tiết và BepInEx/AlternativeDamageModel.trace.txt.
-30|Đám cháy trông theo cường độ của nó (phần của mức tối đa) thay vì các giai đoạn của game: nhỏ, vừa từ SmokeModerateFrom, nặng từ SmokeSevereFrom (game: 25% / 50%); khói của đám cháy nhỏ tăng từ SmokeStartOpacity đến SmokeEndOpacity. Chỉ là giao diện - sát thương và sự lan vẫn là của game. Tắt = như trong game.
-31|Dòng cháy: một mũi tên khi đám cháy thay đổi nhanh hơn mức này, tính bằng % mức tối đa của nó mỗi giây.
-32|Dòng cháy: hai mũi tên xuống khi đám cháy được dập nhanh hơn mức này, tính bằng % mức tối đa của nó mỗi giây.
-33|Dòng cháy: hai mũi tên lên khi đám cháy lớn nhanh hơn mức này, tính bằng % mức tối đa của nó mỗi giây.
-34|Sửa một lỗi của chính game: trên 10x nén thời gian, độ chúi của tàu tăng theo nén thời gian (xuồng 25 m ở 47 hải lý/giờ: 2,6 độ tới 10x, 9 ở 100x) - đủ để làm chìm một tàu ngắn, nhanh, nguyên vẹn. Game di chuyển tàu một bước mỗi tick vật lý, và trên 10x bước đó bị kéo dài trong khi mô-men lực nổi vẫn lấy quanh khối tâm từ trước bước. Bật: bước dư đó bị bỏ, nên độ chúi giữ như ở 10x với mọi mức nén thời gian; tới 10x không có gì thay đổi. Chỉ tàu mặt nước. Tắt: hành vi của game.
-35|Dòng ngập và kế hoạch ngập: một mũi tên khi mực nước thay đổi nhanh hơn mức này, tính bằng % của khoang mỗi giây.
-36|Dòng ngập và kế hoạch ngập: hai mũi tên khi mực nước thay đổi nhanh hơn mức này, tính bằng % của khoang mỗi giây.
-37|Bốn biểu tượng nhỏ dưới biểu tượng tàu trên bản đồ (cả của bạn): lửa (tổng cường độ các đám cháy), nước, thân tàu (phân loại như bảng Damage Control) và động cơ; vàng / cam / đỏ theo mức nghiêm trọng, và biểu tượng bản đồ xám hơn khi tàu sắp chìm (trong 20 phút theo xu hướng ngập / thân tàu). Một mục tiêu liên lạc: lửa, nước, thân tàu và động cơ chỉ khi nhìn trực tiếp; qua sonar - chỉ động cơ (vàng: mất một phần, đỏ: không cái nào hoạt động); qua radar - ước đoán cho tàu bị trúng trong 10 phút qua, đánh dấu '?' (vàng: 10 hải lý/giờ trở xuống, đỏ: dưới 3); không có gì qua ESM hoặc khi không có liên lạc, và không có gì cho tàu đã chìm. Dòng Fires của thẻ Damage Control dùng cùng tổng cường độ. Unit Status của mục tiêu liên lạc hiển thị thẻ Damage State với cùng thông tin bằng chữ.
-38|Máu của một đội kiểm soát thiệt hại, hệ số của mức tối đa, vốn là 1..100 điểm theo lượng giãn nước của tàu (100 = thủy thủ đoàn 1000 người trở lên, khoảng 30000 t; 1000 t = 24, 10000 t = 101). Hiển thị trong gợi ý của đội dưới dạng phần của đầy. Đội ở 0 là đã chết. Đội bị thương làm việc chậm hơn (theo máu của họ, không dưới 25%). 0 = đội không bao giờ bị thương (một phát trúng vẫn loại đội khỏi khu vực).
-39|Tốc độ lửa ăn mòn thân tàu của khu vực (độ nguyên vẹn của cả hai khoang). 1.0 = như trong game. Sát thương lên hệ thống trong khu vực không đổi.
-40|Tốc độ đội trong lực lượng dự bị hết mệt, % tốc độ mệt tích lũy khi làm việc. 100 = nhanh bằng; 50 = nghỉ lâu gấp đôi làm việc.
-41|Tốc độ đội đi bộ trong tàu, mét mỗi phút (lực lượng dự bị ở giữa). Một lần chuyển = MusterTime + thời gian đi, làm tròn tới 10 giây. 0 = không có thời gian đi; khi MusterTime cũng 0, các đội di chuyển ngay và Auto DC là của game.
-42|Tốc độ các đội kiểm soát thiệt hại bơm nước ra. 1.0 = như trong game.
-43|Tốc độ các đội kiểm soát thiệt hại dập lửa. 1.0 = như trong game.
-44|Tốc độ các đám cháy tự lớn, giữa các phát trúng. 1.0 = như trong game, 2.0 = nhanh gấp đôi, 0.5 = chậm một nửa.
-45|Tốc độ nước vào qua các lỗ của khoang. 1.0 = như trong game.
-46|Thân tàu dân sự (tệp ini civ_*) chắc gấp bao nhiêu lần so với trong game. 1.0 = như trong game.
-47|Thân tàu ngầm chắc gấp bao nhiêu lần so với trong game. 1.0 = như trong game.
-48|Thân tàu chiến mặt nước chắc gấp bao nhiêu lần so với trong game. 1.0 = như trong game, 2.0 = chắc gấp đôi. Từng tàu riêng được giá trị riêng trong mục [HullIntegrityPerShip], mỗi tàu một dòng: tên tệp ini = hệ số (ví dụ usn_bb_iowa = 3.0).
-49|Một đội làm được bao nhiêu (bịt lỗ, chữa cháy, bơm nước, sửa thân tàu và hệ thống) so với game. 1.0 = như trong game.
-50|Độ nghiêng theo ngập không đều mạnh đến đâu. Chênh lệch nước giữa mạn trái và mạn phải của một khu vực (làm tàu nghiêng) được nhân với giá trị này; trung bình của khu vực được giữ, nên mớn nước và độ chúi không đổi vì nó. 1 = như trong game, 2 = độ nghiêng gấp đôi với cùng chênh lệch.
-51|Tốc độ tàu thay đổi sự lớn lên của đám cháy và nước vào (qua lỗ và qua mép boong) như thế nào: hải lý/giờ=hệ số ngập/cháy, một đường gấp khúc qua các điểm. Tốc độ lấy theo giá trị tuyệt đối; dưới điểm đầu và trên điểm cuối thì dùng hệ số ở hai đầu.
-52|Ngôn ngữ của văn bản mod: en, ru, cn, de, es, fr, ko, ja hoặc vn. Trống = ngôn ngữ của game. Văn bản nằm trong thư mục lang của mod (lang/<mã>.ini); văn bản thiếu được hiển thị bằng tiếng Anh.
-53|Nghiêng, độ: toàn thang của đồng hồ LIST. Từ vùng đỏ của nó (75%) nước tràn qua mép boong và nhanh chóng làm ngập mọi khoang ở mạn thấp (game: ở 45). Bản thân nó không làm chìm tàu; lật ở 70 độ thì có, như trong game.
-54|Mét. Giới hạn chúi phụ thuộc chiều dài tàu: tàu càng dài, mũi hoặc đuôi càng sớm chìm với cùng góc (tan giới hạn = tan TrimLimit x (TrimReferenceLength / chiều dài)^0.442; với 5.2 ở 100: 30 m 8.8, 60 m 6.5, 150 m 4.4, 300 m 3.2 độ). 0 = TrimLimit cho mọi tàu (như trong game).
-55|Số phút (thời gian game, nén thời gian được tính) sau khi tàu bắt đầu chìm, khi hiệu ứng bong bóng chìm ngừng phát (game không bao giờ dừng nó khi xác tàu còn tồn tại). Tiết kiệm tài nguyên trong nhiệm vụ dài. 0 = không bao giờ, như trong game.
-56|Số phút làm việc trong khu vực cho đến khi đội mệt (mức đầu); tốc độ của nó giảm theo các thiết lập Speed. Lực lượng dự bị xóa mệt nhanh bằng lúc công việc tích lũy. Hiển thị trong gợi ý của đội; biểu tượng của đội mệt được làm nổi bật. 0 = không mệt.
-57|Số phút làm việc cho đến khi đội kiệt sức, mức mệt thứ hai (tối đa: mệt không tăng thêm ở đó). Không trên 'Tired after' = không có mức thứ hai.
-58|Hệ số của xác suất một phát trúng làm bị thương đội (0.5 = một nửa khả năng, 2 = gấp đôi; kết quả tối đa 100%). Bước 1 (chỉ khi Wounds at any hull integrity tắt) - game quyết định liệu một phát trúng có loại đội khỏi khu vực không (chỉ khu vực bị trúng có độ nguyên vẹn dưới 50%: sát thương x (1 - độ nguyên vẹn), tối đa 20%). Bước 2 - mod quyết định vết thương: xác suất tăng dốc theo sức mạnh đầu đạn (khoảng sức mạnh^1.8) và giảm theo máu của đội (khoảng máu^1.2) - đầu đạn 2.2 so với máu 2: khoảng 10%, so với 100: 0,1%; đầu đạn 82 so với 100: khoảng 75%; cao hơn nhiều thì trên 100%. Nó được nhân với hệ số này rồi giới hạn ở 100% (khi Wounds at any hull integrity tắt, đội không bị thương vẫn rời khu vực). Đầu đạn mạnh hơn làm tăng xác suất. Tàu lớn hơn làm giảm: đội của nó bền hơn (nhiều máu hơn) và khoang lớn hơn, nên phát trúng ít khả năng rơi đúng chỗ đội đứng. Ngay cả phát trúng yếu nhất cũng có xác suất nhỏ. Ví dụ, đầu đạn 25: so với máu 12 khoảng 100%, so với 29 khoảng 37%, so với 100 khoảng 9%. 0 = không bao giờ bị thương.
-59|Hệ số sức mạnh vết thương: tối đa là sức mạnh đầu đạn của đạn dược (0..196, một nửa đạn dược của game dưới 25) x giá trị này, tính bằng điểm máu của đội (1..100 theo lượng giãn nước). Đội bị thương đi về lực lượng dự bị.
-60|Số điểm lửa và khói theo chiều dài tàu thay cho ba điểm của game: dưới 25 m 1, dưới 50 m 2, dưới 75 m 3, từ 75 m 5 (một điểm mỗi khu vực, mỗi điểm hiển thị đám cháy của khu vực mình). Áp dụng cho tàu xuất hiện từ bây giờ.
-61|Độ lệch ngẫu nhiên của thời gian chấn động, giây mỗi chiều: HealTime 90 với 30 = 60 đến 120 giây, như trong game. 0 = luôn HealTime.
-62|Lực cản đối với chuyển động NGANG của tàu bị phá hủy, nhân với lực cản tuyến tính của game (25 cho gần như mọi tàu): xác tàu mất đà sớm hơn. 1 = như trong game. Chìm (chuyển động dọc) và quay (lật) không bị làm chậm.
-63|Số giây (thời gian game, nén thời gian được tính) điểm boong của khoang phải liên tục nằm dưới biển trước khi nước bắt đầu tràn qua boong (xem DeckFloodingSpeed). Điểm nổi lên sẽ đặt lại bộ đếm. Mặc định 3.
-64|Số giây một đội cần để sẵn sàng trước mỗi lần chuyển. Hủy một lần chuyển khi đội còn đang chuẩn bị không tốn thời gian.
-65|Hồ sơ thiết lập đang dùng, chọn trong game: Unit Status -> Damage Control -> bánh răng cạnh (i). Tệp này chỉ chứa các thiết lập chung ([General], [UI]); giá trị của mô hình hư hại nằm trong tệp của hồ sơ: hồ sơ dựng sẵn ở thư mục Profiles của mod (chỉ đọc), hồ sơ của bạn ở StreamingAssets/user/AdvancedDamageControl/Profiles. Thay đổi hồ sơ dựng sẵn trong game sẽ lưu nó thành Custom. Chỉnh sửa tệp của hồ sơ đang dùng, hoặc tên này, được nhận khi game đang chạy.
-66|Các tàu (tên tệp ini, cách nhau dấu phẩy; chỉnh trong cửa sổ thiết lập, thẻ Flooding) không có Deck Points: chúng ngập theo quy tắc cũ, đơn giản hơn, như tàu không có collider thân tàu.
-67|Đám cháy nhỏ: độ mờ khói của hạt mới ở 0% mức tối đa của đám cháy, % của game.
-68|Đám cháy nhỏ: độ mờ khói của hạt mới tại SmokeModerateFrom, % của game; ở giữa - đều theo cường độ đám cháy.
-69|Mệt của đội bật: làm việc tích lũy nó, lực lượng dự bị xóa nó, đội mệt làm việc với nửa tốc độ. Tắt = không mệt; các thiết lập của nó bị ẩn.
-70|Máu của đội bật: vết thương từ phát trúng và đám cháy, hồi phục trong lực lượng dự bị, đội bị thương làm việc chậm hơn. Tắt = quy tắc của game (một phát trúng loại đội một lúc, không có vết thương); các thiết lập máu khác bị ẩn.
-71|Chế độ xem chi tiết của Unit Status -> Damage Control (hiển thị của mod): độ nguyên vẹn thân tàu theo mạn cạnh tên mỗi khu vực, một biểu tượng cho mỗi đội kiểm soát thiệt hại (nhiệm vụ của nó; nhiệm vụ và di chuyển bằng tay khi Auto DC tắt), nước và lửa theo % với mũi tên xu hướng, DC Priority, thẻ đội, các đồng hồ LIST / TRIM / LEVEL với kế hoạch ngập, gợi ý, chú giải (i). Tắt: chế độ xem riêng của game (bánh răng của cửa sổ thiết lập vẫn còn).
-72|Mô hình hư hại và kiểm soát thiệt hại của mod: độ bền thân tàu và hệ thống, hiệu ứng phụ, tốc độ cháy và ngập, sự lan lửa, các đội kiểm soát thiệt hại (số lượng, hiệu quả, chuyển bằng đi bộ, mất khả năng chiến đấu, Auto DC tối ưu, di chuyển từng đội), giới hạn nghiêng / chúi / chìm. DC Priority và nhiệm vụ giao tay thuộc chế độ xem chi tiết và vẫn còn. Tắt: hư hại và kiểm soát thiệt hại riêng của game (chế độ xem thẻ Damage Control vẫn còn). Có thể chuyển bất cứ lúc nào: tàu ngoài biển theo ngay (độ bền thân tàu và số đội trở lại của game hoặc của mod; đội đang di chuyển đến nơi, đội bị loại hồi phục).
-73|Giao diện đám cháy vừa từ cường độ này, % mức tối đa của đám cháy (game: 25%).
-74|Giao diện đám cháy nặng từ cường độ này, % mức tối đa của đám cháy (game: 50%).
-75|Các đội nghỉ ở khoang trung tâm: một phát trúng vào đó có thể làm bị thương đội đang chờ trong lực lượng dự bị (xác suất là của game cho đội bị loại ở khu vực bị trúng: sát thương x (1 - độ nguyên vẹn), chỉ khi độ nguyên vẹn dưới 50%). Đội nghỉ bị thương vẫn ở lực lượng dự bị.
-76|Chúi, độ, cho tàu dài TrimReferenceLength: toàn thang của đồng hồ TRIM. Từ vùng đỏ của nó (75%) đầu đang chìm xuống ngập nhanh: ở mỗi mạn khoang ngoài cùng, khi nó đầy thì khoang kế, và cứ thế. Tàu không chìm ngay, khác với game (8 độ với một khu vực ngập).
-77|Đám cháy không ai trông: tốc độ phát triển tăng bao nhiêu mỗi lần kiểm tra cháy, % tốc độ phát triển tối đa của đám cháy (một phát trúng thường thêm 0,1-0,8%).
-78|Đám cháy không ai trông: tốc độ phát triển của nó chỉ được nâng tới mức này, % mức tối đa của đám cháy mỗi giây.
-79|Đám cháy không ai trông: số giây không có đội chữa cháy (từ lúc nó bắt đầu, hoặc lần cuối một đội chữa) trước khi nó bắt đầu lớn nhanh hơn.
-80|Mức dễ tổn thương của thân tàu với ngập qua các lỗ do phát trúng tạo ra (mọi loại vũ khí). 1.0 = mỗi lỗ cho vào lượng nước như trong game, và các lỗ trên mực nước bắt đầu rò sau cùng sát thương như trong game (thân tàu chắc hơn không cản được nước). 2.0 = nước gấp đôi; 0.5 = một nửa.
-81|Mức dễ tổn thương của thân tàu với đạn pháo (tên lửa, ngư lôi và bom không bị ảnh hưởng). Đạn pháo lấy một phần giới hạn chìm của tàu tùy kích thước thân tàu. 1.0 = mỗi viên lấy như trong game; thân tàu chắc hơn chỉ chịu được nhiều phát trúng hơn. 2.0 = đạn trúng như thể thân tàu nhỏ một nửa; 0.5 = như thể lớn gấp đôi (đạn cỡ vừa có thể không còn làm hại tàu lớn).
-82|Mức dễ tổn thương của tàu với đám cháy do phát trúng gây ra (mọi loại vũ khí). Thân tàu chắc hơn cũng kìm lửa theo cùng tỷ lệ: với Warships = 5.0 một phát trúng gây đám cháy yếu hơn 5 lần (so với khoang) so với game. 1.0 = hành vi bình thường này của mod. 2.0 = đám cháy mạnh gấp đôi và lớn nhanh gấp đôi; 0.5 = yếu một nửa. 1.0 với mọi hệ số thân tàu 1.0 = như trong game.
-83|Nước trong khu vực giới hạn đám cháy của nó: nó không thể mạnh hơn (100 - % nước của khu vực) của mức tối đa. Đám cháy mạnh hơn giảm xuống giới hạn đó với % này của mức tối đa mỗi giây. 0 = tắt.
-84|Nước trong cả tàu, % (trung bình các khoang), từ đó nó chìm, như trong game (game: 40; tàu ngầm giữ 50 của game). Cũng là toàn thang của đồng hồ LEVEL.
-85|Nước qua mép boong, một hệ số. Với tàu có điểm boong đã biết (thuật toán collider thân tàu đầy đủ): khi điểm boong của khoang nằm dưới biển DeckFloodingDelay giây liên tục (thời gian game, nén thời gian được tính), khoang nhận nước mà kiểm soát thiệt hại không ngăn được - 1.0 = 0,1% thể tích của nó mỗi giây trên mỗi mét chìm (sâu hơn = nhanh hơn); khoang đầy chuyển nước sang khoang kế bên chưa đầy nằm thấp nhất, và tiếp tục dọc chuỗi. Với tàu khác: tốc độ đầu đang chìm (do chúi quá giới hạn) hoặc mạn thấp (do nghiêng quá giới hạn) nhận nước qua mép boong - cơ chế riêng của mod, không có trong game. 2.0 = nhanh gấp đôi, 0.5 = một nửa, 0 = tắt.
-86|Khi tàu bắt đầu chìm, game đặt khối tâm của nó ở gốc thân tàu ((0, 1, 0) nếu nó đã lật): khối tâm nhảy, và mọi mô-men lên thân tàu cũng vậy. Bật = khối tâm ở nguyên chỗ cũ. Tắt = như trong game.
-87|Khi một đội bịt lỗ của khoang (nhiệm vụ Flooding Rate), nó đồng thời bơm nước ra khỏi đó: phần này của tốc độ bơm ra (0.5 = một nửa, 0 = tắt). Đội được lệnh làm ngập đối trọng chỉ bơm từ mạn mà việc đó không làm xấu thêm độ nghiêng và chúi.
-88|Tốc độ làm việc của đội đã nghỉ, % (điểm xuất phát của đường cong mệt). Tốc độ giảm theo đường thẳng từ đây tới mức mệt.
-89|Tốc độ làm việc của đội vừa mệt, %. Giữa mức mệt và kiệt sức, tốc độ giảm theo đường thẳng.
-90|Tốc độ làm việc của đội kiệt sức, %; nó giữ ở đó chừng nào đội còn làm việc.
-91|Ghi một dòng vào log BepInEx cho mỗi tàu vào nhiệm vụ: độ nguyên vẹn thân tàu trong game và với mod.
-92|+ Thêm tàu
-93|Về giá trị của game
-94|Xóa hồ sơ "{0}"?
-95|Kéo để đổi kích thước
-96|Độ nguyên vẹn trên tàu chiến {0}.
-97|Tệp của nó bị xóa. Nếu là hồ sơ đang dùng, Advanced sẽ được dùng.
-98|Thêm một điểm
-99|Thêm một bậc: nhiều đội hơn từ nhiều tấn hơn
-100|Chỉ vào một thiết lập để xem tác dụng của nó.
-101|Bỏ điểm cuối
-102|Bỏ bậc cuối
-103|Bỏ: tàu lại có Deck Points
-104|Đã lưu vào {0}
-105|một số dương
-106|một tàu trong danh sách, hoặc tên tệp ini của nó
-107|dựa trên {0}
-108|mặc định: {0}
-109|đã sửa
-110|từ {0} t
-111|game: tức thì
-112|game: không tác dụng
-113|game: không giới hạn
-114|game: tắt
-115|game: {0}
-116|đang dùng
-117|tắt
-118|bật
-119|hồ sơ
-120|phụ thuộc trọng tải
-121|loại không rõ
-122|{0} t: {1}
-123|● khác {0}   ↺ = quay lại
-124|Bảng dưới
-125|Thẻ Damage Control
-126|Mô hình hư hại
-127|Hiệu quả
-128|Cháy
-129|Cháy và kiểm soát thiệt hại
-130|Cháy và rò nước
-131|Khói cháy
-132|Tốc độ ngập
-133|Ngập hoàn toàn
-134|Thang đồng hồ (ngập nhanh hơn từ vùng đỏ, 75%)
-135|Máu
-136|Độ nguyên vẹn thân tàu
-137|Nhật ký (log BepInEx)
-138|Bản đồ
-139|Di chuyển
-140|Số đội - từ tấn: đội
-141|Tốc độ tàu: ảnh hưởng đến ngập và cháy
-142|Chìm và xác tàu
-143|Chìm từ
-144|Công tắc
-145|Hệ thống
-146|Tốc độ đội
-147|Thời gian
-148|Đám cháy không ai trông
-149|Hiển thị (tàu đang chọn)
-150|Mức dễ tổn thương của thân tàu chắc hơn
-151|Nước
-152|Phát trúng vũ khí
-153|Các loại mô-đun (modules.ini) có độ nguyên vẹn (Integrity) riêng, đặt tường minh thay cho giá trị của modules.ini (giá trị của game được điền khi chọn một loại); hệ số Integrity ở trên không áp dụng cho chúng. Các điều chỉnh của game giữ tỷ lệ: các loại đánh dấu "× trọng tải" (màu hổ phách) tăng theo lượng giãn nước của tàu - chỉ vào một loại để xem giá trị cuối - và giá trị riêng của hệ thống trên tàu thay đổi theo cùng tỷ lệ.
-154|Các tàu không có Deck Points (Flooding): nước qua mép boong không được tính cho chúng, dùng quy tắc cũ đơn giản hơn, như tàu không có collider thân tàu. Chọn từ các tàu của game hoặc theo tên tệp ini.
-155|Các tàu có hệ số thân tàu riêng, chọn từ các tàu của game (hoặc theo tên tệp ini): chắc gấp bao nhiêu lần so với game; thay thế giá trị của lớp, không nhân với nó.
-156|Alternative Damage Control
-157|Tàu dân sự
-158|Độ lệch chấn động
-159|Thời gian chấn động
-160|Giới hạn làm ngập đối trọng
-161|Làm ngập đối trọng
-162|Hiệu quả kiểm soát thiệt hại khi không có động cơ
-163|Sát thương lan sang
-164|Vết gỡ lỗi
-165|Độ cao các điểm boong
-166|Chế độ xem chi tiết
-167|Kiệt sức sau
-168|Dập lửa
-169|Thêm điểm khói
-170|Sát thương cháy lên thân tàu
-171|Cháy lớn lên
-172|Lửa bị nước dập
-173|Lửa mở lại chỗ rò
-174|Xác suất lửa lan
-175|Cháy dưới nước
-176|Vết thương do cháy
-177|Cháy: một mũi tên từ
-178|Cháy: hai mũi tên xuống từ
-179|Cháy: hai mũi tên lên từ
-180|Các đám cháy
-181|Sửa lỗi tính độ chúi
-182|Ngập
-183|Lớn lên khi không ai chữa
-184|Tăng trưởng thêm
-185|Đạn pháo
-186|Ẩn mục tiêu chưa thấy trong 3D
-187|Collider thân tàu (mờ)
-188|Thân tàu của mọi tàu
-189|Độ nguyên vẹn
-190|Giữ khối tâm
-191|Nghiêng
-192|Nghiêng, chúi và lực nổi
-193|Máu tối đa
-194|Tốc độ tàu tối đa để bịt lỗ
-195|Tốc độ phát triển tối đa
-196|Giao diện cháy vừa từ
-197|Hệ số theo tốc độ
-198|Thời gian tập hợp
-199|Bơm ra
-200|Bơm khi bịt lỗ
-201|Tốc độ hồi phục
-202|Tốc độ hồi phục trong dự bị
-203|Mở lại tới
-204|Giao diện cháy nặng từ
-205|Biểu tượng hư hại của tàu
-206|Mô hình 3D của tàu
-207|AI nhỏ: không giới hạn tốc độ
-208|Cháy nhỏ: độ mờ ở cuối
-209|Cháy nhỏ: độ mờ ở đầu
-210|Tốc độ: kiệt sức
-211|Tốc độ: đã nghỉ
-212|Tốc độ: mệt
-213|Dừng bong bóng sau
-214|Tàu ngầm
-215|Hệ thống hỏng
-216|Hiệu quả của đội
-217|Mệt của đội
-218|Máu của đội
-219|Đội chặn lửa lan
-220|Thời gian dưới nước
-221|Mệt sau
-222|Tốc độ chuyển
-223|Chúi
-224|Chúi: chiều dài tham chiếu
-225|Tinh chỉnh giao diện
-226|Không ai trông sau
-227|Tàu chiến
-228|Nước vào
-229|Nước trong tàu
-230|Nước trên boong
-231|Nước: một mũi tên từ
-232|Nước: hai mũi tên từ
-233|Màu trạng thái vũ khí
-234|Làm việc trong lửa
-235|Xác suất bị thương
-236|Sức mạnh vết thương
-237|Vết thương ở mọi độ nguyên vẹn thân tàu
-238|Vết thương trong dự bị
-239|Lực cản xác tàu
-240|Ẩn
-241|Hiện
-242|Mờ
-243|Đội DC
-244|Mô hình hư hại
-245|Gỡ lỗi
-246|Hiệu ứng
-247|Thân tàu
-248|Mũi tên xu hướng
-249|Giao diện người dùng
-250|+ Thêm loại
-251|Thêm tàu
-252|Alternative Damage Model - Thiết lập
-253|Áp dụng
-254|Hủy
-255|Số lượng
-256|Xóa
-257|Mệt
-258|OK
-259|Hồ sơ
-260|Bỏ: tàu lại dùng giá trị của lớp
-261|Bỏ: loại lại dùng hệ số ở trên
-262|Đổi tên hồ sơ
-263|Đổi tên…
-264|Đặt lại theo hồ sơ
-265|Lưu
-266|Lưu thành…
-267|Lưu hồ sơ thành
-268|Hồ sơ thiết lập
-269|Tàu không có Deck Points - ngập theo quy tắc cũ, như không có collider thân tàu
-270|Từng tàu - × game, thay cho giá trị của lớp
-271|Từng loại hệ thống - Integrity, thay cho hệ số ở trên
-272|Công việc
-273|Vết thương
-274|một loại mô-đun trong danh sách (modules.ini)
-275|tốc độ cháy
-276|tốc độ ngập
-277|tốc độ, hải lý/giờ
-278|đội
-279|tấn
-280|% mỗi giây
-281|% mỗi giây · 0 = tắt
-282|% hiệu quả khi không chữa cháy · 100 = tắt
-283|% hiệu quả · trừ sửa hệ thống · 100 = tắt
-284|% máu mỗi giây
-285|% trong một mạn của khoang
-286|% cháy tối đa (game 25)
-287|% cháy tối đa (game 50)
-288|% cháy tối đa mỗi giây
-289|% tăng trưởng tối đa mỗi lần kiểm tra cháy (10 giây)
-290|% của bình thường
-291|% tốc độ mệt
-292|% của game, ở mức vừa
-293|% của game, cháy 0%
-294|% của thân tàu
-295|% của chỗ rò lớn nhất
-296|% của chỗ rò lớn nhất mỗi giây khi cháy 100% · 0 = tắt
-297|% mỗi lần kiểm tra cháy (10 giây)
-298|% mỗi giây khi cháy 100%
-299|% mỗi giây trên mỗi mét dưới nước; 0 = tắt
-300|Tàu AI < 50 m: không giảm tốc độ
-301|một khoang bị phá hủy: ½ sang khoang bên cạnh, ¼ sang khoang kế
-302|trên 10x nén thời gian
-303|có hiệu lực ngay
-304|theo chiều dài: <25 m 1, <50 m 2, <75 m 3, còn lại 5
-305|phát trúng khoang trung tâm làm bị thương đội đang nghỉ
-306|chỉ coll_hull*
-307|lửa không lan vào khu vực có đội
-308|cháy, nước, thân tàu, động cơ
-309|cho hai mục ở trên
-310|thay cho các giai đoạn của game
-311|hải lý/giờ · 0 = không giới hạn
-312|m · 0 = như nhau cho mọi tàu
-313|m/phút · 0 = tức thì
-314|phút sau khi bắt đầu chìm; 0 = không bao giờ
-315|phút làm việc
-316|không sửa khi đang ngập
-317|không được quan sát bằng mắt
-318|không chỉ dưới 50%
-319|tắt = trang Fatigue bị ẩn
-320|giây
-321|giây trước khi nước qua boong bắt đầu
-322|giây trong dự bị · 0 = tắt
-323|giây không có đội
-324|từ sóng tới boong chỉ-thân-tàu, 10 điểm
-325|khi bắt đầu chìm (game đặt lại nó)
-326|vết thương và hồi phục; tắt = trang Health bị ẩn
-327|vàng: một phần hỏng, đỏ: tất cả
-328|° ở chiều dài tham chiếu
-329|° · nước qua mép boong từ 75%
-330|± giây
-331|× (1-100 theo lượng giãn nước)
-332|× xác suất
-333|× game
-334|× bơm ra · 0 = tắt
-335|× bơm ra · chỉ bằng tay
-336|× lực cản của game đối với chuyển động ngang của tàu bị phá hủy
-337|× sức mạnh đầu đạn
-338|× · 1 = 0,1% mỗi giây trên mỗi m dưới nước
-339|Thêm loại
-340|"{0}" là hồ sơ tích hợp sẵn.
-341|Tối đa 40 ký tự.
-342|Đã có hồ sơ cùng tên.
-343|Không thể xóa hồ sơ tích hợp sẵn.
-344|Không thể đổi tên hồ sơ tích hợp sẵn.
-345|Không được dùng trong tên: ; # [ ]
-346|Không được dùng trong tên: {0}
-347|Không tìm thấy hồ sơ.
-348|Hãy nhập tên.
-349|xuống dòng
-350|không được phép: {0}
-351|tab
-352|Đã mất
-353|Đang chìm
-354|Chìm sau ~{0} phút
-355|Ổn định
-356|nghiêng mạnh sang mạn trái
-357|nghiêng mạnh sang mạn phải
-358|chúi mạnh mũi
-359|chúi mạnh lái
-360|nghiêng sang mạn trái
-361|nghiêng sang mạn phải
-362|ra-đa
-363|ước tính ra-đa
-364|vệt ra-đa (ước tính)
-365|sonar
-366|sonar (tiếng động cơ)
-367|chúi mũi
-368|chúi lái
-369|quan sát bằng mắt
-370|quan sát bằng mắt
-371|quan sát bằng mắt (chưa nhận dạng)
-372|Bận: {0} làm {1} trước
-373|Làm hư thân tàu và hệ thống
-374|Kiệt sức
-375|Cháy {0}
-376|Đám cháy {0} đang cháy
-377|Tự tăng {0}%/giây
-378|Trúng đạn {0} giây trước
-379|Trúng đạn
-380|Lỗ thủng: +{0}%/giây
-381|Nghiêng {0}°: nước tràn lên boong
-382|Làm giảm:
-383|Nhẹ
-384|Vừa
-385|Không có đội ở đây
-386|Hiện không có gì làm tăng
-387|Chỉ đội kiểm soát hư hại mới dập được
-388|Mạn trái
-389|Làm tăng:
-390|Nặng
-391|Tàu quá nhanh để bịt lỗ thủng: trên {0} hải lý/giờ
-392|Lan sang các khoang kề bên
-393|Mạn phải
-394|Đội đang đến
-395|Rò rỉ đang lớn: thân tàu {0}, không có đội
-396|Tàu đang chìm
-397|Mệt
-398|Không ai trông {0} giây: tăng nhanh hơn
-399|Hàn được đến {0}
-400|Bị thương
-401|một đội
-402|đang giảm
-403|nhanh hơn: tốc độ tàu
-404|mạn bên kia trước
-405|đang sửa
-406|chìm: nhanh hơn
-407|chậm hơn: tốc độ tàu
-408|{0} đối ngập: +{1}%/giây
-409|{0} đang bịt mạn bên kia
-410|{0} bơm trong khi bịt: −{1}%/giây
-411|{0} đang bơm nước ra: −{1}%/giây
-412|{0} đang hàn
-413|Thân tàu mạn trái {0}
-414|Thân tàu mạn phải {0}
-415|Chúi mũi {0}°: nước tràn lên boong
-416|Chúi lái {0}°: nước tràn lên boong
-417|Một đội kiểm soát hư hại rảnh, đang chờ ở lực lượng dự bị
-418|Động cơ hỏng: hiệu suất KSHH {0}%
-419|Đám cháy:
-420|Dự báo:
-421|Số lần trúng đạn vào tàu: {0}
-422|In Transfer
-423|Dự bị
-424|Không
-425|Chưa có
-426|Đang nghỉ
-427|nổ
-428|mạn trái
-429|khoang {0}
-430|mạn phải
-431|bị giáp chặn
-432|lực lượng dự bị
-433|Mép boong chạm biển khi nghiêng {0}° · chúi {1}° (vùng đỏ)
-434|Nghiêng 45° · Chúi 8° (của trò chơi)
-435|Giới hạn nghiêng {0}° · Giới hạn chúi {1}°
-436|Hiện các tầng boong ở dạng 3D
-437|Tàu ngầm: nghiêng và chúi không gây ngập
-438|Nước {0} · chìm ở {1}%
-439|ngập nhanh hơn từ vùng đỏ
-440|Đang được sửa
-441|Đang được sửa: +{0} mỗi phút (+{1} độ bền)
-442|Không thể sửa
-443|Hư hại: {0}, độ bền {1} / {2} ({3})
-444|Bị phá hủy: không thể sửa
-445|Mức {0} sau {1}
-446|Không có đội kiểm soát hư hại trong khoang
-447|Đã sửa hết mức có thể
-448|Hệ thống
-449|Trò chơi cho phép sửa đến {0} (tốt hơn một mức so với mức tệ nhất)
-450|Khoang bị ngập: không sửa được
-451|Đang chờ đội
-452|bị phá hủy
-453|nhẹ
-454|vừa
-455|không
-456|hỏng
-457|nặng
-458|Một khoang = ngăn mạn trái + mạn phải:
-459|Lái  41% / 47%  - thân tàu, mạn trái / mạn phải
-460|Cài đặt Alternative Damage Model
-461|Auto
-462|KSHH tự động tắt: bấm vào đội để giao việc (dấu ! đỏ = đã có việc).
-463|Quay lại làm việc sau {0}
-464|Thủ công: {0}
-465|Cancel Transfer
-466|Bấm: hủy
-467|Bấm: giao việc
-468|Bấm: giao việc / di chuyển
-469|DC Priority
-470|DC Priority: việc tất cả các đội làm trước tiên.
-471|DC team
-472|Damage State
-473|Tắt
-474|Hiệu suất {0}%
-475|Bật
-476|Động cơ hỏng: hiệu quả {0}% (trừ sửa hệ thống)
-477|Mệt mỏi {0}%
-478|Cháy  64%  - % so với tối đa
-479|Ngập  23% / 5%  - nước bên trong
-480|Bánh răng cạnh (i): cài đặt và hồ sơ.
-481|Hồi phục sau {0}
-482|Sức khỏe {0}%
-483|Ở đây {0}
-484|Limit Speed
-485|Move to section
-486|Bật: trò chơi giảm tốc độ tàu khi có ngập (10 hải lý/giờ khi lỗ thủng hở, 10-25 hải lý/giờ theo lượng nước trong các khoang).\nTắt: không giảm, tàu giữ tốc độ được lệnh - nước vào nhanh hơn, đám cháy bùng mạnh hơn.
-487|Một biểu tượng = một đội kiểm soát hư hại:
-488|Trỏ vào LIST / TRIM / LEVEL: nước theo từng ngăn.
-489|Trỏ vào mũi tên: vì sao giá trị đổi.
-490|Mũi tên đỏ: xấu đi, xanh: tốt lên, hai mũi tên: nhanh.
-491|Giao việc thủ công
-492|Đến đó sau {0}
-493|To Reserve
-494|Việc các đội kiểm soát hư hại làm trước tiên, trên toàn tàu.
-495|choáng, đang về lực lượng dự bị
-496|choáng, đang về lực lượng dự bị (In Transfer)
-497|choáng, ở lực lượng dự bị
-498|đối ngập
-499|kiệt sức
-500|đang dập lửa
-501|rảnh, ở lực lượng dự bị
-502|đang chuẩn bị
-503|ở đây
-504|đã mất
-505|không bao giờ
-506|không có việc
-507|không có việc gì làm
-508|đang di chuyển (In Transfer)
-509|đang bịt chỗ rò
-510|đang bơm nước ra
-511|đang sửa hệ thống
-512|dự bị
-513|nghỉ {0}
-514|tốc độ quá nhanh
-515|mệt
-516|đang hàn thân tàu
-517|bị thương: chậm hơn
-518|còn {0}
-519|Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. Đám cháy hoặc chỗ rò lớn nhanh nhất được xử lý trước.
-520|DC Priority: Fire - các đội xử lý mối đe dọa theo thứ tự: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
-521|DC Priority: Flooding - các đội xử lý mối đe dọa theo thứ tự: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
-522|Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. KSHH tự động cử các đội rảnh đến đám cháy nặng nhất trước.
-523|Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. KSHH tự động cử các đội rảnh đến chỗ rò, rồi đến nước.
-524|Tư thế: {0}
-525|Mục tiêu
-526|Mục tiêu {0}
-527|Damage State — {0}
-528|Động cơ: gần như dừng
-529|Động cơ: mất động lực
-530|Động cơ: mất một phần động lực
-531|Động cơ: chậm
-532|Cháy: {0}
-533|Ngập: {0}
-534|Thân tàu: {0}
-535|Không thấy hư hại
-536|Không có dữ liệu: không nhìn thấy trực tiếp
-537|Sắp chìm
-538|Nguồn: {0}
-539|đang vỡ ra
-540|nguy kịch
-541|hư hại
-542|hư hại nặng
-543|nặng
-544|nhẹ
-545|vừa
-546|chút ít
-547|hư hại nhẹ
-548|Mép boong chìm {0} m dưới nước được {1} trên {2} giây
-549|Mép boong chìm {0} m dưới nước: +{1}%/giây
-550|Tràn từ {0}: +{1}%/giây
-551|Nghiêng về phía biển: nghiêng trái {0}° / phải {1}° · chúi lái {2}° / mũi {3}°
-552|đầy: chảy sang {0}
-553|Mạn trái {0}
-554|Mạn phải {0}
-555|% mỗi lần trúng với Max health, Wound chance và Wound strength hiện tại (xác suất tối đa 100). Bên dưới: vết thương trung bình một đội nhận, tính theo % sức khỏe
-556|Đạn dược
-557|Xác suất một lần trúng làm đội bị thương
-558|Lượng giãn nước, t
-559|Chưa có dữ liệu trò chơi.
-560|Công suất
-561|Sức khỏe đội, HP
-562|đang bịt (chặn chỗ rò)
-563|đám cháy
-564|đang chống lại
-565|đang dập
-566|chỗ rò
-567|Ngôn ngữ
-568|Ngôn ngữ của mod
-569|áp dụng sau khi mở lại cửa sổ này
-570|Ngôn ngữ của trò chơi
-571|Hệ số nhân xác suất một phát trúng khoang trung tâm làm bị thương đội đang nghỉ ở lực lượng dự bị; áp dụng thêm lên Wound chance (0.5 = một nửa khả năng, 0 = đội đang nghỉ không bao giờ bị thương). Chỉ hoạt động khi bật Wounds in reserve.
-572|Xác suất bị thương ở dự bị
-573|trò chơi: không có tương ứng
-574|Quay về giá trị của hồ sơ Base Game
-575|Quay về giá trị mặc định
-576|Nhiều hệ thống của một khoang có thể được ưu tiên sửa chữa cùng lúc (nút “!” của từng hệ thống): khoang sửa lần lượt theo thứ tự đã đặt. Tắt = như trong game: “!” của hệ thống này sẽ tắt “!” của hệ thống kia.
-577|Nhiều ưu tiên sửa chữa
-578|“!” của nhiều hệ thống trong khoang · sửa lần lượt
-579|Phản ngập (nhiệm vụ đội làm thủ công): tốc độ cho nước vào khoang, tính theo bội số tốc độ bơm thoát. Đội chỉ bơm nước vào hoặc bơm ra một mạn khi việc đó giảm nghiêng hoặc chúi (cái nguy hiểm hơn được xử lý trước), giữ hành động ít nhất 10 giây và không bơm vào nữa khi nước trong tàu đã đến dải đỏ của đồng hồ LEVEL.
-580|Auto DC phản ngập: khi độ nghiêng hoặc chúi đạt 70% vùng đỏ của đồng hồ (cho đến khi giảm còn 40%), một đội đến khoang mà việc cho nước vào một mạn hoặc bơm ra giảm nghiêng nhiều nhất, và làm việc như đội được lệnh phản ngập (xem Phản ngập). Tắt = Auto DC không phản ngập.
-581|Phản ngập của Auto DC
-582|khi nghiêng / chúi nguy hiểm
-583|Auto DC phản ngập: khi các lỗ thủng vẫn còn cho nước vào và độ nghiêng hoặc chúi đạt 40% vùng đỏ của đồng hồ (cho đến khi giảm còn 20%), một đội đến khoang mà việc cho nước vào một mạn hoặc bơm ra giảm nghiêng nhiều nhất, và làm việc như đội được lệnh phản ngập (xem Phản ngập). Tắt = Auto DC không phản ngập.
+16|Làm ngập đối trọng chỉ cho nước vào một mạn của khoang tới % này (giới hạn riêng của khoang trong game vẫn có hiệu lực).
+17|Hiệu quả kiểm soát thiệt hại khi động cơ của tàu (mô-đun Engine đang dùng, không phải chân vịt) hỏng: hiệu quả của các đội theo % (cháy, rò, nước, thân tàu; sửa hệ thống không bị ảnh hưởng). Hiển thị trong gợi ý của đội và ở dòng Forecast của thẻ Damage Control. 100 = tắt.
+18|Các đội kiểm soát thiệt hại trong khu vực có cháy mà không chữa cháy làm việc ở % này hiệu quả của họ. 100 = tắt.
+19|Các đội kiểm soát thiệt hại của tàu dân sự theo lượng giãn nước: tấn=đội.
+20|Các đội kiểm soát thiệt hại của tàu ngầm theo lượng giãn nước: tấn=đội.
+21|Các đội kiểm soát thiệt hại của tàu chiến mặt nước theo lượng giãn nước: tấn=đội, từ số tấn đó trở lên. NumberOfDCTeams trong ini của tàu vẫn đặt số riêng của nó.
+22|Gỡ lỗi: vẽ các lưới collider chỉ có thân tàu (coll_hull*) của tàu đang chọn thành lớp phủ mờ cùng khung dây sáng của các tam giác thực của chúng, để so sánh trực tiếp với mô hình 3D nhìn thấy.
+23|Gỡ lỗi: với tàu đang chọn trong bảng Unit Status, vẽ một đường từ con sóng hiện tại tới chiều cao boong ước tính ở đường tâm mũi và đuôi thân tàu, và ở một cặp mạn trái/phải cho mỗi khu vực của mô hình hư hại (điểm giữa riêng theo chiều dài) - chỉ collider thân tàu, không phải tháp pháo, cột buồm hay mô hình con khác. Xanh: điểm cao hơn sóng; đỏ: sóng ở trên nó.
+24|Gỡ lỗi: cách vẽ mô hình 3D của tàu đang chọn (cả mô hình con), để có thể thấy ShowDeckCorners/ShowHullCollider: Show (như game), Translucent (trong suốt 70%) hoặc Hide.
+25|Chẩn đoán: khi tàu nghiêng hoặc chúi rõ rệt, ghi vào log BepInEx mỗi 2 giây: nghiêng, chúi, độ cao, lực nổi so với trọng lượng, thể tích chìm, nước trong tàu và tàu có đang chìm / lật không.
+26|Chẩn đoán: ghi vào log BepInEx mọi đám cháy do phát trúng gây ra và mọi thay đổi giai đoạn của đám cháy (tàu, khoang, thời gian nhiệm vụ, mức độ và tăng trưởng theo % của mức tối đa của khoang, các đội kiểm soát thiệt hại ở đó). Hoạt động cả khi mod bị tắt trong menu Mods, để so sánh với game.
+27|Bật ghi log chi tiết và BepInEx/AlternativeDamageModel.trace.txt.
+28|Dòng cháy: một mũi tên khi đám cháy thay đổi nhanh hơn mức này, tính bằng % mức tối đa của nó mỗi giây.
+29|Dòng cháy: hai mũi tên xuống khi đám cháy được dập nhanh hơn mức này, tính bằng % mức tối đa của nó mỗi giây.
+30|Dòng cháy: hai mũi tên lên khi đám cháy lớn nhanh hơn mức này, tính bằng % mức tối đa của nó mỗi giây.
+31|Sửa một lỗi của chính game: trên 10x nén thời gian, độ chúi của tàu tăng theo nén thời gian (xuồng 25 m ở 47 hải lý/giờ: 2,6 độ tới 10x, 9 ở 100x) - đủ để làm chìm một tàu ngắn, nhanh, nguyên vẹn. Game di chuyển tàu một bước mỗi tick vật lý, và trên 10x bước đó bị kéo dài trong khi mô-men lực nổi vẫn lấy quanh khối tâm từ trước bước. Bật: bước dư đó bị bỏ, nên độ chúi giữ như ở 10x với mọi mức nén thời gian; tới 10x không có gì thay đổi. Chỉ tàu mặt nước. Tắt: hành vi của game.
+32|Dòng ngập và kế hoạch ngập: một mũi tên khi mực nước thay đổi nhanh hơn mức này, tính bằng % của khoang mỗi giây.
+33|Dòng ngập và kế hoạch ngập: hai mũi tên khi mực nước thay đổi nhanh hơn mức này, tính bằng % của khoang mỗi giây.
+34|Bốn biểu tượng nhỏ dưới biểu tượng tàu trên bản đồ (cả của bạn): lửa (tổng cường độ các đám cháy), nước, thân tàu (phân loại như bảng Damage Control) và động cơ; vàng / cam / đỏ theo mức nghiêm trọng, và biểu tượng bản đồ xám hơn khi tàu sắp chìm (trong 20 phút theo xu hướng ngập / thân tàu). Một mục tiêu liên lạc: lửa, nước, thân tàu và động cơ chỉ khi nhìn trực tiếp; qua sonar - chỉ động cơ (vàng: mất một phần, đỏ: không cái nào hoạt động); qua radar - ước đoán cho tàu bị trúng trong 10 phút qua, đánh dấu '?' (vàng: 10 hải lý/giờ trở xuống, đỏ: dưới 3); không có gì qua ESM hoặc khi không có liên lạc, và không có gì cho tàu đã chìm. Dòng Fires của thẻ Damage Control dùng cùng tổng cường độ. Unit Status của mục tiêu liên lạc hiển thị thẻ Damage State với cùng thông tin bằng chữ.
+35|Máu của một đội kiểm soát thiệt hại, hệ số của mức tối đa, vốn là 1..100 điểm theo lượng giãn nước của tàu (100 = thủy thủ đoàn 1000 người trở lên, khoảng 30000 t; 1000 t = 24, 10000 t = 101). Hiển thị trong gợi ý của đội dưới dạng phần của đầy. Đội ở 0 là đã chết. Đội bị thương làm việc chậm hơn (theo máu của họ, không dưới 25%). 0 = đội không bao giờ bị thương (một phát trúng vẫn loại đội khỏi khu vực).
+36|Tốc độ lửa ăn mòn thân tàu của khu vực (độ nguyên vẹn của cả hai khoang). 1.0 = như trong game. Sát thương lên hệ thống trong khu vực không đổi.
+37|Tốc độ đội trong lực lượng dự bị hết mệt, % tốc độ mệt tích lũy khi làm việc. 100 = nhanh bằng; 50 = nghỉ lâu gấp đôi làm việc.
+38|Tốc độ đội đi bộ trong tàu, mét mỗi phút (lực lượng dự bị ở giữa). Một lần chuyển = MusterTime + thời gian đi, làm tròn tới 10 giây. 0 = không có thời gian đi; khi MusterTime cũng 0, các đội di chuyển ngay và Auto DC là của game.
+39|Tốc độ các đội kiểm soát thiệt hại bơm nước ra. 1.0 = như trong game.
+40|Tốc độ các đội kiểm soát thiệt hại dập lửa. 1.0 = như trong game.
+41|Tốc độ các đám cháy tự lớn, giữa các phát trúng. 1.0 = như trong game, 2.0 = nhanh gấp đôi, 0.5 = chậm một nửa.
+42|Tốc độ nước vào qua các lỗ của khoang. 1.0 = như trong game.
+43|Thân tàu dân sự (tệp ini civ_*) chắc gấp bao nhiêu lần so với trong game. 1.0 = như trong game.
+44|Thân tàu ngầm chắc gấp bao nhiêu lần so với trong game. 1.0 = như trong game.
+45|Thân tàu chiến mặt nước chắc gấp bao nhiêu lần so với trong game. 1.0 = như trong game, 2.0 = chắc gấp đôi. Từng tàu riêng được giá trị riêng trong mục [HullIntegrityPerShip], mỗi tàu một dòng: tên tệp ini = hệ số (ví dụ usn_bb_iowa = 3.0).
+46|Một đội làm được bao nhiêu (bịt lỗ, chữa cháy, bơm nước, sửa thân tàu và hệ thống) so với game. 1.0 = như trong game.
+47|Độ nghiêng theo ngập không đều mạnh đến đâu. Chênh lệch nước giữa mạn trái và mạn phải của một khu vực (làm tàu nghiêng) được nhân với giá trị này; trung bình của khu vực được giữ, nên mớn nước và độ chúi không đổi vì nó. 1 = như trong game, 2 = độ nghiêng gấp đôi với cùng chênh lệch.
+48|Tốc độ tàu thay đổi sự lớn lên của đám cháy và nước vào (qua lỗ và qua mép boong) như thế nào: hải lý/giờ=hệ số ngập/cháy, một đường gấp khúc qua các điểm. Tốc độ lấy theo giá trị tuyệt đối; dưới điểm đầu và trên điểm cuối thì dùng hệ số ở hai đầu.
+49|Ngôn ngữ của văn bản mod: en, ru, cn, de, es, fr, ko, ja hoặc vn. Trống = ngôn ngữ của game. Văn bản nằm trong thư mục lang của mod (lang/<mã>.ini); văn bản thiếu được hiển thị bằng tiếng Anh.
+50|Nghiêng, độ: toàn thang của đồng hồ LIST. Từ vùng đỏ của nó (75%) nước tràn qua mép boong và nhanh chóng làm ngập mọi khoang ở mạn thấp (game: ở 45). Bản thân nó không làm chìm tàu; lật ở 70 độ thì có, như trong game.
+51|Mét. Giới hạn chúi phụ thuộc chiều dài tàu: tàu càng dài, mũi hoặc đuôi càng sớm chìm với cùng góc (tan giới hạn = tan TrimLimit x (TrimReferenceLength / chiều dài)^0.442; với 5.2 ở 100: 30 m 8.8, 60 m 6.5, 150 m 4.4, 300 m 3.2 độ). 0 = TrimLimit cho mọi tàu (như trong game).
+52|Số phút làm việc trong khu vực cho đến khi đội mệt (mức đầu); tốc độ của nó giảm theo các thiết lập Speed. Lực lượng dự bị xóa mệt nhanh bằng lúc công việc tích lũy. Hiển thị trong gợi ý của đội; biểu tượng của đội mệt được làm nổi bật. 0 = không mệt.
+53|Số phút làm việc cho đến khi đội kiệt sức, mức mệt thứ hai (tối đa: mệt không tăng thêm ở đó). Không trên 'Tired after' = không có mức thứ hai.
+54|Hệ số của xác suất một phát trúng làm bị thương đội (0.5 = một nửa khả năng, 2 = gấp đôi; kết quả tối đa 100%). Bước 1 (chỉ khi Wounds at any hull integrity tắt) - game quyết định liệu một phát trúng có loại đội khỏi khu vực không (chỉ khu vực bị trúng có độ nguyên vẹn dưới 50%: sát thương x (1 - độ nguyên vẹn), tối đa 20%). Bước 2 - mod quyết định vết thương: xác suất tăng dốc theo sức mạnh đầu đạn (khoảng sức mạnh^1.8) và giảm theo máu của đội (khoảng máu^1.2) - đầu đạn 2.2 so với máu 2: khoảng 10%, so với 100: 0,1%; đầu đạn 82 so với 100: khoảng 75%; cao hơn nhiều thì trên 100%. Nó được nhân với hệ số này rồi giới hạn ở 100% (khi Wounds at any hull integrity tắt, đội không bị thương vẫn rời khu vực). Đầu đạn mạnh hơn làm tăng xác suất. Tàu lớn hơn làm giảm: đội của nó bền hơn (nhiều máu hơn) và khoang lớn hơn, nên phát trúng ít khả năng rơi đúng chỗ đội đứng. Ngay cả phát trúng yếu nhất cũng có xác suất nhỏ. Ví dụ, đầu đạn 25: so với máu 12 khoảng 100%, so với 29 khoảng 37%, so với 100 khoảng 9%. 0 = không bao giờ bị thương.
+55|Hệ số sức mạnh vết thương: tối đa là sức mạnh đầu đạn của đạn dược (0..196, một nửa đạn dược của game dưới 25) x giá trị này, tính bằng điểm máu của đội (1..100 theo lượng giãn nước). Đội bị thương đi về lực lượng dự bị.
+56|Độ lệch ngẫu nhiên của thời gian chấn động, giây mỗi chiều: HealTime 90 với 30 = 60 đến 120 giây, như trong game. 0 = luôn HealTime.
+57|Lực cản đối với chuyển động NGANG của tàu bị phá hủy, nhân với lực cản tuyến tính của game (25 cho gần như mọi tàu): xác tàu mất đà sớm hơn. 1 = như trong game. Chìm (chuyển động dọc) và quay (lật) không bị làm chậm.
+58|Số giây (thời gian game, nén thời gian được tính) điểm boong của khoang phải liên tục nằm dưới biển trước khi nước bắt đầu tràn qua boong (xem DeckFloodingSpeed). Điểm nổi lên sẽ đặt lại bộ đếm. Mặc định 3.
+59|Số giây một đội cần để sẵn sàng trước mỗi lần chuyển. Hủy một lần chuyển khi đội còn đang chuẩn bị không tốn thời gian.
+60|Hồ sơ thiết lập đang dùng, chọn trong game: Unit Status -> Damage Control -> bánh răng cạnh (i). Tệp này chỉ chứa các thiết lập chung ([General], [UI]); giá trị của mô hình hư hại nằm trong tệp của hồ sơ: hồ sơ dựng sẵn ở thư mục Profiles của mod (chỉ đọc), hồ sơ của bạn ở StreamingAssets/user/AlternativeDamageControl/Profiles. Thay đổi hồ sơ dựng sẵn trong game sẽ lưu nó thành Custom. Chỉnh sửa tệp của hồ sơ đang dùng, hoặc tên này, được nhận khi game đang chạy.
+61|Các tàu (tên tệp ini, cách nhau dấu phẩy; chỉnh trong cửa sổ thiết lập, thẻ Flooding) không có Deck Points: chúng ngập theo quy tắc cũ, đơn giản hơn, như tàu không có collider thân tàu.
+62|Mệt của đội bật: làm việc tích lũy nó, lực lượng dự bị xóa nó, đội mệt làm việc với nửa tốc độ. Tắt = không mệt; các thiết lập của nó bị ẩn.
+63|Máu của đội bật: vết thương từ phát trúng và đám cháy, hồi phục trong lực lượng dự bị, đội bị thương làm việc chậm hơn. Tắt = quy tắc của game (một phát trúng loại đội một lúc, không có vết thương); các thiết lập máu khác bị ẩn.
+64|Chế độ xem chi tiết của Unit Status -> Damage Control (hiển thị của mod): độ nguyên vẹn thân tàu theo mạn cạnh tên mỗi khu vực, một biểu tượng cho mỗi đội kiểm soát thiệt hại (nhiệm vụ của nó; nhiệm vụ và di chuyển bằng tay khi Auto DC tắt), nước và lửa theo % với mũi tên xu hướng, DC Priority, thẻ đội, các đồng hồ LIST / TRIM / LEVEL với kế hoạch ngập, gợi ý, chú giải (i). Tắt: chế độ xem riêng của game (bánh răng của cửa sổ thiết lập vẫn còn).
+65|Mô hình hư hại và kiểm soát thiệt hại của mod: độ bền thân tàu và hệ thống, hiệu ứng phụ, tốc độ cháy và ngập, sự lan lửa, các đội kiểm soát thiệt hại (số lượng, hiệu quả, chuyển bằng đi bộ, mất khả năng chiến đấu, Auto DC tối ưu, di chuyển từng đội), giới hạn nghiêng / chúi / chìm. DC Priority và nhiệm vụ giao tay thuộc chế độ xem chi tiết và vẫn còn. Tắt: hư hại và kiểm soát thiệt hại riêng của game (chế độ xem thẻ Damage Control vẫn còn). Có thể chuyển bất cứ lúc nào: tàu ngoài biển theo ngay (độ bền thân tàu và số đội trở lại của game hoặc của mod; đội đang di chuyển đến nơi, đội bị loại hồi phục).
+66|Các đội nghỉ ở khoang trung tâm: một phát trúng vào đó có thể làm bị thương đội đang chờ trong lực lượng dự bị (xác suất là của game cho đội bị loại ở khu vực bị trúng: sát thương x (1 - độ nguyên vẹn), chỉ khi độ nguyên vẹn dưới 50%). Đội nghỉ bị thương vẫn ở lực lượng dự bị.
+67|Chúi, độ, cho tàu dài TrimReferenceLength: toàn thang của đồng hồ TRIM. Từ vùng đỏ của nó (75%) đầu đang chìm xuống ngập nhanh: ở mỗi mạn khoang ngoài cùng, khi nó đầy thì khoang kế, và cứ thế. Tàu không chìm ngay, khác với game (8 độ với một khu vực ngập).
+68|Đám cháy không ai trông: tốc độ phát triển tăng bao nhiêu mỗi lần kiểm tra cháy, % tốc độ phát triển tối đa của đám cháy (một phát trúng thường thêm 0,1-0,8%).
+69|Đám cháy không ai trông: tốc độ phát triển của nó chỉ được nâng tới mức này, % mức tối đa của đám cháy mỗi giây.
+70|Đám cháy không ai trông: số giây không có đội chữa cháy (từ lúc nó bắt đầu, hoặc lần cuối một đội chữa) trước khi nó bắt đầu lớn nhanh hơn.
+71|Mức dễ tổn thương của thân tàu với ngập qua các lỗ do phát trúng tạo ra (mọi loại vũ khí). 1.0 = mỗi lỗ cho vào lượng nước như trong game, và các lỗ trên mực nước bắt đầu rò sau cùng sát thương như trong game (thân tàu chắc hơn không cản được nước). 2.0 = nước gấp đôi; 0.5 = một nửa.
+72|Mức dễ tổn thương của thân tàu với đạn pháo (tên lửa, ngư lôi và bom không bị ảnh hưởng). Đạn pháo lấy một phần giới hạn chìm của tàu tùy kích thước thân tàu. 1.0 = mỗi viên lấy như trong game; thân tàu chắc hơn chỉ chịu được nhiều phát trúng hơn. 2.0 = đạn trúng như thể thân tàu nhỏ một nửa; 0.5 = như thể lớn gấp đôi (đạn cỡ vừa có thể không còn làm hại tàu lớn).
+73|Mức dễ tổn thương của tàu với đám cháy do phát trúng gây ra (mọi loại vũ khí). Thân tàu chắc hơn cũng kìm lửa theo cùng tỷ lệ: với Warships = 5.0 một phát trúng gây đám cháy yếu hơn 5 lần (so với khoang) so với game. 1.0 = hành vi bình thường này của mod. 2.0 = đám cháy mạnh gấp đôi và lớn nhanh gấp đôi; 0.5 = yếu một nửa. 1.0 với mọi hệ số thân tàu 1.0 = như trong game.
+74|Nước trong khu vực giới hạn đám cháy của nó: nó không thể mạnh hơn (100 - % nước của khu vực) của mức tối đa. Đám cháy mạnh hơn giảm xuống giới hạn đó với % này của mức tối đa mỗi giây. 0 = tắt.
+75|Nước trong cả tàu, % (trung bình các khoang), từ đó nó chìm, như trong game (game: 40; tàu ngầm giữ 50 của game). Cũng là toàn thang của đồng hồ LEVEL.
+76|Nước qua mép boong, một hệ số. Với tàu có điểm boong đã biết (thuật toán collider thân tàu đầy đủ): khi điểm boong của khoang nằm dưới biển DeckFloodingDelay giây liên tục (thời gian game, nén thời gian được tính), khoang nhận nước mà kiểm soát thiệt hại không ngăn được - 1.0 = 0,1% thể tích của nó mỗi giây trên mỗi mét chìm (sâu hơn = nhanh hơn); khoang đầy chuyển nước sang khoang kế bên chưa đầy nằm thấp nhất, và tiếp tục dọc chuỗi. Với tàu khác: tốc độ đầu đang chìm (do chúi quá giới hạn) hoặc mạn thấp (do nghiêng quá giới hạn) nhận nước qua mép boong - cơ chế riêng của mod, không có trong game. 2.0 = nhanh gấp đôi, 0.5 = một nửa, 0 = tắt.
+77|Khi tàu bắt đầu chìm, game đặt khối tâm của nó ở gốc thân tàu ((0, 1, 0) nếu nó đã lật): khối tâm nhảy, và mọi mô-men lên thân tàu cũng vậy. Bật = khối tâm ở nguyên chỗ cũ. Tắt = như trong game.
+78|Khi một đội bịt lỗ của khoang (nhiệm vụ Flooding Rate), nó đồng thời bơm nước ra khỏi đó: phần này của tốc độ bơm ra (0.5 = một nửa, 0 = tắt). Đội được lệnh làm ngập đối trọng chỉ bơm từ mạn mà việc đó không làm xấu thêm độ nghiêng và chúi.
+79|Tốc độ làm việc của đội đã nghỉ, % (điểm xuất phát của đường cong mệt). Tốc độ giảm theo đường thẳng từ đây tới mức mệt.
+80|Tốc độ làm việc của đội vừa mệt, %. Giữa mức mệt và kiệt sức, tốc độ giảm theo đường thẳng.
+81|Tốc độ làm việc của đội kiệt sức, %; nó giữ ở đó chừng nào đội còn làm việc.
+82|Ghi một dòng vào log BepInEx cho mỗi tàu vào nhiệm vụ: độ nguyên vẹn thân tàu trong game và với mod.
+83|+ Thêm tàu
+84|Về giá trị của game
+85|Xóa hồ sơ "{0}"?
+86|Kéo để đổi kích thước
+87|Độ nguyên vẹn trên tàu chiến {0}.
+88|Tệp của nó bị xóa. Nếu là hồ sơ đang dùng, Advanced sẽ được dùng.
+89|Thêm một điểm
+90|Thêm một bậc: nhiều đội hơn từ nhiều tấn hơn
+91|Chỉ vào một thiết lập để xem tác dụng của nó.
+92|Bỏ điểm cuối
+93|Bỏ bậc cuối
+94|Bỏ: tàu lại có Deck Points
+95|Đã lưu vào {0}
+96|một số dương
+97|một tàu trong danh sách, hoặc tên tệp ini của nó
+98|dựa trên {0}
+99|mặc định: {0}
+100|đã sửa
+101|từ {0} t
+102|game: tức thì
+103|game: không tác dụng
+104|game: không giới hạn
+105|game: tắt
+106|game: {0}
+107|đang dùng
+108|tắt
+109|bật
+110|hồ sơ
+111|phụ thuộc trọng tải
+112|loại không rõ
+113|{0} t: {1}
+114|● khác {0}   ↺ = quay lại
+115|Bảng dưới
+116|Thẻ Damage Control
+117|Mô hình hư hại
+118|Hiệu quả
+119|Cháy
+120|Cháy và kiểm soát thiệt hại
+121|Cháy và rò nước
+122|Tốc độ ngập
+123|Ngập hoàn toàn
+124|Thang đồng hồ (ngập nhanh hơn từ vùng đỏ, 75%)
+125|Máu
+126|Độ nguyên vẹn thân tàu
+127|Nhật ký (log BepInEx)
+128|Bản đồ
+129|Di chuyển
+130|Số đội - từ tấn: đội
+131|Tốc độ tàu: ảnh hưởng đến ngập và cháy
+132|Chìm và xác tàu
+133|Chìm từ
+134|Công tắc
+135|Hệ thống
+136|Tốc độ đội
+137|Thời gian
+138|Đám cháy không ai trông
+139|Hiển thị (tàu đang chọn)
+140|Mức dễ tổn thương của thân tàu chắc hơn
+141|Nước
+142|Phát trúng vũ khí
+143|Các loại mô-đun (modules.ini) có độ nguyên vẹn (Integrity) riêng, đặt tường minh thay cho giá trị của modules.ini (giá trị của game được điền khi chọn một loại); hệ số Integrity ở trên không áp dụng cho chúng. Các điều chỉnh của game giữ tỷ lệ: các loại đánh dấu "× trọng tải" (màu hổ phách) tăng theo lượng giãn nước của tàu - chỉ vào một loại để xem giá trị cuối - và giá trị riêng của hệ thống trên tàu thay đổi theo cùng tỷ lệ.
+144|Các tàu không có Deck Points (Flooding): nước qua mép boong không được tính cho chúng, dùng quy tắc cũ đơn giản hơn, như tàu không có collider thân tàu. Chọn từ các tàu của game hoặc theo tên tệp ini.
+145|Các tàu có hệ số thân tàu riêng, chọn từ các tàu của game (hoặc theo tên tệp ini): chắc gấp bao nhiêu lần so với game; thay thế giá trị của lớp, không nhân với nó.
+146|Alternative Damage Control
+147|Tàu dân sự
+148|Độ lệch chấn động
+149|Thời gian chấn động
+150|Giới hạn làm ngập đối trọng
+151|Làm ngập đối trọng
+152|Hiệu quả kiểm soát thiệt hại khi không có động cơ
+153|Sát thương lan sang
+154|Vết gỡ lỗi
+155|Độ cao các điểm boong
+156|Chế độ xem chi tiết
+157|Kiệt sức sau
+158|Dập lửa
+159|Sát thương cháy lên thân tàu
+160|Cháy lớn lên
+161|Lửa bị nước dập
+162|Lửa mở lại chỗ rò
+163|Xác suất lửa lan
+164|Cháy dưới nước
+165|Vết thương do cháy
+166|Cháy: một mũi tên từ
+167|Cháy: hai mũi tên xuống từ
+168|Cháy: hai mũi tên lên từ
+169|Các đám cháy
+170|Sửa lỗi tính độ chúi
+171|Ngập
+172|Lớn lên khi không ai chữa
+173|Tăng trưởng thêm
+174|Đạn pháo
+175|Collider thân tàu (mờ)
+176|Thân tàu của mọi tàu
+177|Độ nguyên vẹn
+178|Giữ khối tâm
+179|Nghiêng
+180|Nghiêng, chúi và lực nổi
+181|Máu tối đa
+182|Tốc độ tàu tối đa để bịt lỗ
+183|Tốc độ phát triển tối đa
+184|Hệ số theo tốc độ
+185|Thời gian tập hợp
+186|Bơm ra
+187|Bơm khi bịt lỗ
+188|Tốc độ hồi phục
+189|Tốc độ hồi phục trong dự bị
+190|Mở lại tới
+191|Biểu tượng hư hại của tàu
+192|Mô hình 3D của tàu
+193|AI nhỏ: không giới hạn tốc độ
+194|Tốc độ: kiệt sức
+195|Tốc độ: đã nghỉ
+196|Tốc độ: mệt
+197|Tàu ngầm
+198|Hệ thống hỏng
+199|Hiệu quả của đội
+200|Mệt của đội
+201|Máu của đội
+202|Đội chặn lửa lan
+203|Thời gian dưới nước
+204|Mệt sau
+205|Tốc độ chuyển
+206|Chúi
+207|Chúi: chiều dài tham chiếu
+208|Không ai trông sau
+209|Tàu chiến
+210|Nước vào
+211|Nước trong tàu
+212|Nước trên boong
+213|Nước: một mũi tên từ
+214|Nước: hai mũi tên từ
+215|Màu trạng thái vũ khí
+216|Làm việc trong lửa
+217|Xác suất bị thương
+218|Sức mạnh vết thương
+219|Vết thương ở mọi độ nguyên vẹn thân tàu
+220|Vết thương trong dự bị
+221|Lực cản xác tàu
+222|Ẩn
+223|Hiện
+224|Mờ
+225|Đội DC
+226|Mô hình hư hại
+227|Gỡ lỗi
+228|Hiệu ứng
+229|Thân tàu
+230|Mũi tên xu hướng
+231|Giao diện người dùng
+232|+ Thêm loại
+233|Thêm tàu
+234|Alternative Damage Model - Thiết lập
+235|Áp dụng
+236|Hủy
+237|Số lượng
+238|Xóa
+239|Mệt
+240|OK
+241|Hồ sơ
+242|Bỏ: tàu lại dùng giá trị của lớp
+243|Bỏ: loại lại dùng hệ số ở trên
+244|Đổi tên hồ sơ
+245|Đổi tên…
+246|Đặt lại theo hồ sơ
+247|Lưu
+248|Lưu thành…
+249|Lưu hồ sơ thành
+250|Hồ sơ thiết lập
+251|Tàu không có Deck Points - ngập theo quy tắc cũ, như không có collider thân tàu
+252|Từng tàu - × game, thay cho giá trị của lớp
+253|Từng loại hệ thống - Integrity, thay cho hệ số ở trên
+254|Công việc
+255|Vết thương
+256|một loại mô-đun trong danh sách (modules.ini)
+257|tốc độ cháy
+258|tốc độ ngập
+259|tốc độ, hải lý/giờ
+260|đội
+261|tấn
+262|% mỗi giây
+263|% mỗi giây · 0 = tắt
+264|% hiệu quả khi không chữa cháy · 100 = tắt
+265|% hiệu quả · trừ sửa hệ thống · 100 = tắt
+266|% máu mỗi giây
+267|% trong một mạn của khoang
+268|% cháy tối đa mỗi giây
+269|% tăng trưởng tối đa mỗi lần kiểm tra cháy (10 giây)
+270|% của bình thường
+271|% tốc độ mệt
+272|% của thân tàu
+273|% của chỗ rò lớn nhất
+274|% của chỗ rò lớn nhất mỗi giây khi cháy 100% · 0 = tắt
+275|% mỗi lần kiểm tra cháy (10 giây)
+276|% mỗi giây khi cháy 100%
+277|% mỗi giây trên mỗi mét dưới nước; 0 = tắt
+278|Tàu AI < 50 m: không giảm tốc độ
+279|một khoang bị phá hủy: ½ sang khoang bên cạnh, ¼ sang khoang kế
+280|trên 10x nén thời gian
+281|có hiệu lực ngay
+282|phát trúng khoang trung tâm làm bị thương đội đang nghỉ
+283|chỉ coll_hull*
+284|lửa không lan vào khu vực có đội
+285|cháy, nước, thân tàu, động cơ
+286|cho hai mục ở trên
+287|hải lý/giờ · 0 = không giới hạn
+288|m · 0 = như nhau cho mọi tàu
+289|m/phút · 0 = tức thì
+290|phút làm việc
+291|không sửa khi đang ngập
+292|không chỉ dưới 50%
+293|tắt = trang Fatigue bị ẩn
+294|giây
+295|giây trước khi nước qua boong bắt đầu
+296|giây trong dự bị · 0 = tắt
+297|giây không có đội
+298|từ sóng tới boong chỉ-thân-tàu, 10 điểm
+299|khi bắt đầu chìm (game đặt lại nó)
+300|vết thương và hồi phục; tắt = trang Health bị ẩn
+301|vàng: một phần hỏng, đỏ: tất cả
+302|° ở chiều dài tham chiếu
+303|° · nước qua mép boong từ 75%
+304|± giây
+305|× (1-100 theo lượng giãn nước)
+306|× xác suất
+307|× game
+308|× bơm ra · 0 = tắt
+309|× bơm ra · chỉ bằng tay
+310|× lực cản của game đối với chuyển động ngang của tàu bị phá hủy
+311|× sức mạnh đầu đạn
+312|× · 1 = 0,1% mỗi giây trên mỗi m dưới nước
+313|Thêm loại
+314|"{0}" là hồ sơ tích hợp sẵn.
+315|Tối đa 40 ký tự.
+316|Đã có hồ sơ cùng tên.
+317|Không thể xóa hồ sơ tích hợp sẵn.
+318|Không thể đổi tên hồ sơ tích hợp sẵn.
+319|Không được dùng trong tên: ; # [ ]
+320|Không được dùng trong tên: {0}
+321|Không tìm thấy hồ sơ.
+322|Hãy nhập tên.
+323|xuống dòng
+324|không được phép: {0}
+325|tab
+326|Đã mất
+327|Đang chìm
+328|Chìm sau ~{0} phút
+329|Ổn định
+330|nghiêng mạnh sang mạn trái
+331|nghiêng mạnh sang mạn phải
+332|chúi mạnh mũi
+333|chúi mạnh lái
+334|nghiêng sang mạn trái
+335|nghiêng sang mạn phải
+336|ra-đa
+337|ước tính ra-đa
+338|vệt ra-đa (ước tính)
+339|sonar
+340|sonar (tiếng động cơ)
+341|chúi mũi
+342|chúi lái
+343|quan sát bằng mắt
+344|quan sát bằng mắt
+345|quan sát bằng mắt (chưa nhận dạng)
+346|Bận: {0} làm {1} trước
+347|Làm hư thân tàu và hệ thống
+348|Kiệt sức
+349|Cháy {0}
+350|Đám cháy {0} đang cháy
+351|Tự tăng {0}%/giây
+352|Trúng đạn {0} giây trước
+353|Trúng đạn
+354|Lỗ thủng: +{0}%/giây
+355|Nghiêng {0}°: nước tràn lên boong
+356|Làm giảm:
+357|Nhẹ
+358|Vừa
+359|Không có đội ở đây
+360|Hiện không có gì làm tăng
+361|Chỉ đội kiểm soát hư hại mới dập được
+362|Mạn trái
+363|Làm tăng:
+364|Nặng
+365|Tàu quá nhanh để bịt lỗ thủng: trên {0} hải lý/giờ
+366|Lan sang các khoang kề bên
+367|Mạn phải
+368|Đội đang đến
+369|Rò rỉ đang lớn: thân tàu {0}, không có đội
+370|Tàu đang chìm
+371|Mệt
+372|Không ai trông {0} giây: tăng nhanh hơn
+373|Hàn được đến {0}
+374|Bị thương
+375|một đội
+376|đang giảm
+377|nhanh hơn: tốc độ tàu
+378|mạn bên kia trước
+379|đang sửa
+380|chìm: nhanh hơn
+381|chậm hơn: tốc độ tàu
+382|{0} đối ngập: +{1}%/giây
+383|{0} đang bịt mạn bên kia
+384|{0} bơm trong khi bịt: −{1}%/giây
+385|{0} đang bơm nước ra: −{1}%/giây
+386|{0} đang hàn
+387|Thân tàu mạn trái {0}
+388|Thân tàu mạn phải {0}
+389|Chúi mũi {0}°: nước tràn lên boong
+390|Chúi lái {0}°: nước tràn lên boong
+391|Một đội kiểm soát hư hại rảnh, đang chờ ở lực lượng dự bị
+392|Động cơ hỏng: hiệu suất KSHH {0}%
+393|Đám cháy:
+394|Dự báo:
+395|Số lần trúng đạn vào tàu: {0}
+396|In Transfer
+397|Dự bị
+398|Không
+399|Chưa có
+400|Đang nghỉ
+401|nổ
+402|mạn trái
+403|khoang {0}
+404|mạn phải
+405|bị giáp chặn
+406|lực lượng dự bị
+407|Mép boong chạm biển khi nghiêng {0}° · chúi {1}° (vùng đỏ)
+408|Nghiêng 45° · Chúi 8° (của trò chơi)
+409|Giới hạn nghiêng {0}° · Giới hạn chúi {1}°
+410|Hiện các tầng boong ở dạng 3D
+411|Tàu ngầm: nghiêng và chúi không gây ngập
+412|Nước {0} · chìm ở {1}%
+413|ngập nhanh hơn từ vùng đỏ
+414|Đang được sửa
+415|Đang được sửa: +{0} mỗi phút (+{1} độ bền)
+416|Không thể sửa
+417|Hư hại: {0}, độ bền {1} / {2} ({3})
+418|Bị phá hủy: không thể sửa
+419|Mức {0} sau {1}
+420|Không có đội kiểm soát hư hại trong khoang
+421|Đã sửa hết mức có thể
+422|Hệ thống
+423|Trò chơi cho phép sửa đến {0} (tốt hơn một mức so với mức tệ nhất)
+424|Khoang bị ngập: không sửa được
+425|Đang chờ đội
+426|bị phá hủy
+427|nhẹ
+428|vừa
+429|không
+430|hỏng
+431|nặng
+432|Một khoang = ngăn mạn trái + mạn phải:
+433|Lái  41% / 47%  - thân tàu, mạn trái / mạn phải
+434|Cài đặt Alternative Damage Model
+435|Auto
+436|KSHH tự động tắt: bấm vào đội để giao việc (dấu ! đỏ = đã có việc).
+437|Quay lại làm việc sau {0}
+438|Thủ công: {0}
+439|Cancel Transfer
+440|Bấm: hủy
+441|Bấm: giao việc
+442|Bấm: giao việc / di chuyển
+443|DC Priority
+444|DC Priority: việc tất cả các đội làm trước tiên.
+445|DC team
+446|Damage State
+447|Tắt
+448|Hiệu suất {0}%
+449|Bật
+450|Động cơ hỏng: hiệu quả {0}% (trừ sửa hệ thống)
+451|Mệt mỏi {0}%
+452|Cháy  64%  - % so với tối đa
+453|Ngập  23% / 5%  - nước bên trong
+454|Bánh răng cạnh (i): cài đặt và hồ sơ.
+455|Hồi phục sau {0}
+456|Sức khỏe {0}%
+457|Ở đây {0}
+458|Limit Speed
+459|Move to section
+460|Bật: trò chơi giảm tốc độ tàu khi có ngập (10 hải lý/giờ khi lỗ thủng hở, 10-25 hải lý/giờ theo lượng nước trong các khoang).\nTắt: không giảm, tàu giữ tốc độ được lệnh - nước vào nhanh hơn, đám cháy bùng mạnh hơn.
+461|Một biểu tượng = một đội kiểm soát hư hại:
+462|Trỏ vào LIST / TRIM / LEVEL: nước theo từng ngăn.
+463|Trỏ vào mũi tên: vì sao giá trị đổi.
+464|Mũi tên đỏ: xấu đi, xanh: tốt lên, hai mũi tên: nhanh.
+465|Giao việc thủ công
+466|Đến đó sau {0}
+467|To Reserve
+468|Việc các đội kiểm soát hư hại làm trước tiên, trên toàn tàu.
+469|choáng, đang về lực lượng dự bị
+470|choáng, đang về lực lượng dự bị (In Transfer)
+471|choáng, ở lực lượng dự bị
+472|đối ngập
+473|kiệt sức
+474|đang dập lửa
+475|rảnh, ở lực lượng dự bị
+476|đang chuẩn bị
+477|ở đây
+478|đã mất
+479|không bao giờ
+480|không có việc
+481|không có việc gì làm
+482|đang di chuyển (In Transfer)
+483|đang bịt chỗ rò
+484|đang bơm nước ra
+485|đang sửa hệ thống
+486|dự bị
+487|nghỉ {0}
+488|tốc độ quá nhanh
+489|mệt
+490|đang hàn thân tàu
+491|bị thương: chậm hơn
+492|còn {0}
+493|Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. Đám cháy hoặc chỗ rò lớn nhanh nhất được xử lý trước.
+494|DC Priority: Fire - các đội xử lý mối đe dọa theo thứ tự: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
+495|DC Priority: Flooding - các đội xử lý mối đe dọa theo thứ tự: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
+496|Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. KSHH tự động cử các đội rảnh đến đám cháy nặng nhất trước.
+497|Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. KSHH tự động cử các đội rảnh đến chỗ rò, rồi đến nước.
+498|Tư thế: {0}
+499|Mục tiêu
+500|Mục tiêu {0}
+501|Damage State — {0}
+502|Động cơ: gần như dừng
+503|Động cơ: mất động lực
+504|Động cơ: mất một phần động lực
+505|Động cơ: chậm
+506|Cháy: {0}
+507|Ngập: {0}
+508|Thân tàu: {0}
+509|Không thấy hư hại
+510|Không có dữ liệu: không nhìn thấy trực tiếp
+511|Sắp chìm
+512|Nguồn: {0}
+513|đang vỡ ra
+514|nguy kịch
+515|hư hại
+516|hư hại nặng
+517|nặng
+518|nhẹ
+519|vừa
+520|chút ít
+521|hư hại nhẹ
+522|Mép boong chìm {0} m dưới nước được {1} trên {2} giây
+523|Mép boong chìm {0} m dưới nước: +{1}%/giây
+524|Tràn từ {0}: +{1}%/giây
+525|Nghiêng về phía biển: nghiêng trái {0}° / phải {1}° · chúi lái {2}° / mũi {3}°
+526|đầy: chảy sang {0}
+527|Mạn trái {0}
+528|Mạn phải {0}
+529|% mỗi lần trúng với Max health, Wound chance và Wound strength hiện tại (xác suất tối đa 100). Bên dưới: vết thương trung bình một đội nhận, tính theo % sức khỏe
+530|Đạn dược
+531|Xác suất một lần trúng làm đội bị thương
+532|Lượng giãn nước, t
+533|Chưa có dữ liệu trò chơi.
+534|Công suất
+535|Sức khỏe đội, HP
+536|đang bịt (chặn chỗ rò)
+537|đám cháy
+538|đang chống lại
+539|đang dập
+540|chỗ rò
+541|Ngôn ngữ
+542|Ngôn ngữ của mod
+543|áp dụng sau khi mở lại cửa sổ này
+544|Ngôn ngữ của trò chơi
+545|Hệ số nhân xác suất một phát trúng khoang trung tâm làm bị thương đội đang nghỉ ở lực lượng dự bị; áp dụng thêm lên Wound chance (0.5 = một nửa khả năng, 0 = đội đang nghỉ không bao giờ bị thương). Chỉ hoạt động khi bật Wounds in reserve.
+546|Xác suất bị thương ở dự bị
+547|trò chơi: không có tương ứng
+548|Quay về giá trị của hồ sơ Base Game
+549|Quay về giá trị mặc định
+550|Nhiều hệ thống của một khoang có thể được ưu tiên sửa chữa cùng lúc (nút “!” của từng hệ thống): khoang sửa lần lượt theo thứ tự đã đặt. Tắt = như trong game: “!” của hệ thống này sẽ tắt “!” của hệ thống kia.
+551|Nhiều ưu tiên sửa chữa
+552|“!” của nhiều hệ thống trong khoang · sửa lần lượt
+553|Phản ngập (nhiệm vụ đội làm thủ công): tốc độ cho nước vào khoang, tính theo bội số tốc độ bơm thoát. Đội chỉ bơm nước vào hoặc bơm ra một mạn khi việc đó giảm nghiêng hoặc chúi (cái nguy hiểm hơn được xử lý trước), giữ hành động ít nhất 10 giây và không bơm vào nữa khi nước trong tàu đã đến dải đỏ của đồng hồ LEVEL.
+554|Phản ngập của Auto DC
+555|khi nghiêng / chúi nguy hiểm
+556|Auto DC phản ngập: khi các lỗ thủng vẫn còn cho nước vào và độ nghiêng hoặc chúi đạt 40% vùng đỏ của đồng hồ (cho đến khi giảm còn 20%), một đội đến khoang mà việc cho nước vào một mạn hoặc bơm ra giảm nghiêng nhiều nhất, và làm việc như đội được lệnh phản ngập (xem Phản ngập). Tắt = Auto DC không phản ngập.
+557|MŨI
+558|MỰC NƯỚC
+559|NGHIÊNG
+560|MẠN TRÁI
+561|MẠN PHẢI
+562|LÁI
+563|CHÚI
+564|(có sẵn)
+565|game
+566|của bạn
+567|đang bơm nước ra
+568|ngập nước
+569|hư hại thân tàu

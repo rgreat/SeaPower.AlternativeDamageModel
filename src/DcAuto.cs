@@ -47,6 +47,7 @@ namespace AlternativeDamageModel
             public double[] Seen = new double[5];                              // since when the section has had work (0 = none)
             public bool Primed;
             public double LastWork = -1;   // game time the ship last had any work (any section)
+            public bool CounterOn;         // the heel is dangerous: counterflooding is a job (hysteresis)
         }
 
         /// <summary>A team with nothing to do waits where it is only while the ship still has work somewhere (or had, within
@@ -133,6 +134,7 @@ namespace AlternativeDamageModel
 
                 // 1. the work in each section
                 var needs = new List<Need>();
+                bool anyLeak = false;          // some hole still lets water in
                 var holds = new bool[count];   // fire / flooding work that keeps its teams there
                 var work = new bool[count];
                 for (int i = 0; i < count; i++)
@@ -155,6 +157,7 @@ namespace AlternativeDamageModel
                     else { ship.FireRise[i] = 0; ship.WaterRise[i] = 0; }
                     ship.Fire[i] = fire; ship.Water[i] = water;
 
+                    if (leak > 0f) anyLeak = true;
                     bool hasLeak = leak > 0f, hasFire = sev > 0f || grow > 0f, hasWater = water > 0f;
                     holds[i] = mode == DcControl.ModeFire ? hasFire : mode == DcControl.ModeFlooding ? hasLeak || hasWater : hasLeak || hasFire || hasWater;
 
@@ -200,13 +203,36 @@ namespace AlternativeDamageModel
                         work[i] = true;
                         if (ship.Seen[i] <= 0) ship.Seen[i] = now;
                         if (now - ship.Seen[i] >= Debounce)
-                            needs.Add(new Need { Section = i, Rank = r, Size = size, Want = 1 + extra, Urgent = urgent, ByRate = kind == FireRate || kind == Leak });
+                        {
+                            // plugging holes or pumping out in a section that also burns: two teams, one of them fights the fire (DcControl)
+                            int want = 1 + extra;
+                            if ((kind == Leak || kind == Pump) && hasFire) want = Math.Max(want, 2);
+                            needs.Add(new Need { Section = i, Rank = r * 2, Size = size, Want = want, Urgent = urgent, ByRate = kind == FireRate || kind == Leak });
+                        }
                         break;
                     }
                     if (!work[i]) ship.Seen[i] = 0;
                     else ship.LastWork = now;
                 }
                 ship.Primed = true;
+
+                // counterflooding: a dangerous heel is a job of its own, in the section where letting water in or pumping it out helps most;
+                // it ranks just before the flooding (pumping) job. The teams there hold their place while they are at it.
+                ship.CounterOn = DcControl.AutoCounterfloodOn && DcControl.HeelDanger(comp, ship.CounterOn, anyLeak);
+                DcControl.SetAutoCounter(comp, ship.CounterOn);
+                if (ship.CounterOn)
+                {
+                    float cs; int ci = DcControl.CounterSection(comp, out cs);
+                    if (ci >= 0 && ci < count)
+                    {
+                        int pumpAt = Array.IndexOf(order, Pump);
+                        int baseWant = 0;
+                        foreach (var n0 in needs) if (n0.Section == ci) baseWant = Math.Max(baseWant, n0.Want);
+                        needs.Add(new Need { Section = ci, Rank = pumpAt * 2 - 1, Size = cs, Want = Math.Min(3, baseWant + 1), Urgent = true, ByRate = false });
+                        work[ci] = true; ship.LastWork = now;
+                        if (DcControl.CounterAct(comp, ci) != 0) holds[ci] = true;
+                    }
+                }
                 if (needs.Count == 0) return false;
 
                 // teams: where they are, and where the walking ones are going

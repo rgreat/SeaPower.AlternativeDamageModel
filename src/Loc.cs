@@ -114,6 +114,34 @@ namespace AlternativeDamageModel
             catch { return _lang; }
         }
 
+        /// <summary>A name the game itself has (ui.ini [DamageControl]): its own translation, e.g. G("damagecontrolauto", "Auto").
+        /// Not found (an older game, no handler yet) = the mod's text.</summary>
+        public static string G(string key, string en)
+        {
+            try
+            {
+                Assembly asm = null;
+                foreach (var a in AppDomain.CurrentDomain.GetAssemblies()) if (a.GetName().Name == "Seapower-Scripts") { asm = a; break; }
+                if (asm != null)
+                {
+                    if (_tHandler == null) { _tHandler = asm.GetType("SeaPower.LanguageResourceHandler"); _tSingleton = asm.GetType("SeaPower.Singleton`1"); }
+                    var inst = _tSingleton.MakeGenericType(_tHandler).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public).GetValue(null, null);
+                    var dict = inst == null ? null : _tHandler.GetProperty("LanguageDictionary").GetValue(inst, null);
+                    if (dict != null)
+                    {
+                        var tryGet = dict.GetType().GetMethod("TryGetValue");
+                        if (tryGet != null)
+                        {
+                            var args = new object[] { key, null };
+                            if ((bool)tryGet.Invoke(dict, args) && args[1] is string v && v.Length > 0) return v;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return T(en);
+        }
+
         // ------------------------------------------------------------ files
 
         static string _dir;

@@ -64,7 +64,7 @@ namespace AlternativeDamageModel
     /// rotation and scale once, and from then on just rides along as an ordinary active child of that root.
     /// Wave height at each point: Ocean.Instance.QueryWaves(x, z, true) - Ocean isn't in any of the referenced
     /// DLLs (it isn't even Seapower-Scripts; found by scanning loaded assemblies for a type named "Ocean"),
-    /// reached by reflection like the particle system calls in FireSmoke.
+    /// reached by reflection with the particle system calls.
     /// </summary>
     static class DeckCorners
     {
@@ -89,7 +89,7 @@ namespace AlternativeDamageModel
         static MethodInfo _mQueryWaves;
         static Type _tUnitStatusVm;
         // UnityEngine.MeshCollider lives in UnityEngine.PhysicsModule, which isn't one of this mod's referenced DLLs
-        // (like ParticleSystem in FireSmoke.cs) - its one property used here (sharedMesh) is read by reflection;
+        // its one property used here (sharedMesh) is read by reflection;
         // everything else works through its Component base (already referenced via UnityEngine.CoreModule).
 
         /// <summary>Patches SeapowerUI.ViewModels.UnitStatusViewModel.SwitchUnit (the player's unit-selection panel)

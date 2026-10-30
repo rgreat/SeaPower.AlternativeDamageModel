@@ -95,6 +95,9 @@ namespace AlternativeDamageModel
         static FieldInfo _base, _vessel, _sinking, _capsized, _count, _port, _star;
         static MethodInfo _addFlood;
         static FieldInfo _cur, _max;
+        static Fld<bool> _gSinking, _gCapsized;   // fast access in the tick (Fast.cs)
+        static Fld<float> _gCur, _gMax;
+        static Fld<Array> _gPort, _gStar;
 
         static void Init(object comp)
         {
@@ -110,6 +113,12 @@ namespace AlternativeDamageModel
                 _addFlood = tF == null ? null : tF.GetMethod("AddFloodingForHeavyListing", all);
                 _cur = tF == null ? null : tF.GetField("_currentFlooding", all); _max = tF == null ? null : tF.GetField("_maxFlooding", all);
                 _ok = _cur != null && _max != null && _base != null && _vessel != null && _sinking != null && _count != null && _port != null && _star != null && _addFlood != null;
+                if (_ok)
+                {
+                    _gSinking = new Fld<bool>(_sinking); _gCur = new Fld<float>(_cur); _gMax = new Fld<float>(_max);
+                    _gPort = new Fld<Array>(_port); _gStar = new Fld<Array>(_star);
+                    _gCapsized = _capsized == null ? null : new Fld<bool>(_capsized);
+                }
             }
             catch (Exception e) { Trace("TrimFlooding.Init: " + e.Message); _ok = false; }
             if (!_ok) Trace("TrimFlooding: game members not found; trim past the limit does nothing");
@@ -148,20 +157,20 @@ namespace AlternativeDamageModel
                 float pitch = Wrap(ship.Base.transform.localEulerAngles.x);   // + bow down
                 float limit = Limits.TrimFlood(ship.Length);                   // from the red zone of the TRIM gauge
                 if (Math.Abs(pitch) <= limit) return;
-                if ((bool)_sinking.GetValue(comp)) return;
+                if (_gSinking.Get(comp)) return;
                 // each side: the outermost compartment of the end going down that is not full yet
-                var port = _port.GetValue(comp) as Array; var star = _star.GetValue(comp) as Array;
+                var port = _gPort.Get(comp); var star = _gStar.Get(comp);
                 foreach (var side in new[] { port, star })
                     for (int k = 0; k < count; k++)
                     {
                         var fc = side.GetValue(pitch > 0f ? k : count - 1 - k);
-                        float before = (float)_cur.GetValue(fc);
-                        if (before >= (float)_max.GetValue(fc) * 0.999f) continue;   // full: the next one
+                        float before = _gCur.Get(fc);
+                        if (before >= _gMax.Get(fc) * 0.999f) continue;   // full: the next one
                         _addFlood.Invoke(fc, null);
                         // the game's own method just added its flooding at its own rate - replace that delta with ours:
                         // a flat /10 (see the class doc comment), times the player's Speed (DeckFloodingSpeed)
-                        float after = (float)_cur.GetValue(fc);
-                        _cur.SetValue(fc, before + (after - before) / 10f * Speed * SpeedEffect.Flood(comp));
+                        float after = _gCur.Get(fc);
+                        _gCur.Set(fc, before + (after - before) / 10f * Speed * SpeedEffect.Flood(comp));
                         break;
                     }
             }
@@ -218,17 +227,17 @@ namespace AlternativeDamageModel
         {
             var ship = Get(comp);
             if (!ship.Vessel || ship.Count < 1 || ship.Base == null) return;
-            if ((bool)_sinking.GetValue(comp) || (_capsized != null && (bool)_capsized.GetValue(comp))) return;
+            if (_gSinking.Get(comp) || (_gCapsized != null && _gCapsized.Get(comp))) return;
             float list = Wrap(ship.Base.transform.localEulerAngles.z);   // + : port side down
             if (Math.Abs(list) <= Limits.ListFlood) return;
-            var side = (list > 0f ? _port : _star).GetValue(comp) as Array;
+            var side = (list > 0f ? _gPort : _gStar).Get(comp);
             for (int k = 0; k < ship.Count && k < side.Length; k++)
             {
                 var fc = side.GetValue(k);
-                float before = (float)_cur.GetValue(fc);
+                float before = _gCur.Get(fc);
                 _addFlood.Invoke(fc, null);
-                float after = (float)_cur.GetValue(fc);
-                _cur.SetValue(fc, before + (after - before) / 10f * Speed * SpeedEffect.Flood(comp));
+                float after = _gCur.Get(fc);
+                _gCur.Set(fc, before + (after - before) / 10f * Speed * SpeedEffect.Flood(comp));
             }
         }
 

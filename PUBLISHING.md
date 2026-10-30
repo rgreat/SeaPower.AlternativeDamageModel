@@ -43,9 +43,9 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
 
 1. Скопируйте содержимое `Release` в `Sea Power\Sea Power_Data\StreamingAssets\AlternativeDamageModel\`.
 2. Включите мод в меню **Mods**. Уберите IntegrityX2 ini-патчи, если они установлены (иначе удвоение применится дважды).
-3. Для проверки поставьте `LogShipIntegrity = true` в `Sea Power_Data\StreamingAssets\user\AdvancedDamageControl\AlternativeDamageModel.cfg` (окно настроек → General).
+3. Для проверки поставьте `LogShipIntegrity = true` в `Sea Power_Data\StreamingAssets\user\AlternativeDamageControl\AlternativeDamageModel.cfg` (окно настроек → General).
 4. В `BepInEx\LogOutput.log` должно быть:
-   * `Alternative Damage Model 1.0.0 (build ...) loaded; follows its tick in the game's Mods menu.`
+   * `Alternative Damage Model 1.6.0 (build ...) loaded; follows its tick in the game's Mods menu.`
    * `Hooks installed: 29.` (без `failed`);
    * `Enabled in the game's Mods menu (AlternativeDamageModel).`
    * в миссии — строки `Hull: <ini> (Warships), <т> t, armor <...>: integrity X -> Y (x2), sinking limit ...`.
@@ -54,7 +54,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
    проценты и стрелки у Flooding / Fire. Если вкладка не распознана — в логе предупреждение со счётчиками найденного,
    а разметка вкладки записывается в `BepInEx/AlternativeDamageModel.dctab.txt` (один раз за запуск).
 7. Шестерёнка рядом с (i) на кнопке вкладки Damage Control открывает окно настроек: выбор профиля, правка, Apply —
-   в логе `Settings profile "..." in use.`; свои профили — в `Sea Power_Data\StreamingAssets\user\AdvancedDamageControl\Profiles\`.
+   в логе `Settings profile "..." in use.`; свои профили — в `Sea Power_Data\StreamingAssets\user\AlternativeDamageControl\Profiles\`.
 8. Предупреждения вида `... patched, 30 expected` / `insertion point not found` означают, что игра обновилась и мод надо поправить.
 
 ## 4. Выкладка

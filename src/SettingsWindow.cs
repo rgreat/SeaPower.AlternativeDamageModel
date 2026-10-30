@@ -33,6 +33,7 @@ namespace AlternativeDamageModel
             public float Step, Min, Max;
             public bool Global;
             public string[] Options;   // Kind.Choice
+            public string[] Labels;    // Kind.Choice: shown names when they differ from the values (Labels[0] is translated, the rest are native names)
         }
 
         const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
@@ -42,13 +43,12 @@ namespace AlternativeDamageModel
         const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
         /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
         static bool LiveKey(string key) { return key == AdmKey || key == UiKey; }
-        const string UnattendedKey = "FireAndFlooding/UnattendedFireGrowth", SmokeKey = "Effects/ExtraSmokeEmitters", DensityKey = "Effects/SmokeBySeverity";
+        const string UnattendedKey = "FireAndFlooding/UnattendedFireGrowth";
         /// <summary>Rows shown only while a switch of the same tab is on: the switch's key, or null.</summary>
         static string ShownWhen(Field f)
         {
             if (f.Group == ArrowsGroup) return UiKey;
             if (f.Key == "FireAndFlooding/UnattendedFireTime" || f.Key == "FireAndFlooding/UnattendedFireGrowthRate" || f.Key == "FireAndFlooding/UnattendedFireMaxGrowth") return UnattendedKey;
-            if (f.Key == "Effects/SmokeStartOpacity" || f.Key == "Effects/SmokeEndOpacity" ||f.Key == "Effects/SmokeModerateFrom" || f.Key == "Effects/SmokeSevereFrom") return DensityKey;
             return null;
         }
         static bool IsOn(string key)
@@ -72,22 +72,18 @@ namespace AlternativeDamageModel
         static SettingsWindow()
         {
             const string H = "Hull", FF = "Fire", DC = "DC Teams", S = "Flooding", D = TUi, G = TGen;
+            Add(D, "Language", "General/Language", "Mod language", "applies after reopening this window", Kind.Choice, 0, 0, 0, true);
+            Fields[Fields.Count - 1].Options = new[] { "", "en", "ru", "de", "es", "fr", "ko", "ja", "cn", "vn" };
+            Fields[Fields.Count - 1].Labels = new[] { "Game language", "English", "Русский", "Deutsch", "Español", "Français", "한국어", "日本語", "中文", "Tiếng Việt" };
             Add(D, "Damage Control tab", UiKey, "Detailed view", "applies at once", Kind.Bool, 0, 0, 0, true);
             Add(D, "Bottom panel", "UI/ColorWeaponStatus", "Weapon status colours", "yellow: part inoperable, red: all", Kind.Bool, 0, 0, 0, true);
             Add(D, "Map", "UI/ShowEnemyDamage", "Ship damage icons", "fire, water, hull, engine", Kind.Bool, 0, 0, 0, true);
-            Add(D, "Map", "UI/HideUnobservedTargets3D", "Hide unseen targets in 3D", "not observed visually", Kind.Bool, 0, 0, 0, false);
             Add(D, ArrowsGroup, "UI/FloodingOneArrowAt", "Water: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FloodingTwoArrowsAt", "Water: two arrows from", "% a second", Kind.Number, 0.05f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FireOneArrowAt", "Fire: one arrow from", "% a second", Kind.Number, 0.01f, 0f, 10f, true);
             Add(D, ArrowsGroup, "UI/FireTwoArrowsUpAt", "Fire: two arrows up from", "% a second", Kind.Number, 0.1f, 0f, 20f, true);
             Add(D, ArrowsGroup, "UI/FireTwoArrowsDownAt", "Fire: two arrows down from", "% a second", Kind.Number, 0.05f, 0f, 20f, true);
 
-            Add(TFx, "Fire smoke", SmokeKey, "Extra smoke points", "by length: <25 m 1, <50 m 2, <75 m 3, else 5", Kind.Bool, 0, 0, 0, true);
-            Add(TFx, "Fire smoke", DensityKey, "Tune visuals", "instead of the game's stages", Kind.Bool, 0, 0, 0, true);
-            Add(TFx, "Fire smoke", "Effects/SmokeStartOpacity", "Small fire: opacity at start", "% of the game's, fire at 0%", Kind.Number, 5f, 0f, 100f, true);
-            Add(TFx, "Fire smoke", "Effects/SmokeEndOpacity", "Small fire: opacity at end", "% of the game's, at moderate", Kind.Number, 5f, 0f, 100f, true);
-            Add(TFx, "Fire smoke", "Effects/SmokeModerateFrom", "Moderate fire look from", "% of max fire (game 25)", Kind.Number, 5f, 1f, 100f, true);
-            Add(TFx, "Fire smoke", "Effects/SmokeSevereFrom", "Severe fire look from", "% of max fire (game 50)", Kind.Number, 5f, 1f, 100f, true);
 
             Add(G, "Damage model", AdmKey, "Alternative Damage Control", "applies at once", Kind.Bool, 0, 0, 0, true);
             Add(G, "Damage model", "HullIntegrity/DamageSpill", "Damage spills over", "a destroyed compartment: ½ to its neighbour, ¼ to the next", Kind.Bool, 0, 0, 0);
@@ -114,6 +110,7 @@ namespace AlternativeDamageModel
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFloodingVulnerability", "Flooding", "", Kind.Number, 0.1f, 0.1f, 10f);
 
             Add("Systems", "Systems", "Systems/NoEngineTeamEffectiveness", "DC efficiency without engines", "% effectiveness · except systems repair · 100 = off", Kind.Number, 5f, 0f, 100f);
+            Add("Systems", "Systems", "Systems/SeveralPriorities", "Several repair priorities", "\"!\" of several systems in a section · repaired in turn", Kind.Bool, 0, 0, 0);
             Add("Systems", "Systems", "Systems/Integrity", "Integrity", "× game", Kind.Number, 0.1f, 0.1f, 20f);
             Add(FF, "Fire", "FireAndFlooding/FlameUpSpeed", "Fire growth", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireHullDamageSpeed", "Fire damage to the hull", "× game", Kind.Number, 0.1f, 0f, 10f);
@@ -133,6 +130,7 @@ namespace AlternativeDamageModel
             Add(DC, "Water", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
             Add(DC, "Water", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
             Add(DC, "Water", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);
+            Add(DC, "Water", "FireAndFlooding/AutoCounterflood", "Auto DC counterflooding", "in a dangerous list / trim", Kind.Bool, 0, 0, 0);
             Add(DC, "Water", "DamageControlTeams/MaxPlugSpeed", "Max ship speed for plugging holes", "knots · 0 = no limit", Kind.Number, 1f, 0f, 100f);
             Add(DC, "Fire", "FireAndFlooding/TeamBlocksFireSpread", "Team stops fire spread", "fire does not spread into a section with a team", Kind.Bool, 0, 0, 0);
             Add(DC, "Fire", "FireAndFlooding/SubmergedFireDecay", "Fire under water", "% per second per metre under water; 0 = off", Kind.Number, 0.5f, 0f, 20f);
@@ -149,6 +147,7 @@ namespace AlternativeDamageModel
             Add(DC, "Weapon hits", "DamageControlTeams/HealTime", "Concussion time", "s in the reserve · 0 = off", Kind.Number, 10f, 0f, 1200f);
             Add(DC, "Weapon hits", "DamageControlTeams/HealTimeSpread", "Concussion spread", "± s", Kind.Number, 10f, 0f, 600f);
             Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserve", "Wounds in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
+            Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserveChance", "Wounds in reserve chance", "× chance", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
             Add(DC, "Time", "DamageControlTeams/ExhaustedMinutes", "Exhausted after", "min of work", Kind.Number, 1f, 0f, 480f);
             Add(DC, "Time", "DamageControlTeams/FatigueRecovery", "Recovery speed", "% of the fatigue speed", Kind.Number, 10f, 0f, 1000f);
@@ -169,7 +168,6 @@ namespace AlternativeDamageModel
             Add(S, "Full flooding", "FireAndFlooding/FullFloodFireDecay", "Fire put out by water", "% a second · 0 = off", Kind.Number, 1f, 0f, 100f);
             Add(TFx, "Sinking and wreck", "Effects/KeepCentreOfMass", "Keep centre of mass", "when sinking starts (the game resets it)", Kind.Bool, 0, 0, 0, true);
             Add(TFx, "Sinking and wreck", "Effects/WreckDragFactor", "Wreck drag", "× the game's resistance to the horizontal movement of a destroyed ship", Kind.Number, 0.5f, 0f, 20f, true);
-            Add(TFx, "Sinking and wreck", "Effects/BubblesStopMinutes", "Stop bubbles after", "min after sinking starts; 0 = never", Kind.Number, 1f, 0f, 120f, true);
         }
 
         // ------------------------------------------------------------ colours (the game's dark panels)
@@ -184,7 +182,7 @@ namespace AlternativeDamageModel
         static readonly Color CGame = Color.FromRgb(132, 186, 238);
         static TextBlock GameLabel(string text, bool accent)
         {
-            return new TextBlock { Text = text, Foreground = B(accent ? CGame : CDim), FontSize = 11f, TextAlignment = TextAlignment.Right,
+            return new TextBlock { Text = Loc.T(text), Foreground = B(accent ? CGame : CDim), FontSize = 11f, TextAlignment = TextAlignment.Right,
                                    VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
         }
 
@@ -215,7 +213,7 @@ namespace AlternativeDamageModel
         // (AdmPlugin.ReadSettings), same path as any other live settings change.
         static readonly HashSet<string> _liveGlobals = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "General/ShowDeckCorners", "General/ShowHullCollider", "General/ShipModelView",
+            "General/ShowDeckCorners", "General/ShowHullCollider", "General/ShipModelView", "General/Language",
         };
 
         static AdmPlugin P { get { return AdmPlugin.Instance; } }
@@ -414,12 +412,12 @@ namespace AlternativeDamageModel
 
         static TextBlock Text(string s, Color c, float size = 13f)
         {
-            return new TextBlock { Text = s, Foreground = B(c), FontSize = size, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.NoWrap };
+            return new TextBlock { Text = Loc.T(s), Foreground = B(c), FontSize = size, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.NoWrap };
         }
 
         static Button Btn(string s, Action click, float minW = 0f)
         {
-            var b = new Button { Content = s, Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(0f, 0f, 6f, 0f), MinHeight = 26f, MinWidth = minW };
+            var b = new Button { Content = Loc.T(s), Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(0f, 0f, 6f, 0f), MinHeight = 26f, MinWidth = minW };
             b.Click += (o, e) => { try { click(); } catch (Exception ex) { Trace("button " + s + ": " + ex); } };
             return b;
         }
@@ -459,7 +457,7 @@ namespace AlternativeDamageModel
             pin.Children.Add(Btn("Save as…", () => Ask("Save profile as", Suggest(), SaveAs)));
             _rename = Btn("Rename…", () => Ask("Rename profile", _selected, Rename));
             pin.Children.Add(_rename);
-            _delete = Btn("Delete", () => Confirm("Delete profile \"" + _selected + "\"?", Delete));
+            _delete = Btn("Delete", () => Confirm(Loc.F("Delete profile \"{0}\"?", _selected), Delete));
             pin.Children.Add(_delete);
             _note = Text("", CDim, 11f);
             pin.Children.Add(_note);
@@ -490,7 +488,7 @@ namespace AlternativeDamageModel
             var settingsArea = new Border { Child = scroll, Background = B(CCard), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 0f) };
             main.Children.Add(settingsArea);
 
-            _help = new TextBlock { Foreground = B(Color.FromRgb(194, 199, 204)), FontSize = 12f, TextWrapping = TextWrapping.Wrap, Text = "Point at a setting to see what it does." };
+            _help = new TextBlock { Foreground = B(Color.FromRgb(194, 199, 204)), FontSize = 12f, TextWrapping = TextWrapping.Wrap, Text = Loc.T("Point at a setting to see what it does.") };
             main.Children.Add(new Border { Child = _help, Background = B(Color.FromRgb(34, 38, 44)), BorderBrush = B(CLine), BorderThickness = new Thickness(1f),
                                            Padding = new Thickness(10f, 8f, 10f, 8f), Margin = new Thickness(12f, 8f, 12f, 0f), Height = 108f, CornerRadius = new CornerRadius(3f) });   // fixed: 6 lines - the window does not jump as the text changes
 
@@ -629,7 +627,7 @@ namespace AlternativeDamageModel
             {
                 h.Margin = new Thickness(0f, 0f, 1f, 1f);
                 h.Child = new Path { Data = new StreamGeometry("M15,4 L4,15 M15,8 L8,15 M15,12 L12,15"), Stroke = B(CDim), StrokeThickness = 1f };
-                try { ToolTipService.SetToolTip(h, "Drag to resize"); } catch { }
+                try { ToolTipService.SetToolTip(h, Loc.T("Drag to resize")); } catch { }
             }
             try { h.Cursor = corner ? (sx == sy ? Cursors.SizeNWSE : Cursors.SizeNESW) : sx != 0 ? Cursors.SizeWE : Cursors.SizeNS; } catch { }
             bool down = false; Point start = new Point(); float w0 = 0f, h0 = 0f;
@@ -676,7 +674,7 @@ namespace AlternativeDamageModel
                 int sel = 0;
                 for (int i = 0; i < names.Count; i++)
                 {
-                    _combo.Items.Add(names[i] + (AdmPlugin.IsBuiltIn(names[i]) ? "   (built-in)" : ""));
+                    _combo.Items.Add(names[i] + (AdmPlugin.IsBuiltIn(names[i]) ? "   " + Loc.T("(built-in)") : ""));
                     if (string.Equals(names[i], _selected, StringComparison.OrdinalIgnoreCase)) sel = i;
                 }
                 _comboNames = names;
@@ -708,14 +706,14 @@ namespace AlternativeDamageModel
             bool builtIn = AdmPlugin.IsBuiltIn(_selected);
             bool edited = _work != null && !_work.SameAs(_from);
             bool active = string.Equals(_selected, P.ActiveProfileName, StringComparison.OrdinalIgnoreCase);
-            _tag.Text = edited ? "edited" : (active ? "in use" : "");
+            _tag.Text = edited ? Loc.T("edited") : (active ? Loc.T("in use") : "");
             _tag.Foreground = B(edited ? CWarn : CDim);
             bool saved = !builtIn && Array.Exists(AdmPlugin.ProfileNames().ToArray(), n => string.Equals(n, _selected, StringComparison.OrdinalIgnoreCase));
             _rename.IsEnabled = !builtIn;
             _delete.IsEnabled = saved;
             _reset.IsEnabled = edited;
-            _note.Text = _from != null && !string.Equals(_from.Name, _selected, StringComparison.OrdinalIgnoreCase) ? "based on " + _from.Name : "";
-            if (_status != null) _status.Text = edited ? "● differs from " + (_from != null ? _from.Name : "the profile") + "   ↺ = back to it" : "";
+            _note.Text = _from != null && !string.Equals(_from.Name, _selected, StringComparison.OrdinalIgnoreCase) ? Loc.F("based on {0}", _from.Name) : "";
+            if (_status != null) _status.Text = edited ? Loc.F("● differs from {0}   ↺ = back to it", _from != null ? _from.Name : Loc.T("the profile")) : "";
             for (int t = 0; t < Tabs.Length && t < _tabDots.Count; t++)
             {
                 bool any = false;
@@ -789,7 +787,7 @@ namespace AlternativeDamageModel
         static bool ModOnly(string key)
         {
             return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
-                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "Systems/NoEngineTeamEffectiveness" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
+                   key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "DamageControlTeams/HitsInReserveChance" || key == "Systems/NoEngineTeamEffectiveness" || key == "Systems/SeveralPriorities" || key == "FireAndFlooding/AutoCounterflood" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
                    key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
                    key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/HealTime" || key == "DamageControlTeams/HealTimeSpread" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill";
         }
@@ -889,34 +887,78 @@ namespace AlternativeDamageModel
             return float.TryParse((s ?? "").Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out v) ? v : 0f;
         }
 
+        static string OnOff(string v) { return Loc.T(v.Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off")); }
+
+        /// <summary>Settings of mechanics the game does not have (or does not use): the window says so instead of a "game: x" value.</summary>
+        static readonly HashSet<string> NoGame = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "DamageControlTeams/TeamHealthEnabled", "DamageControlTeams/FatigueEnabled", "DamageControlTeams/TeamHealth", "DamageControlTeams/HealthRegen",
+            "DamageControlTeams/FireWound", "DamageControlTeams/WoundChance", "DamageControlTeams/HitWound", "DamageControlTeams/HitsInReserve", "DamageControlTeams/HitsInReserveChance",
+            "DamageControlTeams/FatigueMinutes", "DamageControlTeams/ExhaustedMinutes", "DamageControlTeams/FatigueRecovery",
+            "DamageControlTeams/SpeedRested", "DamageControlTeams/SpeedTired", "DamageControlTeams/SpeedExhausted",
+            "FireAndFlooding/UnattendedFireGrowth", "FireAndFlooding/UnattendedFireTime", "FireAndFlooding/UnattendedFireGrowthRate", "FireAndFlooding/UnattendedFireMaxGrowth",
+            "FireAndFlooding/TeamBlocksFireSpread", "FireAndFlooding/FireReopenLeaks", "FireAndFlooding/FireReopenLimit", "FireAndFlooding/SubmergedFireDecay",
+            "FireAndFlooding/FullFloodSystems", "FireAndFlooding/FullFloodFireDecay", "HullIntegrity/DamageSpill", "Systems/NoEngineTeamEffectiveness", "Systems/SeveralPriorities", "FireAndFlooding/AutoCounterflood",
+            "UI/DetailedView", "UI/ColorWeaponStatus", "UI/ShowEnemyDamage",
+        };
+
         static string GameText(Field f)
         {
+            string v;
+            if (NoGame.Contains(f.Key))
+            {   // the mod's own mechanic: the default (where the mod has one of its own) and "no analogue", not a value that looks like the game's
+                var ne = f.Global || ModOnly(f.Key) ? Entry(f.Key) : null;
+                string nd = ne == null ? "" : Loc.F("default: {0}", OnOff(TomlTypeConverter.ConvertToString(ne.DefaultValue, ne.SettingType))) + "\n";
+                return nd + Loc.T("game: no analogue");
+            }
             if (f.Global)
             {
                 var e = Entry(f.Key);
-                return e == null ? "" : "default: " + TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType).Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off");
+                if (e == null) return "";
+                string gg = GlobalGame(f.Key);
+                return Loc.F("default: {0}", OnOff(TomlTypeConverter.ConvertToString(e.DefaultValue, e.SettingType))) + (gg == null ? "" : "\n" + Loc.F("game: {0}", gg));
             }
             if (ModOnly(f.Key))
-            {   // not in the game: the mod's own default
+            {   // not in the game as such: the mod's own default, and under it the value of the Base Game profile (the game's own rule where it has one)
                 var ue = Entry(f.Key);
-                return ue == null ? "" : "default: " + TomlTypeConverter.ConvertToString(ue.DefaultValue, ue.SettingType).Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off");
+                if (ue == null) return "";
+                string d = Loc.F("default: {0}", OnOff(TomlTypeConverter.ConvertToString(ue.DefaultValue, ue.SettingType)));
+                string gl = _game != null && _game.Values.TryGetValue(f.Key, out v) ? GameLine(f, v) : "";
+                return gl.Length > 0 ? d + "\n" + gl : d;
             }
-            string v;
             if (_game == null || !_game.Values.TryGetValue(f.Key, out v)) return "";
-            if (f.Kind == Kind.Bool) return "game: " + (v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase) ? "on" : "off");
-            if (f.Kind == Kind.Speed) return "game: no effect";
-            if (f.Key == "DamageControlTeams/MaxPlugSpeed" && Num(v) == 0f) return "game: no limit";
+            return GameLine(f, v);
+        }
+
+        /// <summary>What the game does where the mod's global option is not on (only where that is one clear value).</summary>
+        static string GlobalGame(string key)
+        {
+            switch (key)
+            {
+                case "General/AlternativeDamageControl": case "General/FixHighTimeCompressionTrimError": case "Effects/KeepCentreOfMass":
+                    return Loc.T("off");
+                case "Effects/WreckDragFactor": return "1";
+            }
+            return null;
+        }
+
+        /// <summary>The "game: x" line of a setting from the value v of the Base Game profile.</summary>
+        static string GameLine(Field f, string v)
+        {
+            if (f.Kind == Kind.Bool) return Loc.F("game: {0}", v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase) ? Loc.T("on") : Loc.T("off"));
+            if (f.Kind == Kind.Speed) return Loc.T("game: no effect");
+            if (f.Key == "DamageControlTeams/MaxPlugSpeed" && Num(v) == 0f) return Loc.T("game: no limit");
             if (f.Kind == Kind.Table)
             {
                 var t = DcTeams.Parse(v);
-                if (t == null || t.Length == 0) return "game: " + v;
+                if (t == null || t.Length == 0) return Loc.F("game: {0}", v);
                 var teams = new List<string>(); var tons = new List<string>();
                 foreach (var r in t) { teams.Add(r[1].ToString(CultureInfo.InvariantCulture)); if (r[0] > 0) tons.Add(r[0].ToString(CultureInfo.InvariantCulture)); }
-                return "game: " + string.Join("/", teams.ToArray()) + (tons.Count > 0 ? "\nfrom " + string.Join("/", tons.ToArray()) + " t" : "");
+                return Loc.F("game: {0}", string.Join("/", teams.ToArray())) + (tons.Count > 0 ? "\n" + Loc.F("from {0} t", string.Join("/", tons.ToArray())) : "");
             }
-            if (f.Key == "Sinking/TrimReferenceLength" && Num(v) == 0f) return "game: off";
-            if ((f.Key == "DamageControlTeams/TransferSpeed" || f.Key == "DamageControlTeams/MusterTime") && Num(v) == 0f) return "game: instant";
-            return "game: " + v;
+            if (f.Key == "Sinking/TrimReferenceLength" && Num(v) == 0f) return Loc.T("game: off");
+            if ((f.Key == "DamageControlTeams/TransferSpeed" || f.Key == "DamageControlTeams/MusterTime") && Num(v) == 0f) return Loc.T("game: instant");
+            return Loc.F("game: {0}", v);
         }
 
         // ------------------------------------------------------------ tabs and rows
@@ -1052,7 +1094,7 @@ namespace AlternativeDamageModel
 
         static TextBlock GroupTitle(string s)
         {
-            return new TextBlock { Text = s.ToUpperInvariant(), Foreground = B(CDim), FontSize = 11f, Margin = new Thickness(12f, 10f, 12f, 2f) };
+            return new TextBlock { Text = Loc.T(s).ToUpperInvariant(), Foreground = B(CDim), FontSize = 11f, Margin = new Thickness(12f, 10f, 12f, 2f) };
         }
 
         static Grid RowGrid()
@@ -1112,7 +1154,7 @@ namespace AlternativeDamageModel
             g.Children.Add(game);
 
             var rst = new Button { Content = "↺", Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right };
-            try { ToolTipService.SetToolTip(rst, "Back to the game's value"); } catch { }
+            try { ToolTipService.SetToolTip(rst, Loc.T(f.Global || ModOnly(f.Key) ? "Back to the default" : NoGame.Contains(f.Key) ? "Back to the Base Game profile's value" : "Back to the game's value")); } catch { }
             rst.Click += (o, e) => { string gv; Set(f, GameValue(f, out gv) ? gv : FromValue(f)); refresh(); mark(); };
             Grid.SetColumn(rst, 3);
             g.Children.Add(rst);
@@ -1133,10 +1175,10 @@ namespace AlternativeDamageModel
                 else if (key == "#nodeck") d = "Ships that get no Deck Points (Flooding): water over the deck edge is not calculated for them, the old simpler rules are used, as for a ship without a hull collider. Picked from the game's ships or by ini file name.";
                 else if (key == "#modules") d = "Module types (modules.ini) with their own Integrity, set explicitly in place of modules.ini's (the game's value is put in when a type is picked); the Integrity multiplier above does not apply to them. The game's own adjustments keep their proportion: types marked \"× tonnage\" (amber) grow with the ship's displacement - point at one for its final values -, and a ship's own value for a system is changed in the same ratio.";
                 _help.Inlines.Clear();
-                var r = new Run(label); r.FontWeight = FontWeight.Bold; r.Foreground = B(CText);
+                var r = new Run(Loc.T(label)); r.FontWeight = FontWeight.Bold; r.Foreground = B(CText);
                 _help.Inlines.Add(r);
-                _help.Inlines.Add(new Run(" - " + d));
-                if (!string.IsNullOrEmpty(extra)) { var x = new Run("  " + extra); x.Foreground = B(CWarn); _help.Inlines.Add(x); }
+                _help.Inlines.Add(new Run(" - " + Loc.T(d)));
+                if (!string.IsNullOrEmpty(extra)) { var x = new Run("  " + Loc.T(extra)); x.Foreground = B(CWarn); _help.Inlines.Add(x); }
             };
             row.MouseLeave += (o, e) => row.Background = B(Color.FromArgb(0, 0, 0, 0));
         }
@@ -1170,7 +1212,7 @@ namespace AlternativeDamageModel
         static FrameworkElement ChoiceEditor(Field f, Action mark, out Action refresh)
         {
             var cb = new ComboBox { Width = 150f, MinHeight = 24f, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
-            foreach (var o in f.Options) cb.Items.Add(o);
+            for (int oi = 0; oi < f.Options.Length; oi++) cb.Items.Add(f.Labels != null ? (oi == 0 ? Loc.T(f.Labels[oi]) : f.Labels[oi]) : Loc.T(f.Options[oi]));
             Func<int> index = () =>
             {
                 string cur = Get(f).Trim();
@@ -1265,7 +1307,7 @@ namespace AlternativeDamageModel
                 var pm = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(4f, 0f, 0f, 0f) };
                 var add = new Button { Content = "+", Width = 24f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 1f, 0f, 1f) };
                 var del = new Button { Content = "−", Width = 24f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 1f, 0f, 1f), IsEnabled = list.Count > 1 };
-                try { ToolTipService.SetToolTip(add, "One more step: more teams from more tons"); ToolTipService.SetToolTip(del, "Remove the last step"); } catch { }
+                try { ToolTipService.SetToolTip(add, Loc.T("One more step: more teams from more tons")); ToolTipService.SetToolTip(del, Loc.T("Remove the last step")); } catch { }
                 add.Click += (o, e) =>
                 {
                     var last = list[list.Count - 1];
@@ -1295,13 +1337,14 @@ namespace AlternativeDamageModel
                 var list = new List<float[]>();
                 if (rows != null) foreach (var r in rows) list.Add(new[] { r[0], r[1], r[2] });
                 while (list.Count < 2) list.Add(new[] { list.Count == 0 ? 0f : list[0][0] + 50f, list.Count == 0 ? 1f : list[0][1], list.Count == 0 ? 1f : list[0][2] });
+                // one point per ROW (speed | flooding rate | fire rate): the width stays the same however many points there are
                 var grid = new Grid();
-                for (int r = 0; r < 3; r++) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                for (int c = 0; c < 3; c++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 string[] names = { "speed, knots", "flooding rate", "fire rate" };
-                for (int r = 0; r < 3; r++)
+                for (int c = 0; c < 3; c++)
                 {
-                    var l = Text(names[r], CDim, 12f); l.Margin = new Thickness(0f, 0f, 6f, 0f); Grid.SetRow(l, r); grid.Children.Add(l);
+                    var l = Text(names[c], CDim, 12f); l.Margin = new Thickness(2f, 0f, 6f, 2f); l.HorizontalAlignment = HorizontalAlignment.Center; Grid.SetColumn(l, c); grid.Children.Add(l);
                 }
                 Func<bool> save = () =>
                 {
@@ -1318,14 +1361,14 @@ namespace AlternativeDamageModel
                 for (int i = 0; i < list.Count; i++)
                 {
                     int k = i;
-                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     var boxes = new TextBox[3];
                     for (int r = 0; r < 3; r++)
                     {
                         int c = r;
                         var tb = Edit(N(list[k][c]), 52f);
                         tb.Margin = new Thickness(0f, 1f, 2f, 1f);
-                        Grid.SetColumn(tb, k + 1); Grid.SetRow(tb, c);
+                        Grid.SetColumn(tb, c); Grid.SetRow(tb, k + 1);
                         boxes[c] = tb; grid.Children.Add(tb);
                     }
                     Action commit = () =>
@@ -1349,10 +1392,10 @@ namespace AlternativeDamageModel
                     }
                 }
                 host.Children.Add(grid);
-                var pm = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(4f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center };
+                var pm = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(4f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Top };
                 var add = new Button { Content = "+", Width = 24f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 1f, 0f, 1f) };
                 var del = new Button { Content = "−", Width = 24f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 1f, 0f, 1f), IsEnabled = list.Count > 2 };
-                try { ToolTipService.SetToolTip(add, "One more point"); ToolTipService.SetToolTip(del, "Remove the last point"); } catch { }
+                try { ToolTipService.SetToolTip(add, Loc.T("One more point")); ToolTipService.SetToolTip(del, Loc.T("Remove the last point")); } catch { }
                 add.Click += (o, e) =>
                 {
                     var last = list[list.Count - 1];
@@ -1411,7 +1454,7 @@ namespace AlternativeDamageModel
                 g.Children.Add(lab);
                 var rm = new Button { Content = Cross(8f), Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right,
                                       HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
-                try { ToolTipService.SetToolTip(rm, "Remove: the ship gets Deck Points again"); } catch { }
+                try { ToolTipService.SetToolTip(rm, Loc.T("Remove: the ship gets Deck Points again")); } catch { }
                 rm.Click += (o, e) => { var l = NoDeckList(); l.RemoveAll(x => string.Equals(x, nm, StringComparison.OrdinalIgnoreCase)); NoDeckSet(l); };
                 Grid.SetColumn(rm, 3); g.Children.Add(rm);
                 Hover(outer, ShipNames.Display(nm), "#nodeck");
@@ -1442,14 +1485,14 @@ namespace AlternativeDamageModel
             nameBox.LostFocus += (o, e) => Typing(false);
             ag.Children.Add(nameBox);
             var err = Text("", CErr, 11f); err.Margin = new Thickness(8f, 0f, 0f, 0f);
-            var addB = new Button { Content = "+ Add ship", Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(8f, 0f, 0f, 0f), MinHeight = 24f };
+            var addB = new Button { Content = Loc.T("+ Add ship"), Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(8f, 0f, 0f, 0f), MinHeight = 24f };
             addB.Click += (o, e) =>
             {
                 string n = ShipNames.ToIni((nameBox.SelectedItem as string ?? nameBox.Text ?? "").Trim());
                 if (n.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) n = n.Substring(0, n.Length - 4);
-                if (n.Length == 0) { err.Text = "a ship from the list, or its ini file name"; return; }
+                if (n.Length == 0) { err.Text = Loc.T("a ship from the list, or its ini file name"); return; }
                 string bad = AdmPlugin.BadKey(n);
-                if (bad != null) { err.Text = bad; return; }
+                if (bad != null) { err.Text = Loc.T(bad); return; }
                 var l = NoDeckList();
                 if (!l.Exists(x => string.Equals(x, n, StringComparison.OrdinalIgnoreCase))) l.Add(n);
                 NoDeckSet(l);
@@ -1471,10 +1514,10 @@ namespace AlternativeDamageModel
         static string ModuleGame(string n)
         {
             float gi = ModuleNames.GameIntegrity(n);
-            if (gi <= 0f) return "unknown type";
+            if (gi <= 0f) return Loc.T("unknown type");
             // a type the game scales with the ship's displacement has no one value: the examples are in the tooltip
             string v = gi.ToString("0.##", CultureInfo.InvariantCulture);
-            return ModuleNames.ScalesWithDisplacement(n) ? "game: " + v + "\ntonnage dependent" : "game: " + v;
+            return ModuleNames.ScalesWithDisplacement(n) ? Loc.F("game: {0}", v) + "\n" + Loc.T("tonnage dependent") : Loc.F("game: {0}", v);
         }
 
         /// <summary>
@@ -1511,7 +1554,7 @@ namespace AlternativeDamageModel
                 Grid.SetRow(t, r); Grid.SetColumn(t, c); g.Children.Add(t);
             };
             g.RowDefinitions.Add(new RowDefinition());
-            cell(0, 0, n, CText, true); cell(0, 1, "game", CDim, false); if (own) cell(0, 2, "yours", CDim, false);
+            cell(0, 0, n, CText, true); cell(0, 1, Loc.T("game"), CDim, false); if (own) cell(0, 2, Loc.T("yours"), CDim, false);
             for (int i = 0; i < ExampleTons.Length; i++)
             {
                 float t = ExampleTons[i];
@@ -1529,8 +1572,8 @@ namespace AlternativeDamageModel
             if (!ModuleNames.ScalesWithDisplacement(n)) return null;
             var parts = new List<string>();
             foreach (var t in ExampleTons)
-                parts.Add(t.ToString("#,0", CultureInfo.InvariantCulture).Replace(',', ' ') + " t: " + ScaledIntegrity(v, t, false).ToString("0", CultureInfo.InvariantCulture));
-            return "Integrity on a warship of " + string.Join(" · ", parts.ToArray()) + ".";
+                parts.Add(Loc.F("{0} t: {1}", t.ToString("#,0", CultureInfo.InvariantCulture).Replace(',', ' '), ScaledIntegrity(v, t, false).ToString("0", CultureInfo.InvariantCulture)));
+            return Loc.F("Integrity on a warship of {0}.", string.Join(" · ", parts.ToArray()));
         }
 
         /// <summary>
@@ -1633,16 +1676,16 @@ namespace AlternativeDamageModel
             nameBox.SelectionChanged += (o, e) => picked();
             nameBox.LostFocus += (o, e) => picked();
             var err = Text("", CErr, 11f); err.Margin = new Thickness(8f, 0f, 0f, 0f);
-            var addB = new Button { Content = addLabel, Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(8f, 0f, 0f, 0f), MinHeight = 24f };
+            var addB = new Button { Content = Loc.T(addLabel), Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(8f, 0f, 0f, 0f), MinHeight = 24f };
             addB.Click += (o, e) =>
             {
                 string n = toKey((nameBox.Text ?? "").Trim());
                 if (n.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)) n = n.Substring(0, n.Length - 4);
                 Factor fv;
-                if (n.Length == 0) { err.Text = errText; return; }
+                if (n.Length == 0) { err.Text = Loc.T(errText); return; }
                 string bad = AdmPlugin.BadKey(n);
-                if (bad != null) { err.Text = bad; return; }
-                if (!Factor.TryParse(val.Text, out fv) || fv.V <= 0f) { err.Text = "a positive number"; return; }
+                if (bad != null) { err.Text = Loc.T(bad); return; }
+                if (!Factor.TryParse(val.Text, out fv) || fv.V <= 0f) { err.Text = Loc.T("a positive number"); return; }
                 mapOf(_work)[n] = new Factor(Math.Max(min, Math.Min(max, fv.V))).ToString();
                 BecomeOwn(); ShowTab(_tab);
             };
@@ -1753,7 +1796,7 @@ namespace AlternativeDamageModel
             var sp = new StackPanel { Orientation = Orientation.Vertical };
             var box = Edit(initial, 334f); box.TextAlignment = TextAlignment.Left; box.Height = 26f;
             sp.Children.Add(box);
-            var where = new TextBlock { Text = "Saved to " + AdmPlugin.ProfileFolder, Foreground = B(CDim), FontSize = 11f, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0f, 6f, 0f, 4f) };
+            var where = new TextBlock { Text = Loc.F("Saved to {0}", AdmPlugin.ProfileFolder), Foreground = B(CDim), FontSize = 11f, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0f, 6f, 0f, 4f) };
             sp.Children.Add(where);
             var err = new TextBlock { Foreground = B(CErr), FontSize = 11f, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0f, 0f, 0f, 8f) };
             sp.Children.Add(err);
@@ -1761,7 +1804,7 @@ namespace AlternativeDamageModel
             Action go = () =>
             {
                 string e = act(box.Text);
-                if (e == null) HideDialog(); else err.Text = e;
+                if (e == null) HideDialog(); else err.Text = Loc.T(e);
             };
             row.Children.Add(Btn("Cancel", HideDialog, 70f));
             var ok = Btn("Save", go, 70f); ok.Margin = new Thickness(0f);
@@ -1776,12 +1819,12 @@ namespace AlternativeDamageModel
         {
             var sp = new StackPanel { Orientation = Orientation.Vertical };
             var err = new TextBlock { Foreground = B(CErr), FontSize = 11f, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0f, 0f, 0f, 8f) };
-            sp.Children.Add(new TextBlock { Text = "Its file is deleted. If it is the profile in use, Advanced comes into use.", Foreground = B(CDim), FontSize = 12f,
+            sp.Children.Add(new TextBlock { Text = Loc.T("Its file is deleted. If it is the profile in use, Advanced comes into use."), Foreground = B(CDim), FontSize = 12f,
                                             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0f, 0f, 0f, 8f) });
             sp.Children.Add(err);
             var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             row.Children.Add(Btn("Cancel", HideDialog, 70f));
-            var ok = Btn("Delete", () => { string e = act(); if (e == null) HideDialog(); else err.Text = e; }, 70f); ok.Margin = new Thickness(0f);
+            var ok = Btn("Delete", () => { string e = act(); if (e == null) HideDialog(); else err.Text = Loc.T(e); }, 70f); ok.Margin = new Thickness(0f);
             row.Children.Add(ok);
             sp.Children.Add(row);
             Dialog(question, sp);

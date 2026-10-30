@@ -1,5 +1,8 @@
 Version 1.6.0.
 
+Changes since version 1.4.0 (the last Steam release), for Sea Power 0.8.6-0.8.7.
+[Advanced] = on in the Advanced profile only.
+
 - New: settings also open from the main menu and the pause menu. Settings are kept in user/AlternativeDamageControl now (the old folder is moved).
 - The Forecast card is shown only while the ship has damage; the health bar of a wounded team is drawn above its icon, not over it. A team with a task given by hand is marked by a small red ! (also on its icon in the orders menu) instead of the yellow underline.
 - Fixed: the game crashed at start (a Noesis property of the map was read before the UI was ready); it is read at the first note in a mission now.

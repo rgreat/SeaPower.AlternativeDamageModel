@@ -25,7 +25,7 @@ namespace AlternativeDamageModel
             public FrameworkElement Res;                // where the game's brushes are looked up
             public double T = -1; public float List, Trim;
             public string FireSig;
-            public TextBlock FcMain, FcSub, FcWarn; public Border FcCard;               // the forecast card (summary column 3)
+            public TextBlock FcMain, FcSub, FcWarn; public Border FcCard; public Grid FcSummary;               // the forecast card (summary column 3)
             public Border HullCard;                      // the card of Hull Damage / Flooding / Fires: its tooltip is the list of hits
             public TextBlock HullVal, FloodVal; public bool HullColored;   // the game's "Hull Damage" / "Flooding" values: we add (NN%)
             // "Damage Control Teams" / "Teams Knocked Out": the game's value (and the first card's "Available / Total") hidden, ours shown
@@ -50,8 +50,8 @@ namespace AlternativeDamageModel
             Func<string, Color, bool, TextBlock> line = (t, c, bold) => new TextBlock { Text = t, FontSize = 12f, Foreground = new SolidColorBrush(c), FontWeight = bold ? FontWeight.Bold : FontWeight.Normal, Margin = new Thickness(0f, 1f, 0f, 1f) };
             var text = Color.FromRgb(225, 228, 232); var dim = Color.FromRgb(150, 156, 164);
             var recs = HitLog.Records(comp);
-            root.Children.Add(line("Hits on the ship: " + recs.Count, text, true));
-            if (recs.Count == 0) { root.Children.Add(line("None yet", dim, false)); return root; }
+            root.Children.Add(line(Loc.F("Hits on the ship: {0}", recs.Count), text, true));
+            if (recs.Count == 0) { root.Children.Add(line(Loc.T("None yet"), dim, false)); return root; }
             if (recs.Count > HitLogLines)
             {
                 var count = new Dictionary<string, int>(); var order = new List<string>();
@@ -64,8 +64,8 @@ namespace AlternativeDamageModel
             {
                 var ts = TimeSpan.FromSeconds(Math.Max(0.0, r.Time));
                 string when = ((int)ts.TotalHours).ToString("0", CultureInfo.InvariantCulture) + ":" + ts.Minutes.ToString("00", CultureInfo.InvariantCulture) + ":" + ts.Seconds.ToString("00", CultureInfo.InvariantCulture);
-                string where = SectionName(_sectionNames, r.Section) + ", " + (r.Port ? "port" : "starboard");
-                root.Children.Add(line(when + "   " + r.Ammo + "   " + where + (r.Armor ? "   (stopped by armour)" : "") + (r.Blast ? "   (explosion)" : ""), r.Armor ? dim : text, false));
+                string where = SectionName(_sectionNames, r.Section) + ", " + (r.Port ? Loc.T("port") : Loc.T("starboard"));
+                root.Children.Add(line(when + "   " + r.Ammo + "   " + where + (r.Armor ? "   (" + Loc.T("stopped by armour") + ")" : "") + (r.Blast ? "   (" + Loc.T("explosion") + ")" : ""), r.Armor ? dim : text, false));
             }
             return root;
         }
@@ -118,6 +118,12 @@ namespace AlternativeDamageModel
             if (ModelOn() && SubmergedFlooding.TouchAngles(comp, out l, out t)) return t / Limits.FloodFrom;
             return ModelOn() ? Limits.Trim(DcTeams.ShipLength(comp)) : 8f / Limits.FloodFrom;
         }
+        /// <summary>The list (degrees) where the LIST gauge's red zone starts, for the counterflooding teams.</summary>
+        public static float ListRed(object comp) { return Math.Max(1f, ListScale(comp) * Limits.FloodFrom); }
+        /// <summary>The trim (degrees) where the TRIM gauge's red zone starts.</summary>
+        public static float TrimRed(object comp) { return Math.Max(0.5f, TrimScale(comp) * Limits.FloodFrom); }
+        /// <summary>The water in the ship (% of the hull) where the LEVEL gauge's red band starts.</summary>
+        public static float LevelDangerAt(object comp) { return 0.8f * SinkAt(comp); }
         /// <summary>Water in the ship (% of the hull) at which it sinks.</summary>
         public static float SinkAt(object comp) { return IsSub(comp) ? 50f : ModelOn() ? Limits.LevelFull : 40f; }
 
@@ -212,9 +218,9 @@ namespace AlternativeDamageModel
                 row.ColumnDefinitions.Add(ColDef(10f, GridUnitType.Pixel));
                 row.ColumnDefinitions.Add(ColDef(1f, GridUnitType.Star));
                 Grid.SetRow(row, 2);
-                var label = new TextBlock { Text = "Fires:", VerticalAlignment = VerticalAlignment.Center };
+                var label = new TextBlock { Text = Loc.T("Fires:"), VerticalAlignment = VerticalAlignment.Center };
                 if (tLabel != null) { label.FontSize = tLabel.FontSize; }
-                var value = new TextBlock { Text = "None", VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
+                var value = new TextBlock { Text = Loc.T("None"), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
                 if (tValue != null) { value.Padding = tValue.Padding; value.Background = tValue.Background; value.FontSize = tValue.FontSize; }
                 Grid.SetColumn(value, 2);
                 row.Children.Add(label);
@@ -262,18 +268,12 @@ namespace AlternativeDamageModel
                     Background = styleCard.Background, BorderBrush = styleCard.BorderBrush, BorderThickness = styleCard.BorderThickness,
                     Padding = new Thickness(6f, 4f, 6f, 4f), Margin = new Thickness(0f, 0f, 6f, 0f)
                 };
-                // centred between its two neighbours: the cards of the first columns on the left, the hull card (column 4) on the right
-                int left = 1;
-                for (int k = 0, cnt = VisualTreeHelper.GetChildrenCount(summary); k < cnt; k++)
-                {
-                    var nb = VisualTreeHelper.GetChild(summary, k) as Border;
-                    if (nb == null) continue;
-                    int cc = Grid.GetColumn(nb);
-                    if (cc < 3 && cc > left) left = cc;
-                }
-                Grid.SetColumn(fc, left + 1); Grid.SetColumnSpan(fc, 4 - left - 1);
-                fc.HorizontalAlignment = HorizontalAlignment.Center;
-                fc.Margin = new Thickness(6f, 0f, 6f, 0f);
+                // centred between its two neighbours (the cards on the left, the hull card of column 4 on the right): it spans the columns
+                // and its left margin is set from the real positions in CenterForecast (the game's layout differs between versions)
+                Grid.SetColumn(fc, 0); Grid.SetColumnSpan(fc, 4);
+                fc.HorizontalAlignment = HorizontalAlignment.Left;
+                fc.Margin = new Thickness(0f, 0f, 0f, 0f);
+                x.FcSummary = summary;
                 x.FcCard = fc;
                 // one line along the top (it does not cover the ship's picture): "Forecast: Sinks in ~N min (hull damage)"
                 fc.VerticalAlignment = VerticalAlignment.Top; fc.Padding = new Thickness(8f, 3f, 8f, 3f);
@@ -281,8 +281,8 @@ namespace AlternativeDamageModel
                 var sp = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 var line1 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
                 var dimB = Res(view, "Brush.Foreground.Highlight", Color.FromRgb(214, 218, 222));
-                line1.Children.Add(new TextBlock { Text = "Forecast:", FontSize = 14f, Foreground = dimB, Margin = new Thickness(0f, 0f, 8f, 0f), VerticalAlignment = VerticalAlignment.Center });
-                x.FcMain = new TextBlock { Text = "Stable", FontSize = 16f, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
+                line1.Children.Add(new TextBlock { Text = Loc.T("Forecast:"), FontSize = 14f, Foreground = dimB, Margin = new Thickness(0f, 0f, 8f, 0f), VerticalAlignment = VerticalAlignment.Center });
+                x.FcMain = new TextBlock { Text = Loc.T("Stable"), FontSize = 16f, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
                 x.FcSub = new TextBlock { Text = "", FontSize = 14f, Foreground = dimB, Margin = new Thickness(8f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center };
                 x.FcWarn = new TextBlock { Text = "", FontSize = 14f, Foreground = BHeavy, Margin = new Thickness(0f, 2f, 0f, 0f), HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
                 line1.Children.Add(x.FcMain); line1.Children.Add(x.FcSub);
@@ -299,9 +299,9 @@ namespace AlternativeDamageModel
                 card.HorizontalAlignment = HorizontalAlignment.Right;   // its own width
                 Grid.SetColumn(card, 2);
                 var rowp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                rowp.Children.Add(Dial("LIST", "PORT", "STBD", ListRange, ListDanger, out x.ListRot, out x.ListVal, out x.ListRed));
+                rowp.Children.Add(Dial(Loc.T("LIST"), Loc.T("PORT"), Loc.T("STBD"), ListRange, ListDanger, out x.ListRot, out x.ListVal, out x.ListRed));
                 rowp.Children.Add(new Border { Width = 6f });
-                var trimDial = Dial("TRIM", "STERN", "BOW", TrimRange, TrimDanger, out x.TrimRot, out x.TrimVal, out x.TrimRed);
+                var trimDial = Dial(Loc.T("TRIM"), Loc.T("STERN"), Loc.T("BOW"), TrimRange, TrimDanger, out x.TrimRot, out x.TrimVal, out x.TrimRed);
                 // no tooltip of its own: the card's flooding plan shows over all three gauges (with the list / trim limits)
                 rowp.Children.Add(trimDial);
                 rowp.Children.Add(new Border { Width = 8f });
@@ -359,13 +359,39 @@ namespace AlternativeDamageModel
                 {
                     x.MovingIcons = icons;
                     TextBlock ours = null;
-                    if (title != null) { Hide(x, title); ours = Copy(title, "In Transfer", 0); Add(x, inner, ours); }
+                    if (title != null) { Hide(x, title); ours = Copy(title, Loc.T("In Transfer"), 0); Add(x, inner, ours); }
                     if (label != null) Hide(x, label);
                     // with Alternative Damage Control off the card is the game's own again ("Teams Knocked Out")
                     x.GameCard2 = new UIElement[] { title, value, label };
                     x.OurCard2 = new UIElement[] { ours, icons };
                 }
             }
+        }
+
+        /// <summary>The forecast card in the middle of the free space of the summary row: between the right edge of the last visible card on the left
+        /// and the left edge of the card of the last column (hull damage / flooding / fires), from the positions as laid out.</summary>
+        static void CenterForecast(Extras x)
+        {
+            try
+            {
+                var fc = x.FcCard; var summary = x.FcSummary;
+                if (fc == null || summary == null || fc.Visibility != Visibility.Visible || fc.ActualWidth < 1f) return;
+                float leftEdge = 0f, rightEdge = -1f;
+                for (int k = 0, cnt = VisualTreeHelper.GetChildrenCount(summary); k < cnt; k++)
+                {
+                    var b = VisualTreeHelper.GetChild(summary, k) as FrameworkElement;
+                    if (b == null || ReferenceEquals(b, fc) || b.Visibility != Visibility.Visible || b.ActualWidth < 1f) continue;
+                    float bx = b.TranslatePoint(new Point(0f, 0f), summary).X;
+                    if (Grid.GetColumn(b) >= 4) { if (rightEdge < 0f || bx < rightEdge) rightEdge = bx; }
+                    else leftEdge = Math.Max(leftEdge, bx + b.ActualWidth);
+                }
+                if (rightEdge < 0f) rightEdge = summary.ActualWidth;
+                float want = leftEdge + (rightEdge - leftEdge - fc.ActualWidth) / 2f;
+                if (want < leftEdge) want = leftEdge;
+                var m = fc.Margin;
+                if (Math.Abs(m.Left - want) > 0.5f) fc.Margin = new Thickness(want, m.Top, 0f, m.Bottom);
+            }
+            catch (Exception e) { Trace("forecast centring: " + e.Message); }
         }
 
         static void Hide(Extras x, UIElement e) { e.Visibility = Visibility.Collapsed; x.Hidden.Add(e); }
@@ -430,7 +456,7 @@ namespace AlternativeDamageModel
             {
                 x.TeamsSig = sig;
                 x.Clocks.Clear();
-                Func<int, string> name = i => i < 0 ? "the reserve" : (sectionNames != null && i < sectionNames.Length && !string.IsNullOrEmpty(sectionNames[i]) ? sectionNames[i] : "section " + (i + 1));
+                Func<int, string> name = i => i < 0 ? Loc.T("the reserve") : (sectionNames != null && i < sectionNames.Length && !string.IsNullOrEmpty(sectionNames[i]) ? sectionNames[i] : Loc.F("section {0}", i + 1));
 
                 // reserve: free teams and dead ones only - teams on their way back and recovering ones are shown in In Transfer only
                 if (x.FreeIcons != null)
@@ -446,7 +472,7 @@ namespace AlternativeDamageModel
                         var e = stunned ? BigIcon(IconInjured, null, Clock(pool[k].Stun), out sclock, pool[k].Ref) : BigIcon(TaskIdle, null, null, out _unused, k < pool.Count ? pool[k].Ref : null);
                         if (stunned) x.Clocks.Add(new KeyValuePair<object, TextBlock>(pool[k].Ref, sclock));
                         if (k < pool.Count) { var r = pool[k].Ref; LiveTip(e, () => RefTip(comp, r, sectionNames)); }
-                        else try { ToolTipService.SetToolTip(e, "A free damage control team, waiting in the reserve"); } catch { }
+                        else try { ToolTipService.SetToolTip(e, Loc.T("A free damage control team, waiting in the reserve")); } catch { }
                         ch.Add(e);
                     }
                     foreach (var t in teams)
@@ -454,7 +480,7 @@ namespace AlternativeDamageModel
                         if (t.State == (int)DcTeams.St.Dead) { var r = t.Ref; var e = BigIcon(IconDead, null, null); LiveTip(e, () => RefTip(comp, r, sectionNames)); ch.Add(e); }
                         if (t.State != (int)DcTeams.St.Dead) alive++;
                     }
-                    if (x.FreeLabel != null) x.FreeLabel.Text = DcTeams.FatigueMin > 0f ? "Resting" : "In reserve";
+                    if (x.FreeLabel != null) x.FreeLabel.Text = DcTeams.FatigueMin > 0f ? Loc.T("Resting") : Loc.T("In reserve");
                 }
 
                 // on the move and recovering, with the time left
@@ -572,7 +598,7 @@ namespace AlternativeDamageModel
         {
             const float w = 16f, h = 56f, inner = h - 2f;
             var stack = new StackPanel { Orientation = Orientation.Vertical };
-            stack.Children.Add(new TextBlock { Text = "LEVEL", FontSize = 11f, Foreground = new SolidColorBrush(CDim), HorizontalAlignment = HorizontalAlignment.Center });
+            stack.Children.Add(new TextBlock { Text = Loc.T("LEVEL"), FontSize = 11f, Foreground = new SolidColorBrush(CDim), HorizontalAlignment = HorizontalAlignment.Center });
             var bar = new Grid { Width = w, Height = h, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0f, 2f, 0f, 0f) };  // 2 px lower top edge
             bar.Children.Add(new Border { Background = new SolidColorBrush(CDial) });
             x.LevelHeight = inner;
@@ -626,7 +652,7 @@ namespace AlternativeDamageModel
                 }
                 // the fires' strength is what counts (the sum over the sections); their number is only added in brackets
                 worst = ContactIntel.FireStage(ContactIntel.FireTotal(comp));
-                string text = worst == 0 ? "None" : (worst == 1 ? "Minor" : worst == 2 ? "Moderate" : "Severe") + (burning > 1 ? " (" + burning + ")" : "");
+                string text = worst == 0 ? Loc.T("None") : (worst == 1 ? Loc.T("Minor") : worst == 2 ? Loc.T("Moderate") : Loc.T("Severe")) + (burning > 1 ? " (" + burning + ")" : "");
                 string sig = text + worst;
                 if (sig != x.FireSig)
                 {
@@ -644,10 +670,11 @@ namespace AlternativeDamageModel
                 ContactIntel.Forecast(comp, out fm, out fs, out fv);
                 SetText(x.FcMain, fm); SetText(x.FcSub, fs.Length == 0 ? "" : "(" + fs + ")");
                 float em = DcTeams.EngineMulOf(comp);
-                SetText(x.FcWarn, em < 1f ? "Engine out: DC efficiency " + Math.Round(em * 100f).ToString("0", CultureInfo.InvariantCulture) + "%" : "");
+                SetText(x.FcWarn, em < 1f ? Loc.F("Engine out: DC efficiency {0}%", Math.Round(em * 100f).ToString("0", CultureInfo.InvariantCulture)) : "");
                 var wv = em < 1f ? Visibility.Visible : Visibility.Collapsed;
                 if (x.FcWarn.Visibility != wv) x.FcWarn.Visibility = wv;
                 SetBrush(x.FcMain, fv >= 2 ? BCritical : fv == 1 ? BHeavy : StageBrush(x.Res, 0));
+                CenterForecast(x);
             }
             try { RenderHullFlood(comp, x); } catch (Exception e) { Trace("RenderHullFlood: " + e.Message); }
 

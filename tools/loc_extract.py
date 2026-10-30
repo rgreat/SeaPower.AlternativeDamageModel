@@ -49,7 +49,7 @@ def split_args(s, pos):
         elif c == ',' and depth == 0: out.append(s[cur:i]); cur = i + 1
         i += 1
     return None
-EXTRA = ['Add type', 'Game language', 'plugging (stops the leak)', 'fire', 'fighting', 'putting out', 'leak']   # texts built at run time (appended at the end: the translation files are numbered)
+EXTRA = ['Add type', 'Game language', 'plugging (stops the leak)', 'fire', 'fighting', 'putting out', 'leak', 'pumping out', 'flooding', 'hull damage']   # texts built at run time (appended at the end: the translation files are numbered)
 
 def scan(root):
     found = {}
