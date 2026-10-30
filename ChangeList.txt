@@ -9,4 +9,5 @@ Changes since version 1.4.0 (the last Steam release), for Sea Power 0.8.6-0.8.7.
 - NEW (Systems tab) [Advanced]: "Several repair priorities": the "!" of several systems in a section can be on at once; the section repairs them in turn, in the order they were set.
 - Changed: counterflooding floods or pumps out a side only where that takes off the list or trim (the more dangerous first), keeps its action 10 s, and floods nothing in the red band of LEVEL.
 - NEW [Advanced] (DC Teams > Water): "Auto DC counterflooding": while holes let water in and list / trim reach 40% of the red zone (until 20%), Auto DC sends a team to counterflood where it helps most. Plugging holes or pumping in a burning section: two teams, one fights the fire.
+- Auto, Fire and Flooding on the DC Priority buttons and in the orders menu are now the game's own texts (translated by the game).
 - Special effects (extra fire / smoke points, fire looks, sinking bubbles, hiding unseen targets in 3D) moved to Alternative Special Effects; install it to keep them. Settings are taken over on its first start.
