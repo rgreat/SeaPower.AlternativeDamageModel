@@ -34,7 +34,6 @@ namespace AlternativeDamageModel
         public static float RegenRate = 0.5f;     // % of the full health a second in the reserve
         public static float FireWound = 1f;       // % of the full health a second at fire 100% (a team that does not fight it)
         public static float WoundChance = 1f;     // x the chance of a wound
-        public static float ReserveWoundChance = 1f;   // x the chance of a wound of a team resting in the reserve (on top of WoundChance)
         public static float HitWound = 1f;        // x the warhead power of the hit = the wound in points
         public static float StunTime = 90f, StunSpread = 0f;   // [DamageControlTeams] HealTime / HealTimeSpread: seconds a team hit by a weapon stays in the reserve concussed (+- spread)
         static readonly System.Random Rnd = new System.Random();
@@ -82,8 +81,6 @@ namespace AlternativeDamageModel
         static PropertyInfo _teams, _defaults, _gameTime, _length;
         static MethodInfo _set, _send;
         static FieldInfo _timers, _sinking, _count, _obp, _lastRecall, _base;
-        static Fld<bool> _gSinking; static Fld<object> _gBase; static Fld<List<double>> _gTimers;   // fast access in the tick (Fast.cs)
-        static Prop<int[]> _gTeams; static StaticNum _nTime; static Prop<bool> _gDestroyed;
         static PropertyInfo _destroyed;
 
         public static bool Init(Assembly asm)
@@ -107,12 +104,6 @@ namespace AlternativeDamageModel
                 _gameTime = asm.GetType("SeaPower.GameTime").GetProperty("missionElapsedTime", all);
                 _length = asm.GetType("SeaPower.ObjectBaseParameters").GetProperty("_length", all);
                 _ok = _teams != null && _defaults != null && _set != null && _send != null && _timers != null && _sinking != null && _count != null && _gameTime != null;
-                if (_ok)
-                {
-                    _gSinking = new Fld<bool>(_sinking); _gTimers = new Fld<List<double>>(_timers); _gTeams = new Prop<int[]>(_teams); _nTime = new StaticNum(_gameTime);
-                    if (_base != null) _gBase = new Fld<object>(_base);
-                    if (_destroyed != null) _gDestroyed = new Prop<bool>(_destroyed);
-                }
             }
             catch (Exception e) { Trace("DcTeams.Init: " + e); _ok = false; }
             return _ok;
@@ -332,17 +323,14 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The same; odds is the chance that was rolled (for the trace statistics).</summary>
-        static float WoundOf(object comp, float power, out double odds) { return WoundOf(comp, power, out odds, 1.0); }
-
-        /// <summary>The same with one more multiplier of the chance (the reserve: ReserveWoundChance).</summary>
-        static float WoundOf(object comp, float power, out double odds, double chanceMul)
+        static float WoundOf(object comp, float power, out double odds)
         {
             odds = 0.0;
             float max = MaxHp(comp);
             if (max <= 0f || power <= 0f) return 0f;
             // the chance of a wound: 0.1 x q^1.2 x WoundChance (WoundOdds, over 100% = sure); the strength is a random part of the range up to 2q
             double q = power / max;
-            odds = WoundOdds(power, max) * chanceMul;
+            odds = WoundOdds(power, max);
             if (Rnd.NextDouble() >= odds) return 0f;
             double strength = Rnd.NextDouble() * Math.Min(1.0, 2.0 * q);
             return (float)(power * HitWound * strength / max);
@@ -408,7 +396,7 @@ namespace AlternativeDamageModel
             if (Rnd.NextDouble() * 100.0 >= chancePct) { WoundStats.ResChanceMiss++; return; }
             var t = pool[Rnd.Next(pool.Count)];
             double odds;
-            float wound = WoundOf(comp, power, out odds, ReserveWoundChance);
+            float wound = WoundOf(comp, power, out odds);
             WoundStats.Rolled(true, odds, wound);
             t.Health -= wound;
             if (wound > 0f) Concuss(t);
@@ -453,8 +441,8 @@ namespace AlternativeDamageModel
         {
             bool w = Wounded(health);
             int lv = FatigueLevel(fatigue);
-            string f = lv == 2 ? Loc.T("Exhausted") : lv == 1 ? Loc.T("Tired") : "";
-            return w && f.Length > 0 ? Loc.T("Wounded") + ", " + f : w ? Loc.T("Wounded") : f;
+            string f = lv == 2 ? "Exhausted" : lv == 1 ? "Tired" : "";
+            return w && f.Length > 0 ? "Wounded, " + f : w ? "Wounded" : f;
         }
 
         /// <summary>Team health and fatigue, every tick: fire wounds, reserve recovery, work builds fatigue.</summary>
@@ -517,10 +505,10 @@ namespace AlternativeDamageModel
 
         static double Now()
         {
-            try { return _nTime != null ? _nTime.Get() : Convert.ToDouble(_gameTime.GetValue(null, null), CultureInfo.InvariantCulture); } catch { return 0; }
+            try { return Convert.ToDouble(_gameTime.GetValue(null, null), CultureInfo.InvariantCulture); } catch { return 0; }
         }
 
-        static int[] Counts(object comp) { return _gTeams != null ? _gTeams.Get(comp) : _teams.GetValue(comp, null) as int[]; }
+        static int[] Counts(object comp) { return _teams.GetValue(comp, null) as int[]; }
 
         /// <summary>The team leaves its section: a task given by hand stays with the section it was given for.</summary>
         static void Leave(Team t) { t.Task = 0; t.Doing = 0; t.Back = false; }
@@ -530,10 +518,9 @@ namespace AlternativeDamageModel
         {
             try
             {
-                if (_gSinking != null ? _gSinking.Get(comp) : (bool)_sinking.GetValue(comp)) return true;
-                var bo = _base == null ? null : _gBase != null ? _gBase.Get(comp) : _base.GetValue(comp);
-                if (bo == null || _destroyed == null) return false;
-                return _gDestroyed != null ? _gDestroyed.Get(bo) : (bool)_destroyed.GetValue(bo, null);
+                if ((bool)_sinking.GetValue(comp)) return true;
+                var bo = _base == null ? null : _base.GetValue(comp);
+                return bo != null && _destroyed != null && (bool)_destroyed.GetValue(bo, null);
             }
             catch { return false; }
         }
@@ -836,7 +823,7 @@ namespace AlternativeDamageModel
                     if (Ships.TryGetValue(comp, out sh))
                     {
                         if (!InSync(comp, sh) || (Total(comp) > 0 && sh.Teams.Count > Total(comp))) Reconcile(comp, sh);
-                        var tl = _gTimers.Get(comp);
+                        var tl = _timers.GetValue(comp) as List<double>;
                         sh.Timers = tl == null ? 0 : tl.Count;   // the game's own timers: not ours to take over when switched on
                     }
                 }
@@ -854,7 +841,7 @@ namespace AlternativeDamageModel
                 // knocked out by a hit (Blastzone): the game took one from a section and queued a return timer (appended at the
                 // end) - taken over. Only timers added since the last tick count, and only as far as a team of ours is missing in a
                 // section; the others (queued before, e.g. while ADC was off) the game keeps and returns the team itself
-                var timers = _gTimers.Get(comp);
+                var timers = _timers.GetValue(comp) as List<double>;
                 int nTimers = timers == null ? 0 : timers.Count;
                 int fresh = nTimers - s.Timers;
                 if (fresh > 0)

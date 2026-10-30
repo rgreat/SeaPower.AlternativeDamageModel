@@ -111,7 +111,7 @@ namespace AlternativeDamageModel
                     if (_pHeader != null)
                     {
                         if (_origHeader == null) _origHeader = Convert.ToString(_pHeader.GetValue(dc, null));
-                        if (_origHeader != "Damage State" && _origHeader != Loc.T("Damage State")) _pHeader.SetValue(dc, Loc.T("Damage State"), null);
+                        if (_origHeader != "Damage State") _pHeader.SetValue(dc, "Damage State", null);
                     }
                     _pAvail.SetValue(eng, false, null);
                     _pAvail.SetValue(dc, true, null);
@@ -211,9 +211,9 @@ namespace AlternativeDamageModel
                 bool ident = _vIdent != null && ContactIntel.Flag(_vIdent.GetValue(vehicle, null));
                 var obj = ContactIntel.ObjectOf(vehicle);
                 string name = ident && obj != null && _oName != null ? Convert.ToString(_oName.GetValue(obj, null)) : null;
-                return string.IsNullOrEmpty(name) ? Loc.F("Contact {0}", id) : name + " (" + id + ")";
+                return string.IsNullOrEmpty(name) ? "Contact " + id : name + " (" + id + ")";
             }
-            catch { return Loc.T("Contact"); }
+            catch { return "Contact"; }
         }
 
         // ------------------------------------------------------------ the panel over the tab's content
@@ -296,37 +296,36 @@ namespace AlternativeDamageModel
 
         static void SetText(TextBlock tb, string s) { if (tb.Text != s) tb.Text = s; }
 
-        static string FireWord(int n) { return Loc.T(n <= 1 ? "minor" : n == 2 ? "moderate" : "severe"); }
-        static string WaterWord(int n) { return Loc.T(n <= 1 ? "slight" : n == 2 ? "moderate" : n == 3 ? "heavy" : "critical"); }
-        static string HullWord(int n) { return Loc.T(n <= 1 ? "slightly damaged" : n == 2 ? "damaged" : n == 3 ? "heavily damaged" : "breaking up"); }
+        static readonly string[] FireWords = { "", "minor", "moderate", "severe" };
+        static readonly string[] WaterWords = { "", "slight", "moderate", "heavy", "critical" };
+        static readonly string[] HullWords = { "", "slightly damaged", "damaged", "heavily damaged", "breaking up" };
 
         static void Fill(Card p, FrameworkElement view)
         {
             var i = ContactIntel.Of(_vehicle);
-            SetText(p.Title, Loc.F("Damage State — {0}", NameOf(_vehicle)));
+            SetText(p.Title, "Damage State — " + NameOf(_vehicle));
             string fc = ""; int sev = 0;
-            if (i.Sinking) { fc = Loc.T("Sinking"); sev = 2; }
-            else if (i.Seen && i.Ident && i.EtaMin > 0) { int m = (i.EtaMin + 4) / 5 * 5; fc = Loc.F("Sinks in ~{0} min", m) + (string.IsNullOrEmpty(i.Cause) ? "" : " (" + Loc.T(i.Cause) + ")"); sev = i.EtaMin <= 20 ? 2 : 1; }
-            else if (i.Seen && !i.Ident && i.EtaMin > 0) { fc = Loc.T("Sinking soon"); sev = 1; }
+            if (i.Sinking) { fc = "Sinking"; sev = 2; }
+            else if (i.Seen && i.Ident && i.EtaMin > 0) { int m = (i.EtaMin + 4) / 5 * 5; fc = "Sinks in ~" + m + " min" + (string.IsNullOrEmpty(i.Cause) ? "" : " (" + i.Cause + ")"); sev = i.EtaMin <= 20 ? 2 : 1; }
+            else if (i.Seen && !i.Ident && i.EtaMin > 0) { fc = "Sinking soon"; sev = 1; }
             SetText(p.Forecast, fc);
             p.Forecast.Visibility = fc.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
             p.Forecast.Foreground = ContactIntelBrush(sev);
-            SetText(p.Via, string.IsNullOrEmpty(i.Via) ? "" : Loc.F("Source: {0}", i.Via));
+            SetText(p.Via, string.IsNullOrEmpty(i.Via) ? "" : "Source: " + i.Via);
             string att = i.Attitude ?? "";
             bool any = i.Any || att.Length > 0;
-            SetText(p.Empty, any ? "" : i.Seen ? Loc.T("No damage visible") : Loc.T("No data: not in direct sight"));
+            SetText(p.Empty, any ? "" : i.Seen ? "No damage visible" : "No data: not in direct sight");
             p.Empty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
             int[] lv = { i.Fire, i.Flood, i.Hull, i.Engine };
             if (lv[1] == 0 && att.Length > 0) lv[1] = 1;   // only the attitude is seen: the water icon, yellow
             string[] txt =
             {
-                lv[0] > 0 ? Loc.F("Fire: {0}", FireWord(lv[0])) : "",
-                i.Flood > 0 ? Loc.F("Flooding: {0}", WaterWord(i.Flood)) + (att.Length > 0 ? ", " + att : "") : att.Length > 0 ? Loc.F("Attitude: {0}", att) : "",
-                lv[2] > 0 ? Loc.F("Hull: {0}", HullWord(lv[2])) : "",
-                lv[3] > 0 ? (lv[3] >= 4 ? Loc.T("Engine: dead in the water") : Loc.T("Engine: part of propulsion lost")) + (i.Guess ? " ?" : "") : ""
+                lv[0] > 0 ? "Fire: " + FireWords[Math.Min(lv[0], 3)] : "",
+                i.Flood > 0 ? "Flooding: " + WaterWords[Math.Min(i.Flood, 4)] + (att.Length > 0 ? ", " + att : "") : att.Length > 0 ? "Attitude: " + att : "",
+                lv[2] > 0 ? "Hull: " + HullWords[Math.Min(lv[2], 4)] : "",
+                lv[3] > 0 ? (lv[3] >= 4 ? "Engine: dead in the water" : "Engine: part of propulsion lost") + (i.Guess ? " ?" : "") : ""
             };
-            if (lv[3] > 0 && i.Guess) txt[3] = (lv[3] >= 4 ? Loc.T("Engine: almost stopped") : Loc.T("Engine: slow")) + " ?";
-            if (lv[3] > 0 && !string.IsNullOrEmpty(i.EngineVia)) txt[3] += " (" + i.EngineVia + ")";
+            if (lv[3] > 0 && i.Guess) txt[3] = (lv[3] >= 4 ? "Engine: almost stopped" : "Engine: slow") + " ?";
             for (int k = 0; k < 4; k++)
             {
                 p.Rows[k].Visibility = lv[k] > 0 ? Visibility.Visible : Visibility.Collapsed;

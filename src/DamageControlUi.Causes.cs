@@ -79,12 +79,12 @@ namespace AlternativeDamageModel
                 for (int k = 0; k < n && k < actual.Length; k++)
                     if (actual[k] == task)
                     {
-                        list.Add(k < here.Count ? Dc(here[k].Number) : Loc.T("a team"));
+                        list.Add(k < here.Count ? Dc(here[k].Number) : "a team");
                         if (k >= here.Count) eff += 1f;
                         if (k < here.Count) { eff += DcTeams.TeamEff(here[k].Ref as DcTeams.Team) * (task == TaskSystems ? 1f : DcTeams.EngineMulOf(comp)); w |= DcTeams.Wounded(here[k].Health); lv = Math.Max(lv, DcTeams.FatigueLevel(here[k].Fatigue)); }
                     }
                 list.Eff = eff;
-                list.Mood = (w ? Loc.T("Wounded") : "") + (w && lv > 0 ? ", " : "") + (lv == 2 ? Loc.T("Exhausted") : lv == 1 ? Loc.T("Tired") : "");
+                list.Mood = (w ? "Wounded" : "") + (w && lv > 0 ? ", " : "") + (lv == 2 ? "Exhausted" : lv == 1 ? "Tired" : "");
             }
             catch (Exception e) { Trace("Doing: " + e.Message); }
             return list;
@@ -106,11 +106,11 @@ namespace AlternativeDamageModel
         /// <summary>Who is (not) on it: "DC1 plugging" / "busy: DC2 fire" / "team coming" / "no team".</summary>
         static string OnIt(object comp, int i, List<string> doing, string verb, int inSec, List<string> busy, string busyWith, bool worse, ref bool way)
         {
-            if (doing.Count > 0) return Loc.F("{0} {1}", Who(doing), Loc.T(verb)) + Tail(doing);
-            if (busy != null && busy.Count > 0) return Loc.F("Busy: {0} {1} first", Who(busy), Loc.T(busyWith));
+            if (doing.Count > 0) return Who(doing) + " " + verb + Tail(doing);
+            if (busy != null && busy.Count > 0) return "Busy: " + Who(busy) + " " + busyWith + " first";
             if (inSec > 0) return null;   // a team here busy with something else does not change this value: nothing to say
             if (Coming(comp, i) > 0) { way = true; return null; }   // said once, last, outside "Raises it" / "Lowers it"
-            return worse ? Loc.T("No team here") : null;   // "no team" is said only when the value is getting worse because of it
+            return worse ? "No team here" : null;   // "no team" is said only when the value is getting worse because of it
         }
 
         // ------------------------------------------------------------ flooding
@@ -145,47 +145,45 @@ namespace AlternativeDamageModel
                 {
                     // the game: water += leak rate x 0.5 x the flooding speed per second (faster while sinking)
                     float sm = SpeedEffect.Flood(comp), mul = AdmPlugin.FloodingMul(1f) * sm, inflow = mul * leak * 0.5f;
-                    Line(up, Loc.F("Holes: +{0}%/s", R(inflow)) + (faster ? " (" + Loc.T("sinking: faster") + ")" : "") + (sm > 1.005f ? " (" + Loc.T("faster: ship speed") + ")" : sm < 0.995f ? " (" + Loc.T("slower: ship speed") + ")" : ""));
-                    if (SpeedEffect.TooFastToPlug(comp)) Line(up, Loc.F("Ship too fast to plug holes: over {0} kn", SpeedEffect.MaxPlugKnots.ToString("0.#", CultureInfo.InvariantCulture)));
+                    Line(up, "Holes: +" + R(inflow) + "%/s" + (faster ? " (sinking: faster)" : "") + (sm > 1.005f ? " (faster: ship speed)" : sm < 0.995f ? " (slower: ship speed)" : ""));
+                    if (SpeedEffect.TooFastToPlug(comp)) Line(up, "Ship too fast to plug holes: over " + SpeedEffect.MaxPlugKnots.ToString("0.#", CultureInfo.InvariantCulture) + " kn");
                     Line(up, OnIt(comp, i, plugging, "plugging (stops the leak)", inSec, fighting, "fire", rate > 0f, ref way));
                 }
-                else if (leakOther > 0f && plugging.Count > 0) Line(up, Loc.F("{0} plugging the other side", Who(plugging)));
+                else if (leakOther > 0f && plugging.Count > 0) Line(up, Who(plugging) + " plugging the other side");
                 if (counter.Count > 0 && DcControl.CounterSide(comp, i) == (port ? 1 : -1))
-                    Line(up, Loc.F("{0} counterflooding: +{1}%/s", Who(counter), R(TeamWork(counter) * perTeam * DcControl.CounterRate)) + Tail(counter));
+                    Line(up, Who(counter) + " counterflooding: +" + R(TeamWork(counter) * perTeam * DcControl.CounterRate) + "%/s" + Tail(counter));
                 if (_shownListComp.Target == comp)
                 {
                     float list = _shownList;
                     if (!IsSub(comp) && !SubmergedFlooding.Covers(comp) && (port ? list > 0f : list < 0f) && Math.Abs(list) > (ModelOn() ? Limits.ListFlood : 45f))
-                        Line(up, Loc.F("List {0}\u00b0: water over the deck", Math.Abs(list).ToString("0", CultureInfo.InvariantCulture)));
+                        Line(up, "List " + Math.Abs(list).ToString("0", CultureInfo.InvariantCulture) + "\u00b0: water over the deck");
                 }
                 float pitch;
                 if (TrimFlooding.FloodsNow(comp, i, port, out pitch))
-                    Line(up, Loc.F(pitch > 0f ? "Trim {0}\u00b0 bow down: water over the deck" : "Trim {0}\u00b0 stern down: water over the deck", Math.Abs(pitch).ToString("0.0", CultureInfo.InvariantCulture)));
+                    Line(up, "Trim " + Math.Abs(pitch).ToString("0.0", CultureInfo.InvariantCulture) + "\u00b0 " + (pitch > 0f ? "bow" : "stern") + " down: water over the deck");
                 foreach (var why in SubmergedFlooding.Reasons(comp, i, port, _sectionNames)) Line(up, why);
-                if (integ < 19f && inSec == 0 && leak > 0f) Line(up, Loc.F("The leak grows: hull {0}, no team", Pc(integ)));
-                if (sinking) Line(up, Loc.T("The ship is sinking"));
+                if (integ < 19f && inSec == 0 && leak > 0f) Line(up, "The leak grows: hull " + Pc(integ) + ", no team");
+                if (sinking) Line(up, "The ship is sinking");
 
                 // ---- what lowers it (the teams' own speeds, whether or not they can beat the inflow)
-                if (counter.Count > 0 && DcControl.CounterPumpSide(comp, i) == (port ? 1 : -1) && delta > 1e-4f)
-                    Line(down, Loc.F("{0} pumping out: \u2212{1}%/s", Who(counter), R(TeamWork(counter) * perTeam)) + Tail(counter));
                 if (pumping.Count > 0)
                 {
                     bool now = drainPort == port || deltaOther <= 1e-4f;   // the game pumps one side at a time
                     // only what changes this side now: not while the other side is pumped first, not at the water's minimum
-                    if (now && delta > 1e-4f) Line(down, Loc.F("{0} pumping out: \u2212{1}%/s", Who(pumping), R(TeamWork(pumping) * perTeam)) + Tail(pumping));
+                    if (now && delta > 1e-4f) Line(down, Who(pumping) + " pumping out: \u2212" + R(TeamWork(pumping) * perTeam) + "%/s" + Tail(pumping));
                 }
                 else Line(down, OnIt(comp, i, pumping, "pumping out", inSec, null, "", rate > 0f && delta > 1e-4f, ref way));
                 if (plugging.Count > 0 && DcControl.LeakPump > 0f && delta > 1e-4f && (drainPort == port || deltaOther <= 1e-4f))
-                    Line(down, Loc.F("{0} pump while plugging: \u2212{1}%/s", Who(plugging), R(TeamWork(plugging) * perTeam * DcControl.LeakPump)) + Tail(plugging));
+                    Line(down, Who(plugging) + " pump while plugging: \u2212" + R(TeamWork(plugging) * perTeam * DcControl.LeakPump) + "%/s" + Tail(plugging));
 
-                var sb = new StringBuilder((port ? Loc.T("Port") : Loc.T("Starboard")) + ": " + Pc(water) + ", " + Rate(rate));
-                if (up.Length > 0) sb.Append("\n" + Loc.T("Raises it:")).Append(up);
-                else sb.Append("\n" + Loc.T("Nothing raises it now"));
-                if (down.Length > 0) sb.Append("\n" + Loc.T("Lowers it:")).Append(down);
-                if (way) sb.Append("\n" + Loc.T("Team on its way"));
+                var sb = new StringBuilder((port ? "Port" : "Starboard") + ": " + Pc(water) + ", " + Rate(rate));
+                if (up.Length > 0) sb.Append("\nRaises it:").Append(up);
+                else sb.Append("\nNothing raises it now");
+                if (down.Length > 0) sb.Append("\nLowers it:").Append(down);
+                if (way) sb.Append("\nTeam on its way");
                 return sb.ToString();
             }
-            catch (Exception e) { Trace("FloodCause: " + e.Message); return Loc.T("Flooding"); }
+            catch (Exception e) { Trace("FloodCause: " + e.Message); return "Flooding"; }
         }
 
         // ------------------------------------------------------------ fire
@@ -201,29 +199,29 @@ namespace AlternativeDamageModel
                 float fire = max > 0f ? 100f * F(_scSeverity.GetValue(sc, null)) / max : 0f;
                 float grow = max > 0f ? 100f * GetF(_scGrow, sc) / max : 0f;
                 float rate = c.RF;
-                string stage = fire > 49.8f ? Loc.T("Severe") : fire > 24.9f ? Loc.T("Moderate") : Loc.T("Minor");
+                string stage = fire > 49.8f ? "Severe" : fire > 24.9f ? "Moderate" : "Minor";
                 int inSec;
                 var fighting = Doing(comp, i, TaskFire, out inSec);
                 var plugging = Doing(comp, i, TaskLeak, out inSec);
 
                 bool way = false;
-                var sb = new StringBuilder(Loc.F("Fire {0}", Pc(fire)) + " (" + stage + "), " + Rate(rate));
+                var sb = new StringBuilder("Fire " + Pc(fire) + " (" + stage + "), " + Rate(rate));
                 double ago = c.FireHitT >= 0 ? Now() - c.FireHitT : -1;
                 float fm = SpeedEffect.Fire(comp);
-                if (grow > 0f) Line(sb, Loc.F("Grows {0}%/s by itself", R(grow)) + (fm > 1.005f ? " (" + Loc.T("faster: ship speed") + ")" : fm < 0.995f ? " (" + Loc.T("slower: ship speed") + ")" : ""));
-                if (rate >= 0 && ago >= 0 && ago < 60) Line(sb, Loc.F("Hit {0} s ago", ((int)ago).ToString(CultureInfo.InvariantCulture)));
+                if (grow > 0f) Line(sb, "Grows " + R(grow) + "%/s by itself" + (fm > 1.005f ? " (faster: ship speed)" : fm < 0.995f ? " (slower: ship speed)" : ""));
+                if (rate >= 0 && ago >= 0 && ago < 60) Line(sb, "Hit " + ((int)ago).ToString(CultureInfo.InvariantCulture) + " s ago");
                 Line(sb, OnIt(comp, i, fighting, rate >= 0 ? "fighting" : "putting out", inSec, plugging, "leak", rate > 0f, ref way));
-                if (fighting.Count == 0) Line(sb, Loc.T("Only DC puts it out"));
+                if (fighting.Count == 0) Line(sb, "Only DC puts it out");
                 double un = AdmPlugin.UnattendedFor(comp, i);
-                if (un >= 0) Line(sb, Loc.F("Unattended {0} s: grows faster", ((int)un).ToString(CultureInfo.InvariantCulture)));
+                if (un >= 0) Line(sb, "Unattended " + ((int)un).ToString(CultureInfo.InvariantCulture) + " s: grows faster");
                 // the game: the hull burns at every stage (in proportion to the fire); systems take damage from time to time -
                 // a little while minor, more when moderate, most when severe; only a severe fire spreads
-                if (fire > 0f) Line(sb, Loc.T("Damages hull and systems"));
-                if (fire > 49.8f) Line(sb, Loc.T("Spreads to adjacent sections"));
-                if (way) sb.Append("\n" + Loc.T("Team on its way"));
+                if (fire > 0f) Line(sb, "Damages hull and systems");
+                if (fire > 49.8f) Line(sb, "Spreads to adjacent sections");
+                if (way) sb.Append("\nTeam on its way");
                 return sb.ToString();
             }
-            catch (Exception e) { Trace("FireCause: " + e.Message); return Loc.T("Fire"); }
+            catch (Exception e) { Trace("FireCause: " + e.Message); return "Fire"; }
         }
 
         // ------------------------------------------------------------ hull
@@ -247,18 +245,18 @@ namespace AlternativeDamageModel
                 double hit = port ? c.HullHitP : c.HullHitS;
                 double ago = hit >= 0 ? Now() - hit : -1;
 
-                var sb = new StringBuilder(Loc.F(port ? "Port hull {0}" : "Starboard hull {0}", Pc(integ)) + (rate >= 0 ? ", " + Loc.T("repairing") : ", " + Loc.T("falling")));
+                var sb = new StringBuilder((port ? "Port" : "Starboard") + " hull " + Pc(integ) + (rate >= 0 ? ", repairing" : ", falling"));
                 if (rate < 0)
                 {
-                    if (fire > 0f) Line(sb, Loc.F("Fire {0} burns it", Pc(fire)));
-                    if (ago >= 0 && ago < 60) Line(sb, Loc.F("Hit {0} s ago", ((int)ago).ToString(CultureInfo.InvariantCulture)));
-                    else if (fire <= 0f) Line(sb, Loc.T("Hits"));
+                    if (fire > 0f) Line(sb, "Fire " + Pc(fire) + " burns it");
+                    if (ago >= 0 && ago < 60) Line(sb, "Hit " + ((int)ago).ToString(CultureInfo.InvariantCulture) + " s ago");
+                    else if (fire <= 0f) Line(sb, "Hits");
                 }
-                else if (welding.Count > 0) Line(sb, Loc.F("{0} welding", Who(welding)) + (drainPort == port ? "" : " (" + Loc.T("other side first") + ")"));
-                if (allowed < 99.95f) Line(sb, Loc.F("Weldable up to {0}", Pc(allowed)));
+                else if (welding.Count > 0) Line(sb, Who(welding) + " welding" + (drainPort == port ? "" : " (other side first)"));
+                if (allowed < 99.95f) Line(sb, "Weldable up to " + Pc(allowed));
                 return sb.ToString();
             }
-            catch (Exception e) { Trace("HullCause: " + e.Message); return Loc.T("Hull"); }
+            catch (Exception e) { Trace("HullCause: " + e.Message); return "Hull"; }
         }
     }
 }

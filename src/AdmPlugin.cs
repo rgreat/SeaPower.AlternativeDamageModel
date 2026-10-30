@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativedamagemodel";
         public const string PluginName = "Alternative Damage Model";
-        public const string PluginVersion = "1.4.0";
+        public const string PluginVersion = "1.0.0";
 
         /// <summary>Build number (UTC build time, yyyyMMdd.HHmm) stamped into the dll by the csproj; shows which dll is running.</summary>
         public static readonly string BuildId = ReadBuildId();
@@ -60,7 +60,7 @@ namespace AlternativeDamageModel
         static bool _teamBlocksSpread = true;
         static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
         ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _reserveChanceEntry, _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _stunEntry, _stunSpreadEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _stunEntry, _stunSpreadEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _bubblesEntry, _imbalanceEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _speedEffectEntry;
         ConfigEntry<Factor> _maxPlugEntry;
@@ -70,14 +70,13 @@ namespace AlternativeDamageModel
         static FieldInfo _fCompCount;
         static Dictionary<string, float> _perShip = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
-        ConfigEntry<string> _langEntry;
         ConfigEntry<bool> _hide3dEntry, _enemyDmgEntry, _debugEntry, _logShipsEntry, _logFiresEntry, _logHeelEntry, _uiEntry, _weaponColorEntry, _admEntry, _deckCornersEntry, _showHullEntry, _fixTrimTcEntry;
         ConfigEntry<string> _shipViewEntry;
         static bool _fixTrimTc = true;
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
         ConfigEntry<Factor> _noEngineEntry;
-        ConfigEntry<bool> _autoCounterEntry, _sysPrioEntry, _anyIntegrityEntry, _reserveHitsEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
+        ConfigEntry<bool> _anyIntegrityEntry, _reserveHitsEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         ConfigEntry<bool> _smokeEntry, _densityEntry; ConfigEntry<Factor> _densityMinEntry, _densityEndEntry, _smokeModEntry, _smokeSevEntry;
@@ -232,10 +231,6 @@ namespace AlternativeDamageModel
                 "sinking limits. DC Priority and tasks given by hand belong to the detailed view and stay. " +
                 "Off: the game's own damage and damage control (the Damage Control tab view stays). Can be switched at any time: ships at sea " +
                 "follow at once (hull strength and team numbers back to the game's or the mod's; teams on the move arrive, knocked-out ones recover).");
-            _langEntry = Cfg.Bind("General", "Language", "",
-                "Language of the mod's texts: en, ru, cn, de, es, fr, ko, ja or vn. Empty = the language of the game. The texts are in the lang folder " +
-                "of the mod (lang/<code>.ini); a missing text is shown in English.");
-            Loc.Forced = () => _langEntry.Value;
             _debugEntry = Cfg.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/AlternativeDamageModel.trace.txt.");
             _logFiresEntry = Cfg.Bind("General", "LogFires", false,
@@ -315,9 +310,6 @@ namespace AlternativeDamageModel
             _noEngineEntry = Pcfg.Bind("Systems", "NoEngineTeamEffectiveness", new Factor(50f),
                 "Damage control efficiency while the ship's engine (the Engine module in use, not the propulsion) is out of order: the teams' effectiveness in % (fires, leaks, water, hull; repair of systems is not " +
                 "affected). Shown in the teams' hints and in the Forecast line of the Damage Control tab. 100 = off.");
-            _sysPrioEntry = Pcfg.Bind("Systems", "SeveralPriorities", true,
-                "Several systems of a section can be prioritised for repair at once (the \"!\" button of each system): the section repairs them one after another, " +
-                "in the order they were set. Off = as in the game: the \"!\" of one system switches off the other's.");
             _sysIntEntry = Pcfg.Bind("Systems", "Integrity", new Factor(1f),
                 "How many times stronger the systems of ships and submarines are than in the game (weapons, sensors, engines, magazines... - " +
                 "modules.ini Integrity, after the game's own adjustments). 1.0 = as in the game. Single module types can get their own Integrity " +
@@ -350,11 +342,7 @@ namespace AlternativeDamageModel
                 "under water (1 = as many % per second as metres). Needs the ship's deck points (as flooding over the deck). 0 = off.");
             _counterRateEntry = Pcfg.Bind("FireAndFlooding", "CounterFloodSpeed", new Factor(2f),
                 "Counterflooding (a team's task given by hand): how fast water is let into a compartment, times the pumping out speed. " +
-                "A team floods a side or pumps one out only where that takes off the list or the trim (the more dangerous of the two first), keeps its action for at least 10 s, " +
-                "and floods nothing when the water in the ship has reached the red band of the LEVEL gauge.");
-            _autoCounterEntry = Pcfg.Bind("FireAndFlooding", "AutoCounterflood", true,
-                "Auto DC counterfloods: while holes still let water in and the list or trim reaches 40% of the red zone of its gauge (until it is down to 20%), a team goes to the section where " +
-                "letting water into a side or pumping it out takes most off the heel and works as a team ordered to counterflood (see Counterflooding). Off = Auto DC does not counterflood.");
+                "The water goes into the side opposite to the heel, or into the side with less water when the ship is upright.");
             _leakPumpEntry = Pcfg.Bind("FireAndFlooding", "LeakPumpShare", new Factor(0.5f),
                 "While a team plugs the holes of a compartment (the Flooding Rate task) it pumps water out of it at the same time: this share of the pumping out speed " +
                 "(0.5 = half, 0 = off). A team ordered to counterflood pumps only from the side where that does not worsen the list and trim.");
@@ -393,9 +381,6 @@ namespace AlternativeDamageModel
             _reserveHitsEntry = Pcfg.Bind("DamageControlTeams", "HitsInReserve", true,
                 "The teams rest in the central compartment: a hit on it can wound a team waiting in the reserve (the chance is the game's for a " +
                 "team knocked out in a hit section: damage x (1 - integrity), only under 50% integrity). A wounded resting team stays in the reserve.");
-            _reserveChanceEntry = Pcfg.Bind("DamageControlTeams", "HitsInReserveChance", new Factor(0.5f),
-                "Multiplier of the chance that a hit on the central compartment wounds a team resting in the reserve; it comes on top of Wound chance " +
-                "(0.5 = half as likely, 0 = resting teams are never wounded). Works only with Wounds in reserve.");
             _healthEntry = Pcfg.Bind("DamageControlTeams", "TeamHealth", new Factor(1f),
                 "Health of a damage control team, a multiplier of its maximum, which is 1..100 points by the ship's displacement (100 = a crew of 1000 and more, about 30000 t; " +
                 "1000 t = 24, 10000 t = 101). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
@@ -904,14 +889,11 @@ namespace AlternativeDamageModel
             DcTeams.Muster = Math.Max(0f, _musterEntry.Value.V);
             DcTeams.AnyIntegrity = _anyIntegrityEntry.Value;
             DcTeams.ReserveHits = ReserveHits.Enabled = _reserveHitsEntry.Value;
-            SysPriority.Enabled = _sysPrioEntry.Value;
-            DcControl.AutoCounterfloodOn = _autoCounterEntry.Value;
             DcTeams.EngineEff = Math.Max(0f, Math.Min(100f, _noEngineEntry.Value.V)) / 100f;
             DcTeams.HealthMul = _healthOnEntry.Value ? Math.Max(0f, _healthEntry.Value.V) : 0f;
             DcTeams.RegenRate = Math.Max(0f, _regenEntry.Value.V);
             DcTeams.FireWound = Math.Max(0f, _fireWoundEntry.Value.V);
             DcTeams.WoundChance = Math.Max(0f, _woundChanceEntry.Value.V);
-            DcTeams.ReserveWoundChance = Math.Max(0f, _reserveChanceEntry.Value.V);
             DcTeams.HitWound = Math.Max(0f, _hitWoundEntry.Value.V);
             DcTeams.StunTime = Math.Max(0f, _stunEntry.Value.V);
             DcTeams.StunSpread = Math.Max(0f, _stunSpreadEntry.Value.V);
@@ -1170,11 +1152,6 @@ namespace AlternativeDamageModel
         }
 
         static void ReserveHitPostfix(object __instance, object[] __args) { ReserveHits.Postfix(__instance, __args); HitLog.Postfix(__instance, __args); HitLog.After(__instance, __args); }
-        static void SysSetPre(object __instance, out object __state) { __state = null; if (Enabled) SysPriority.SetterPrefix(__instance, out __state); }
-        static void SysSetPost(object __instance, object value, object __state) { SysPriority.SetterPostfix(__instance, value, __state); }
-        static bool SysFlagPre(bool value) { return !Enabled || SysPriority.FlagPrefix(value); }
-        static void SysFlagPost(object __instance, bool value) { if (Enabled) SysPriority.FlagPostfix(__instance, value); }
-        static void SysRepairPre(object __instance, int index) { if (Enabled) SysPriority.RepairPrefix(__instance, index); }
         static void SpillPrefix(object __instance, object[] __args) { HitLog.Before(__instance, __args); DamageSpill.Prefix(__instance, __args); }
 
         static HarmonyMethod Hm(string name)
@@ -1285,19 +1262,6 @@ namespace AlternativeDamageModel
                 Patch(harmony, tBlast.GetMethod("ProcessCompartmentHit", all), "SpillPrefix", "ReserveHitPostfix", null, "Blastzone.ProcessCompartmentHit (reserve hits, damage spill)", ref ok, ref failed);
             }
 
-            // several repair priorities in one section ([Systems] SeveralPriorities)
-            SysPriority.Trace = Trace;
-            {
-                var tScP = asm.GetType("SeaPower.SystemCompartment");
-                var setter = tScP == null ? null : tScP.GetProperty("SystemPrioritisedForRepair", all);
-                Type tSum = null;
-                foreach (var t in asm.GetTypes()) if (t.Name == "DamageSummary") { tSum = t; break; }
-                var flag = tSum == null ? null : tSum.GetProperty("IsPriority", all);
-                Patch(harmony, setter == null ? null : setter.GetSetMethod(true), "SysSetPre", "SysSetPost", null, "SystemCompartment.SystemPrioritisedForRepair", ref ok, ref failed);
-                Patch(harmony, flag == null ? null : flag.GetSetMethod(true), "SysFlagPre", "SysFlagPost", null, "DamageSummary.IsPriority", ref ok, ref failed);
-                if (tComp != null) Patch(harmony, tComp.GetMethod("RepairSystems", all), "SysRepairPre", null, null, "Compartments.RepairSystems (priorities)", ref ok, ref failed);
-            }
-
             // diagnostics: LogFires
             var tSc = asm.GetType("SeaPower.SystemCompartment");
             var tGt = asm.GetType("SeaPower.GameTime");
@@ -1380,7 +1344,7 @@ namespace AlternativeDamageModel
             TimeCompressionFix.Trace = Trace; TimeCompressionFix.Warn = Warn;
             if (TimeCompressionFix.Init(harmony, asm)) ok++; else failed++;
             WoundStats.Trace = Trace; WeaponStatusColors.Trace = Trace; UiScan.Trace = Trace; WeaponStatusColors.Init(asm);
-            Loc.Trace = Trace; DynAttitude.Trace = Trace; ContactIntel.Trace = Trace; ContactIntel.IsEnabled = () => Enabled && _enemyDmg;
+            DynAttitude.Trace = Trace; ContactIntel.Trace = Trace; ContactIntel.IsEnabled = () => Enabled && _enemyDmg;
             if (ContactIntel.Init(harmony, asm)) ok++; else failed++;
             HideUnseen.Trace = Trace; HideUnseen.IsEnabled = () => Enabled && _hide3d;
             if (HideUnseen.Init(harmony, asm)) ok++; else failed++;

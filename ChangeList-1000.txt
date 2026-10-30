@@ -1,13 +1,9 @@
-Version 1.4.0.
+Version 1.6.0.
 
 Changes:
-• Texts in 9 languages (game language or Settings > User Interface > Language).
-• Contacts gain Damage State tab (from visual/sonar/radar data) with sinking forecast.
-• Map: icons under ships (fire, flooding, hull, engine); ships forecast to sink are greyer.
-• DC tab: Forecast card, list of hits, engine-out warning.
-• DC Teams: Advanced health/wounds (also in reserve)/fatigue/rest. Engine out: 50% DC efficiency.
-• Auto DC optimized: fastest-growing fire/leak first.
-• Fire reopens leaks; >75% flooded section loses systems; flooding puts out fire.
-• Small AI ships ignore flooding speed limit.
-• Settings: default/game values shown; compact speed table.
-• Fixes: arrows, DC team logic, planing boats, performance.
+• Auto DC: counterflooding against dangerous list/trim (only with active leaks); a section with fire gets a second team.
+• Several repair priorities in one section.
+• Settings open from the main and pause menus; stored in user/AlternativeDamageControl (moved automatically).
+• Names from the game (Auto, Fire, Flooding) are translated by the game.
+• Fixes: start crash, Forecast card shown only with damage.
+• Special effects moved to Alternative Special Effects; install it to keep them.

@@ -852,17 +852,17 @@ namespace AlternativeDamageModel
                     st.AutoCard = card; st.AutoContent = autoContent; st.AutoStack = stack;
                 }
 
-                var title = new TextBlock { Text = Loc.T("DC Priority"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0f, 6f, 0f, 4f) };
+                var title = new TextBlock { Text = "DC Priority", HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0f, 6f, 0f, 4f) };
                 if (label != null) { title.Foreground = label.Foreground; title.FontSize = label.FontSize; }
-                try { ToolTipService.SetToolTip(title, Loc.T("Which work damage control teams do first, on the whole ship.")); } catch { }
+                try { ToolTipService.SetToolTip(title, "Which work damage control teams do first, on the whole ship."); } catch { }
                 stack.Children.Add(title);
                 var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
                 var buttons = new ToggleButton[3];
                 for (int m = 0; m < 3; m++)
                 {
                     int mode = m;
-                    var b = new ToggleButton { Content = Loc.T(PriorityNames[m]), Padding = new Thickness(8f, 2f, 8f, 2f), Margin = new Thickness(m == 0 ? 0f : 4f, 0f, 0f, 0f), MinWidth = 52f };
-                    try { ToolTipService.SetToolTip(b, Loc.T(PriorityTips[m])); } catch { }
+                    var b = new ToggleButton { Content = PriorityNames[m], Padding = new Thickness(8f, 2f, 8f, 2f), Margin = new Thickness(m == 0 ? 0f : 4f, 0f, 0f, 0f), MinWidth = 52f };
+                    try { ToolTipService.SetToolTip(b, PriorityTips[m]); } catch { }
                     b.Click += (sender, e) =>
                     {
                         DcControl.SetMode(st.Comp, mode);   // the unit shown now, not the one the card was made for
@@ -873,19 +873,19 @@ namespace AlternativeDamageModel
                 }
                 stack.Children.Add(row);
                 // like the game's Auto DC: a title above, a toggle below ("Enabled" / "Disabled"), the same size as that toggle
-                var lim = new ToggleButton { Content = Loc.T("Enabled"), Padding = new Thickness(8f, 2f, 8f, 2f), HorizontalAlignment = HorizontalAlignment.Stretch };
+                var lim = new ToggleButton { Content = "Enabled", Padding = new Thickness(8f, 2f, 8f, 2f), HorizontalAlignment = HorizontalAlignment.Stretch };
                 ToggleButton gameToggle = null;
                 if (autoContent != null) foreach (var e in Flatten(autoContent, 200)) { gameToggle = e as ToggleButton; if (gameToggle != null) break; }
                 if (gameToggle != null)
                 {
                     try { lim.Padding = gameToggle.Padding; lim.MinWidth = gameToggle.MinWidth; lim.Height = gameToggle.Height; lim.Margin = gameToggle.Margin; lim.FontSize = gameToggle.FontSize; if (gameToggle.Width > 0f) lim.Width = gameToggle.Width; } catch { }
                 }
-                var limTitle = new TextBlock { Text = Loc.T("Limit Speed"), HorizontalAlignment = HorizontalAlignment.Center };
+                var limTitle = new TextBlock { Text = "Limit Speed", HorizontalAlignment = HorizontalAlignment.Center };
                 if (label != null) { limTitle.Foreground = label.Foreground; limTitle.FontSize = label.FontSize; limTitle.Margin = label.Margin; }
                 var limBox = new StackPanel { Orientation = Orientation.Vertical, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6f, 0f, 0f, 0f) };
                 limBox.Children.Add(limTitle); limBox.Children.Add(lim);
-                try { ToolTipService.SetToolTip(limBox, Loc.T("On: the game cuts the ship's speed while there is flooding (10 kn with open holes, 10-25 kn by the water in the sections).\nOff: no cut, the ship keeps its ordered speed - the water comes in faster and fires burn brighter.")); } catch { }
-                lim.Click += (sender, e) => { DcControl.SetLimitSpeed(st.Comp, lim.IsChecked == true); lim.Content = lim.IsChecked == true ? Loc.T("Enabled") : Loc.T("Disabled"); };
+                try { ToolTipService.SetToolTip(limBox, "On: the game cuts the ship's speed while there is flooding (10 kn with open holes, 10-25 kn by the water in the sections).\nOff: no cut, the ship keeps its ordered speed - the water comes in faster and fires burn brighter."); } catch { }
+                lim.Click += (sender, e) => { DcControl.SetLimitSpeed(st.Comp, lim.IsChecked == true); lim.Content = lim.IsChecked == true ? "Enabled" : "Disabled"; };
                 if (autoRow != null) autoRow.Children.Add(limBox); else stack.Children.Add(limBox);
                 st.LimitButton = lim;
                 box.Child = stack;
@@ -989,7 +989,7 @@ namespace AlternativeDamageModel
         static void RenderPriority(object comp, ViewState st)
         {
             if (st.PriorityButtons != null) SyncPriority(st.PriorityButtons, DcControl.GetMode(comp));
-            if (st.LimitButton != null) try { st.LimitButton.IsEnabled = ModelOn(); bool on = DcControl.LimitSpeed(comp); if (st.LimitButton.IsChecked != on) st.LimitButton.IsChecked = on; st.LimitButton.Content = on ? Loc.T("Enabled") : Loc.T("Disabled"); } catch { }
+            if (st.LimitButton != null) try { st.LimitButton.IsEnabled = ModelOn(); bool on = DcControl.LimitSpeed(comp); if (st.LimitButton.IsChecked != on) st.LimitButton.IsChecked = on; st.LimitButton.Content = on ? "Enabled" : "Disabled"; } catch { }
         }
 
         // ------------------------------------------------------------ the help line and its legend
@@ -1010,7 +1010,7 @@ namespace AlternativeDamageModel
             var tb = st.Help;
             if (tb == null) return;
             int mode = DcControl.GetMode(comp);
-            string body = (mode > 0 && mode < OrderText.Length && OrderText[mode] != null ? Loc.T(OrderText[mode]) : null) ?? st.HelpOrig ?? "";
+            string body = (mode > 0 && mode < OrderText.Length ? OrderText[mode] : null) ?? st.HelpOrig ?? "";
             string sig = mode + "|" + body;
             if (st.HelpShown != null && tb.Text == st.HelpShown && sig == st.HelpSig) return;   // ours, unchanged
             if (st.HelpShown != null && tb.Text != st.HelpShown) st.HelpOrig = tb.Text;          // the game rewrote it (language)
@@ -1161,7 +1161,7 @@ namespace AlternativeDamageModel
             if (anchor != null) hs.Anchor = anchor;
             bool full = _full;
             // the tab of a contact that is not the player's ("Damage State", EnemyStatus): no (i), no gear
-            if (EnemyStatus.Active && ((tb.Text ?? "").StartsWith("Damage State", StringComparison.Ordinal) || (tb.Text ?? "").StartsWith(Loc.T("Damage State"), StringComparison.Ordinal)))
+            if (EnemyStatus.Active && (tb.Text ?? "").StartsWith("Damage State", StringComparison.Ordinal))
             {
                 if (hs.Text != null)
                 {
@@ -1193,7 +1193,7 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("Legend: " + e.Message); }
             var gear = HeaderIcon(GearIcon());
             gear.Margin = new Thickness(6f, 0f, 0f, 0f);
-            try { gear.Cursor = Cursors.Hand; ToolTipService.SetToolTip(gear, Loc.T("Alternative Damage Model settings")); } catch { }
+            try { gear.Cursor = Cursors.Hand; ToolTipService.SetToolTip(gear, "Alternative Damage Model settings"); } catch { }
             gear.PreviewMouseLeftButtonDown += (s, e) =>
             {
                 e.Handled = true;
@@ -1285,19 +1285,19 @@ namespace AlternativeDamageModel
             ch.Add(new Path { Data = new StreamGeometry("M100,6 L100,194"), Stroke = new SolidColorBrush(cInk), StrokeThickness = 1f });
             ch.Add(new Path { Data = new StreamGeometry(PicHull), Fill = new SolidColorBrush(Color.FromRgb(222, 225, 230)), Stroke = new SolidColorBrush(cInk), StrokeThickness = 1.4f });
             ch.Add(Shape(PicDeck, Color.FromRgb(96, 104, 116)));
-            ch.Add(Centred(Loc.T("Port"), 15f, 48f, 100f));        // centred between the circle and the hull
-            ch.Add(Centred(Loc.T("Starboard"), 12.5f, 153f, 100f));
+            ch.Add(Centred("Port", 15f, 48f, 100f));        // centred between the circle and the hull
+            ch.Add(Centred("Starboard", 12.5f, 153f, 100f));
 
             var text = new StackPanel { Orientation = Orientation.Vertical, Width = 300f };
             Action<string, Color, float> line = (t, col, size) =>
                 text.Children.Add(new TextBlock { Text = t, Foreground = new SolidColorBrush(col), FontSize = size, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0f, 0f, 0f, 5f) });
-            line(Loc.T("A section = port + starboard compartment:"), CWhite, 15f);
-            line(Loc.T("Aft  41% / 47%  - hull, port / starboard"), CWhite, 14f);
-            line(Loc.T("Flooding  23% / 5%  - water inside"), CWhite, 14f);
-            line(Loc.T("Fire  64%  - % of its maximum"), CWhite, 14f);
-            line(Loc.T("Red arrow: worse, green: better, two: fast."), CGrey, 13f);
+            line("A section = port + starboard compartment:", CWhite, 15f);
+            line("Aft  41% / 47%  - hull, port / starboard", CWhite, 14f);
+            line("Flooding  23% / 5%  - water inside", CWhite, 14f);
+            line("Fire  64%  - % of its maximum", CWhite, 14f);
+            line("Red arrow: worse, green: better, two: fast.", CGrey, 13f);
 
-            line(Loc.T("One icon = one damage control team:"), CWhite, 14f);
+            line("One icon = one damage control team:", CWhite, 14f);
             var icons = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 2f, 0f, 0f) };
             foreach (var task in new[] { TaskLeak, TaskFire, TaskPump, TaskCounter, TaskHull, TaskSystems, TaskIdle, IconTransit, IconInjured, IconDead })
             {
@@ -1307,11 +1307,11 @@ namespace AlternativeDamageModel
                 icons.Children.Add(row);
             }
             text.Children.Add(icons);
-            line(Loc.T("Auto DC off: click a team to give it a task (a red ! = has one)."), CGrey, 13f);
-            line(Loc.T("DC Priority: what all teams do first."), CGrey, 13f);
-            line(Loc.T("Point at an arrow: why it changes."), CGrey, 13f);
-            line(Loc.T("Point at LIST / TRIM / LEVEL: water per compartment."), CGrey, 13f);
-            line(Loc.T("Gear next to (i): settings and profiles."), CGrey, 13f);
+            line("Auto DC off: click a team to give it a task (a red ! = has one).", CGrey, 13f);
+            line("DC Priority: what all teams do first.", CGrey, 13f);
+            line("Point at an arrow: why it changes.", CGrey, 13f);
+            line("Point at LIST / TRIM / LEVEL: water per compartment.", CGrey, 13f);
+            line("Gear next to (i): settings and profiles.", CGrey, 13f);
 
             var body = new StackPanel { Orientation = Orientation.Horizontal };
             body.Children.Add(pic);
@@ -1466,7 +1466,8 @@ namespace AlternativeDamageModel
             // the inlines of a row sometimes keep stale positions (a box standing on top of the next one) until the row is made anew:
             // found by the positions of the boxes, the row is rebuilt (at most once a second per row)
             int healed = d != null ? d.Healed : 0;
-            if (same && Environment.TickCount - healed > 300 && CheckOverlap(tb, d, segs)) { same = false; healed = Environment.TickCount; if (_healTrace < 20) { _healTrace++; Trace("DC row: boxes overlap, the row is rebuilt"); } }
+            bool heal = false;
+            if (same && Environment.TickCount - healed > 300 && CheckOverlap(tb, d, segs)) { same = false; heal = true; healed = Environment.TickCount; if (_healTrace < 20) { _healTrace++; Trace("DC row: boxes overlap, the row is rebuilt"); } }
             if (same)
             {
                 for (int i = 0; i < segs.Count; i++)
@@ -1695,8 +1696,8 @@ namespace AlternativeDamageModel
 
         static string SectionName(Sections sec, int i)
         {
-            if (i < 0) return Loc.T("reserve");
-            return sec != null && i < sec.Names.Length && !string.IsNullOrEmpty(sec.Names[i]) ? sec.Names[i] : Loc.F("section {0}", i + 1);
+            if (i < 0) return "reserve";
+            return sec != null && i < sec.Names.Length && !string.IsNullOrEmpty(sec.Names[i]) ? sec.Names[i] : "section " + (i + 1);
         }
 
         /// <summary>
@@ -1792,12 +1793,12 @@ namespace AlternativeDamageModel
             }
         }
 
-        static string Dc(int number) { return number > 0 ? "DC" + number.ToString(CultureInfo.InvariantCulture) : Loc.T("DC team"); }
+        static string Dc(int number) { return number > 0 ? "DC" + number.ToString(CultureInfo.InvariantCulture) : "DC team"; }
 
         static string SectionName(string[] names, int i)
         {
-            if (i < 0) return Loc.T("reserve");
-            return names != null && i < names.Length && !string.IsNullOrEmpty(names[i]) ? names[i] : Loc.F("section {0}", i + 1);
+            if (i < 0) return "reserve";
+            return names != null && i < names.Length && !string.IsNullOrEmpty(names[i]) ? names[i] : "section " + (i + 1);
         }
 
         /// <summary>Health and fatigue of a team for its hint ("Health 60% (wounded: slower)"); null when both are off.</summary>
@@ -1806,23 +1807,23 @@ namespace AlternativeDamageModel
             var sb = new StringBuilder();
             float engMul = DcTeams.EngineMulOf(comp);
             if (DcTeams.IsEnabled() && DcTeams.HealthOn)
-                sb.Append(Loc.F("Health {0}%", Math.Round(health * 100f).ToString("0", CultureInfo.InvariantCulture))).Append(DcTeams.Wounded(health) ? " (" + Loc.T("wounded: slower") + ")" : "");
+                sb.Append("Health ").Append(Math.Round(health * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%').Append(DcTeams.Wounded(health) ? " (wounded: slower)" : "");
             if (DcTeams.IsEnabled() && DcTeams.FatigueMin > 0f)
             {
                 if (sb.Length > 0) sb.Append('\n');
                 int lv = DcTeams.FatigueLevel(fatigue);
                 float full = DcTeams.ExhaustedLimit > 0f ? DcTeams.ExhaustedLimit : 2f * DcTeams.FatigueLimit;   // where fatigue stops growing = 100%
                 var inside = new List<string>();
-                if (lv > 0) inside.Add(lv == 2 ? Loc.T("exhausted") : Loc.T("tired"));
-                if (fatigue > 1f) inside.Add(Loc.F("rest {0}", DcTeams.FatigueRecover > 0f ? Clock((float)fatigue * 100f / DcTeams.FatigueRecover) : Loc.T("never")));
-                sb.Append(Loc.F("Fatigue {0}%", Math.Round(Math.Min(1.0, fatigue / full) * 100.0).ToString("0", CultureInfo.InvariantCulture)))
+                if (lv > 0) inside.Add(lv == 2 ? "exhausted" : "tired");
+                if (fatigue > 1f) inside.Add("rest " + (DcTeams.FatigueRecover > 0f ? Clock((float)fatigue * 100f / DcTeams.FatigueRecover) : "never"));
+                sb.Append("Fatigue ").Append(Math.Round(Math.Min(1.0, fatigue / full) * 100.0).ToString("0", CultureInfo.InvariantCulture)).Append('%')
                   .Append(inside.Count > 0 ? " (" + string.Join(", ", inside.ToArray()) + ")" : "")
-                  .Append("\n" + Loc.F("Efficiency {0}%", Math.Round(DcTeams.EffOf(health, fatigue) * engMul * 100f).ToString("0", CultureInfo.InvariantCulture)));
+                  .Append("\nEfficiency ").Append(Math.Round(DcTeams.EffOf(health, fatigue) * engMul * 100f).ToString("0", CultureInfo.InvariantCulture)).Append('%');
             }
             if (engMul < 1f)
             {
                 if (sb.Length > 0) sb.Append('\n');
-                sb.Append(Loc.F("Engine out: {0}% effectiveness (except systems repair)", Math.Round(engMul * 100f).ToString("0", CultureInfo.InvariantCulture)));
+                sb.Append("Engine out: ").Append(Math.Round(engMul * 100f).ToString("0", CultureInfo.InvariantCulture)).Append("% effectiveness (except systems repair)");
             }
             return sb.Length > 0 ? sb.ToString() : null;
         }
@@ -1836,22 +1837,22 @@ namespace AlternativeDamageModel
                 int n = counts != null && i < counts.Length ? counts[i] : 0;
                 int[] forced, actual;
                 DcControl.GetTeams(comp, i, n, out forced, out actual);
-                if (k >= n || k >= actual.Length) return Loc.T("DC team");
+                if (k >= n || k >= actual.Length) return "DC team";
                 int did = actual[k] == TaskNone ? TaskIdle : actual[k];
                 var here = DcTeams.InSection(comp, i);
                 int number = k < here.Count ? here[k].Number : 0;
                 var sb = new StringBuilder(Dc(number) + ": " + TaskName(did));
-                if (forced[k] != TaskNone) sb.Append(forced[k] == did ? "\n" + Loc.T("Task by hand") : "\n" + Loc.F("By hand: {0}", TaskName(forced[k])) + (forced[k] == TaskLeak && SpeedEffect.TooFastToPlug(comp) ? " (" + Loc.T("speed is too fast") + ")" : " (" + Loc.T("nothing to do") + ")"));
+                if (forced[k] != TaskNone) sb.Append(forced[k] == did ? "\nTask by hand" : "\nBy hand: " + TaskName(forced[k]) + (forced[k] == TaskLeak && SpeedEffect.TooFastToPlug(comp) ? " (speed is too fast)" : " (nothing to do)"));
                 if (k < here.Count)
                 {
-                    if (here[k].Stay < 1e6f && DcTeams.TransfersOn) sb.Append("\n" + Loc.F("Here {0}", Clock(here[k].Stay)));
+                    if (here[k].Stay < 1e6f && DcTeams.TransfersOn) sb.Append("\nHere " + Clock(here[k].Stay));
                     string kn = HealthNote(comp, here[k].Health, here[k].Fatigue);
                     if (kn != null) sb.Append("\n" + kn);
                 }
-                if (Manual(comp)) sb.Append(ModelOn() ? "\n" + Loc.T("Click: task / move") : "\n" + Loc.T("Click: task"));
+                if (Manual(comp)) sb.Append(ModelOn() ? "\nClick: task / move" : "\nClick: task");
                 return sb.ToString();
             }
-            catch (Exception e) { Trace("SlotTip: " + e.Message); return Loc.T("DC team"); }
+            catch (Exception e) { Trace("SlotTip: " + e.Message); return "DC team"; }
         }
 
         /// <summary>A team that is not working in a section: on the move, recovering, dead, waiting in the reserve.</summary>
@@ -1870,19 +1871,19 @@ namespace AlternativeDamageModel
                         case DcTeams.St.Moving:
                         {
                             bool mustering = !v.Back && v.Total - v.Left < DcTeams.Muster;
-                            var sb = new StringBuilder(dc + SectionName(names, v.From) + " → " + (v.Section >= 0 ? SectionName(names, v.Section) : Loc.T("reserve")));
-                            sb.Append("\n" + Loc.F("{0} left", Clock(v.Left)) + (mustering ? ", " + Loc.T("getting ready") : ""));
+                            var sb = new StringBuilder(dc + SectionName(names, v.From) + " → " + (v.Section >= 0 ? SectionName(names, v.Section) : "reserve"));
+                            sb.Append("\n" + Clock(v.Left) + " left" + (mustering ? ", getting ready" : ""));
                             if (kn != null) sb.Append("\n" + kn);
-                            if (manual) sb.Append("\n" + Loc.T("Click: cancel"));
+                            if (manual) sb.Append("\nClick: cancel");
                             return sb.ToString();
                         }
                         case DcTeams.St.Injured:
-                            return dc + Loc.T("concussed, going to the reserve") + "\n" + Loc.F("There in {0}", Clock(v.Left)) + (kn != null ? "\n" + kn : "");
+                            return dc + "concussed, going to the reserve\nThere in " + Clock(v.Left) + (kn != null ? "\n" + kn : "");
                         case DcTeams.St.Dead:
-                            return dc + Loc.T("lost") + (v.From >= 0 ? " (" + SectionName(names, v.From) + ")" : "");
+                            return dc + "lost" + (v.From >= 0 ? " (" + SectionName(names, v.From) + ")" : "");
                         case DcTeams.St.Pool:
-                            return dc + (v.Stun > 0f ? Loc.T("concussed, in reserve") + "\n" + Loc.F("Back to work in {0}", Clock(v.Stun)) : Loc.T("free, in reserve")) + (kn != null ? "\n" + kn : "") +
-                                   (DcTeams.Wounded(v.Health) && DcTeams.RegenRate > 0f ? "\n" + Loc.F("Healed in {0}", Clock((1f - v.Health) / (DcTeams.RegenRate / 100f))) : "") +
+                            return dc + (v.Stun > 0f ? "concussed, in reserve\nBack to work in " + Clock(v.Stun) : "free, in reserve") + (kn != null ? "\n" + kn : "") +
+                                   (DcTeams.Wounded(v.Health) && DcTeams.RegenRate > 0f ? "\nHealed in " + Clock((1f - v.Health) / (DcTeams.RegenRate / 100f)) : "") +
                                    "";
                         default:
                             return dc + SectionName(names, v.Section);
@@ -1890,7 +1891,7 @@ namespace AlternativeDamageModel
                 }
             }
             catch (Exception e) { Trace("RefTip: " + e.Message); }
-            return Loc.T("DC team");
+            return "DC team";
         }
 
         /// <summary>The small red "!" of a team with a task given by hand: next to its icon (and next to the task's icon in the menu).</summary>
@@ -1981,14 +1982,14 @@ namespace AlternativeDamageModel
             foreach (var t in new[] { TaskLeak, TaskFire, TaskPump, TaskCounter, TaskHull, TaskSystems })
                 menu.Items.Add(MenuEntry(Cap(TaskName(t)), Icon(t), t == forced, comp, team, t));
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuEntry(Loc.T("Auto"), Icon(IconByPriority), forced == TaskNone, comp, team, TaskNone));
+            menu.Items.Add(MenuEntry("Auto", Icon(IconByPriority), forced == TaskNone, comp, team, TaskNone));
             if (!ModelOn()) return menu;   // moves between sections: only with Alternative Damage Control
             menu.Items.Add(new Separator());
-            var move = new MenuItem { Header = Loc.T("Move to section") };
+            var move = new MenuItem { Header = "Move to section" };
             foreach (int j in sec.Order)
             {
                 int to = j;
-                var item = new MenuItem { Header = SectionName(sec, j) + (j == i ? "  (" + Loc.T("here") + ")" : ""), IsEnabled = j != i };
+                var item = new MenuItem { Header = SectionName(sec, j) + (j == i ? "  (here)" : ""), IsEnabled = j != i };
                 if (j != i)
                     item.Click += (s, e) =>
                     {
@@ -1999,7 +2000,7 @@ namespace AlternativeDamageModel
                 move.Items.Add(item);
             }
             move.Items.Add(new Separator());
-            var home = new MenuItem { Header = Loc.T("To Reserve") };
+            var home = new MenuItem { Header = "To Reserve" };
             home.Click += (s, e) =>
             {
                 int from, k = DcTeams.SlotOf(comp, team, out from);
@@ -2014,7 +2015,7 @@ namespace AlternativeDamageModel
         static ContextMenu CancelMenu(object comp, object teamRef)
         {
             var menu = new ContextMenu();
-            var item = new MenuItem { Header = Loc.T("Cancel Transfer") };
+            var item = new MenuItem { Header = "Cancel Transfer" };
             item.Click += (s, e) => { DcTeams.CancelTransfer(comp, teamRef); _forceRender = true; };
             menu.Items.Add(item);
             return menu;
@@ -2285,16 +2286,16 @@ namespace AlternativeDamageModel
         {
             switch (task)
             {
-                case TaskLeak: return Loc.T("plugging a leak");
-                case TaskFire: return Loc.T("fighting the fire");
-                case TaskPump: return Loc.T("pumping water out");
-                case TaskCounter: return Loc.T("counterflooding");
-                case TaskHull: return Loc.T("welding the hull");
-                case TaskSystems: return Loc.T("repairing systems");
-                case IconKnocked: case IconDead: return Loc.T("lost");
-                case IconTransit: return Loc.T("on the move (In Transfer)");
-                case IconInjured: return Loc.T("concussed, going to the reserve (In Transfer)");
-                default: return Loc.T("no task");
+                case TaskLeak: return "plugging a leak";
+                case TaskFire: return "fighting the fire";
+                case TaskPump: return "pumping water out";
+                case TaskCounter: return "counterflooding";
+                case TaskHull: return "welding the hull";
+                case TaskSystems: return "repairing systems";
+                case IconKnocked: case IconDead: return "lost";
+                case IconTransit: return "on the move (In Transfer)";
+                case IconInjured: return "concussed, going to the reserve (In Transfer)";
+                default: return "no task";
             }
         }
 

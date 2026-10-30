@@ -87,6 +87,7 @@ namespace AlternativeDamageModel
         static void SysInitFromSystem(object system)
         {
             _sysInit = true;
+            const BindingFlags all = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             var tb = system.GetType();
             _fSysMax = ReserveHits.Field(tb, "_maxIntegrity"); _fSysAlways = ReserveHits.Field(tb, "_alwaysRepairable");
             _pSysCur = Prop(tb, "CurrentIntegrity"); _pSysPct = Prop(tb, "CurrentIntegrityPercent"); _pSysType = Prop(tb, "CurrentDamageType");
@@ -142,11 +143,11 @@ namespace AlternativeDamageModel
         {
             switch (type == null ? "" : type.ToString())
             {
-                case "No": return Loc.T("none");
-                case "Light": return Loc.T("light");
-                case "Medium": return Loc.T("medium");
-                case "Severe": return Loc.T("severe");
-                case "Destroyed": return Loc.T("destroyed");
+                case "No": return "none";
+                case "Light": return "light";
+                case "Medium": return "medium";
+                case "Severe": return "severe";
+                case "Destroyed": return "destroyed";
                 default: return type == null ? "?" : type.ToString().ToLowerInvariant();
             }
         }
@@ -171,7 +172,7 @@ namespace AlternativeDamageModel
             try
             {
                 var sysObj = _fSumSystem == null ? null : _fSumSystem.GetValue(summary);
-                if (sysObj == null) { root.Children.Add(line(Loc.T("System"), text, true)); return root; }
+                if (sysObj == null) { root.Children.Add(line("System", text, true)); return root; }
                 float cur = F(_pSysCur.GetValue(sysObj, null)), max = F(_fSysMax.GetValue(sysObj)), pct = F(_pSysPct.GetValue(sysObj, null));
                 string type = _pSysType.GetValue(sysObj, null).ToString(), biggest = _pSysBiggest.GetValue(sysObj, null).ToString();
                 bool repairable = _pSysRepairable == null || (bool)_pSysRepairable.GetValue(sysObj, null);
@@ -182,44 +183,44 @@ namespace AlternativeDamageModel
                 try { var io = _pSysInop == null ? null : _pSysInop.GetValue(sysObj, null); if (io != null) inop = (bool)io.GetType().GetProperty("Value").GetValue(io, null); } catch { }
                 bool repairing = _pSumRepairing != null && (bool)_pSumRepairing.GetValue(summary, null);
 
-                root.Children.Add(line(string.IsNullOrEmpty(name) ? Loc.T("System") : name, text, true));
-                root.Children.Add(line(Loc.F("Damage: {0}, integrity {1} / {2} ({3})", Level(type), cur.ToString("0.#", CultureInfo.InvariantCulture), max.ToString("0.#", CultureInfo.InvariantCulture), Pc(pct)) + (inop ? ", " + Loc.T("out of order") : ""), text, false));
+                root.Children.Add(line(string.IsNullOrEmpty(name) ? "System" : name, text, true));
+                root.Children.Add(line("Damage: " + Level(type) + ", integrity " + cur.ToString("0.#", CultureInfo.InvariantCulture) + " / " + max.ToString("0.#", CultureInfo.InvariantCulture) + " (" + Pc(pct) + ")" + (inop ? ", out of order" : ""), text, false));
 
                 // how it stands with the repair: the rate is the measured one (points of integrity a second of game time)
                 SysTrack tr; SysTracks.TryGetValue(sysObj, out tr);
                 float rate = tr == null ? 0f : tr.Rate;
                 float top = LevelTop(biggest);
                 bool limitReached = biggest != type && Rank(type) < Rank(biggest);    // already one level better than the worst it has had: no more repair
-                if (type == "Destroyed" && !always) root.Children.Add(line(Loc.T("Destroyed: cannot be repaired"), dim, false));
-                else if (!repairable) root.Children.Add(line(Loc.T("Cannot be repaired"), dim, false));
-                else if (limitReached) root.Children.Add(line(Loc.T("Repaired as far as it can be"), dim, false));
+                if (type == "Destroyed" && !always) root.Children.Add(line("Destroyed: cannot be repaired", dim, false));
+                else if (!repairable) root.Children.Add(line("Cannot be repaired", dim, false));
+                else if (limitReached) root.Children.Add(line("Repaired as far as it can be", dim, false));
                 else
                 {
                     if (repairing && rate > 0.0001f && max > 0f)
                     {
-                        root.Children.Add(line(Loc.F("Being repaired: +{0} per minute (+{1} of its integrity)", (rate * 60f).ToString("0.0", CultureInfo.InvariantCulture), Pc(100f * rate * 60f / max)), text, false));
-                        if (top > 0f && pct < top) root.Children.Add(line(Loc.F("Level {0} in {1}", Level(NextBetter(type)), Clock2((top + 0.01f - pct) * max / 100f / rate)), text, false));
+                        root.Children.Add(line("Being repaired: +" + (rate * 60f).ToString("0.0", CultureInfo.InvariantCulture) + " per minute (+" + Pc(100f * rate * 60f / max) + " of its integrity)", text, false));
+                        if (top > 0f && pct < top) root.Children.Add(line("Level " + Level(NextBetter(type)) + " in " + Clock2((top + 0.01f - pct) * max / 100f / rate), text, false));
                     }
-                    else if (repairing) root.Children.Add(line(Loc.T("Being repaired"), text, false));
+                    else if (repairing) root.Children.Add(line("Being repaired", text, false));
                     else
                     {
-                        string why = Loc.T("Waiting for a team");
+                        string why = "Waiting for a team";
                         try
                         {
                             var sc = _fSumComp == null ? null : _fSumComp.GetValue(summary);
                             var comp = _colsComp.Target; var arr = _compSys.GetValue(comp) as Array;
                             int i = arr == null ? -1 : Array.IndexOf(arr, sc);
                             var counts = _compTeams.GetValue(comp, null) as int[];
-                            if (i >= 0 && counts != null && counts[i] <= 0) why = Loc.T("No damage control team in the section");
-                            else if (i >= 0 && SectionEffects.Locked(comp, i)) why = Loc.T("The section is flooded: no repair");
+                            if (i >= 0 && counts != null && counts[i] <= 0) why = "No damage control team in the section";
+                            else if (i >= 0 && SectionEffects.Locked(comp, i)) why = "The section is flooded: no repair";
                         }
                         catch { }
                         root.Children.Add(line(why, dim, false));
                     }
-                    if (top > 0f) root.Children.Add(line(Loc.F("The game lets it be repaired up to {0} (one level better than the worst it had)", Pc(top)), dim, false));
+                    if (top > 0f) root.Children.Add(line("The game lets it be repaired up to " + Pc(top) + " (one level better than the worst it had)", dim, false));
                 }
             }
-            catch (Exception e) { Trace("SystemTip: " + e.Message); root.Children.Add(line(Loc.T("System"), text, true)); }
+            catch (Exception e) { Trace("SystemTip: " + e.Message); root.Children.Add(line("System", text, true)); }
             return root;
         }
 

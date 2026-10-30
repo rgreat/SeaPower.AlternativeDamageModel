@@ -31,14 +31,6 @@ namespace AlternativeDamageModel
             new[] { TaskLeak, TaskPump, TaskFire, TaskSystems, TaskHull },   // flooding first
         };
 
-        // the same with counterflooding before the flooding task (Auto DC in a dangerous heel)
-        static readonly int[][] OrdersCounter =
-        {
-            new[] { TaskLeak, TaskFire, TaskCounter, TaskPump, TaskSystems, TaskHull },
-            new[] { TaskFire, TaskLeak, TaskCounter, TaskPump, TaskSystems, TaskHull },
-            new[] { TaskLeak, TaskCounter, TaskPump, TaskFire, TaskSystems, TaskHull },
-        };
-
         public static Func<bool> IsEnabled = () => false;   // DC Priority, tasks by hand (the detailed view)
         public static Func<bool> AutoOn = () => false;      // the optimised Auto DC (the damage model)
         /// <summary>Optimised Auto DC: a team with nothing to do waits where it is (no walk back to the reserve).</summary>
@@ -53,7 +45,6 @@ namespace AlternativeDamageModel
             public int Mode;
             public bool LimitInit;
             public bool NoSpeedLimit;   // "Limit Speed" off
-            public bool AutoCounter;    // Auto DC: the heel is dangerous, free teams counterflood where it helps
             public readonly List<int>[] Pending = new List<int>[8];  // per compartment: tasks from a saved game, put on the teams there
         }
         static readonly ConditionalWeakTable<object, Ship> Ships = new ConditionalWeakTable<object, Ship>();
@@ -129,193 +120,37 @@ namespace AlternativeDamageModel
             return z > 180f ? z - 360f : z;
         }
 
-        // What a team ordered to counterflood does in a section, chosen to improve the list or the trim (not to move water for its own sake):
-        //   flood port / flood starboard / pump out port / pump out starboard.
-        // Flooding a side makes it heavier (port: list to port; a forward section: bow down; an after one: stern down); pumping a side out does the opposite.
-        // The action is scored by how much it takes off the list and the trim (each in the part of its red zone it has reached, so the more dangerous
-        // of the two heels counts more); an action that makes the heel worse scores below zero. Nothing improves = the team works by priority.
-        // The chosen action is kept until it stops helping or cannot go on (the side is at its limit / minimum); a better one is taken only
-        // after CounterHold seconds and only if it is clearly better, so the team does not swing between flooding and pumping.
-        // No flooding at all when the water in the ship has reached the danger band of the LEVEL gauge.
-        const int ActNone = 0, ActFloodPort = 1, ActFloodStar = 2, ActPumpPort = 3, ActPumpStar = 4;
-        public const float CounterHold = 10f;   // s: the shortest time before the team changes its action for a better one
-        sealed class CState { public readonly float[] Seen = new float[8]; public readonly int[] Act = new int[8]; public readonly float[] Age = new float[8] { 99f, 99f, 99f, 99f, 99f, 99f, 99f, 99f }; }
-        static readonly ConditionalWeakTable<object, CState> CStates = new ConditionalWeakTable<object, CState>();
-        static PropertyInfo _floodPct;
-
-        /// <summary>The chosen action of the counterflooding teams of section i (ActNone when they do not work on it): for the tooltips.</summary>
-        public static int CounterAct(object comp, int i)
-        {
-            CState st;
-            return comp != null && i >= 0 && i < 8 && CStates.TryGetValue(comp, out st) ? st.Act[i] : ActNone;
-        }
-
-        /// <summary>The side of compartment i that counterflooding lets the water into: +1 port, -1 starboard, 0 = none (no action, or pumping).</summary>
+        /// <summary>The side of compartment i that counterflooding lets the water into: +1 port, -1 starboard, 0 = none. The side opposite to the heel
+        /// (list over 0.3 degrees); on an even keel the side with less water (so the trim can be corrected from the end sections without a list).</summary>
         public static int CounterSide(object comp, int i)
         {
             if (!_ok || comp == null || Repairs[TaskCounter] == null || i < 0 || i > 4) return 0;
-            int a = CounterAct(comp, i);
-            return a == ActFloodPort ? 1 : a == ActFloodStar ? -1 : 0;
-        }
-
-        /// <summary>The side that counterflooding teams pump out in section i: +1 port, -1 starboard, 0 = none.</summary>
-        public static int CounterPumpSide(object comp, int i)
-        {
-            if (!_ok || comp == null || Repairs[TaskCounter] == null || i < 0 || i > 4) return 0;
-            int a = CounterAct(comp, i);
-            return a == ActPumpPort ? 1 : a == ActPumpStar ? -1 : 0;
-        }
-
-        static float LevelNow(object comp)
-        {
             try
             {
-                if (_floodPct == null) _floodPct = comp.GetType().GetProperty("FloodingPercentage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                return _floodPct == null ? 0f : Convert.ToSingle(_floodPct.GetValue(comp, null), System.Globalization.CultureInfo.InvariantCulture);
+                float list = ListOf(comp);
+                if (list > 0.3f) return -1;
+                if (list < -0.3f) return 1;
+                var port = _port.GetValue(comp) as Array; var star = _star.GetValue(comp) as Array;
+                return (float)_curFlood.GetValue(port.GetValue(i)) <= (float)_curFlood.GetValue(star.GetValue(i)) ? 1 : -1;
             }
-            catch { return 0f; }
+            catch { return 0; }
         }
 
-        const float ScoreMin = 0.02f;
-
-        /// <summary>Scores the four actions for section i (index = Act*; below zero = makes the heel worse) and tells which ones can be done at all.
-        /// active = the team is at it already (a narrower dead zone). False = the ship is level enough: nothing to do. No state is changed.</summary>
-        static bool Score(object comp, int i, bool active, float[] score, bool[] can)
-        {
-            float list = ListOf(comp), trim = TrimOf(comp);
-            float listRed = DamageControlUi.ListRed(comp), trimRed = DamageControlUi.TrimRed(comp);
-            // a dead zone around an even keel (wider to start than to go on), so a small heel does not start the pumps and the floods
-            float dbL = active ? 0.25f : 0.5f, dbT = active ? 0.15f : 0.3f;
-            float eL = Math.Sign(list) * Math.Max(0f, Math.Abs(list) - dbL) / listRed;   // heel in parts of its red zone, dead zone taken off
-            float eT = Math.Sign(trim) * Math.Max(0f, Math.Abs(trim) - dbT) / trimRed;
-            for (int a = 0; a < 5; a++) { score[a] = 0f; can[a] = false; }
-            if (eL == 0f && eT == 0f) return false;
-            int tsec = i < 2 ? 1 : i > 2 ? -1 : 0;   // flooding a forward section puts the bow down (+), an after one the stern (-); the middle one does not trim
-
-            var ports = _port.GetValue(comp) as Array; var stars = _star.GetValue(comp) as Array;
-            object fp = ports.GetValue(i), fs = stars.GetValue(i);
-            float wp = (float)_curFlood.GetValue(fp), ws = (float)_curFlood.GetValue(fs);
-            float capP = Math.Min(CounterLimit, (float)_maxFlood.GetValue(fp)), capS = Math.Min(CounterLimit, (float)_maxFlood.GetValue(fs));
-            bool levelOk = LevelNow(comp) < DamageControlUi.LevelDangerAt(comp);   // no flooding in the danger band of the LEVEL gauge
-            can[ActFloodPort] = levelOk && wp < capP - 1e-4f;
-            can[ActFloodStar] = levelOk && ws < capS - 1e-4f;
-            can[ActPumpPort] = (float)_floodDelta.GetValue(fp, null) > 1e-4f;
-            can[ActPumpStar] = (float)_floodDelta.GetValue(fs, null) > 1e-4f;
-            // score = how much of the heel (in parts of the red zone) the action takes off
-            score[ActFloodPort] = -(eL * 1 + eT * tsec);
-            score[ActFloodStar] = -(eL * -1 + eT * tsec);
-            score[ActPumpPort] = -(eL * -1 + eT * -tsec);
-            score[ActPumpStar] = -(eL * 1 + eT * -tsec);
-            return true;
-        }
-
-        /// <summary>The best action in the scores: equally good (within 10%), pumping out beats flooding (no more water in the ship).</summary>
-        static int Best(float[] score, bool[] can, out float bs)
-        {
-            int best = ActNone; bs = ScoreMin;
-            for (int a = 1; a <= 4; a++) if (can[a] && score[a] > bs) { best = a; bs = score[a]; }
-            for (int a = ActPumpPort; a <= ActPumpStar; a++) if (can[a] && score[a] >= 0.9f * bs && score[a] > ScoreMin && best <= ActFloodStar) { best = a; bs = Math.Max(bs, score[a]); }
-            return best;
-        }
-
-        [ThreadStatic] static float[] _sc; [ThreadStatic] static bool[] _cn;
-
-        /// <summary>Chooses (and remembers) the action for section i; dt = game seconds since the last call for it.</summary>
-        static int Plan(object comp, int i, float dt)
-        {
-            var st = CStates.GetOrCreateValue(comp);
-            float ft = UnityEngine.Time.fixedTime;
-            if (st.Seen[i] != ft) { st.Seen[i] = ft; st.Age[i] += dt; }   // once a step, however many teams ask
-            int cur = st.Act[i];
-            if (_sc == null) { _sc = new float[5]; _cn = new bool[5]; }
-            var score = _sc; var can = _cn;
-            if (!Score(comp, i, cur != ActNone, score, can)) { st.Act[i] = ActNone; return ActNone; }
-            float bs;
-            int pick = Best(score, can, out bs);
-            if (cur != ActNone && can[cur] && score[cur] > ScoreMin)
-            {
-                // the action goes on unless a clearly better one is there and the team has held this one long enough
-                if (pick == cur || st.Age[i] < CounterHold || bs < 1.5f * score[cur]) pick = cur;
-            }
-            if (pick != cur) st.Age[i] = 0f;
-            st.Act[i] = pick;
-            return pick;
-        }
-
-        // ---- Auto DC: counterflooding in a dangerous heel
-        public static bool AutoCounterfloodOn = true;   // [FireAndFlooding] AutoCounterflood
-        const float HeelOn = 0.4f, HeelOff = 0.2f;      // parts of the red zone of LIST / TRIM: Auto DC starts counterflooding, stops (only while holes let water in)
-
-        /// <summary>The ship's heel is dangerous (list or trim at 40% of its red zone; wasOn: until it is down to 20%) and water still comes in through holes.</summary>
-        public static bool HeelDanger(object comp, bool wasOn, bool leaking)
-        {
-            if (!leaking || !_ok || comp == null || Repairs[TaskCounter] == null) return false;
-            try
-            {
-                if ((bool)_sinking.GetValue(comp)) return false;
-                float k = wasOn ? HeelOff : HeelOn;
-                return Math.Abs(ListOf(comp)) >= k * DamageControlUi.ListRed(comp) || Math.Abs(TrimOf(comp)) >= k * DamageControlUi.TrimRed(comp);
-            }
-            catch { return false; }
-        }
-
-        /// <summary>The section where counterflooding (or pumping against the heel) helps most; -1 = none. A section whose teams are at it already counts 25% more.</summary>
-        public static int CounterSection(object comp, out float score)
-        {
-            score = 0f;
-            if (!_ok || comp == null || Repairs[TaskCounter] == null) return -1;
-            int bestI = -1;
-            try
-            {
-                var sc = new float[5]; var cn = new bool[5];
-                for (int i = 0; i < 5; i++)
-                {
-                    int cur = CounterAct(comp, i);
-                    if (!Score(comp, i, cur != ActNone, sc, cn)) continue;
-                    float bs; Best(sc, cn, out bs);
-                    if (cur != ActNone && cn[cur] && sc[cur] > ScoreMin) bs = Math.Max(bs, sc[cur]) * 1.25f;
-                    if (bs > score) { score = bs; bestI = i; }
-                }
-            }
-            catch { return -1; }
-            return bestI;
-        }
-
-        public static void SetAutoCounter(object comp, bool on)
-        {
-            if (comp == null) return;
-            Ships.GetOrCreateValue(comp).AutoCounter = on && AutoCounterfloodOn;
-        }
-        static bool AutoCounterNow(object comp)
-        {
-            Ship s;
-            return AutoCounterfloodOn && Ships.TryGetValue(comp, out s) && s.AutoCounter;
-        }
-
-        /// <summary>The counterflooding teams of section i: lets water into a side or pumps one out (CounterRate × the pumping speed for flooding,
-        /// the pumping speed for pumping), whichever improves the list / trim. False = nothing to do: the team then works by priority.</summary>
+        /// <summary>Lets water into one side of compartment i at CounterRate × the pumping speed (the same crew skill, the same number of teams).
+        /// False = nothing to do (that side is at the limit): the team then works by priority.</summary>
         static bool CounterFlood(object comp, int i)
         {
-            if (!_ok || i < 0 || i > 4) return false;
-            float dt = Convert.ToSingle(_fixedDt.GetValue(null, null));
-            int act = Plan(comp, i, dt);
-            if (act == ActNone) return false;
+            int side = CounterSide(comp, i);
+            if (side == 0) return false;
             var teams = _teams.GetValue(comp, null) as int[];
-            bool port = act == ActFloodPort || act == ActPumpPort;
-            var fc = (port ? _port : _star).GetValue(comp) is Array arr ? arr.GetValue(i) : null;
-            if (fc == null) return false;
+            var arr = (side > 0 ? _port : _star).GetValue(comp) as Array;
+            var fc = arr.GetValue(i);
             float cur = (float)_curFlood.GetValue(fc);
-            float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));   // as fast as pumping (with PumpOutSpeed)
-            if (act == ActFloodPort || act == ActFloodStar)
-            {
-                float cap = Math.Min(CounterLimit, (float)_maxFlood.GetValue(fc));
-                _curFlood.SetValue(fc, Math.Min(cap, cur + teams[i] * rate * dt * CounterRate));
-            }
-            else
-            {
-                float d = (float)_floodDelta.GetValue(fc, null);   // water above the minimum (the hull's own limit)
-                _curFlood.SetValue(fc, cur - Math.Min(d, teams[i] * rate * dt));
-            }
+            float cap = Math.Min(CounterLimit, (float)_maxFlood.GetValue(fc));
+            if (cur >= cap) return false;
+            float rate = AdmPlugin.PumpOutMul((float)_repairF.GetValue(_crewF.GetValue(_baseObj.GetValue(comp))));   // as fast as pumping (with PumpOutSpeed), times CounterRate
+            float add = teams[i] * rate * Convert.ToSingle(_fixedDt.GetValue(null, null)) * CounterRate;
+            _curFlood.SetValue(fc, Math.Min(cap, cur + add));
             return true;
         }
 
@@ -635,25 +470,17 @@ namespace AlternativeDamageModel
                 if (nFree > 0)
                 {
                     int from = 0;
-                    bool counter = autoDc && AutoCounterNow(comp);
-                    if (mode != ModeFire && nFree >= 2 && FireIn(comp, i))   // flooding first or Auto: one team still fights the fire
+                    if (mode == ModeAuto && nFree >= 2 && FireIn(comp, i))
                     {
                         teams[i] = 1;
                         _grpEff = GroupEff(_free, 0, 1);
                         if (Work(TaskFire, comp, i, null)) { _did[_free[0]] = TaskFire; from = 1; }
                     }
-                    // a dangerous heel: one of the rest counterfloods where that helps, whatever else the section has to do
-                    if (counter && nFree - from >= 2)
-                    {
-                        teams[i] = 1;
-                        _grpEff = GroupEff(_free, from, 1);
-                        if (Work(TaskCounter, comp, i, null)) { _did[_free[from]] = TaskCounter; from++; }
-                    }
                     int cnt = nFree - from;
                     teams[i] = cnt;
                     _grpEff = GroupEff(_free, from, cnt);
                     int did = TaskIdle;
-                    foreach (var t in counter ? OrdersCounter[mode] : Orders[mode])
+                    foreach (var t in Orders[mode])
                         if (Work(t, comp, i, null)) { did = t; break; }
                     for (int m = from; m < nFree; m++) _did[_free[m]] = did;
                     returnTeam = from == 0 && did == TaskIdle && nFree == n && autoDc && !StayWhenIdle(comp);   // as the game: nothing to do -> back to the pool

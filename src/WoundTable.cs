@@ -98,22 +98,22 @@ namespace AlternativeDamageModel
                 ammo.Sort((x, y) => x.Power.CompareTo(y.Power));   // by power, whatever the order of the list
                 if (ships.Count == 0 || ammo.Count == 0)
                 {
-                    root.Children.Add(Cell(Loc.T("No game data yet."), cDim, false, TextAlignment.Left, 0, 0));
+                    root.Children.Add(Cell("No game data yet.", cDim, false, TextAlignment.Left, 0, 0));
                     return root;
                 }
-                root.Children.Add(new TextBlock { Text = Loc.T("Chance that one hit wounds a team"), Foreground = new SolidColorBrush(cText), FontSize = 14f, FontWeight = FontWeight.Bold });
-                root.Children.Add(new TextBlock { Text = Loc.T("% per hit, with Max health, Wound chance and Wound strength now set (the chance is limited to 100). Under it: the wound a team gets, on average, in % of its health"),
+                root.Children.Add(new TextBlock { Text = "Chance that one hit wounds a team", Foreground = new SolidColorBrush(cText), FontSize = 14f, FontWeight = FontWeight.Bold });
+                root.Children.Add(new TextBlock { Text = "% per hit, with Max health, Wound chance and Wound strength now set (the chance is limited to 100). Under it: the wound a team gets, on average, in % of its health",
                                                   Foreground = new SolidColorBrush(cDim), FontSize = 11f, Margin = new Thickness(0f, 2f, 0f, 8f) });
                 var g = new Grid();
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 for (int i = 0; i < ships.Count; i++) g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 for (int i = 0; i < ammo.Count + 4; i++) g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                var lt = Cell(Loc.T("Displacement, t"), cDim, false, TextAlignment.Left, 2, 0, null, 11f); Grid.SetColumnSpan(lt, 2); g.Children.Add(lt);
-                var lh = Cell(Loc.T("Team health, HP"), cDim, false, TextAlignment.Left, 3, 0, null, 11f); Grid.SetColumnSpan(lh, 2); g.Children.Add(lh);
+                var lt = Cell("Displacement, t", cDim, false, TextAlignment.Left, 2, 0, null, 11f); Grid.SetColumnSpan(lt, 2); g.Children.Add(lt);
+                var lh = Cell("Team health, HP", cDim, false, TextAlignment.Left, 3, 0, null, 11f); Grid.SetColumnSpan(lh, 2); g.Children.Add(lh);
                 // the column titles sit in the row of the ship names (no empty row of their own)
-                var ca = Cell(Loc.T("Ammunition"), cDim, false, TextAlignment.Left, 1, 0, null, 11f); ca.VerticalAlignment = VerticalAlignment.Bottom; g.Children.Add(ca);
-                var cp = Cell(Loc.T("Power"), cDim, false, TextAlignment.Center, 1, 1, null, 11f); cp.VerticalAlignment = VerticalAlignment.Bottom; g.Children.Add(cp);
+                var ca = Cell("Ammunition", cDim, false, TextAlignment.Left, 1, 0, null, 11f); ca.VerticalAlignment = VerticalAlignment.Bottom; g.Children.Add(ca);
+                var cp = Cell("Power", cDim, false, TextAlignment.Center, 1, 1, null, 11f); cp.VerticalAlignment = VerticalAlignment.Bottom; g.Children.Add(cp);
                 for (int c = 0; c < ships.Count; c++)
                 {
                     float hp = DcTeams.MaxHpFor(ships[c].Tons, hmul);

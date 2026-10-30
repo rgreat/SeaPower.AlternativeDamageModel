@@ -34,7 +34,6 @@ namespace AlternativeDamageModel
         static bool _init, _ok;
         static FieldInfo _fPort, _fStar, _fSys, _fCount, _fRate, _fScMax, _fScGrow, _fList, _fMaxInt;
         static PropertyInfo _pFloodPct, _pSev, _pCur, _pFixedDt;
-        static StaticNum _nFixedDt;
         static MethodInfo _mInoperable;
         static PropertyInfo _pIsDestroyed;
         static bool _firstTraced, _sysTraced, _fireTraced;
@@ -59,7 +58,6 @@ namespace AlternativeDamageModel
                 _pFixedDt = tGt == null ? null : tGt.GetProperty("fixedDeltaTime", all);
                 _ok = _fPort != null && _fStar != null && _fSys != null && _fCount != null && _fRate != null && _pFloodPct != null && _pSev != null && _fScMax != null &&
                       _fScGrow != null && _fList != null && _pCur != null && _fMaxInt != null && _mInoperable != null && _pIsDestroyed != null && _pFixedDt != null;
-                if (_pFixedDt != null) _nFixedDt = new StaticNum(_pFixedDt);
                 if (!_ok) Trace("SectionEffects: game members not found; fire / flooding effects on sections are off");
             }
             catch (Exception e) { Trace("SectionEffects.Init: " + e.Message); _ok = false; }
@@ -82,7 +80,7 @@ namespace AlternativeDamageModel
             if (!_ok) return;
             try
             {
-                float dt = (float)_nFixedDt.Get();
+                float dt = F(_pFixedDt.GetValue(null, null));
                 if (dt <= 0f) return;
                 var st = States.GetOrCreateValue(comp);
                 st.Acc += dt;
