@@ -5,7 +5,7 @@
 5|이미 파괴된 구획에 대한 피격은 사라지지 않습니다: 피해의 절반은 이웃 구획(같은 현, 선체 중앙 방향)으로 가고, 그 구획도 파괴되었으면 4분의 1이 그다음 구획으로 갑니다. 구획을 파괴한 피격의 초과분도 같은 방식으로 넘어갑니다.
 6|구역에 대한 피격은 선체 무결성과 관계없이 팀을 부상시킬 수 있습니다. 끔 = 게임과 동일: 무결성 50% 미만의 피격 구역만 확률 피해 x (1 - 무결성), 최대 20%로 팀을 이탈시킵니다. 켬 = 팀이 있는 구역에 대한 모든 피격에 부상 판정(Wound chance 참조)을 적용하며, 부상당한 팀은 예비대로 이동합니다.
 7|화재로 다시 열린 누수는 구역이 가졌던 최대 누수의 이 %까지 다시 커집니다.
-8|바다 아래의 구역은 화재를 끕니다: 구역의 갑판 가장자리가 물에 잠긴 미터마다 화재가 초당 최대치의 이 %를 잃습니다 (1 = 미터 수만큼 초당 %). 함선의 갑판 지점이 필요합니다 (갑판 침수와 동일). 0 = 끔.
+8|바다 아래의 구역은 화재를 끕니다: 구역의 갑판 가장자리가 물에 잠긴 미터마다 화재가 초당 최대치의 이 %를 잃습니다 (1 = 미터 수만큼 초당 %). 구역의 좌현·우현 갑판 지점이 둘 다 물에 잠겼을 때만 적용되며, 깊이는 둘의 평균입니다. 함선의 갑판 지점이 필요합니다 (갑판 침수와 동일). 0 = 끔.
 9|함선 속도가 이 값(노트)보다 빠르면 팀이 구멍을 막을 수 없습니다. 0 = 제한 없음.
 10|불타는 구역의 팀은 구역의 팀 중 적어도 하나가 진화하지 않는 한, 화재 100%에서 초당 전체 체력의 이만큼을 잃습니다 (작은 화재는 더 적게).
 11|예비대의 팀은 초당 전체 체력의 이만큼을 회복합니다.
@@ -490,11 +490,11 @@
 490|선체 용접 중
 491|부상: 더 느림
 492|{0} 남음
-493|Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. 가장 빨리 커지는 화재나 누수를 먼저.
-494|DC Priority: Fire - 팀이 위협을 이 순서로 처리: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
-495|DC Priority: Flooding - 팀이 위협을 이 순서로 처리: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
-496|Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. 자동 피해 통제는 여유 팀을 가장 심한 화재로 먼저 보냅니다.
-497|Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. 자동 피해 통제는 여유 팀을 누수로, 그다음 물로 보냅니다.
+493|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure. 가장 빨리 커지는 화재나 누수를 먼저.
+494|DC Priority: Fire - 팀이 위협을 이 순서로 처리: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure
+495|DC Priority: Flooding - 팀이 위협을 이 순서로 처리: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure
+496|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure. 자동 피해 통제는 여유 팀을 가장 심한 화재로 먼저 보냅니다.
+497|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure. 자동 피해 통제는 여유 팀을 누수로, 그다음 물로 보냅니다.
 498|자세: {0}
 499|접촉
 500|접촉 {0}
@@ -567,3 +567,32 @@
 567|배수 중
 568|침수
 569|선체 손상
+570|지금 최우선: {0}.
+571|DC Priority: Auto - 팀이 위협을 이 순서로 처리: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure
+572|손상 통제반이 시스템을 수리하는 속도(Systems 작업). 1.0 = 게임과 동일.
+573|손상 통제반이 선체를 수리하는 속도(Hull 작업). 1.0 = 게임과 동일.
+574|선체 수리
+575|시스템 수리
+576|화재가 스스로 커지는 속도의 상한, 초당 최대 화재의 %(게임에서는 초당 약 30%까지). 불타는 구획의 성장 속도가 이 값으로 유지됨. 0 = 끔(게임과 동일).
+577|화재 성장 한도
+578|초당 최대 화재의 % · 0 = 끔
+579|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Structure > Systems. 가장 빨리 커지는 화재나 누수를 먼저.
+580|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Structure > Systems. 자동 피해 통제는 여유 팀을 가장 심한 화재로 먼저 보냅니다.
+581|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Structure > Systems. 자동 피해 통제는 여유 팀을 누수로, 그다음 물로 보냅니다.
+582|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Flooded Structure > Systems > Structure. 가장 빨리 커지는 화재나 누수를 먼저.
+583|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Flooded Structure > Systems > Structure. 자동 피해 통제는 여유 팀을 가장 심한 화재로 먼저 보냅니다.
+584|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Flooded Structure > Systems > Structure. 자동 피해 통제는 여유 팀을 누수로, 그다음 물로 보냅니다.
+585|위급
+586|진화하지 않는 화재 속 작업: {0}%
+587|여기서 시스템을 수리 중인 팀: {0}, 효율 {1}%
+589|이곳의 팀이 먼저 구역의 다른 시스템을 수리합니다
+588|이곳의 팀은 작업 중: {0}
+590|지도의 함선 아이콘 아래 작은 아이콘 네 개(내 함선 포함): 화재(화재 총 강도), 물, 선체(Damage Control 패널의 분류)(내 함선에서는 더 이상 용접할 수 없는 선체 손상과 배수할 수 없는 물은 표시되지 않음; 접촉의 수리 계획은 알 수 없음), 엔진; 심각도에 따라 노랑/주황/빨강, 함선이 침몰할 예정이면(침수/선체 추세로 20분 이내) 지도 아이콘이 더 회색이 됩니다. 접촉: 화재, 물, 선체, 엔진은 직접 시야에서만; 소나로는 엔진만(노랑: 일부 상실, 빨강: 작동 없음); 레이더로는 최근 10분 내 피격된 함선에 대한 추정으로 '?' 표시(노랑: 10노트 이하, 빨강: 3 미만); ESM이나 접촉 없이는 없음, 침몰한 함선도 없음. Damage Control 탭의 Fires 줄도 같은 총 강도를 사용합니다. 접촉의 Unit Status에는 같은 정보를 글로 보여 주는 Damage State 탭이 있습니다.
+591|방치된 화재
+592|통제되지 않는 화재
+593|상태:
+594|수리 중인 팀(다른 구역 포함): {0}, 효율 {1}%
+595|진단: 10초마다 모드 후크가 소요한 시간을 트레이스(Debug)에 기록합니다: 후크별 호출 수, ms 및 실제 시간 대비 % - 게임을 느리게 하는 부분을 찾기 위함입니다(높은 시간 가속에서는 물리 후크가 프레임마다 여러 번 실행됨).
+596|후크 소요 시간
+597|10초마다 디버그 트레이스에
+598|Auto DC가 역침수를 합니다: 파공으로 아직 물이 들어오고 횡경사나 트림이 게이지의 붉은 구간에 이르면(그 절반까지 내려갈 때까지) 한쪽에 물을 넣어 기울기를 가장 많이 줄일 수 있는 구획으로 팀이 가서, 역침수 명령을 받은 팀처럼 작업합니다(역침수 참조). 끔 = Auto DC가 역침수를 하지 않습니다.

@@ -5,7 +5,7 @@
 5|Một phát trúng vào khoang đã bị phá hủy không bị mất: một nửa sát thương chuyển sang khoang bên cạnh (cùng mạn, về phía giữa tàu); nếu khoang đó cũng bị phá hủy, một phần tư chuyển sang khoang kế tiếp. Phần dư của phát trúng phá hủy khoang cũng lan theo cách đó.
 6|Phát trúng vào khu vực có thể làm bị thương các đội ở mọi độ nguyên vẹn. Tắt = như trong game: chỉ khu vực bị trúng có độ nguyên vẹn dưới 50% mới có thể loại một đội khỏi vị trí, với xác suất sát thương x (1 - độ nguyên vẹn), tối đa 20%. Bật = mọi phát trúng vào khu vực có đội đều được tung xúc xắc bị thương (xem Wound chance); đội bị thương đi về lực lượng dự bị.
 7|Chỗ rò được lửa mở lại sẽ lớn trở lại tới % này của chỗ rò lớn nhất mà khu vực từng có.
-8|Khu vực dưới mặt biển dập tắt đám cháy của nó: lửa mất % này của mức tối đa mỗi giây cho mỗi mét mép boong của khu vực nằm dưới nước (1 = số % mỗi giây bằng số mét). Cần các điểm boong của tàu (như ngập qua boong). 0 = tắt.
+8|Khu vực dưới mặt biển dập tắt đám cháy của nó: lửa mất % này của mức tối đa mỗi giây cho mỗi mét mép boong của khu vực nằm dưới nước (1 = số % mỗi giây bằng số mét). Chỉ khi cả hai điểm boong của khu vực (mạn trái và mạn phải) đều nằm dưới nước; độ sâu là trung bình của hai điểm. Cần các điểm boong của tàu (như ngập qua boong). 0 = tắt.
 9|Đội không thể bịt lỗ khi tàu chạy nhanh hơn mức này, tính bằng hải lý/giờ. 0 = không giới hạn.
 10|Một đội trong khu vực đang cháy mất lượng này của máu đầy mỗi giây khi cháy 100%, trừ khi có ít nhất một đội của khu vực đang chữa cháy (ít hơn với đám cháy thấp hơn).
 11|Một đội trong lực lượng dự bị hồi phục lượng này của máu đầy mỗi giây.
@@ -490,11 +490,11 @@
 490|đang hàn thân tàu
 491|bị thương: chậm hơn
 492|còn {0}
-493|Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. Đám cháy hoặc chỗ rò lớn nhanh nhất được xử lý trước.
-494|DC Priority: Fire - các đội xử lý mối đe dọa theo thứ tự: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
-495|DC Priority: Flooding - các đội xử lý mối đe dọa theo thứ tự: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
-496|Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. KSHH tự động cử các đội rảnh đến đám cháy nặng nhất trước.
-497|Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. KSHH tự động cử các đội rảnh đến chỗ rò, rồi đến nước.
+493|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure. Đám cháy hoặc chỗ rò lớn nhanh nhất được xử lý trước.
+494|DC Priority: Fire - các đội xử lý mối đe dọa theo thứ tự: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure
+495|DC Priority: Flooding - các đội xử lý mối đe dọa theo thứ tự: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure
+496|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure. KSHH tự động cử các đội rảnh đến đám cháy nặng nhất trước.
+497|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure. KSHH tự động cử các đội rảnh đến chỗ rò, rồi đến nước.
 498|Tư thế: {0}
 499|Mục tiêu
 500|Mục tiêu {0}
@@ -567,3 +567,32 @@
 567|đang bơm nước ra
 568|ngập nước
 569|hư hại thân tàu
+570|Hiện ưu tiên trước: {0}.
+571|DC Priority: Auto - các đội xử lý mối đe dọa theo thứ tự: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure
+572|Tốc độ đội kiểm soát thiệt hại sửa chữa hệ thống (nhiệm vụ Systems). 1.0 = như trong game.
+573|Tốc độ đội kiểm soát thiệt hại sửa chữa thân tàu (nhiệm vụ Hull). 1.0 = như trong game.
+574|Sửa chữa thân tàu
+575|Sửa chữa hệ thống
+576|Mức tối đa một đám cháy tự lan rộng, % mức cháy tối đa mỗi giây (trong game có thể tới khoảng 30% mỗi giây). Tốc độ tăng của khoang đang cháy được giữ ở mức này. 0 = tắt (như trong game).
+577|Giới hạn tăng của đám cháy
+578|% đám cháy tối đa mỗi giây · 0 = tắt
+579|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Structure > Systems. Đám cháy hoặc chỗ rò lớn nhanh nhất được xử lý trước.
+580|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Structure > Systems. KSHH tự động cử các đội rảnh đến đám cháy nặng nhất trước.
+581|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Structure > Systems. KSHH tự động cử các đội rảnh đến chỗ rò, rồi đến nước.
+582|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Flooded Structure > Systems > Structure. Đám cháy hoặc chỗ rò lớn nhanh nhất được xử lý trước.
+583|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Flooded Structure > Systems > Structure. KSHH tự động cử các đội rảnh đến đám cháy nặng nhất trước.
+584|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Flooded Structure > Systems > Structure. KSHH tự động cử các đội rảnh đến chỗ rò, rồi đến nước.
+585|Nguy kịch
+586|Làm việc giữa đám cháy không dập: {0}%
+587|Đội đang sửa hệ thống ở đây: {0}, hiệu suất {1}%
+589|Đội ở đây sửa hệ thống khác của khoang trước
+588|Đội ở đây đang bận: {0}
+590|Bốn biểu tượng nhỏ dưới biểu tượng tàu trên bản đồ (cả của bạn): lửa (tổng cường độ các đám cháy), nước, thân tàu (phân loại như bảng Damage Control) (trên tàu của bạn không hiển thị hư hại thân tàu không thể hàn thêm và nước không thể bơm ra; kế hoạch sửa chữa của mục tiêu liên lạc không được biết) và động cơ; vàng / cam / đỏ theo mức nghiêm trọng, và biểu tượng bản đồ xám hơn khi tàu sắp chìm (trong 20 phút theo xu hướng ngập / thân tàu). Một mục tiêu liên lạc: lửa, nước, thân tàu và động cơ chỉ khi nhìn trực tiếp; qua sonar - chỉ động cơ (vàng: mất một phần, đỏ: không cái nào hoạt động); qua radar - ước đoán cho tàu bị trúng trong 10 phút qua, đánh dấu '?' (vàng: 10 hải lý/giờ trở xuống, đỏ: dưới 3); không có gì qua ESM hoặc khi không có liên lạc, và không có gì cho tàu đã chìm. Dòng Fires của thẻ Damage Control dùng cùng tổng cường độ. Unit Status của mục tiêu liên lạc hiển thị thẻ Damage State với cùng thông tin bằng chữ.
+591|Đám cháy chưa có đội xử lý
+592|Đám cháy không kiểm soát
+593|Trạng thái:
+594|Đội đang sửa nó (kể cả từ khoang khác): {0}, hiệu suất {1}%
+595|Chẩn đoán: cứ 10 giây ghi vào trace (Debug) thời gian các hook của mod đã dùng: với mỗi hook là số lần gọi, thời gian theo ms và theo % thời gian thực – để tìm phần làm chậm trò chơi (khi tua nhanh thời gian cao, các hook vật lý chạy nhiều lần mỗi khung hình).
+596|Thời gian hook
+597|mỗi 10 giây vào trace gỡ lỗi
+598|Auto DC phản ngập: khi các lỗ thủng vẫn còn cho nước vào và độ nghiêng hoặc chúi đạt vùng đỏ của đồng hồ (cho đến khi giảm còn một nửa vùng đó), một đội đến khoang mà việc cho nước vào một mạn giảm nghiêng nhiều nhất, và làm việc như đội được lệnh phản ngập (xem Phản ngập). Tắt = Auto DC không phản ngập.

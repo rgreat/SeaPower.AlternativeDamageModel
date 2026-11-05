@@ -5,7 +5,7 @@
 5|Un impacto en un compartimento ya destruido no se pierde: la mitad del daño pasa al compartimento vecino (del mismo lado, hacia el centro del barco); si también está destruido, un cuarto pasa al siguiente. El excedente de un impacto que destruye un compartimento se reparte igual.
 6|Un impacto en una sección puede herir a sus equipos con cualquier integridad. Desactivado = como en el juego: solo una sección alcanzada con integridad inferior al 50% puede dejar fuera a un equipo, con probabilidad daño x (1 - integridad), como máximo 20%. Activado = cada impacto en una sección con equipos recibe la tirada de herida (véase Wound chance); un equipo herido va a la reserva.
 7|Una vía de agua reabierta por el fuego vuelve a crecer hasta este % de la mayor vía de agua que ha tenido la sección.
-8|Una sección bajo el mar apaga su fuego: el fuego pierde este % de su máximo por segundo por cada metro que el borde de cubierta de la sección esté bajo el agua (1 = tantos % por segundo como metros). Necesita los puntos de cubierta del barco (como la inundación por cubierta). 0 = desactivado.
+8|Una sección bajo el mar apaga su fuego: el fuego pierde este % de su máximo por segundo por cada metro que el borde de cubierta de la sección esté bajo el agua (1 = tantos % por segundo como metros). Solo cuando los dos puntos de cubierta de la sección (babor y estribor) están bajo el agua; la profundidad es la media de ambos. Necesita los puntos de cubierta del barco (como la inundación por cubierta). 0 = desactivado.
 9|Un equipo no puede taponar agujeros mientras el barco vaya más rápido que esto, en nudos. 0 = sin límite.
 10|Un equipo en una sección en llamas pierde esta parte de su salud completa por segundo con fuego al 100%, salvo que al menos un equipo de la sección combata el fuego (menos con un fuego menor).
 11|Un equipo en la reserva recupera esta parte de su salud completa por segundo.
@@ -490,11 +490,11 @@
 490|soldando el casco
 491|herido: más lento
 492|quedan {0}
-493|Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. Primero el incendio o la vía de agua que crece más rápido.
-494|DC Priority: Fire - los equipos atienden las amenazas en este orden: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
-495|DC Priority: Flooding - los equipos atienden las amenazas en este orden: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
-496|Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. El CA auto envía los equipos libres primero al peor incendio.
-497|Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. El CA auto envía los equipos libres a las vías de agua y luego al agua.
+493|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure. Primero el incendio o la vía de agua que crece más rápido.
+494|DC Priority: Fire - los equipos atienden las amenazas en este orden: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure
+495|DC Priority: Flooding - los equipos atienden las amenazas en este orden: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure
+496|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure. El CA auto envía los equipos libres primero al peor incendio.
+497|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure. El CA auto envía los equipos libres a las vías de agua y luego al agua.
 498|Actitud: {0}
 499|Contacto
 500|Contacto {0}
@@ -567,3 +567,32 @@
 567|achica
 568|inundación
 569|daño al casco
+570|Ahora primero: {0}.
+571|DC Priority: Auto - los equipos atienden las amenazas en este orden: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure
+572|Qué tan rápido los equipos de control de daños reparan los sistemas (tarea Systems). 1.0 = como en el juego.
+573|Qué tan rápido los equipos de control de daños reparan el casco (tarea Hull). 1.0 = como en el juego.
+574|Reparación del casco
+575|Reparación de sistemas
+576|Lo máximo que un incendio puede crecer por sí solo, % de su máximo por segundo (el juego permite hasta un 30% por segundo). La tasa de crecimiento de una sección en llamas se mantiene en este valor. 0 = desactivado (como en el juego).
+577|Límite de crecimiento del fuego
+578|% del fuego máx. por segundo · 0 = desactivado
+579|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Structure > Systems. Primero el incendio o la vía de agua que crece más rápido.
+580|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Structure > Systems. El CA auto envía los equipos libres primero al peor incendio.
+581|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Structure > Systems. El CA auto envía los equipos libres a las vías de agua y luego al agua.
+582|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Flooded Structure > Systems > Structure. Primero el incendio o la vía de agua que crece más rápido.
+583|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Flooded Structure > Systems > Structure. El CA auto envía los equipos libres primero al peor incendio.
+584|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Flooded Structure > Systems > Structure. El CA auto envía los equipos libres a las vías de agua y luego al agua.
+585|Crítico
+586|Entre un fuego que no combate: {0}%
+587|Equipos reparando sistemas aquí: {0}, eficiencia {1}%
+589|El equipo de aquí repara primero otro sistema de la sección
+588|El equipo de aquí está ocupado: {0}
+590|Cuatro iconos pequeños bajo el icono de un barco en el mapa (también el tuyo): fuego (la fuerza total de los fuegos), agua, casco (clasificado como en el panel Damage Control) (en tu propio barco no se muestran los daños del casco que ya no se pueden soldar ni el agua que no se puede achicar; los planes de reparación de un contacto no se conocen) y motor; amarillo / naranja / rojo según la gravedad, y un icono de mapa más gris cuando el barco va a hundirse (en 20 minutos según la tendencia de inundación / casco). Un contacto: fuego, agua, casco y motor solo a la vista directa; por sonar - solo el motor (amarillo: parte perdida, rojo: nada funciona); por radar - una estimación para un barco alcanzado en los últimos 10 minutos, marcada con '?' (amarillo: 10 nudos o menos, rojo: menos de 3); nada por ESM o sin contacto, y nada para un barco hundido. La línea Fires de la pestaña Damage Control usa la misma fuerza total. El Unit Status de un contacto muestra una pestaña Damage State con la misma información en palabras.
+591|Incendio sin atender
+592|Incendios sin control
+593|Estado:
+594|Equipos que lo reparan (también desde otras secciones): {0}, eficiencia {1}%
+595|Diagnóstico: cada 10 segundos escribe en la traza (Debug) cuánto tiempo tomaron los hooks del mod: por hook las llamadas, el tiempo en ms y en % del tiempo real, para encontrar qué ralentiza el juego (con alta compresión de tiempo los hooks de física se ejecutan muchas veces por fotograma).
+596|Tiempos de hooks
+597|cada 10 s en la traza de depuración
+598|Auto DC contrainunda: mientras las vías de agua sigan dejando entrar agua y la escora o el asiento llegue a la zona roja de su indicador (hasta que baje a la mitad de ella), un equipo va a la sección donde dejar entrar agua a un costado quita más inclinación y trabaja como un equipo con la orden de contrainundar (véase Contrainundación). Desactivado = Auto DC no contrainunda.

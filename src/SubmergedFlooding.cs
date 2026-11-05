@@ -38,11 +38,13 @@ namespace AlternativeDamageModel
             public int Count;
             public int[] Map;          // compartment k (= side * Count + section) -> point index in P.Points (side 0 port, 1 starboard)
             public float[] Under;      // continuous game seconds the point has been under water
+            public bool SinkSaid;      // the "sinking by the deck" trace line was written
             public float[] Depth;      // m, current (negative = above)
             public float[] Own;        // %/s of its own inflow now (0 before Delay)
             public float[] Got;        // %/s received as overflow from others
             public int[] GotFrom;      // compartment it comes from (the last one), -1 none
             public int[] PassedTo;     // where this full compartment's water goes now, -1 none
+            public float McT = -1f, McList, McTrim, McP, McS, McSt, McB;   // Margins: the last result and the list / trim / time it was found for
             public object[] Fcs;                 // the flooding compartments by k (port, then starboard): found when the game's arrays change, not every tick
             public Array PortArr, StarArr;
             public float[] WorldY;               // scratch of the tick
@@ -90,6 +92,14 @@ namespace AlternativeDamageModel
                 return _pDestroyed != null && (bool)_pDestroyed.GetValue(bo, null);
             }
             catch { return false; }
+        }
+
+        /// <summary>True while the deck point of the compartment (section i, port / starboard side) is under the sea level (last tick).</summary>
+        public static bool DeckUnder(object comp, int i, bool port)
+        {
+            State s;
+            if (comp == null || !States.TryGetValue(comp, out s) || s.P == null || s.Depth == null || i < 0 || i >= s.Count) return false;
+            return s.Depth[port ? i : s.Count + i] > 0f;
         }
 
         static State Get(object comp)
@@ -185,6 +195,15 @@ namespace AlternativeDamageModel
         /// </summary>
         public static bool Margins(object comp, float list, float trim, out float toPort, out float toStbd, out float toStern, out float toBow)
         {
+            long _p0 = Prof.Start();
+            try { return MarginsCore(comp, list, trim, out toPort, out toStbd, out toStern, out toBow); }
+            finally { Prof.Stop(Prof.Margins, _p0); }
+        }
+
+        const float McAge = 0.5f, McAngle = 0.1f;   // Margins cache: seconds (Time.fixedTime), degrees
+
+        static bool MarginsCore(object comp, float list, float trim, out float toPort, out float toStbd, out float toStern, out float toBow)
+        {
             toPort = toStbd = toStern = toBow = 0f;
             if (!Covers(comp)) return false;
             var s = Get(comp);
@@ -192,6 +211,15 @@ namespace AlternativeDamageModel
             Transform t = s.P.ShipT;
             Vector3 upw = t.up;
             if (upw.y < 0.2f) return false;
+            // the search below is heavy (thousands of rotations) and was asked for several times a physics step (Auto DC pumping / counterflooding,
+            // the plan, the hints): the result is kept while the list and the trim move less than McAngle and for at most McAge (the draft changes slowly)
+            float ft = Time.fixedTime;
+            if (s.McT >= 0f && ft - s.McT < McAge && ft >= s.McT && Math.Abs(list - s.McList) < McAngle && Math.Abs(trim - s.McTrim) < McAngle)
+            {
+                toPort = s.McP; toStbd = s.McS; toStern = s.McSt; toBow = s.McB;
+                s.M = new[] { Mathf.Max(0f, toPort - list), Mathf.Max(0f, toStbd + list), Mathf.Max(0f, toStern + trim), Mathf.Max(0f, toBow - trim) };
+                return true;
+            }
             float sea = DeckCorners.SeaLevel();
             Vector3 o = t.TransformPoint(new Vector3(0f, 0f, s.Zc));
             Vector3 a = o + upw * ((sea - o.y) / upw.y);        // the centreline at the flat sea level, world
@@ -210,6 +238,7 @@ namespace AlternativeDamageModel
                 }
             }
             toPort = mp; toStbd = ms; toStern = mst; toBow = mb;
+            s.McT = ft; s.McList = list; s.McTrim = trim; s.McP = mp; s.McS = ms; s.McSt = mst; s.McB = mb;
             // the same as the tilt still available from the present pose (what the hint shows): to port / starboard (list + port down),
             // to the stern / bow (trim + bow down); 0 once the point is under water
             s.M = new[] { Mathf.Max(0f, toPort - list), Mathf.Max(0f, toStbd + list), Mathf.Max(0f, toStern + trim), Mathf.Max(0f, toBow - trim) };
@@ -246,7 +275,35 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The extra condition of sinking from flooding for ships with exact deck points (the water level threshold itself is checked by the
+        /// Sinking by the deck for ships with exact deck points - a trigger of its own, besides the water level threshold (either sinks the ship):
+        /// both central compartments (the middle section, port and starboard) are under the sea, or at least <see cref="SinkPoints"/> of the
+        /// 10 compartments are, each deck point under water for <see cref="SinkDelay"/> seconds in a row. Ships without exact points, a ship
+        /// already destroyed, or no data: false.
+        /// </summary>
+        public static bool SinkByDeck(object comp)
+        {
+            try
+            {
+                if (comp == null || !IsEnabled()) return false;
+                Init(comp);
+                if (!_ok || IsDestroyed(comp)) return false;
+                var s = Get(comp);
+                if (s == null) return false;
+                int n = s.Count, total = 2 * n, count = 0;
+                if (n != 5) return false;   // ships with 5 sections only (a life raft, one compartment, sat with its rim at the water and was sunk in the encyclopedia)
+                for (int k = 0; k < total; k++) if (s.Depth[k] > 0f && s.Under[k] >= SinkDelay) count++;
+                bool mid = false;
+                if (n % 2 == 1) { int m = n / 2; mid = s.Depth[m] > 0f && s.Under[m] >= SinkDelay && s.Depth[n + m] > 0f && s.Under[n + m] >= SinkDelay; }
+                if (count < SinkPoints && !mid) return false;
+                if (!s.SinkSaid) { s.SinkSaid = true; Trace("Sinking by the deck: " + (mid ? "both central compartments" : count + " of " + total + " compartments") + " under the sea for " + SinkDelay + " s"); }
+                return true;
+            }
+            catch { return false; }
+        }
+        public const float SinkDelay = 10f;   // game seconds a deck point stays under the sea before it counts for sinking (the inflow over the deck starts after Delay)
+
+        /// <summary>
+        /// (Old rule, no longer used for sinking: SinkByDeck.) The extra condition of sinking from flooding for ships with exact deck points (the water level threshold itself is checked by the
         /// game): both central compartments (the middle section, port and starboard) are under the sea, or at least <see cref="SinkPoints"/>
         /// of the 10 compartments are - "under the sea" as in the rule above (the deck point under water for <see cref="Delay"/> seconds
         /// in a row). Ships without exact points: always true.
@@ -273,7 +330,7 @@ namespace AlternativeDamageModel
             }
             catch { return true; }
         }
-        public const int SinkPoints = 5;
+        public const int SinkPoints = 6;   // of the 2N deck points (with both central ones under the sea that is enough by itself)
 
         /// <summary>True when this ship floods over the deck edge by this file's rule (exact deck points, rule on): the old list / trim
         /// flooding (TrimFlooding) is then not used for it - the same water must not come in twice for one cause.</summary>
@@ -393,7 +450,7 @@ namespace AlternativeDamageModel
 
         /// <summary>
         /// A section under the sea puts its fire out: the fire loses FireDecay % of its maximum per second for every metre the section's deck edge is
-        /// under water (a section's depth = the mean of its two sides' depths, a dry side counting 0), and its growth stops. Works for ships with deck points.
+        /// under water, only while both of its deck points (port and starboard) are under water (the depth = the mean of the two), and its growth stops. Works for ships with deck points.
         /// </summary>
         static void PutOutFires(object comp, State s, float dt)
         {
@@ -419,8 +476,9 @@ namespace AlternativeDamageModel
             int n = s.Count;
             for (int l = 0; l < n && l < sys.Length; l++)
             {
-                float depth = (Math.Max(0f, s.Depth[l]) + Math.Max(0f, s.Depth[n + l])) * 0.5f;
-                if (depth <= 0f) continue;
+                float dPort = Math.Max(0f, s.Depth[l]), dStar = Math.Max(0f, s.Depth[n + l]);
+                if (dPort <= 0f || dStar <= 0f) continue;   // both deck points of the section have to be under the sea
+                float depth = (dPort + dStar) * 0.5f;
                 var sc = sys.GetValue(l);
                 float sev = (float)_pScSev.GetValue(sc, null), grow = (float)_fScGrow.GetValue(sc);
                 if (sev <= 0f && grow <= 0f) continue;

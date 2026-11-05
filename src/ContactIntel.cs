@@ -242,7 +242,8 @@ namespace AlternativeDamageModel
                     info.Flood = sinking ? 4 : FloodStage(flood);
                     if (!mine && info.Flood <= 1) info.Flood = 0;   // light flooding of an enemy cannot be seen
                     info.Hull = HullStage(hull, ModelOn());
-                    if (info.Hull <= 1 || HullWeldedUp(comp)) info.Hull = 0;   // light damage and damage repaired as far as it can be are not shown
+                    if (info.Hull <= 1 || (mine && HullWeldedUp(comp))) info.Hull = 0;   // light damage is not shown; own ship: nor damage repaired as far as it can be (a contact's repair plans are not known)
+                    if (mine && !sinking && info.Flood > 0 && NoPumpableWater(comp) && (info.Hull == 0 || HullWeldedUp(comp))) info.Flood = 0;   // the water the hull keeps in, with nothing left to weld: not a problem damage control can still solve
                     info.Engine = hit ? (dead ? 4 : EngineLevel(prop)) : 0;   // an enemy's engine: only after hits on the ship are registered
                     if (hit) Latch(obj, info.Engine);
                 }
@@ -394,7 +395,7 @@ namespace AlternativeDamageModel
 
         /// <summary>
         /// The sinking forecast of an own ship for the Damage Control tab: the main line and a cause line;
-        /// sev 0 - nothing to fear, 1 - will sink in over 20 minutes, 2 - within 20 minutes, sinking or lost.
+        /// sev 0 - nothing to fear, 1 - will sink in over 20 minutes, 2 - within 20 minutes, sinking, lost or critical, 3 - a fire no team fights (yellow).
         /// </summary>
         public static void Forecast(object comp, out string main, out string sub, out int sev)
         {
@@ -408,9 +409,15 @@ namespace AlternativeDamageModel
                 float flood = Convert.ToSingle(_cFlood.GetValue(comp, null)), hull = Convert.ToSingle(_cInt.GetValue(comp, null));
                 if (sinking) { main = Loc.T("Sinking"); sev = 2; return; }
                 string cause; double eta = Trend(obj, false, flood, hull, out cause);
-                if (eta == double.MaxValue) return;
+                // no sinking in sight, but the state is critical (the teams get no rest for fatigue - see Heavy): "Critical" in red instead of "Stable"
+                if (eta == double.MaxValue || eta / 60.0 > 90.0)
+                {
+                    int hv = HeavyLevel(comp);
+                    if (hv >= 2) { main = Loc.T("Critical"); sev = 2; }
+                    else if (hv == 1) { main = Loc.T("Uncontrolled Fires"); sev = 3; }   // only a fire no team fights yet: no danger by itself
+                    return;
+                }
                 double min = eta / 60.0;
-                if (min > 90.0) return;
                 main = Loc.F("Sinks in ~{0} min", Math.Max(1, (int)Math.Ceiling(min)));
                 sev = min <= 20.0 ? 2 : 1;
                 sub = Loc.T(cause);
@@ -458,6 +465,21 @@ namespace AlternativeDamageModel
             catch { return ""; }
         }
 
+        /// <summary>The engine system (the Engine module in use) when it is out of order, else null.</summary>
+        public static object EngineSystem(object comp)
+        {
+            if (!_ok || comp == null || _oPower == null || _cBase == null) return null;
+            try
+            {
+                var obj = _cBase.GetValue(comp);
+                var ps = obj == null ? null : _oPower.GetValue(obj);
+                if (ps == null) return null;
+                bool out_ = (_sInoperable != null && Flag(_sInoperable.GetValue(ps, null))) || (_sDamage != null && Convert.ToInt32(_sDamage.GetValue(ps, null)) >= 4);
+                return out_ ? ps : null;
+            }
+            catch { return null; }
+        }
+
         /// <summary>The ship's engine (the power system in use: the Engine module, not the propulsion / screws) is out of order: inoperable or destroyed.</summary>
         public static bool EngineOut(object comp)
         {
@@ -487,16 +509,87 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The own ship is in a bad way (DC rests the teams in a shortened way): sinking, or fire, water or hull at the third stage or worse.</summary>
-        public static bool Heavy(object comp)
+        /// <summary>
+        /// The ship is in a critical state (the teams get no rest for fatigue): sinking; water at stage 3+ (FloodingPercentage 20+) while a hole
+        /// still leaks; the hull under 50% while something burns or leaks; fires 50+ in total, or a fire nobody fights.
+        /// </summary>
+        public static bool Heavy(object comp) { return HeavyLevel(comp) > 0; }
+
+        /// <summary>
+        /// The critical state by its kind: 2 - the ship is in danger (sinking; flooding stage 3+ with a leak; hull stage 3+ with a fire or a leak;
+        /// fires 50% in all), 1 - only a fire that no team fights (not a danger by itself, but no team rests while it burns), 0 - none.
+        /// </summary>
+        public static int HeavyLevel(object comp)
         {
-            if (!_ok || comp == null) return false;
+            long _p0 = Prof.Start();
+            try { return HeavyLevelCore(comp); }
+            finally { Prof.Stop(Prof.Heavy, _p0); }
+        }
+
+        static int HeavyLevelCore(object comp)
+        {
+            if (!_ok || comp == null) return 0;
             try
             {
-                if ((bool)_cSinking.GetValue(comp)) return true;
+                if ((bool)_cSinking.GetValue(comp)) return 2;
                 float flood = Convert.ToSingle(_cFlood.GetValue(comp, null)), hull = Convert.ToSingle(_cInt.GetValue(comp, null));
-                return FloodStage(flood) >= 3 || HullStage(hull, ModelOn()) >= 3 || FireStage(FireTotal(comp)) >= 3;
+                bool leak = AnyLeak(comp);
+                var sys = _cSys == null ? null : _cSys.GetValue(comp) as Array;
+                int count = sys == null ? 0 : Math.Min(sys.Length, Convert.ToInt32(_cCount.GetValue(comp)));
+                bool fire = false, unfought = false;
+                for (int i = 0; i < count; i++)
+                {
+                    var sc = sys.GetValue(i);
+                    if (sc == null || Convert.ToSingle(_scSev.GetValue(sc, null)) <= 0f) continue;
+                    fire = true;
+                    if (!DcTeams.FireFought(comp, i)) unfought = true;
+                }
+                if (FloodStage(flood) >= 3 && leak) return 2;
+                if (HullStage(hull, ModelOn()) >= 3 && (fire || leak)) return 2;
+                if (FireTotal(comp) >= 50f) return 2;
+                return unfought ? 1 : 0;
+            }
+            catch { return 0; }
+        }
+
+        static PropertyInfo _fcDeltaP;
+        /// <summary>No water above the compartments' minimum is left (what the hull keeps in cannot be pumped out) and no hole leaks.</summary>
+        static bool NoPumpableWater(object comp)
+        {
+            try
+            {
+                if (AnyLeak(comp)) return false;
+                foreach (var arr in new[] { _cPortC == null ? null : _cPortC.GetValue(comp) as Array, _cStarC == null ? null : _cStarC.GetValue(comp) as Array })
+                {
+                    if (arr == null) continue;
+                    foreach (var fc in arr)
+                    {
+                        if (fc == null) continue;
+                        if (_fcDeltaP == null) _fcDeltaP = fc.GetType().GetProperty("FloodingDelta", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                        if (_fcDeltaP == null) return false;
+                        if (Convert.ToSingle(_fcDeltaP.GetValue(fc, null)) > 0.5f) return false;
+                    }
+                }
+                return true;
             }
             catch { return false; }
+        }
+
+        static FieldInfo _fcRateF;
+        /// <summary>A hole still lets water in somewhere (a compartment's flooding rate above 0).</summary>
+        static bool AnyLeak(object comp)
+        {
+            foreach (var arr in new[] { _cPortC == null ? null : _cPortC.GetValue(comp) as Array, _cStarC == null ? null : _cStarC.GetValue(comp) as Array })
+            {
+                if (arr == null) continue;
+                foreach (var fc in arr)
+                {
+                    if (fc == null) continue;
+                    if (_fcRateF == null) _fcRateF = fc.GetType().GetField("_floodingRate", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (_fcRateF != null && Convert.ToSingle(_fcRateF.GetValue(fc)) > 0f) return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>The fires' total strength: the sum over the sections of their fire in % of the section's own maximum (100 = one section burning at full).</summary>
@@ -592,6 +685,13 @@ namespace AlternativeDamageModel
 
         /// <summary>After MapUnitViewModel.Update: the contact's note (once a second) and, for a ship that will sink, the greyer icon.</summary>
         static void UpdatePostfix(object __instance)
+        {
+            long _p0 = Prof.Start();
+            try { UpdatePostfixCore(__instance); }
+            finally { Prof.Stop(Prof.MapUnit, _p0); }
+        }
+
+        static void UpdatePostfixCore(object __instance)
         {
             try
             {

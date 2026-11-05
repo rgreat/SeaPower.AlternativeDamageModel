@@ -35,6 +35,7 @@ namespace AlternativeDamageModel
         static FieldInfo _fPort, _fStar, _fSys, _fCount, _fRate, _fScMax, _fScGrow, _fList, _fMaxInt;
         static PropertyInfo _pFloodPct, _pSev, _pCur, _pFixedDt;
         static StaticNum _nFixedDt;
+        static Fld<float> _gRate, _gScMax, _gScGrow; static Prop<float> _gPct, _gSev; static Fld<Array> _gPort, _gStar, _gSys; static Fld<int> _gCount;   // fast access in the tick
         static MethodInfo _mInoperable;
         static PropertyInfo _pIsDestroyed;
         static bool _firstTraced, _sysTraced, _fireTraced;
@@ -60,6 +61,7 @@ namespace AlternativeDamageModel
                 _ok = _fPort != null && _fStar != null && _fSys != null && _fCount != null && _fRate != null && _pFloodPct != null && _pSev != null && _fScMax != null &&
                       _fScGrow != null && _fList != null && _pCur != null && _fMaxInt != null && _mInoperable != null && _pIsDestroyed != null && _pFixedDt != null;
                 if (_pFixedDt != null) _nFixedDt = new StaticNum(_pFixedDt);
+                if (_ok) { _gRate = new Fld<float>(_fRate); _gPct = new Prop<float>(_pFloodPct); _gSev = new Prop<float>(_pSev); _gScMax = new Fld<float>(_fScMax); _gScGrow = new Fld<float>(_fScGrow); _gPort = new Fld<Array>(_fPort); _gStar = new Fld<Array>(_fStar); _gSys = new Fld<Array>(_fSys); _gCount = new Fld<int>(_fCount); }
                 if (!_ok) Trace("SectionEffects: game members not found; fire / flooding effects on sections are off");
             }
             catch (Exception e) { Trace("SectionEffects.Init: " + e.Message); _ok = false; }
@@ -72,6 +74,43 @@ namespace AlternativeDamageModel
         {
             State s;
             return SystemsOut && comp != null && section >= 0 && section < 5 && States.TryGetValue(comp, out s) && s.Full[section];
+        }
+
+        /// <summary>
+        /// True while section i burns and every hole in it that leaks is held open by the fire: not above the level the fire reopens it to
+        /// (FireReopenLimit % of its largest rate). Plugging it is pointless until the fire is out (it opens again): the fire comes first.
+        /// A hole above that level (fresh, larger) is still worth plugging - down to it.
+        /// </summary>
+        public static bool LeaksHeldByFire(object comp, int i)
+        {
+            long _p0 = Prof.Start();
+            try { return LeaksHeldByFireCore(comp, i); }
+            finally { Prof.Stop(Prof.LeakChecks, _p0); }
+        }
+
+        static bool LeaksHeldByFireCore(object comp, int i)
+        {
+            if (comp == null || i < 0 || i > 4 || ReopenRate <= 0f || !_ok || !IsEnabled()) return false;
+            State st;
+            if (!States.TryGetValue(comp, out st)) return false;
+            try
+            {
+                var port = _fPort.GetValue(comp) as Array; var star = _fStar.GetValue(comp) as Array; var sys = _fSys.GetValue(comp) as Array;
+                object sc = sys.GetValue(i);
+                float sev = F(_pSev.GetValue(sc, null)), max = F(_fScMax.GetValue(sc));
+                if (sev <= 0f || max <= 0f) return false;   // no fire: plug the holes
+                bool any = false;
+                for (int side = 0; side < 2; side++)
+                {
+                    float r = F(_fRate.GetValue((side == 0 ? port : star).GetValue(i)));
+                    if (r <= 0f) continue;
+                    any = true;
+                    float cap = st.MaxLeak[i + side * 5] * ReopenLimit / 100f;
+                    if (r > cap * 1.02f + 1e-5f) return false;   // a hole above the fire's level: worth plugging
+                }
+                return any;
+            }
+            catch { return false; }
         }
 
         public static void Tick(object comp)
@@ -88,13 +127,13 @@ namespace AlternativeDamageModel
                 st.Acc += dt;
                 if (st.Acc < Step) return;
                 dt = st.Acc; st.Acc = 0f;
-                int n = Math.Min(5, Convert.ToInt32(_fCount.GetValue(comp)));
-                var port = _fPort.GetValue(comp) as Array; var star = _fStar.GetValue(comp) as Array; var sys = _fSys.GetValue(comp) as Array;
+                int n = Math.Min(5, _gCount.Get(comp));
+                var port = _gPort.Get(comp); var star = _gStar.Get(comp); var sys = _gSys.Get(comp);
                 if (port == null || star == null || sys == null) return;
                 for (int i = 0; i < n && i < port.Length && i < star.Length && i < sys.Length; i++)
                 {
                     object p = port.GetValue(i), s = star.GetValue(i), sc = sys.GetValue(i);
-                    float sev = F(_pSev.GetValue(sc, null)), max = F(_fScMax.GetValue(sc)), grow = F(_fScGrow.GetValue(sc));
+                    float sev = _gSev.Get(sc), max = _gScMax.Get(sc), grow = _gScGrow.Get(sc);
                     float fire = max > 0f ? Math.Min(1f, sev / max) : 0f;
 
                     // 1. leaks: the largest one is remembered; a burning section opens a plugged leak again
@@ -102,7 +141,7 @@ namespace AlternativeDamageModel
                     {
                         object fc = side == 0 ? p : s;
                         int k = i + side * 5;
-                        float r = F(_fRate.GetValue(fc));
+                        float r = _gRate.Get(fc);
                         if (r > st.MaxLeak[k]) st.MaxLeak[k] = r;
                         float mx = st.MaxLeak[k];
                         if (ReopenRate > 0f && fire > 0f && mx > 0f)
@@ -111,14 +150,14 @@ namespace AlternativeDamageModel
                             if (r < cap)
                             {
                                 float r2 = Math.Min(cap, r + mx * ReopenRate / 100f * fire * dt);
-                                _fRate.SetValue(fc, r2);
+                                _gRate.Set(fc, r2);
                                 if (!_firstTraced) { _firstTraced = true; Trace("SectionEffects: fire in section " + (i + 1) + " reopens a leak (largest " + mx.ToString("0.###") + ", now " + r2.ToString("0.###") + ")"); }
                             }
                         }
                     }
 
                     // 2. a fully flooded section loses its systems; 3. water limits the fire: it cannot be stronger than (100 - water %) of its maximum
-                    float water = (F(_pFloodPct.GetValue(p, null)) + F(_pFloodPct.GetValue(s, null))) * 0.5f;
+                    float water = (_gPct.Get(p) + _gPct.Get(s)) * 0.5f;
                     bool full = SystemsOut && FullLevel > 0f && water > FullLevel;
                     st.Full[i] = full;
                     if (full) SwampSystems(sc, i, water);
@@ -130,7 +169,7 @@ namespace AlternativeDamageModel
                             _pSev.SetValue(sc, Math.Max(cap, sev - FireDecay / 100f * max * dt), null);
                             if (!_fireTraced) { _fireTraced = true; Trace("SectionEffects: section " + (i + 1) + " is flooded to " + water.ToString("0") + "%, its fire (" + (sev / max * 100f).ToString("0") + "%) dies down to " + (100f - water).ToString("0") + "% at " + FireDecay.ToString("0.#") + " %/s"); }
                         }
-                        if (sev >= cap && grow > 0f) _fScGrow.SetValue(sc, 0f);   // at the limit the fire does not grow
+                        if (sev >= cap && grow > 0f) _gScGrow.Set(sc, 0f);   // at the limit the fire does not grow
                     }
                 }
             }

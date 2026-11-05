@@ -97,6 +97,7 @@ namespace AlternativeDamageModel
             Add(TDbg, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/LogHeel", "List, trim and buoyancy", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
+            Add(TDbg, "Logging (BepInEx log)", "General/ProfilePerformance", "Hook times", "every 10 s into the debug trace", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Visualisation (selected ship)", "General/ShowDeckCorners", "Deck point heights", "wave to hull-only deck, 10 points", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Visualisation (selected ship)", "General/ShowHullCollider", "Hull collider (translucent)", "coll_hull* only", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Visualisation (selected ship)", "General/ShipModelView", "Ship's 3D model", "for the two above", Kind.Choice, 0, 0, 0, true);
@@ -113,6 +114,7 @@ namespace AlternativeDamageModel
             Add("Systems", "Systems", "Systems/SeveralPriorities", "Several repair priorities", "\"!\" of several systems in a section · repaired in turn", Kind.Bool, 0, 0, 0);
             Add("Systems", "Systems", "Systems/Integrity", "Integrity", "× game", Kind.Number, 0.1f, 0.1f, 20f);
             Add(FF, "Fire", "FireAndFlooding/FlameUpSpeed", "Fire growth", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(FF, "Fire", "FireAndFlooding/FireGrowthLimit", "Fire growth limit", "% of max fire a second · 0 = off", Kind.Number, 0.1f, 0f, 30f);
             Add(FF, "Fire", "FireAndFlooding/FireHullDamageSpeed", "Fire damage to the hull", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireSpreadPercent", "Fire spread chance", "% per fire check (10 s)", Kind.Number, 0.005f, 0f, 100f);
             Add(FF, "Unattended fire", UnattendedKey, "Grows when nobody fights it", "", Kind.Bool, 0, 0, 0);
@@ -127,6 +129,8 @@ namespace AlternativeDamageModel
             Add(DC, "Team speed", "DamageControlTeams/DCTeamEffectiveness", "Team effectiveness", "× game", Kind.Number, 0.1f, 0.05f, 5f);
             Add(DC, "Team speed", "FireAndFlooding/ExtinguishSpeed", "Extinguishing", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Team speed", "FireAndFlooding/PumpOutSpeed", "Pumping out", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Team speed", "FireAndFlooding/SystemRepairSpeed", "System repair", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(DC, "Team speed", "FireAndFlooding/HullRepairSpeed", "Hull repair", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Water", "FireAndFlooding/LeakPumpShare", "Pumping while plugging holes", "× pumping out · 0 = off", Kind.Number, 0.1f, 0f, 2f);
             Add(DC, "Water", "FireAndFlooding/CounterFloodSpeed", "Counterflooding", "× pumping out · by hand only", Kind.Number, 0.5f, 0f, 10f);
             Add(DC, "Water", "FireAndFlooding/CounterFloodLimit", "Counterflood limit", "% in a compartment side", Kind.Number, 5f, 0f, 100f);

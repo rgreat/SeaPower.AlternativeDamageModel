@@ -83,6 +83,68 @@ namespace AlternativeDamageModel
 
         static int Lv(object v) { try { return Convert.ToInt32(v); } catch { return 0; }}
 
+        /// <summary>The section (SystemCompartment) has a system marked "!" for repair that still has to be repaired (Auto DC: systems first).</summary>
+        public static bool Pending(object sc)
+        {
+            if (sc == null) return false;
+            try
+            {
+                if (!_init) Init(sc);
+                if (!_ok) return false;
+                var s = _fPrio.GetValue(sc);
+                if (s == null) return false;
+                bool lost = (bool)_pDestroyed.GetValue(s, null) && !(_fAlways != null && (bool)_fAlways.GetValue(s)) || !(bool)_pRepairable.GetValue(s, null);
+                return !lost && Lv(_pCurrent.GetValue(s, null)) > 0;
+            }
+            catch { return false; }
+        }
+
+        static PropertyInfo _pSetPrio;
+
+        /// <summary>The section's "!" is on this system now.</summary>
+        public static bool IsMarked(object sc, object system)
+        {
+            if (sc == null || system == null) return false;
+            try { if (!_init) Init(sc); return _ok && ReferenceEquals(_fPrio.GetValue(sc), system); } catch { return false; }
+        }
+
+        /// <summary>Moves the "!" of a system from one section to another one that holds it too (a system spans several sections; each repairs only its own
+        /// marked system): the old section's mark goes (as the game drops one, so its flag is cleared), then the new one is set. false = nothing moved.</summary>
+        public static bool Move(object from, object to, object system)
+        {
+            if (from == null || to == null || system == null || ReferenceEquals(from, to)) return false;
+            try
+            {
+                if (!_init) Init(from);
+                if (!_ok || !ReferenceEquals(_fPrio.GetValue(from), system)) return false;
+                if (_pSetPrio == null) _pSetPrio = Prop(from.GetType(), "SystemPrioritisedForRepair");
+                if (_pSetPrio == null) return false;
+                _pSetPrio.SetValue(from, null, null);
+                return Mark(to, system);
+            }
+            catch (Exception e) { Trace("SysPriority.Move: " + e.Message); return false; }
+        }
+
+        /// <summary>Marks the system for priority repair in its section (as the "!" button does) if it can still be repaired. false = it cannot (lost / not repairable / no damage left).</summary>
+        public static bool Mark(object sc, object system)
+        {
+            if (sc == null || system == null) return false;
+            try
+            {
+                if (!_init) Init(sc);
+                if (!_ok) return false;
+                bool lost = (bool)_pDestroyed.GetValue(system, null) && !(_fAlways != null && (bool)_fAlways.GetValue(system)) || !(bool)_pRepairable.GetValue(system, null);
+                if (lost || Lv(_pCurrent.GetValue(system, null)) <= 0) return false;
+                var cur = _fPrio.GetValue(sc);
+                if (ReferenceEquals(cur, system)) return true;
+                if (_pSetPrio == null) _pSetPrio = Prop(sc.GetType(), "SystemPrioritisedForRepair");
+                if (_pSetPrio == null) return false;
+                _pSetPrio.SetValue(sc, system, null);
+                return true;
+            }
+            catch (Exception e) { Trace("SysPriority.Mark: " + e.Message); return false; }
+        }
+
         // ------------------------------------------------------------ patches
 
         /// <summary>Prefix of SystemCompartment.set_SystemPrioritisedForRepair.</summary>

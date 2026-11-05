@@ -193,7 +193,7 @@ namespace AlternativeDamageModel
             public Panel PriorityHost;           // the grid of the summary cards it was added to
             public ToggleButton[] PriorityButtons; public ToggleButton LimitButton;
             public Extras X;                     // Fires row and the list / trim panel (DamageControlUi.Panels.cs)
-            public string HelpOrig, HelpShown;
+            public string HelpOrig, HelpShown, TipNow;
             public TextBlock HelpTitle;          // "Auto Damage Control Status" above it: folded into the same line
             public string HelpTitleText;
             public TextBlock TabHeader;          // "Damage Control" on the Unit Status tab button: gets the (i) with the legend
@@ -761,9 +761,9 @@ namespace AlternativeDamageModel
         static readonly string[] PriorityKeys = { "damagecontrolauto", "damagecontrolfire", "damagecontrolflood" };   // the game's own names
         static readonly string[] PriorityTips =
         {
-            "Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. The fastest growing fire or leak first.",
-            "Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. Auto DC sends free teams to the worst fire first.",
-            "Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. Auto DC sends free teams to leaks, then to water.",
+            "Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Flooded Structure > Systems > Structure. The fastest growing fire or leak first.",
+            "Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Flooded Structure > Systems > Structure. Auto DC sends free teams to the worst fire first.",
+            "Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Flooded Structure > Systems > Structure. Auto DC sends free teams to leaks, then to water.",
         };
 
         /// <summary>
@@ -863,7 +863,7 @@ namespace AlternativeDamageModel
                 {
                     int mode = m;
                     var b = new ToggleButton { Content = Loc.G(PriorityKeys[m], PriorityNames[m]), Padding = new Thickness(8f, 2f, 8f, 2f), Margin = new Thickness(m == 0 ? 0f : 4f, 0f, 0f, 0f), MinWidth = 52f };
-                    try { ToolTipService.SetToolTip(b, Loc.T(PriorityTips[m])); } catch { }
+                    try { ToolTipService.SetToolTip(b, PriorityTip(m, st.Comp)); } catch { }
                     b.Click += (sender, e) =>
                     {
                         DcControl.SetMode(st.Comp, mode);   // the unit shown now, not the one the card was made for
@@ -987,19 +987,42 @@ namespace AlternativeDamageModel
             }
         }
 
+        /// <summary>The hint of a DC Priority button: what Auto DC puts first right now, then the order of that mode.</summary>
+        static string PriorityTip(int m, object comp)
+        {
+            string now = DcTeams.TransfersOn && comp != null ? DcAuto.NowFirst(comp) : "";
+            return (now.Length > 0 ? Loc.F("Now first: {0}.", now) + " " : "") + Loc.T(PriorityTips[m]);
+        }
+
         static void RenderPriority(object comp, ViewState st)
         {
-            if (st.PriorityButtons != null) SyncPriority(st.PriorityButtons, DcControl.GetMode(comp));
+            if (st.PriorityButtons != null)
+            {
+                SyncPriority(st.PriorityButtons, DcControl.GetMode(comp));
+                string now = DcTeams.TransfersOn ? DcAuto.NowFirst(comp) : "";
+                if (now != st.TipNow)
+                {
+                    st.TipNow = now;
+                    for (int m = 0; m < st.PriorityButtons.Length; m++) try { ToolTipService.SetToolTip(st.PriorityButtons[m], PriorityTip(m, comp)); } catch { }
+                }
+            }
             if (st.LimitButton != null) try { st.LimitButton.IsEnabled = ModelOn(); bool on = DcControl.LimitSpeed(comp); if (st.LimitButton.IsChecked != on) st.LimitButton.IsChecked = on; st.LimitButton.Content = on ? Loc.T("Enabled") : Loc.T("Disabled"); } catch { }
         }
 
         // ------------------------------------------------------------ the help line and its legend
 
-        static readonly string[] OrderText =
+        // the order of the work by the ship's DC Priority, with the bit of DcAuto.Avail that says damage control has such work now
+        static readonly string[][] OrderNames =
         {
-            null,   // Auto: the game's own text
-            "DC Priority: Fire - teams take threats in this order: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure",
-            "DC Priority: Flooding - teams take threats in this order: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure",
+            new[] { "Flooding Rate", "Fire Rate", "Fires", "Counterflooding", "Flooding", "Flooded Structure", "Systems", "Structure" },
+            new[] { "Fire Rate", "Fires", "Flooding Rate", "Counterflooding", "Flooding", "Flooded Structure", "Systems", "Structure" },
+            new[] { "Flooding Rate", "Counterflooding", "Flooding", "Fire Rate", "Fires", "Flooded Structure", "Systems", "Structure" },
+        };
+        static readonly int[][] OrderBits =
+        {
+            new[] { DcAuto.AvLeak, DcAuto.AvFireRate, DcAuto.AvFire, DcAuto.AvCounter, DcAuto.AvPump, DcAuto.AvFloodHull, DcAuto.AvSystems, DcAuto.AvHull },
+            new[] { DcAuto.AvFireRate, DcAuto.AvFire, DcAuto.AvLeak, DcAuto.AvCounter, DcAuto.AvPump, DcAuto.AvFloodHull, DcAuto.AvSystems, DcAuto.AvHull },
+            new[] { DcAuto.AvLeak, DcAuto.AvCounter, DcAuto.AvPump, DcAuto.AvFireRate, DcAuto.AvFire, DcAuto.AvFloodHull, DcAuto.AvSystems, DcAuto.AvHull },
         };
 
         /// <summary>
@@ -1011,11 +1034,12 @@ namespace AlternativeDamageModel
             var tb = st.Help;
             if (tb == null) return;
             int mode = DcControl.GetMode(comp);
-            string body = (mode > 0 && mode < OrderText.Length && OrderText[mode] != null ? Loc.T(OrderText[mode]) : null) ?? st.HelpOrig ?? "";
-            string sig = mode + "|" + body;
+            bool own = DcTeams.TransfersOn;   // the order of this mod's Auto DC; without it the game's own text stays
+            int crit = own ? DcAuto.Critical(comp) : 0, avail = own ? DcAuto.Avail(comp) : 0;
+            string body = own ? "" : st.HelpOrig ?? "";
+            string sig = own + "|" + mode + "|" + crit + "|" + avail + "|" + (own ? "" : body);
             if (st.HelpShown != null && tb.Text == st.HelpShown && sig == st.HelpSig) return;   // ours, unchanged
             if (st.HelpShown != null && tb.Text != st.HelpShown) st.HelpOrig = tb.Text;          // the game rewrote it (language)
-            if (mode == 0) body = st.HelpOrig ?? "";
             var il = tb.Inlines;
             il.Clear();
             if (st.HelpTitle != null)
@@ -1026,7 +1050,30 @@ namespace AlternativeDamageModel
                 il.Add(title);
                 try { st.HelpTitle.Visibility = Visibility.Collapsed; } catch { }
             }
-            il.Add(new Run(body));
+            if (!own) il.Add(new Run(body));
+            else
+            {
+                // critical jobs in red first, then the order of the priority: yellow = work damage control can do now, the rest as the text is
+                bool first = true;
+                Action<string, Color?> add = (t, c) =>
+                {
+                    if (!first) il.Add(new Run(" > "));
+                    first = false;
+                    var r = new Run(t);
+                    if (c.HasValue) try { r.Foreground = new SolidColorBrush(c.Value); } catch { }
+                    il.Add(r);
+                };
+                if ((crit & 1) != 0) add("Counterflooding (critical heel)", CRed);
+                if ((crit & 2) != 0) add("Engine repair", CRed);
+                if ((crit & 8) != 0) add("Fire at the engine", CRed);
+                if ((crit & 4) != 0) add("Priority systems", CRed);
+                int mm = Math.Max(0, Math.Min(2, mode));
+                for (int k = 0; k < OrderNames[mm].Length; k++)
+                {
+                    if (OrderBits[mm][k] == DcAuto.AvCounter && (crit & 1) != 0) continue;   // already in front
+                    add(OrderNames[mm][k], (avail & OrderBits[mm][k]) != 0 ? (Color?)CYellow : null);
+                }
+            }
             try { ToolTipService.SetToolTip(tb, null); } catch { }
             st.HelpSig = sig;
             st.HelpShown = tb.Text;
@@ -1772,7 +1819,27 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("LiveTip: " + e.Message); }
         }
 
-        sealed class OpenTip { public TextBlock Tb; public Func<string> Text; public FrameworkElement Owner; }
+        /// <summary>
+        /// The same for a tooltip with content of its own (several lines, colours): 'holder' is the element's tooltip (set by the caller), its child
+        /// is made by 'make' when it opens and while it is open; 'opened' runs once on each opening.
+        /// </summary>
+        static void LiveTip(FrameworkElement el, Border holder, Func<UIElement> make, Action opened = null)
+        {
+            try
+            {
+                var entry = new OpenTip { Box = holder, Make = make, Owner = el };
+                el.ToolTipOpening += (s, e) =>
+                {
+                    try { holder.Child = make(); } catch { }
+                    try { if (opened != null) opened(); } catch { }
+                    if (!OpenTips.Contains(entry)) OpenTips.Add(entry);
+                };
+                el.ToolTipClosing += (s, e) => OpenTips.Remove(entry);
+            }
+            catch (Exception e) { Trace("LiveTip: " + e.Message); }
+        }
+
+        sealed class OpenTip { public TextBlock Tb; public Func<string> Text; public Border Box; public Func<UIElement> Make; public FrameworkElement Owner; }
         static readonly List<OpenTip> OpenTips = new List<OpenTip>();
 
         /// <summary>The open tooltips follow what they describe (times, rates, teams).</summary>
@@ -1786,6 +1853,7 @@ namespace AlternativeDamageModel
                     // its icon no longer shown (rebuilt, the tab hidden or switched off): its tooltip is closed even when no
                     // ToolTipClosing came - dropped, so it is not computed 4 times a second for ever
                     if (o.Owner == null || !o.Owner.IsVisible || Parent(o.Owner) == null) { OpenTips.RemoveAt(k); continue; }
+                    if (o.Make != null) { o.Box.Child = o.Make(); continue; }
                     string t = o.Text();
                     if (o.Tb.Text != t) o.Tb.Text = t;
                 }
@@ -1801,14 +1869,24 @@ namespace AlternativeDamageModel
             return names != null && i < names.Length && !string.IsNullOrEmpty(names[i]) ? names[i] : Loc.F("section {0}", i + 1);
         }
 
-        /// <summary>Health and fatigue of a team for its hint ("Health 60% (wounded: slower)"); null when both are off.</summary>
-        static string HealthNote(object comp, float health, float fatigue)
+        /// <summary>
+        /// Health, fatigue and efficiency of a team for its hint. With a task (section i, task did) the efficiency is that of the work it does now: the
+        /// engine penalty does not apply to the repair of systems, a team that does not fight a fire works amid it at the fire penalty.
+        /// Null when there is nothing to say.
+        /// </summary>
+        static string HealthNote(object comp, float health, float fatigue, int section = -1, int did = TaskNone)
         {
             var sb = new StringBuilder();
+            var ci = CultureInfo.InvariantCulture;
+            bool on = DcTeams.IsEnabled();
             float engMul = DcTeams.EngineMulOf(comp);
-            if (DcTeams.IsEnabled() && DcTeams.HealthOn)
-                sb.Append(Loc.F("Health {0}%", Math.Round(health * 100f).ToString("0", CultureInfo.InvariantCulture))).Append(DcTeams.Wounded(health) ? " (" + Loc.T("wounded: slower") + ")" : "");
-            if (DcTeams.IsEnabled() && DcTeams.FatigueMin > 0f)
+            bool working = section >= 0 && did != TaskNone && did != TaskIdle;
+            float eng = working && did == TaskSystems ? 1f : engMul;                         // the engine penalty: not for the repair of systems
+            float fire = 1f;
+            try { if (working && did != TaskFire && DcTeams.FireWorkEff < 1f && DcControl.FireIn(comp, section)) fire = DcTeams.FireWorkEff; } catch { }
+            if (on && DcTeams.HealthOn)
+                sb.Append(Loc.F("Health {0}%", Math.Round(health * 100f).ToString("0", ci))).Append(DcTeams.Wounded(health) ? " (" + Loc.T("wounded: slower") + ")" : "");
+            if (on && DcTeams.FatigueMin > 0f)
             {
                 if (sb.Length > 0) sb.Append('\n');
                 int lv = DcTeams.FatigueLevel(fatigue);
@@ -1816,14 +1894,24 @@ namespace AlternativeDamageModel
                 var inside = new List<string>();
                 if (lv > 0) inside.Add(lv == 2 ? Loc.T("exhausted") : Loc.T("tired"));
                 if (fatigue > 1f) inside.Add(Loc.F("rest {0}", DcTeams.FatigueRecover > 0f ? Clock((float)fatigue * 100f / DcTeams.FatigueRecover) : Loc.T("never")));
-                sb.Append(Loc.F("Fatigue {0}%", Math.Round(Math.Min(1.0, fatigue / full) * 100.0).ToString("0", CultureInfo.InvariantCulture)))
-                  .Append(inside.Count > 0 ? " (" + string.Join(", ", inside.ToArray()) + ")" : "")
-                  .Append("\n" + Loc.F("Efficiency {0}%", Math.Round(DcTeams.EffOf(health, fatigue) * engMul * 100f).ToString("0", CultureInfo.InvariantCulture)));
+                sb.Append(Loc.F("Fatigue {0}%", Math.Round(Math.Min(1.0, fatigue / full) * 100.0).ToString("0", ci)))
+                  .Append(inside.Count > 0 ? " (" + string.Join(", ", inside.ToArray()) + ")" : "");
             }
-            if (engMul < 1f)
+            if (on)
+            {
+                float eff = DcTeams.EffOf(health, fatigue) * eng * fire;
+                if (sb.Length > 0 && (DcTeams.FatigueMin > 0f || eff < 0.999f)) { sb.Append('\n').Append(Loc.F("Efficiency {0}%", Math.Round(eff * 100f).ToString("0", ci))); }
+                else if (eff < 0.999f) sb.Append(Loc.F("Efficiency {0}%", Math.Round(eff * 100f).ToString("0", ci)));
+            }
+            if (engMul < 1f && (!working || did != TaskSystems))
             {
                 if (sb.Length > 0) sb.Append('\n');
-                sb.Append(Loc.F("Engine out: {0}% effectiveness (except systems repair)", Math.Round(engMul * 100f).ToString("0", CultureInfo.InvariantCulture)));
+                sb.Append(Loc.F("Engine out: {0}% effectiveness (except systems repair)", Math.Round(engMul * 100f).ToString("0", ci)));
+            }
+            if (fire < 1f)
+            {
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append(Loc.F("Amid a fire it does not fight: {0}%", Math.Round(fire * 100f).ToString("0", ci)));
             }
             return sb.Length > 0 ? sb.ToString() : null;
         }
@@ -1846,7 +1934,7 @@ namespace AlternativeDamageModel
                 if (k < here.Count)
                 {
                     if (here[k].Stay < 1e6f && DcTeams.TransfersOn) sb.Append("\n" + Loc.F("Here {0}", Clock(here[k].Stay)));
-                    string kn = HealthNote(comp, here[k].Health, here[k].Fatigue);
+                    string kn = HealthNote(comp, here[k].Health, here[k].Fatigue, i, did);
                     if (kn != null) sb.Append("\n" + kn);
                 }
                 if (Manual(comp)) sb.Append(ModelOn() ? "\n" + Loc.T("Click: task / move") : "\n" + Loc.T("Click: task"));

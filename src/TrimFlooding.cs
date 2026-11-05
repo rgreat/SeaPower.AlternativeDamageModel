@@ -57,6 +57,13 @@ namespace AlternativeDamageModel
         /// </summary>
         static void CfvPost(object __instance, ref float __result)
         {
+            long _p0 = Prof.Start();
+            try { CfvPostCore(__instance, ref __result); }
+            finally { Prof.Stop(Prof.Cfv, _p0); }
+        }
+
+        static void CfvPostCore(object __instance, ref float __result)
+        {
             if (_rawRead) return;
             float[] v;
             if (Imbalance != 1f && IsEnabled() && Skewed.TryGetValue(__instance, out v)) __result = v[0];

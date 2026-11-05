@@ -1,9 +1,11 @@
-Version 1.6.0.
+Version 1.7.0.
 
 Changes:
-• Auto DC: counterflooding against dangerous list/trim (only with active leaks); a section with fire gets a second team.
-• Several repair priorities in one section.
-• Settings open from the main and pause menus; stored in user/AlternativeDamageControl (moved automatically).
-• Names from the game (Auto, Fire, Flooding) are translated by the game.
-• Fixes: start crash, Forecast card shown only with damage.
-• Special effects moved to Alternative Special Effects; install it to keep them.
+• Auto DC: the first team in a burning section fights the fire; counterflooding goes first at a critical heel; a lost engine is marked for priority repair (then only the engine and its fires are worked on).
+• Order: ... > Counterflooding > Flooding > Flooded Structure > Systems > Structure. No pumping that worsens the list or trim.
+• Critical state: only the wounded rest; fresh teams relieve tired ones; the Status card (was Forecast) shows a red Critical. Free teams finish small repairs.
+• New: System Repair / Hull Repair speed, Fire growth limit.
+• Sinking by the deck: both central points or 6 of them under the sea for 10 s. List and trim are kept after a load.
+• Fixed a game bug: holes grew while a team worked in the neighbouring section.
+• Tooltips: system repair speed, time to the next level, who repairs it; they update while open.
+• Faster at high time compression.

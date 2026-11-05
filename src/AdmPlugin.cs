@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativedamagemodel";
         public const string PluginName = "Alternative Damage Model";
-        public const string PluginVersion = "1.6.0";
+        public const string PluginVersion = "1.7.0";
 
         /// <summary>Build number (UTC build time, yyyyMMdd.HHmm) stamped into the dll by the csproj; shows which dll is running.</summary>
         public static readonly string BuildId = ReadBuildId();
@@ -58,8 +58,8 @@ namespace AlternativeDamageModel
         // settings, cached for the hooks (updated on SettingChanged)
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static bool _teamBlocksSpread = true;
-        static float _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f;
-        ConfigEntry<Factor> _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
+        static float _fireGrowLimit = 0.5f, _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f, _sysRepair = 2f, _hullRepair = 1f;
+        ConfigEntry<Factor> _fireGrowLimitEntry, _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _sysRepairEntry, _hullRepairEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
         ConfigEntry<Factor> _reserveChanceEntry, _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _stunEntry, _stunSpreadEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _imbalanceEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _speedEffectEntry;
@@ -71,6 +71,7 @@ namespace AlternativeDamageModel
         static Dictionary<string, float> _perShip = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
         ConfigEntry<string> _langEntry;
+        ConfigEntry<bool> _profEntry;
         ConfigEntry<bool> _enemyDmgEntry, _debugEntry, _logShipsEntry, _logFiresEntry, _logHeelEntry, _uiEntry, _weaponColorEntry, _admEntry, _deckCornersEntry, _showHullEntry, _fixTrimTcEntry;
         ConfigEntry<string> _shipViewEntry;
         static bool _fixTrimTc = true;
@@ -269,6 +270,9 @@ namespace AlternativeDamageModel
             _logHeelEntry = Cfg.Bind("General", "LogHeel", false,
                 "Diagnostics: while a ship lists or trims noticeably, writes to the BepInEx log every 2 seconds: list, trim, height, " +
                 "buoyancy against weight, submerged volume, water in the ship and whether it is sinking / capsized.");
+            _profEntry = Cfg.Bind("General", "ProfilePerformance", false,
+                "Diagnostics: every 10 seconds writes to the trace (Debug) how much time the mod's hooks took: per hook the calls, the time in ms and " +
+                "in % of the real time - to find what slows the game (at high time compression the physics hooks run many times a frame).");
             _logShipsEntry = Cfg.Bind("General", "LogShipIntegrity", false,
                 "Writes a line to the BepInEx log for every ship that enters a mission: its hull integrity in the game and with the mod.");
             _deckCornersEntry = Cfg.Bind("General", "ShowDeckCorners", false,
@@ -333,6 +337,9 @@ namespace AlternativeDamageModel
 
             _flameUpEntry = Pcfg.Bind("FireAndFlooding", "FlameUpSpeed", new Factor(1f),
                 "How fast fires grow by themselves, between hits. 1.0 = as in the game, 2.0 = twice as fast, 0.5 = half as fast.");
+            _fireGrowLimitEntry = Pcfg.Bind("FireAndFlooding", "FireGrowthLimit", new Factor(0.5f),
+                "The most a fire may grow by itself, % of the fire's maximum a second (the game lets a fire grow up to about 30% a second). " +
+                "The growth rate of a burning section is held at this. 0 = off (as in the game).");
             _fireHullEntry = Pcfg.Bind("FireAndFlooding", "FireHullDamageSpeed", new Factor(1f),
                 "How fast a fire eats the hull of its section (integrity of both its compartments). 1.0 = as in the game. " +
                 "Damage to the systems in the section is not changed.");
@@ -369,16 +376,21 @@ namespace AlternativeDamageModel
                 "How fast water comes in through the holes of a compartment. 1.0 = as in the game.");
             _pumpOutEntry = Pcfg.Bind("FireAndFlooding", "PumpOutSpeed", new Factor(1f),
                 "How fast damage control teams pump water out. 1.0 = as in the game.");
+            _sysRepairEntry = Pcfg.Bind("FireAndFlooding", "SystemRepairSpeed", new Factor(2f),
+                "How fast damage control teams repair systems (the Systems task). 1.0 = as in the game.");
+            _hullRepairEntry = Pcfg.Bind("FireAndFlooding", "HullRepairSpeed", new Factor(1f),
+                "How fast damage control teams repair the hull (the Hull task). 1.0 = as in the game.");
             _subFireEntry = Pcfg.Bind("FireAndFlooding", "SubmergedFireDecay", new Factor(1f),
                 "A section under the sea puts its fire out: the fire loses this % of its maximum per second for every metre the section's deck edge is " +
-                "under water (1 = as many % per second as metres). Needs the ship's deck points (as flooding over the deck). 0 = off.");
+                "under water (1 = as many % per second as metres). Only when both deck points of the section (port and starboard) are under water; the depth is the mean of the two. " +
+                "Needs the ship's deck points (as flooding over the deck). 0 = off.");
             _counterRateEntry = Pcfg.Bind("FireAndFlooding", "CounterFloodSpeed", new Factor(2f),
                 "Counterflooding (a team's task given by hand): how fast water is let into a compartment, times the pumping out speed. " +
                 "A team floods a side or pumps one out only where that takes off the list or the trim (the more dangerous of the two first), keeps its action for at least 10 s, " +
                 "and floods nothing when the water in the ship has reached the red band of the LEVEL gauge.");
             _autoCounterEntry = Pcfg.Bind("FireAndFlooding", "AutoCounterflood", true,
-                "Auto DC counterfloods: while holes still let water in and the list or trim reaches 40% of the red zone of its gauge (until it is down to 20%), a team goes to the section where " +
-                "letting water into a side or pumping it out takes most off the heel and works as a team ordered to counterflood (see Counterflooding). Off = Auto DC does not counterflood.");
+                "Auto DC counterfloods: while holes still let water in and the list or trim reaches the red zone of its gauge (until it is down to half of it), a team goes to the section where " +
+                "letting water into a side takes most off the heel and works as a team ordered to counterflood (see Counterflooding). Off = Auto DC does not counterflood.");
             _leakPumpEntry = Pcfg.Bind("FireAndFlooding", "LeakPumpShare", new Factor(0.5f),
                 "While a team plugs the holes of a compartment (the Flooding Rate task) it pumps water out of it at the same time: this share of the pumping out speed " +
                 "(0.5 = half, 0 = off). A team ordered to counterflood pumps only from the side where that does not worsen the list and trim.");
@@ -499,6 +511,7 @@ namespace AlternativeDamageModel
                 "all working - the game's colour, some of that type inoperable - yellow, all of them inoperable - red.");
             _enemyDmgEntry = Cfg.Bind("UI", "ShowEnemyDamage", true,
                 "Four small icons under a ship's icon on the map (yours too): fire (the fires' total strength), water, hull (as classed on the Damage Control panel) " +
+                "- on your own ship hull damage that cannot be welded any more and water that cannot be pumped out are not shown (a contact's repair plans are not known) - " +
                 "and engine; yellow / orange / red by severity, and a greyer map icon when the ship is going to sink (within 20 minutes by the flooding / hull trend). " +
                 "A contact: fire, water, hull and engine only in direct sight; by sonar - the engine only (yellow: part of it lost, red: none works); " +
                 "by radar - a guess for a ship hit in the last 10 minutes, marked '?' (yellow: 10 knots or less, red: under 3); nothing by ESM or without a contact, and nothing for a sunk ship. " +
@@ -555,7 +568,10 @@ namespace AlternativeDamageModel
         {
             if (!_patchTried) TryPatch();
             WatchConfigFile();
+            Prof.Frame();
+            long pt = Prof.Start();
             try { DeckCorners.Tick(UnityEngine.Time.unscaledTime); } catch (Exception e) { Trace("DeckCorners.Tick: " + e.Message); }
+            Prof.Stop(Prof.DeckCorners, pt);
             if (_dumpXaml && _xamlExportAt >= 0f && _patchTried)
             {
                 // a second after the request: the tab's XAML (and the dictionaries it uses) are loaded by then
@@ -576,11 +592,14 @@ namespace AlternativeDamageModel
                 catch (Exception e) { Trace("WeaponStatusColors.SetOn: " + e.Message); }
                 try { ContactIntel.SetOn(ContactIntel.Ready && wantIcons); }
                 catch (Exception e) { Trace("ContactIntel.SetOn: " + e.Message); }
+                pt = Prof.Start();
                 try { EnemyStatus.Tick(UnityEngine.Time.unscaledTime); } catch (Exception e) { Trace("EnemyStatus.Tick: " + e.Message); }
+                Prof.Stop(Prof.EnemyStatus, pt);
             }
             if (_uiReady)
             {
                 // one failure does not switch the view off for good (it could not restore the game's view then); many in a row do
+                pt = Prof.Start();
                 try { UiTick(); _uiFails = 0; }
                 catch (Exception e)
                 {
@@ -588,6 +607,7 @@ namespace AlternativeDamageModel
                     if (++_uiFails == 1) Warn("Damage Control view: " + e.Message);
                     if (_uiFails >= 50) { _uiReady = false; Warn("Damage Control view failed repeatedly and is off: " + e.Message); }
                 }
+                Prof.Stop(Prof.UiTick, pt);
             }
         }
 
@@ -850,6 +870,7 @@ namespace AlternativeDamageModel
         {
             _debug = _debugEntry.Value;
             _logShips = _logShipsEntry.Value;
+            Prof.On = _profEntry.Value; Prof.Trace = Trace;
             _mWar = Pos(_mWarEntry.Value.V);
             _mCiv = Pos(_mCivEntry.Value.V);
             _mSub = Pos(_mSubEntry.Value.V);
@@ -857,9 +878,12 @@ namespace AlternativeDamageModel
             _fireVuln = Pos(_fireVulnEntry.Value.V);
             _floodVuln = Pos(_floodVulnEntry.Value.V);
             _flameUp = Math.Max(0f, _flameUpEntry.Value.V);
+            _fireGrowLimit = Math.Max(0f, _fireGrowLimitEntry.Value.V);
             _extinguish = Math.Max(0f, _extinguishEntry.Value.V);
             _floodSpeed = Math.Max(0f, _floodSpeedEntry.Value.V);
             _pumpOut = Math.Max(0f, _pumpOutEntry.Value.V);
+            _sysRepair = Math.Max(0f, _sysRepairEntry.Value.V);
+            _hullRepair = Math.Max(0f, _hullRepairEntry.Value.V);
             _teamBlocksSpread = _teamBlocksSpreadEntry.Value;
             SubmergedFlooding.FireDecay = Math.Max(0f, _subFireEntry.Value.V);
             DcControl.CounterRate = Math.Max(0f, _counterRateEntry.Value.V);
@@ -1163,12 +1187,26 @@ namespace AlternativeDamageModel
             return null;
         }
 
-        static void ReserveHitPostfix(object __instance, object[] __args) { ReserveHits.Postfix(__instance, __args); HitLog.Postfix(__instance, __args); HitLog.After(__instance, __args); }
+        static void ReserveHitPostfix(object __instance, object[] __args) { long t = Prof.Start(); ReserveHits.Postfix(__instance, __args); HitLog.Postfix(__instance, __args); HitLog.After(__instance, __args); Prof.Stop(Prof.Hits, t); }
         static void SysSetPre(object __instance, out object __state) { __state = null; if (Enabled) SysPriority.SetterPrefix(__instance, out __state); }
         static void SysSetPost(object __instance, object value, object __state) { SysPriority.SetterPostfix(__instance, value, __state); }
         static bool SysFlagPre(bool value) { return !Enabled || SysPriority.FlagPrefix(value); }
         static void SysFlagPost(object __instance, bool value) { if (Enabled) SysPriority.FlagPostfix(__instance, value); }
-        static void SysRepairPre(object __instance, int index) { if (Enabled) SysPriority.RepairPrefix(__instance, index); }
+        static bool SysRepairPre(object __instance, int index, ref bool __result, out object __state)
+        {
+            long _p0 = Prof.Start();
+            try { return SysRepairPreCore(__instance, index, ref __result, out __state); }
+            finally { Prof.Stop(Prof.SysRepair, _p0); }
+        }
+
+        static bool SysRepairPreCore(object __instance, int index, ref bool __result, out object __state)
+        {
+            __state = null;
+            if (!Enabled) return true;
+            SysPriority.RepairPrefix(__instance, index);
+            return SysRepairFix.Prefix(__instance, index, ref __result, out __state);   // the game's loop "repairs" intact systems for ever
+        }
+        static void SysRepairPost(object __state) { SysRepairFix.Postfix(__state); }
         static void SpillPrefix(object __instance, object[] __args) { HitLog.Before(__instance, __args); DamageSpill.Prefix(__instance, __args); }
 
         static HarmonyMethod Hm(string name)
@@ -1268,6 +1306,7 @@ namespace AlternativeDamageModel
 
             // several repair priorities in one section ([Systems] SeveralPriorities)
             SysPriority.Trace = Trace;
+            SysRepairFix.Trace = Trace;
             {
                 var tScP = asm.GetType("SeaPower.SystemCompartment");
                 var setter = tScP == null ? null : tScP.GetProperty("SystemPrioritisedForRepair", all);
@@ -1276,7 +1315,7 @@ namespace AlternativeDamageModel
                 var flag = tSum == null ? null : tSum.GetProperty("IsPriority", all);
                 Patch(harmony, setter == null ? null : setter.GetSetMethod(true), "SysSetPre", "SysSetPost", null, "SystemCompartment.SystemPrioritisedForRepair", ref ok, ref failed);
                 Patch(harmony, flag == null ? null : flag.GetSetMethod(true), "SysFlagPre", "SysFlagPost", null, "DamageSummary.IsPriority", ref ok, ref failed);
-                if (tComp != null) Patch(harmony, tComp.GetMethod("RepairSystems", all), "SysRepairPre", null, null, "Compartments.RepairSystems (priorities)", ref ok, ref failed);
+                if (tComp != null) Patch(harmony, tComp.GetMethod("RepairSystems", all), "SysRepairPre", "SysRepairPost", null, "Compartments.RepairSystems (priorities, intact systems)", ref ok, ref failed);
             }
 
             // diagnostics: LogFires
@@ -1293,7 +1332,7 @@ namespace AlternativeDamageModel
                 _pScState = tSc.GetProperty("FireState", all);
                 _fScMaxGrow = tSc.GetField("_maxfireGrowRate", all);
                 _fScMinGrow = tSc.GetField("_minfireGrowRate", all);
-                if (tGt != null) _pGameTime = tGt.GetProperty("missionElapsedTime", all);
+                if (tGt != null) { _pGameTime = tGt.GetProperty("missionElapsedTime", all); _nGameTimeA = _pGameTime == null ? null : new StaticNum(_pGameTime); }
                 if (tOb != null) _mUidName = tOb.GetMethod("getUIDAndName", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
                 if (tComp != null) _pCompDcTeams = tComp.GetProperty("DamageControlTeamsNumbers", all);
                 if (_fScComp != null && _pScSeverity != null && _pScState != null && _fScMaxSev != null)
@@ -1311,6 +1350,7 @@ namespace AlternativeDamageModel
             if (tScx != null) Patch(harmony, tScx.GetMethod("OnFixedUpdate", all), null, null, "FlameUpTranspiler", "SystemCompartment.OnFixedUpdate", ref ok, ref failed);
             if (tScx != null) Patch(harmony, tScx.GetMethod("OnFixedUpdate", all), null, null, "FireHullTranspiler", "SystemCompartment.OnFixedUpdate (hull)", ref ok, ref failed);
             if (tFcx != null) Patch(harmony, tFcx.GetMethod("OnFixedUpdate", all), null, null, "FloodingSpeedTranspiler", "FloodingCompartment.OnFixedUpdate", ref ok, ref failed);
+            if (tFcx != null) Patch(harmony, tFcx.GetMethod("OnFixedUpdate", all), null, null, "LeakTeamIndexTranspiler", "FloodingCompartment.OnFixedUpdate (unattended leak)", ref ok, ref failed);
             if (tComp != null)
             {
                 Patch(harmony, tComp.GetMethod("RepairFire", all), null, null, "ExtinguishTranspiler", "Compartments.RepairFire", ref ok, ref failed);
@@ -1319,6 +1359,8 @@ namespace AlternativeDamageModel
                 Patch(harmony, tComp.GetMethod("RepairFire", all), null, "FireFoughtPostfix", null, "Compartments.RepairFire (unattended)", ref ok, ref failed);
                 Patch(harmony, tComp.GetMethod("CheckFire", all), null, "CheckFirePostfix", null, "Compartments.CheckFire (unattended)", ref ok, ref failed);
                 Patch(harmony, tComp.GetMethod("RepairFlooding", all), null, null, "PumpOutTranspiler", "Compartments.RepairFlooding", ref ok, ref failed);
+                Patch(harmony, tComp.GetMethod("RepairSystems", all), null, null, "SysRepairTranspiler", "Compartments.RepairSystems (speed)", ref ok, ref failed);
+                Patch(harmony, tComp.GetMethod("RepairStructure", all), null, null, "HullRepairTranspiler", "Compartments.RepairStructure (speed)", ref ok, ref failed);
             }
 
             // 10. damage control teams: number by displacement, transfers, knock-outs, effectiveness
@@ -1331,7 +1373,7 @@ namespace AlternativeDamageModel
             SpeedEffect.Trace = Trace;
             if (tComp != null && DcTeams.Init(asm))
             {
-                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; SectionEffects.Trace = Trace; SectionEffects.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
+                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; SectionEffects.Trace = Trace; SectionEffects.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; AttitudeSave.Trace = Trace; AttitudeSave.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
                 SettingsWindow.Warn = Warn; SettingsWindow.Info = Say;
                 if (!DcAuto.Init(asm)) Warn("Optimised Auto DC: game members not found; the game's Auto DC is used.");
                 DcControl.StayWhenIdle = c => DcAuto.Ok && DcTeams.TransfersOn && DcTeams.Active(c) && DcAuto.AnyWork(c);
@@ -1660,13 +1702,16 @@ namespace AlternativeDamageModel
         sealed class FireWatch { public double[] Since = { -1, -1, -1, -1, -1 }, Fought = { -1, -1, -1, -1, -1 }; }
         static readonly ConditionalWeakTable<object, FireWatch> FireWatches = new ConditionalWeakTable<object, FireWatch>();
 
-        static double GameNow() { try { return _pGameTime == null ? 0 : Convert.ToDouble(_pGameTime.GetValue(null, null)); } catch { return 0; } }
+        static StaticNum _nGameTimeA;
+        static double GameNow() { try { return _nGameTimeA != null ? _nGameTimeA.Get() : _pGameTime == null ? 0 : Convert.ToDouble(_pGameTime.GetValue(null, null)); } catch { return 0; } }
 
         /// <summary>Postfix of Compartments.RepairFire(index): true = teams fought the fire there this tick.</summary>
         static void FireFoughtPostfix(object __instance, int index, bool __result)
         {
             if (!__result || index < 0 || index > 4) return;
+            long t = Prof.Start();
             FireWatches.GetOrCreateValue(__instance).Fought[index] = GameNow();
+            Prof.Stop(Prof.FireHooks, t);
         }
 
         /// <summary>
@@ -1674,6 +1719,13 @@ namespace AlternativeDamageModel
         /// rate raised by UnattendedFireGrowthRate % of its maximum - as a hit would.
         /// </summary>
         static void CheckFirePostfix(object __instance)
+        {
+            long _p0 = Prof.Start();
+            try { CheckFirePostfixCore(__instance); }
+            finally { Prof.Stop(Prof.FireHooks, _p0); }
+        }
+
+        static void CheckFirePostfixCore(object __instance)
         {
             try
             {
@@ -1964,12 +2016,12 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ thresholds of faster flooding (Compartments.OnFixedUpdate)
 
-        // 40: ship sinks above this flooding %; for ships with exact deck points also only while the decks are under water enough
-        // (SubmergedFlooding.SinkAllowed): below that the threshold is out of reach
+        // 40: ship sinks above this flooding % (FloodLimit) OR, for ships with exact deck points, when the decks have been under the sea long enough
+        // (SubmergedFlooding.SinkByDeck: both central compartments or 5 of them, 10 s) - either one sinks it
         public static float SinkLevel(float game, object comp)
         {
             if (!Model) return game;
-            return SubmergedFlooding.SinkAllowed(comp) ? Limits.LevelFull : float.MaxValue;
+            return SubmergedFlooding.SinkByDeck(comp) ? -1f : Limits.LevelFull;   // -1: any water - the deck rule sinks the ship by itself
         }
         // 8: trim (with a flooded section) sinks the ship in the game - off while the mod is on (TrimFlooding floods the end going down
         // instead); life rafts (1 compartment) keep it: the same check sets them level again
@@ -2027,12 +2079,47 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ speeds of fire and water
 
-        public static float FlameUpMul(float v, object sc) { return Model ? v * _flameUp * SpeedEffect.Fire(sc) : v; }
+        public static float FlameUpMul(float v, object sc)
+        {
+            long _p0 = Prof.Start();
+            try { return FlameUpMulCore(v, sc); }
+            finally { Prof.Stop(Prof.FlameUp, _p0); }
+        }
+
+        static float FlameUpMulCore(float v, object sc)
+        {
+            if (!Model) return v;
+            float r = v * _flameUp * SpeedEffect.Fire(sc);
+            if (_fireGrowLimit > 0f && _fScMaxSev != null && sc != null)
+            {
+                // FireGrowthLimit: the growth rate itself is held at the limit (so a spread fire, the tooltips and Auto DC see it too), and so is the growth
+                try
+                {
+                    float cap = _fireGrowLimit / 100f * (float)_fScMaxSev.GetValue(sc);
+                    if (cap > 0f)
+                    {
+                        if (v > cap && _fScGrow != null) _fScGrow.SetValue(sc, cap);
+                        if (r > cap) r = cap;
+                    }
+                }
+                catch { }
+            }
+            return r;
+        }
         public static float ExtinguishMul(float v) { return Model ? v * _extinguish : v; }
-        public static float FloodingMul(float v, object fc) { return Model ? v * _floodSpeed * SpeedEffect.Flood(fc) : v; }
+        public static float FloodingMul(float v, object fc)
+        {
+            if (!Model) return v;
+            long t = Prof.Start();
+            float r = v * _floodSpeed * SpeedEffect.Flood(fc);
+            Prof.Stop(Prof.FloodMul, t);
+            return r;
+        }
         /// <summary>Multiplier of the inflow through holes for the tooltips (the flooding speed and the ship's speed).</summary>
         public static float FloodingMul(float v) { return Model ? v * _floodSpeed : v; }
         public static float PumpOutMul(float v) { return Model ? v * _pumpOut : v; }
+        public static float SysRepairMul(float v) { return Model ? v * _sysRepair : v; }
+        public static float HullRepairMul(float v) { return Model ? v * _hullRepair : v; }
         public static float FireHullMul(float v) { return Model ? v * _fireHull : v; }
 
         // SystemCompartment.OnFixedUpdate: hull damage of a fire = Globals._shipFireCoefficient * FireSeverity * dt * _shipFireSpeedMultiplier
@@ -2084,6 +2171,30 @@ namespace AlternativeDamageModel
                             "FloodingMul", 1, "FloodingSpeed", true);
         }
 
+        /// <summary>
+        /// The game's unattended leak: a compartment under 19% integrity whose leak has not been stopped for 300 s grows its leak by 0.001/s while no team
+        /// is in its section - but it reads the teams at DamageControlTeamsNumbers[_compartmentNumber], and _compartmentNumber is 1-based: section i looks
+        /// at section i+1, and the aft section at index 5, the reserve. So the aft leaks kept growing with two teams plugging them whenever the reserve
+        /// was empty. Mod on: the index is _compartmentNumber - 1 (its own section).
+        /// </summary>
+        public static int LeakTeamIndex(int n) { return Model && n > 0 ? n - 1 : n; }
+
+        static IEnumerable<CodeInstruction> LeakTeamIndexTranspiler(IEnumerable<CodeInstruction> ins)
+        {
+            var list = new List<CodeInstruction>(ins);
+            var m = typeof(AdmPlugin).GetMethod("LeakTeamIndex", BindingFlags.Static | BindingFlags.Public);
+            int n = 0;
+            for (int i = 0; i + 1 < list.Count; i++)
+                if (Field(list[i], "FloodingCompartment", "_compartmentNumber") && list[i + 1].opcode == OpCodes.Ldelem_I4)
+                {
+                    list.Insert(i + 1, new CodeInstruction(OpCodes.Call, m));
+                    n++; i++;
+                }
+            if (n != 1) Warn("Unattended leak team index: " + n + " places patched, 1 expected (game updated?).");
+            Trace("Unattended leak team index: " + n + " places patched");
+            return list;
+        }
+
         public static bool SpeedLimitOff(bool flag, object comp) { return flag || (Model && !DcControl.LimitSpeed(comp)); }
 
         // Compartments.UpdateWantedVelocityInKnots: "if (WantedVelocityInKnots > 10f && !flag2)" - the cut of the speed by flooding (10-25 kn);
@@ -2122,6 +2233,18 @@ namespace AlternativeDamageModel
             return MulAfter(ins, (l, i) => Field(l[i], "Crew", "_floodingRepair"), "PumpOutMul", 1, "PumpOutSpeed");
         }
 
+        // Compartments.RepairSystems: teams * _crew._systemRepair * dt (two places, as in the effectiveness patch)
+        static IEnumerable<CodeInstruction> SysRepairTranspiler(IEnumerable<CodeInstruction> ins)
+        {
+            return MulAfter(ins, (l, i) => Field(l[i], "Crew", "_systemRepair"), "SysRepairMul", 2, "SystemRepairSpeed");
+        }
+
+        // Compartments.RepairStructure: teams * _crew._structureRepair * dt
+        static IEnumerable<CodeInstruction> HullRepairTranspiler(IEnumerable<CodeInstruction> ins)
+        {
+            return MulAfter(ins, (l, i) => Field(l[i], "Crew", "_structureRepair"), "HullRepairMul", 1, "HullRepairSpeed");
+        }
+
         static bool DcCheckPrefix(object __instance, int i) { return DcControl.CheckPrefix(__instance, i); }
 
         static bool TeamSendPrefix(object __instance, int index) { return DcTeams.SendPrefix(__instance, index); }
@@ -2129,6 +2252,13 @@ namespace AlternativeDamageModel
         static bool TeamRecallPrefix(object __instance) { return DcTeams.RecallPrefix(__instance); }
         /// <summary>A fire does not spread into a compartment where a damage control team is.</summary>
         static bool IgniteByNeighbourPrefix(object __instance)
+        {
+            long _p0 = Prof.Start();
+            try { return IgniteByNeighbourPrefixCore(__instance); }
+            finally { Prof.Stop(Prof.FireHooks, _p0); }
+        }
+
+        static bool IgniteByNeighbourPrefixCore(object __instance)
         {
             try
             {
@@ -2141,10 +2271,21 @@ namespace AlternativeDamageModel
             catch { return true; }
         }
 
-        static void WreckDragPostfix(object __instance) { WreckDrag.Tick(__instance); }
+        static void WreckDragPostfix(object __instance) { long t = Prof.Start(); WreckDrag.Tick(__instance); Prof.Stop(Prof.Wreck, t); }
         static void SinkComPrefix(object __instance, out object __state) { __state = CapsizeFix.BeforeSink(__instance); }
-        static void SinkComPostfix(object __instance, object __state) { CapsizeFix.AfterSink(__instance, __state); }
-        static void TeamTickPrefix(object __instance) { DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); SectionEffects.Tick(__instance); }
+        static void SinkComPostfix(object __instance, object __state) { long t = Prof.Start(); CapsizeFix.AfterSink(__instance, __state); Prof.Stop(Prof.SinkCom, t); }
+        static void TeamTickPrefix(object __instance)
+        {
+            if (!Prof.On) { AttitudeSave.Tick(__instance); DcTeams.Tick(__instance); TrimFlooding.Tick(__instance); SubmergedFlooding.Tick(__instance); SectionEffects.Tick(__instance); return; }
+            Prof.Step();
+            long t0 = Prof.Start(), t;
+            t = Prof.Start(); AttitudeSave.Tick(__instance); Prof.Stop(Prof.AttTick, t);
+            t = Prof.Start(); DcTeams.Tick(__instance); Prof.Stop(Prof.TeamsTick, t);
+            t = Prof.Start(); TrimFlooding.Tick(__instance); Prof.Stop(Prof.TrimTick, t);
+            t = Prof.Start(); SubmergedFlooding.Tick(__instance); Prof.Stop(Prof.SubTick, t);
+            t = Prof.Start(); SectionEffects.Tick(__instance); Prof.Stop(Prof.SecTick, t);
+            Prof.Stop(Prof.ShipTick, t0);
+        }
 
         public static float TeamEffMul(float v) { return DcTeams.Eff(v); }
         public static float TeamEffMulSys(float v) { return DcTeams.EffSys(v); }
@@ -2318,6 +2459,8 @@ namespace AlternativeDamageModel
                 if (hits != null) _mIniWriteStr.Invoke(ini, new object[] { sectionName, HitsSaveKey, hits });
                 var trend = ContactIntel.SaveTrend(__instance);
                 if (trend != null) _mIniWriteStr.Invoke(ini, new object[] { sectionName, TrendSaveKey, trend });
+                var att = AttitudeSave.Save(__instance);
+                if (att != null) _mIniWriteStr.Invoke(ini, new object[] { sectionName, AttitudeSave.Key, att });
             }
             catch (Exception e) { Trace("DcSavePostfix: " + e.Message); }
         }
@@ -2336,6 +2479,8 @@ namespace AlternativeDamageModel
                 if (!string.IsNullOrEmpty(hits)) HitLog.Load(__instance, hits);
                 var trend = _mIniReadStr.Invoke(ini, new object[] { sectionName, TrendSaveKey, "", false }) as string;
                 if (!string.IsNullOrEmpty(trend)) ContactIntel.LoadTrend(__instance, trend);
+                var att = _mIniReadStr.Invoke(ini, new object[] { sectionName, AttitudeSave.Key, "", false }) as string;
+                if (Model && !string.IsNullOrEmpty(att)) AttitudeSave.Load(__instance, att);
             }
             catch (Exception e) { Trace("DcLoadPostfix: " + e.Message); }
         }

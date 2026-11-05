@@ -5,7 +5,7 @@
 5|Ein Treffer auf ein bereits zerstörtes Abteil geht nicht verloren: die Hälfte des Schadens geht an das Nachbarabteil (dieselbe Seite, zur Schiffsmitte hin); ist es ebenfalls zerstört, geht ein Viertel an das übernächste. Der Überschuss eines Treffers, der ein Abteil zerstört, verteilt sich genauso.
 6|Ein Treffer auf einen Abschnitt kann seine Trupps bei jeder Integrität verwunden. Aus = wie im Spiel: nur ein getroffener Abschnitt mit Integrität unter 50% kann einen Trupp ausschalten, mit der Chance Schaden x (1 - Integrität), höchstens 20%. An = jeder Treffer auf einen Abschnitt mit Trupps erhält den Verwundungswurf (siehe Wound chance); ein verwundeter Trupp geht in die Reserve.
 7|Ein vom Feuer wieder geöffnetes Leck wächst bis zu diesem % des größten Lecks des Abschnitts zurück.
-8|Ein Abschnitt unter Wasser löscht sein Feuer: das Feuer verliert dieses % seines Maximums pro Sekunde für jeden Meter, den die Deckskante des Abschnitts unter Wasser liegt (1 = so viele % pro Sekunde wie Meter). Benötigt die Deckspunkte des Schiffs (wie beim Fluten über das Deck). 0 = aus.
+8|Ein Abschnitt unter Wasser löscht sein Feuer: das Feuer verliert dieses % seines Maximums pro Sekunde für jeden Meter, den die Deckskante des Abschnitts unter Wasser liegt (1 = so viele % pro Sekunde wie Meter). Nur wenn beide Deckspunkte des Abschnitts (Backbord und Steuerbord) unter Wasser liegen; die Tiefe ist der Mittelwert beider. Benötigt die Deckspunkte des Schiffs (wie beim Fluten über das Deck). 0 = aus.
 9|Ein Trupp kann keine Lecks stopfen, solange das Schiff schneller als dies ist, in Knoten. 0 = keine Grenze.
 10|Ein Trupp in einem brennenden Abschnitt verliert pro Sekunde so viel seiner vollen Gesundheit bei Brand 100%, sofern nicht mindestens ein Trupp des Abschnitts das Feuer bekämpft (weniger bei geringerem Brand).
 11|Ein Trupp in der Reserve erholt pro Sekunde so viel seiner vollen Gesundheit.
@@ -490,11 +490,11 @@
 490|schweißt den Rumpf
 491|verwundet: langsamer
 492|{0} übrig
-493|Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure. Der am schnellsten wachsende Brand oder das Leck zuerst.
-494|DC Priority: Fire - die Trupps nehmen Gefahren in dieser Reihenfolge: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
-495|DC Priority: Flooding - die Trupps nehmen Gefahren in dieser Reihenfolge: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
-496|Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure. Auto-SK schickt freie Trupps zuerst zum schlimmsten Brand.
-497|Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure. Auto-SK schickt freie Trupps zu Lecks, dann zum Wasser.
+493|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure. Der am schnellsten wachsende Brand oder das Leck zuerst.
+494|DC Priority: Fire - die Trupps nehmen Gefahren in dieser Reihenfolge: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure
+495|DC Priority: Flooding - die Trupps nehmen Gefahren in dieser Reihenfolge: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure
+496|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure. Auto-SK schickt freie Trupps zuerst zum schlimmsten Brand.
+497|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure. Auto-SK schickt freie Trupps zu Lecks, dann zum Wasser.
 498|Lage: {0}
 499|Kontakt
 500|Kontakt {0}
@@ -567,3 +567,32 @@
 567|pumpt aus
 568|Flutung
 569|Rumpfschaden
+570|Jetzt zuerst: {0}.
+571|DC Priority: Auto - die Trupps nehmen Gefahren in dieser Reihenfolge: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure
+572|Wie schnell Schadenkontrolltrupps Systeme reparieren (Aufgabe Systems). 1.0 = wie im Spiel.
+573|Wie schnell Schadenkontrolltrupps den Rumpf reparieren (Aufgabe Hull). 1.0 = wie im Spiel.
+574|Rumpfreparatur
+575|Systemreparatur
+576|Wie schnell ein Feuer höchstens von selbst wachsen darf, % des Feuermaximums pro Sekunde (im Spiel bis etwa 30% pro Sekunde). Die Wachstumsrate eines brennenden Abschnitts wird hier gehalten. 0 = aus (wie im Spiel).
+577|Grenze des Feuerwachstums
+578|% des max. Feuers pro Sekunde · 0 = aus
+579|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Structure > Systems. Der am schnellsten wachsende Brand oder das Leck zuerst.
+580|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Structure > Systems. Auto-SK schickt freie Trupps zuerst zum schlimmsten Brand.
+581|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Structure > Systems. Auto-SK schickt freie Trupps zu Lecks, dann zum Wasser.
+582|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Flooded Structure > Systems > Structure. Der am schnellsten wachsende Brand oder das Leck zuerst.
+583|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Flooded Structure > Systems > Structure. Auto-SK schickt freie Trupps zuerst zum schlimmsten Brand.
+584|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Flooded Structure > Systems > Structure. Auto-SK schickt freie Trupps zu Lecks, dann zum Wasser.
+585|Kritisch
+586|Im Feuer, das es nicht bekämpft: {0}%
+587|Teams bei der Systemreparatur hier: {0}, Effizienz {1}%
+589|Das Team hier repariert zuerst ein anderes System der Sektion
+588|Das Team hier ist beschäftigt: {0}
+590|Vier kleine Symbole unter dem Schiffssymbol auf der Karte (auch Ihres): Feuer (Gesamtstärke der Brände), Wasser, Rumpf (wie im Damage-Control-Panel eingestuft) (auf dem eigenen Schiff werden Rumpfschäden, die nicht mehr geschweißt werden können, und Wasser, das nicht abgepumpt werden kann, nicht gezeigt; die Reparaturpläne eines Kontakts sind unbekannt) und Motor; gelb / orange / rot nach Schwere, und ein grauer werdendes Kartensymbol, wenn das Schiff sinken wird (binnen 20 Minuten nach dem Flut-/Rumpftrend). Ein Kontakt: Feuer, Wasser, Rumpf und Motor nur bei direkter Sicht; per Sonar - nur der Motor (gelb: Teil verloren, rot: nichts funktioniert); per Radar - eine Schätzung für ein in den letzten 10 Minuten getroffenes Schiff, mit '?' markiert (gelb: 10 Knoten oder weniger, rot: unter 3); nichts per ESM oder ohne Kontakt, und nichts für ein gesunkenes Schiff. Die Zeile Fires des Reiters Damage Control nutzt dieselbe Gesamtstärke. Der Unit Status eines Kontakts zeigt einen Reiter Damage State mit denselben Informationen in Worten.
+591|Brand ohne Trupp
+592|Unkontrollierte Brände
+593|Status:
+594|Trupps, die es reparieren (auch aus anderen Abschnitten): {0}, Effizienz {1}%
+595|Diagnose: schreibt alle 10 Sekunden in die Trace-Datei (Debug), wie viel Zeit die Hooks des Mods brauchten: je Hook die Aufrufe, die Zeit in ms und in % der Echtzeit – um zu finden, was das Spiel bremst (bei hoher Zeitraffung laufen die Physik-Hooks viele Male pro Frame).
+596|Hook-Zeiten
+597|alle 10 s in die Debug-Trace-Datei
+598|Auto DC flutet gegen: solange Lecks noch Wasser einlassen und Krängung oder Trimmung den roten Bereich ihrer Anzeige erreicht (bis sie auf dessen Hälfte gesunken ist), geht ein Trupp in die Sektion, in der Wassereinlass in eine Seite am meisten Neigung abbaut, und arbeitet wie ein Trupp mit dem Auftrag Gegenfluten (siehe Gegenfluten). Aus = Auto DC flutet nicht gegen.

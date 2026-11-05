@@ -245,8 +245,8 @@ namespace AlternativeDamageModel
                     s.Fill[j].Height = h;
                     Canvas.SetTop(s.Fill[j], SchT + (side + 1) * cellH - h);
 
-                    float rate = cols != null && i < cols.Length ? (side == 0 ? cols[i].RP : cols[i].RS) : 0f;
-                    int a = Arrows(rate, FloodOne, FloodTwo, FloodTwo);
+                    // the very arrows the section's Flooding row shows (its hysteresis included), so the two never differ
+                    int a = cols != null && i < cols.Length && cols[i] != null ? (side == 0 ? cols[i].AP : cols[i].AS) : 0;
                     string sig = Pct(water) + "|" + a;
                     if (sig == s.Sig[j]) continue;
                     s.Sig[j] = sig;

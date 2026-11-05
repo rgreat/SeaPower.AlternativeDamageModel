@@ -458,12 +458,13 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>Team health and fatigue, every tick: fire wounds, reserve recovery, work builds fatigue.</summary>
+        static readonly bool[] _fought = new bool[5];
         static void Condition(object comp, Ship s, double dt)
         {
             float lim = FatigueLimit;
             int heavy = -1;
             // a section where at least one team fights the fire: the fire wounds none of the teams there
-            var fought = new bool[5];
+            var fought = _fought; Array.Clear(fought, 0, 5);   // reused (main thread): no array every physics tick
             foreach (var f in s.Teams) if (f.State == St.InSection && f.Doing == DcControl.TaskFire && f.Section >= 0 && f.Section < 5) fought[f.Section] = true;
             foreach (var t in s.Teams)
             {
@@ -474,13 +475,14 @@ namespace AlternativeDamageModel
                     if (t.Fatigue > 0) t.Fatigue = Math.Max(0, t.Fatigue - dt * FatigueRecover / 100.0);
                     if (AutoRest)
                     {
-                        if (!t.Rest) { if ((HealthOn && t.Health < RestHealth) || FatigueLevel(t.Fatigue) >= 2) t.Rest = true; }
+                        if (heavy < 0) { bool h = false; try { h = Heavy(comp); } catch { } heavy = h ? 1 : 0; }
+                        if (!t.Rest) { if ((HealthOn && t.Health < RestHealth) || (heavy == 0 && FatigueLevel(t.Fatigue) >= 2)) t.Rest = true; }
                         else
                         {
-                            if (heavy < 0) { bool h = false; try { h = Heavy(comp); } catch { } heavy = h ? 1 : 0; }
-                            // a ship in a bad way takes the teams back sooner: health 50%, rested to fresh (not yet tired); otherwise full health, no fatigue
-                            bool done = heavy == 1 ? (!HealthOn || t.Health >= HeavyHealth) && FatigueLevel(t.Fatigue) == 0 : (!HealthOn || t.Health >= 0.995f) && t.Fatigue <= 0;
-                            if (done) { t.Rest = false; Trace("DC team rested" + (heavy == 1 ? " (shortened: the ship is in a bad way)" : "")); }
+                            // a ship in a bad way: no rest for fatigue - a team rests only to be treated, back at health 50% whatever its fatigue;
+                            // otherwise full health, no fatigue
+                            bool done = heavy == 1 ? (!HealthOn || t.Health >= HeavyHealth) : (!HealthOn || t.Health >= 0.995f) && t.Fatigue <= 0;
+                            if (done) { t.Rest = false; Trace("DC team rested" + (heavy == 1 ? " (shortened: the ship is in a bad way - no rest for fatigue)" : "")); }
                         }
                     }
                 }
@@ -695,7 +697,56 @@ namespace AlternativeDamageModel
             return n;
         }
 
+        /// <summary>A team in section i fights its fire (did the Fire task last tick).</summary>
+        public static bool FireFought(object comp, int section)
+        {
+            Ship s;
+            if (!_ok || comp == null || !Ships.TryGetValue(comp, out s)) return false;
+            foreach (var t in s.Teams) if (t.State == St.InSection && t.Section == section && t.Doing == DcControl.TaskFire) return true;
+            return false;
+        }
+
         /// <summary>Auto DC, every few seconds: a team in a section with health under 33% or exhausted goes to the reserve to rest (AutoRest).</summary>
+        /// <summary>Teams in the reserve that are ready and fresh (no fatigue).</summary>
+        public static int PoolFresh(object comp)
+        {
+            Ship s; int n = 0;
+            if (!_ok || comp == null || !Ships.TryGetValue(comp, out s)) return 0;
+            foreach (var t in s.Teams) if (t.State == St.Pool && Ready(t) && FatigueLevel(t.Fatigue) == 0) n++;
+            return n;
+        }
+
+        /// <summary>A fresh team that came to the section after this tired one (there, or on its way): the tired one may be relieved.</summary>
+        static bool FreshAfter(Ship s, Team tired)
+        {
+            foreach (var o in s.Teams)
+            {
+                if (ReferenceEquals(o, tired) || o.Rest || FatigueLevel(o.Fatigue) != 0) continue;
+                if (o.State == St.InSection && o.Section == tired.Section && o.Arrived > tired.Arrived) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Section has a tired team (fatigue 1+) and no fresh team that came after it: a fresh one from the reserve should take over.</summary>
+        public static bool NeedsRelief(object comp, int section)
+        {
+            Ship s;
+            if (!_ok || comp == null || !Ships.TryGetValue(comp, out s)) return false;
+            bool tired = false;
+            foreach (var t in s.Teams)
+            {
+                if (t.State == St.Moving && t.Section == section && !t.Back && FatigueLevel(t.Fatigue) == 0 && !t.Rest) return false;   // one is on its way
+                if (t.State == St.InSection && t.Section == section && !t.Rest && FatigueLevel(t.Fatigue) >= 1) tired = true;
+            }
+            if (!tired) return false;
+            foreach (var t in s.Teams)
+                if (t.State == St.InSection && t.Section == section && !t.Rest && FatigueLevel(t.Fatigue) == 0) return false;   // a fresh one is there already
+            return true;
+        }
+
+        static readonly Dictionary<object, double> HeavyUntil = new Dictionary<object, double>();
+        const double HeavyHold = 60.0;   // the critical state holds 60 s after it ends: a plugged hole must not send half the teams to rest at once and call them back
+
         public static void RestPull(object comp)
         {
             if (!_ok || comp == null || !AutoRest || !IsEnabled()) return;
@@ -703,10 +754,32 @@ namespace AlternativeDamageModel
             {
                 Ship s;
                 if (!Ships.TryGetValue(comp, out s)) return;
+                int heavy = -1;   // the ship in a bad way: no rest for fatigue, only a heavily wounded team goes (to be treated)
                 foreach (var t in s.Teams.ToArray())
                 {
                     if (t.State != St.InSection || t.Section < 0 || t.Section > 4) continue;
-                    if (!((HealthOn && t.Health < RestHealth) || FatigueLevel(t.Fatigue) >= 2)) continue;
+                    bool wounded = HealthOn && t.Health < RestHealth;
+                    bool relieved = !wounded && FatigueLevel(t.Fatigue) >= 1 && FreshAfter(s, t);   // a fresh team took over: the tired one goes to rest at once
+                    if (!wounded && !relieved && FatigueLevel(t.Fatigue) < 2) continue;
+                    if (!wounded && !relieved) { if (heavy < 0) { bool h = false; try { h = Heavy(comp); } catch { } double nw = Now(); if (h) HeavyUntil[comp] = nw + HeavyHold; double hu; heavy = (h || (HeavyUntil.TryGetValue(comp, out hu) && nw < hu)) ? 1 : 0; } if (heavy == 1) continue; }
+                    // the last team of a section whose hull is under 19% does not leave it for fatigue: the game opens its leak again once the section is empty
+                    if (!wounded && !relieved)
+                    {
+                        bool lr = false; try { lr = DcAuto.LeakRisk(comp, t.Section); } catch { }
+                        if (lr)
+                        {
+                            bool other = false;
+                            foreach (var o in s.Teams) if (!ReferenceEquals(o, t) && o.State == St.InSection && o.Section == t.Section) { other = true; break; }
+                            if (!other) continue;
+                        }
+                    }
+                    // the last team fighting a fire does not leave it to rest for fatigue (the fire would grow unattended); a heavy wound still sends it
+                    if (!wounded && !relieved && t.Doing == DcControl.TaskFire)
+                    {
+                        bool other = false;
+                        foreach (var o in s.Teams) if (!ReferenceEquals(o, t) && o.State == St.InSection && o.Section == t.Section && o.Doing == DcControl.TaskFire) { other = true; break; }
+                        if (!other) continue;
+                    }
                     var counts = Counts(comp);
                     if (counts == null || counts.Length < 6 || counts[t.Section] < 1) continue;
                     int from = t.Section;
@@ -955,7 +1028,9 @@ namespace AlternativeDamageModel
                           t.Total.ToString("0.#", CultureInfo.InvariantCulture) + "/" + (t.Rest ? 1 : 0) + "/" + t.From + "/" +
                           (t.State == St.InSection ? Math.Max(0, now - t.Arrived) : 0).ToString("0", CultureInfo.InvariantCulture) + "/" +
                           t.Health.ToString("0.###", CultureInfo.InvariantCulture) + "/" + t.Fatigue.ToString("0", CultureInfo.InvariantCulture) + "/" + t.Stun.ToString("0", CultureInfo.InvariantCulture));
-            return string.Join("|", parts.ToArray());
+            var text = string.Join("|", parts.ToArray());
+            Trace("DC teams saved: " + text);   // pairs with "DC teams loaded" - what was written is what the load must give back
+            return text;
         }
 
         /// <summary>Puts the teams back as they were saved, and the game's counts with them (the game does not save them).</summary>

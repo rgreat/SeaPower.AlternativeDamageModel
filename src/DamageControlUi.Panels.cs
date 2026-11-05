@@ -124,11 +124,20 @@ namespace AlternativeDamageModel
         public static float TrimRed(object comp) { return Math.Max(0.5f, TrimScale(comp) * Limits.FloodFrom); }
         /// <summary>The water in the ship (% of the hull) where the LEVEL gauge's red band starts.</summary>
         public static float LevelDangerAt(object comp) { return 0.8f * SinkAt(comp); }
+        /// <summary>The LEVEL gauge's value as it is drawn (0..100 %, 100 = the top where the ship starts to sink); the red band starts at <see cref="LevelDangerPct"/>.</summary>
+        public static float LevelPct(object comp)
+        {
+            float fp = 0f;
+            try { if (_compFloodPct == null) { var t = comp.GetType(); _compFloodPct = t.GetProperty("FloodingPercentage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); } fp = Convert.ToSingle(_compFloodPct.GetValue(comp, null), CultureInfo.InvariantCulture); } catch { }
+            return Math.Min(100f, 100f * fp / SinkAt(comp));
+        }
+        public const float LevelDangerPct = 80f;
         /// <summary>Water in the ship (% of the hull) at which it sinks.</summary>
         public static float SinkAt(object comp) { return IsSub(comp) ? 50f : ModelOn() ? Limits.LevelFull : 40f; }
 
         static PropertyInfo _compFloodPct, _compIntPct, _scFireStateProp;
         static MethodInfo _hullConv, _floodConv; static object _hullConvObj, _floodConvObj;
+        static float _levelDiag;
         static float _shownList; static WeakReference _shownListComp = new WeakReference(null);   // the list on the dial (smoothed): for the tooltips
         static FieldInfo _compBaseObj;
 
@@ -275,13 +284,13 @@ namespace AlternativeDamageModel
                 fc.Margin = new Thickness(0f, 0f, 0f, 0f);
                 x.FcSummary = summary;
                 x.FcCard = fc;
-                // one line along the top (it does not cover the ship's picture): "Forecast: Sinks in ~N min (hull damage)"
+                // one line along the top (it does not cover the ship's picture): "Status: Sinks in ~N min (hull damage)"
                 fc.VerticalAlignment = VerticalAlignment.Top; fc.Padding = new Thickness(8f, 3f, 8f, 3f);
-                // line 1: "Forecast: Sinks in ~N min (cause)"; line 2 (only when there is a warning): "Engine out: DC efficiency N%" - both centred, the 2nd wraps if it must
+                // line 1: "Status: Sinks in ~N min (cause)"; line 2 (only when there is a warning): "Engine out: DC efficiency N%" - both centred, the 2nd wraps if it must
                 var sp = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 var line1 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
                 var dimB = Res(view, "Brush.Foreground.Highlight", Color.FromRgb(214, 218, 222));
-                line1.Children.Add(new TextBlock { Text = Loc.T("Forecast:"), FontSize = 14f, Foreground = dimB, Margin = new Thickness(0f, 0f, 8f, 0f), VerticalAlignment = VerticalAlignment.Center });
+                line1.Children.Add(new TextBlock { Text = Loc.T("Status:"), FontSize = 14f, Foreground = dimB, Margin = new Thickness(0f, 0f, 8f, 0f), VerticalAlignment = VerticalAlignment.Center });
                 x.FcMain = new TextBlock { Text = Loc.T("Stable"), FontSize = 16f, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
                 x.FcSub = new TextBlock { Text = "", FontSize = 14f, Foreground = dimB, Margin = new Thickness(8f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center };
                 x.FcWarn = new TextBlock { Text = "", FontSize = 14f, Foreground = BHeavy, Margin = new Thickness(0f, 2f, 0f, 0f), HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
@@ -673,7 +682,7 @@ namespace AlternativeDamageModel
                 SetText(x.FcWarn, em < 1f ? Loc.F("Engine out: DC efficiency {0}%", Math.Round(em * 100f).ToString("0", CultureInfo.InvariantCulture)) : "");
                 var wv = em < 1f ? Visibility.Visible : Visibility.Collapsed;
                 if (x.FcWarn.Visibility != wv) x.FcWarn.Visibility = wv;
-                SetBrush(x.FcMain, fv >= 2 ? BCritical : fv == 1 ? BHeavy : StageBrush(x.Res, 0));
+                SetBrush(x.FcMain, fv == 3 ? BWarnFc : fv >= 2 ? BCritical : fv == 1 ? BHeavy : StageBrush(x.Res, 0));
                 CenterForecast(x);
             }
             try { RenderHullFlood(comp, x); } catch (Exception e) { Trace("RenderHullFlood: " + e.Message); }
@@ -745,6 +754,7 @@ namespace AlternativeDamageModel
                 float sinkAt = SinkAt(comp);
                 x.LevelFill.Height = Math.Max(0f, Math.Min(1f, fp / sinkAt)) * x.LevelHeight;
                 SetText(x.LevelVal, Pct(Math.Min(100f, 100f * fp / sinkAt)));   // 0..100% of the scale: 100% = the top, where the ship starts to sink
+                if (UnityEngine.Time.unscaledTime >= _levelDiag) { _levelDiag = UnityEngine.Time.unscaledTime + 10f; Trace("LEVEL gauge: FloodingPercentage " + fp.ToString("0.00", CultureInfo.InvariantCulture) + " / sinks at " + sinkAt.ToString("0.#", CultureInfo.InvariantCulture) + " -> shows " + x.LevelVal.Text); }
                 SetBrush(x.LevelVal, fp >= 0.8f * sinkAt ? BDanger : BDimText);
             }
         }
@@ -781,6 +791,7 @@ namespace AlternativeDamageModel
         /// words: None, Slight, Moderate, Heavy and the game's last one above 75%). Flooding: the game's word and the water in the
         /// whole ship on the scale of the LEVEL gauge (0..100%).
         /// </summary>
+        static readonly Brush BWarnFc = new SolidColorBrush(CPastMuster);   // the forecast's yellow: a fire no team fights
         static readonly Brush BHeavy = new SolidColorBrush(COrange), BCritical = new SolidColorBrush(Color.FromRgb(236, 70, 56));
 
         /// <summary>The card's colours by class: the game's for 0-2, orange for Heavy, red for Structure Destroyed / Flooding Uncontrolled

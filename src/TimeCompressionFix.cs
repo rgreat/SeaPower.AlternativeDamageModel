@@ -79,6 +79,13 @@ namespace AlternativeDamageModel
         /// movement step over the one at 10x (zero at 10x and below).</summary>
         public static Vector3 CoG(Vector3 com, object comp)
         {
+            long _p0 = Prof.Start();
+            try { return CoGCore(com, comp); }
+            finally { Prof.Stop(Prof.CoG, _p0); }
+        }
+
+        static Vector3 CoGCore(Vector3 com, object comp)
+        {
             if (!IsEnabled()) return com;
             try
             {

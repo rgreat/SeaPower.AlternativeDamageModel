@@ -5,7 +5,7 @@
 5|すでに破壊された区画への被弾は失われません:ダメージの半分は隣の区画(同じ舷、艦の中央側)へ、そこも破壊されていれば4分の1がその次へ回ります。区画を破壊した被弾の余剰も同じように回ります。
 6|区画への被弾は、船体耐久に関係なくチームを負傷させる場合があります。オフ = ゲームと同じ:耐久50%未満の被弾区画のみ、確率 ダメージ x (1 - 耐久)(最大20%)でチームが戦列を離れます。オン = チームのいる区画へのすべての被弾に負傷判定(Wound chance 参照)が行われ、負傷したチームは予備へ移動します。
 7|火災で再び開いた浸水箇所は、区画がこれまでに持った最大浸水箇所のこの%まで再び拡大します。
-8|海面下の区画は火災を消します:区画の甲板縁が水没している1メートルごとに、火災は毎秒最大値のこの%を失います(1 = メートル数と同じ%毎秒)。艦の甲板ポイントが必要です(甲板からの浸水と同様)。0 = オフ。
+8|海面下の区画は火災を消します:区画の甲板縁が水没している1メートルごとに、火災は毎秒最大値のこの%を失います(1 = メートル数と同じ%毎秒)。区画の左右両方の甲板ポイントが水没したときだけ有効で、深さは両者の平均です。艦の甲板ポイントが必要です(甲板からの浸水と同様)。0 = オフ。
 9|艦の速度がこの値(ノット)を超えている間、チームは穴を塞げません。0 = 制限なし。
 10|燃えている区画のチームは、その区画のチームが1つも消火していない限り、火災100%で毎秒、満タン体力のこの分を失います(小さい火災ではより少なく)。
 11|予備のチームは毎秒、満タン体力のこの分を回復します。
@@ -490,11 +490,11 @@
 490|船体を溶接中
 491|負傷: 動きが遅い
 492|残り {0}
-493|Auto: Fire Rate > Flooding Rate > Fires > Flooding > Systems > Structure。最も速く拡大する火災か浸水を最優先。
-494|DC Priority: Fire - チームは次の順で脅威に対処: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure
-495|DC Priority: Flooding - チームは次の順で脅威に対処: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure
-496|Fire first: Fire Rate > Fires > Flooding Rate > Flooding > Systems > Structure。自動ダメコンは空きチームを最悪の火災へ先に送ります。
-497|Flooding first: Flooding Rate > Flooding > Fire Rate > Fires > Systems > Structure。自動ダメコンは空きチームを破孔、次に浸水へ送ります。
+493|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure。最も速く拡大する火災か浸水を最優先。
+494|DC Priority: Fire - チームは次の順で脅威に対処: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure
+495|DC Priority: Flooding - チームは次の順で脅威に対処: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure
+496|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure。自動ダメコンは空きチームを最悪の火災へ先に送ります。
+497|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure。自動ダメコンは空きチームを破孔、次に浸水へ送ります。
 498|姿勢: {0}
 499|コンタクト
 500|コンタクト {0}
@@ -567,3 +567,32 @@
 567|排水中
 568|浸水
 569|船体損傷
+570|今は最優先: {0}。
+571|DC Priority: Auto - チームは次の順で脅威に対処: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure
+572|ダメコンチームがシステムを修理する速さ（Systems 作業）。1.0 = ゲームと同じ。
+573|ダメコンチームが船体を修理する速さ（Hull 作業）。1.0 = ゲームと同じ。
+574|船体修理
+575|システム修理
+576|火災が自然に拡大する速さの上限、毎秒の最大火災に対する %（ゲームでは毎秒約 30% まで）。燃えている区画の拡大速度はこの値に抑えられる。0 = オフ（ゲームと同じ）。
+577|火災拡大の上限
+578|毎秒の最大火災に対する % · 0 = オフ
+579|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Structure > Systems。最も速く拡大する火災か浸水を最優先。
+580|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Structure > Systems。自動ダメコンは空きチームを最悪の火災へ先に送ります。
+581|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Structure > Systems。自動ダメコンは空きチームを破孔、次に浸水へ送ります。
+582|Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Flooded Structure > Systems > Structure。最も速く拡大する火災か浸水を最優先。
+583|Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Flooded Structure > Systems > Structure。自動ダメコンは空きチームを最悪の火災へ先に送ります。
+584|Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Flooded Structure > Systems > Structure。自動ダメコンは空きチームを破孔、次に浸水へ送ります。
+585|危機的
+586|消火していない火災の中での作業：{0}%
+587|ここでシステムを修理中のチーム：{0}、効率 {1}%
+589|ここのチームはまず区画内の別のシステムを修理します
+588|ここのチームは作業中：{0}
+590|マップ上の艦アイコンの下に4つの小アイコン(自艦も):火災(火災の合計強度)、水、船体(Damage Controlパネルの分類)(自艦では、もう溶接できない船体損傷と排水できない水は表示されません。コンタクトの修理計画は不明です)、エンジン;深刻度で黄/橙/赤、艦が沈む見込み(浸水/船体の傾向で20分以内)のときはマップアイコンが灰色がかります。コンタクト:火災、水、船体、エンジンは直接目視のみ;ソナーではエンジンのみ(黄:一部喪失、赤:すべて停止);レーダーでは直近10分に被弾した艦の推定で「?」付き(黄:10ノット以下、赤:3未満);ESMやコンタクトなしでは表示なし、沈没艦も表示なし。Damage ControlタブのFires行も同じ合計強度を使います。コンタクトのUnit Statusには同じ情報を文章で示すDamage Stateタブが表示されます。
+591|未対処の火災
+592|制御されていない火災
+593|状態:
+594|修理中の班(他の区画からも):{0}、効率 {1}%
+595|診断:10秒ごとに、Modのフックにかかった時間をトレース(Debug)に書き出します:フックごとの呼び出し回数、ms、実時間に対する%。ゲームを遅くしている箇所を探すためのものです(高倍速時は物理フックが1フレームに何度も実行されます)。
+596|フックの所要時間
+597|10秒ごとにデバッグトレースへ
+598|Auto DC が逆注水を行います：破孔からまだ浸水しており、傾斜またはトリムがゲージの赤い帯に達すると（その半分まで下がるまで）、片舷への注水が最も傾きを減らせる区画へチームが向かい、逆注水を命じられたチームと同じように働きます（逆注水を参照）。オフ = Auto DC は逆注水を行いません。

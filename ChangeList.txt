@@ -1,10 +1,14 @@
-Version 1.6.0.
+Version 1.7.0.
 
-- New: settings also open from the main menu and the pause menu. Settings are kept in user/AlternativeDamageControl now (the old folder is moved).
-- The Forecast card is shown only while the ship has damage; the health bar of a wounded team is drawn above its icon, not over it. A team with a task given by hand is marked by a small red ! (also on its icon in the orders menu) instead of the yellow underline.
-- Fixed: the game crashed at start (a Noesis property of the map was read before the UI was ready); it is read at the first note in a mission now.
-- NEW (Systems tab) [Advanced]: "Several repair priorities": the "!" of several systems in a section can be on at once; the section repairs them in turn, in the order they were set.
-- Changed: counterflooding floods or pumps out a side only where that takes off the list or trim (the more dangerous first), keeps its action 10 s, and floods nothing in the red band of LEVEL.
-- NEW [Advanced] (DC Teams > Water): "Auto DC counterflooding": while holes let water in and list / trim reach 40% of the red zone (until 20%), Auto DC sends a team to counterflood where it helps most. Plugging holes or pumping in a burning section: two teams, one fights the fire.
-- Auto, Fire and Flooding on the DC Priority buttons and in the orders menu are now the game's own texts (translated by the game).
-- Special effects (extra fire / smoke points, fire looks, sinking bubbles, hiding unseen targets in 3D) moved to Alternative Special Effects; install it to keep them. Settings are taken over on its first start.
+- Auto DC: the first team in a burning section fights the fire (other work there gets at least two teams); counterflooding gets one team and goes first when list or trim are critical; a lost engine is marked for priority repair automatically, and until it works again the teams only fight the fires at the engine and repair it.
+- New order: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Flooded Structure > Systems > Structure. Flooded Structure is hull repair where the damaged hull keeps the water in. The DC Priority hints and the Auto Damage Control Status line show what is first right now.
+- Counterflooding starts in the red zone of the list / trim and floods only the side that levels the ship (judged by the deck edges nearest the sea). Auto DC teams do not pump where that would worsen the list or trim.
+- Rest: on a ship in a critical state (sinking; water 20%+ with a hole open; hull under 50% with fire or leaks; heavy fires) only the wounded rest. Fresh teams from the reserve relieve tired ones; the last team at a fire or in a section with a badly damaged hull stays. The Forecast card is now the Status card; it shows a red Critical (a yellow Uncontrolled Fires while only fires no team fights yet burn).
+- Free teams finish the small repairs when nothing else is left. Auto DC reacts to new damage at once.
+- New settings: System Repair and Hull Repair speed (Team speed), Fire growth limit (Fire and flooding).
+- A ship with 5 sections sinks when both central deck points of its middle section, or at least 6 deck points, stay under the sea for 10 seconds. A section puts its fire out under water only when both of its deck points are under the sea.
+- The list and trim are saved with the game and restored after a load.
+- Fixed a game bug: holes of a section grew while a team worked in the neighbouring one.
+- System tooltips: repair speed, time to the next level and the teams repairing it; team tooltips: efficiency for the work the team does now. Tooltips update while open.
+- Map icons of your own ship do not show hull damage that cannot be welded any more or water that cannot be pumped out.
+- Much less load at high time compression (the heel checks are no longer recomputed for every team every physics step).
