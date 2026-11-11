@@ -115,7 +115,7 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>A name the game itself has (ui.ini [DamageControl]): its own translation, e.g. G("damagecontrolauto", "Auto").
-        /// Not found (an older game, no handler yet) = the mod's text.</summary>
+        /// Not found (no handler yet) = the mod's text.</summary>
         public static string G(string key, string en)
         {
             try

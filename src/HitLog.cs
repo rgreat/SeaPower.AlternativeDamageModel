@@ -299,6 +299,9 @@ namespace AlternativeDamageModel
                     rec.Ammo = Loc.F("Explosion of {0}", _exploding);                    // a system of a ship blew up: the blast has no ammunition of its own
                     if (ReferenceEquals(comps, _explodingComps)) _explodingLogged = true;
                 }
+                if (AdmPlugin.DebugOn)
+                    Trace("hit " + rec.Ammo + ": section " + number + (port ? " port" : " stbd") + (rec.Armor ? ", stopped by armour" : "") + (rec.Blast ? ", explosion" : "") +
+                          ", damage " + Convert.ToSingle(__args[3]).ToString("0.##", CultureInfo.InvariantCulture) + " -> " + ReserveHits.Describe(comps, number, port));
                 var list = Logs.GetOrCreateValue(comps);
                 lock (list) { list.Add(rec); if (list.Count > Max) list.RemoveAt(0); }
             }

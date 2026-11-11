@@ -1,6 +1,8 @@
 Version 1.8.0.
 
 Changes:
+- Supports Sea Power 0.9.0 only.
+- Settings window: "profile: x" next to "game: x"; the reset button brings back the profile's value.
 - New tab Collisions: ships slow down and lose hull where they touch (the bow takes less than the side); strong rams open leaks; the water holds the struck ship. Side-by-side touches hardly slow the ships.
 - Settings: damage, flooding, minimum speed, bow strength, slowing, water resistance, pressing, AI ships, push apart.
 - Auto DC does not repair an engine put out by flooding until the water is out.

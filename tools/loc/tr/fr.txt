@@ -656,3 +656,7 @@
 656|× à 50 t · 1 = désactivé
 657|Explosion de {0}
 658|Une section envahie (75 % d'eau ou plus dans l'un de ses compartiments, ou 50 % et plus dans la section entière) : ses systèmes sont ramenés à des dégâts graves, mis hors service et ne peuvent pas être réparés tant qu'elle reste envahie.
+659|instantané
+660|sans limite
+661|profil : {0}
+662|Revenir à la valeur du profil

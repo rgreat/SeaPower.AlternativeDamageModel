@@ -8,7 +8,7 @@ namespace AlternativeDamageModel
     /// <summary>
     /// The module types of Sea Power_Data/StreamingAssets/original/systems/modules.ini (the sections a system's ModuleType names),
     /// for the settings window's "Single system types", with the game's Integrity of each. Read from the game
-    /// (SeaPower.SystemLibraries.Modules, so mods that change modules.ini count); the 0.8.4 values below when that is not possible.
+    /// (SeaPower.SystemLibraries.Modules, so mods that change modules.ini count); the built-in values below when that is not possible.
     /// Types with Integrity 0 (Inert) are left out: there is nothing to make stronger.
     /// </summary>
     static class ModuleNames

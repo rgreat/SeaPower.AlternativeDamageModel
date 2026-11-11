@@ -651,7 +651,7 @@ namespace AlternativeDamageModel
         static readonly ConditionalWeakTable<object, VmState> States = new ConditionalWeakTable<object, VmState>();
         static readonly ConditionalWeakTable<SolidColorBrush, SolidColorBrush> Greys = new ConditionalWeakTable<SolidColorBrush, SolidColorBrush>();
         static PropertyInfo _mBrush, _mLine4;
-        static MethodInfo _mInvalidate;   // game 0.8.7+: the icon colour is recomputed only when the display is marked dirty
+        static MethodInfo _mInvalidate;   // the game keeps the icon colour until the display is marked dirty
         static bool _on;
 
         static readonly ConditionalWeakTable<SolidColorBrush, SolidColorBrush> GreyMade = new ConditionalWeakTable<SolidColorBrush, SolidColorBrush>();   // the grey brushes themselves
@@ -669,8 +669,7 @@ namespace AlternativeDamageModel
             return g;
         }
 
-        /// <summary>The icon was made grey and the ship will not sink any more (or the option went off): the game 0.8.7+ keeps the colour it was given until its display is marked dirty - mark it
-        /// (the game before 0.8.7 recomputes the colour at every Update by itself).</summary>
+        /// <summary>The icon was made grey and the ship will not sink any more (or the option went off): the game keeps the colour it was given until its display is marked dirty - mark it.</summary>
         static void Ungrey(object vm, VmState st)
         {
             if (!st.Greyed) return;
@@ -806,7 +805,7 @@ namespace AlternativeDamageModel
                 try
                 {
                     var pos = new Canvas { IsHitTestVisible = false };
-                    pos.SetBinding(UIElement.VisibilityProperty, new Binding("Visibility") { Source = cv, Mode = BindingMode.OneWay });   // 0.8.7 merges icons of a group: a collapsed icon takes its note with it
+                    pos.SetBinding(UIElement.VisibilityProperty, new Binding("Visibility") { Source = cv, Mode = BindingMode.OneWay });   // the game merges icons of a group: a collapsed icon takes its note with it
                     pos.SetBinding(_dpLat, new Binding("Latitude") { Source = vm, Mode = BindingMode.OneWay });
                     pos.SetBinding(_dpLon, new Binding("Longitude") { Source = vm, Mode = BindingMode.OneWay });
                     Canvas.SetLeft(host, -45f);          // centred under the icon, whose centre is the position itself

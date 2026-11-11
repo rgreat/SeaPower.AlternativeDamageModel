@@ -81,7 +81,7 @@ work_speed_of_a_team_that_has_just_becom.425925	Work speed of a team that has ju
 work_speed_of_an_exhausted_team_it_stays.4cfc9a	Work speed of an exhausted team, %; it stays there while the team keeps working.	AdmPlugin.cs (cfg)
 writes_a_line_to_the_bepinex_log_for_eve.b5d6a8	Writes a line to the BepInEx log for every ship that enters a mission: its hull integrity in the game and with the mod.	AdmPlugin.cs (cfg)
 add_ship.9be0cd	+ Add ship	SettingsWindow.cs
-back_to_the_game_s_value.a0f2a5	Back to the game's value	SettingsWindow.cs (ternary)
+back_to_the_game_s_value.a0f2a5	Back to the game's value	old
 delete_profile_0.556c2e	Delete profile "{0}"?	SettingsWindow.cs
 drag_to_resize.e8d9d0	Drag to resize	SettingsWindow.cs
 integrity_on_a_warship_of_0.9799d9	Integrity on a warship of {0}.	SettingsWindow.cs
@@ -545,7 +545,7 @@ game_language.02a4bb	Game language	old
 multiplier_of_the_chance_that_a_hit_on_t.30430b	Multiplier of the chance that a hit on the central compartment wounds a team resting in the reserve; it comes on top of Wound chance (0.5 = half as likely, 0 = resting teams are never wounded). Works only with Wounds in reserve.	AdmPlugin.cs (cfg)
 wounds_in_reserve_chance.8e2414	Wounds in reserve chance	SettingsWindow.cs (label)
 game_no_analogue.34c2b8	game: no analogue	SettingsWindow.cs
-back_to_the_base_game_profile_s_value.d6ede7	Back to the Base Game profile's value	SettingsWindow.cs (ternary)
+back_to_the_base_game_profile_s_value.d6ede7	Back to the Base Game profile's value	old
 back_to_the_default.e28d5d	Back to the default	SettingsWindow.cs (ternary)
 several_systems_of_a_section_can_be_prio.f5bdbb	Several systems of a section can be prioritised for repair at once (the "!" button of each system): the section repairs them one after another, in the order they were set. Off = as in the game: the "!" of one system switches off the other's.	AdmPlugin.cs (cfg)
 several_repair_priorities.d1ebe8	Several repair priorities	SettingsWindow.cs (label)
@@ -656,3 +656,7 @@ small_ships_faster.9af944	Small ships: faster	SettingsWindow.cs (label)
 at_50_t_1_off.baedcd	× at 50 t · 1 = off	SettingsWindow.cs (unit)
 explosion_of_0.663dff	Explosion of {0}	HitLog.cs
 a_flooded_section_75_of_water_or_more_in.916292	A flooded section (75% of water or more in one of its compartments, or 50% or more in the section as a whole): its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.	AdmPlugin.cs (cfg)
+instant.6871b2	instant	SettingsWindow.cs
+no_limit.db8edd	no limit	SettingsWindow.cs
+profile_0.8585be	profile: {0}	SettingsWindow.cs
+back_to_the_profile_s_value.f951a2	Back to the profile's value	SettingsWindow.cs (ternary)

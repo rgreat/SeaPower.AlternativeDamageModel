@@ -656,3 +656,7 @@
 656|× a 50 t · 1 = desactivado
 657|Explosión de {0}
 658|Una sección inundada (75 % de agua o más en uno de sus compartimentos, o 50 % o más en la sección en conjunto): sus sistemas pasan a daño grave, quedan inoperativos y no se pueden reparar mientras siga inundada.
+659|instantáneo
+660|sin límite
+661|perfil: {0}
+662|Volver al valor del perfil

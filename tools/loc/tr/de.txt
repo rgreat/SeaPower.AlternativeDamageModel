@@ -656,3 +656,7 @@
 656|× bei 50 t · 1 = aus
 657|Explosion: {0}
 658|Eine geflutete Sektion (75 % Wasser oder mehr in einer ihrer Abteilungen oder 50 % und mehr in der Sektion insgesamt): ihre Systeme werden auf schwere Schäden gebracht, außer Betrieb gesetzt und können nicht repariert werden, solange sie geflutet bleibt.
+659|sofort
+660|keine Grenze
+661|Profil: {0}
+662|Zurück zum Wert des Profils

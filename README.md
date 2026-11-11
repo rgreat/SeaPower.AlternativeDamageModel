@@ -38,7 +38,7 @@ Preconfigured:
 
 ## Compatibility
 
-- Supports Sea Power version 0.8.7 (Release and Stable Beta).
+- Supports Sea Power version 0.9.0 only (Release and Stable Beta).
 - Requires Anchor Chain.
 - Can be switched on/off in the game's Mods menu.
 - Special effects moved to Alternative Special Effects; install it to keep them. Settings are taken over on its first start.

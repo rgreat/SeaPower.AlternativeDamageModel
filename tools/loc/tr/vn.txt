@@ -656,3 +656,7 @@
 656|Hệ số ở 50 tấn · 1 = tắt
 657|Nổ {0}
 658|Một khu vực bị ngập (nước từ 75% trở lên ở một trong các khoang của nó, hoặc từ 50% trở lên ở toàn khu vực): các hệ thống của nó bị đưa xuống mức hư hại nặng, mất tác dụng và không thể sửa chữa chừng nào khu vực còn ngập.
+659|tức thì
+660|không giới hạn
+661|profile: {0}
+662|Về giá trị của profile

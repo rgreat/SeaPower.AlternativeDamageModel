@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using System.Reflection;
 
 namespace AlternativeDamageModel
@@ -16,8 +17,8 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
 
         static bool _init, _ok;
-        static FieldInfo _fWeaponType, _fAp, _fPower, _fDmgMul, _fImpact, _fSecondary, _fImpactComp, _fCompObp, _fTaskforce, _fEnemy, _fReduction;
-        static PropertyInfo _pIsAi;   // game 0.8.7+: Taskforce.IsAI (every enemy side); before: the one Globals._enemyTaskforce
+        static FieldInfo _fWeaponType, _fAp, _fPower, _fDmgMul, _fImpact, _fSecondary, _fImpactComp, _fCompObp, _fTaskforce, _fReduction;
+        static PropertyInfo _pIsAi;   // Taskforce.IsAI (every enemy side)
         static PropertyInfo _pCivilian, _pIntegrity;
         static MethodInfo _mFlooding;
         static readonly BindingFlags All = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -44,15 +45,31 @@ namespace AlternativeDamageModel
                 _mFlooding = comps.GetType().GetMethod("getFloodingCompartment", All);
                 _fTaskforce = Field(hitObject.GetType(), "_taskforce");
                 var tGlobals = asm.GetType("SeaPower.Globals");
-                _fEnemy = tGlobals == null ? null : Field(tGlobals, "_enemyTaskforce");
                 _pIsAi = _fTaskforce == null ? null : _fTaskforce.FieldType.GetProperty("IsAI", All);
                 _fReduction = tGlobals == null ? null : Field(tGlobals, "_dcTeamDisableReduction");
                 if (_mFlooding != null) _pIntegrity = _mFlooding.ReturnType.GetProperty("CurrentIntegrityPercent", All);
                 if (_fCompObp != null) _pCivilian = _fCompObp.FieldType.GetProperty("_isCivilian", All);
-                _ok = _fImpact != null && _fSecondary != null && _fImpactComp != null && _mFlooding != null && _pIntegrity != null;
+                _ok = _fImpact != null && _fSecondary != null && _fImpactComp != null && _mFlooding != null && _pIntegrity != null && _pIsAi != null;
                 if (!_ok) Trace("ReserveHits: members missing (game updated?)");
             }
             catch (Exception e) { Trace("ReserveHits.Init: " + e.Message); }
+        }
+
+        static FieldInfo _fRate;
+
+        /// <summary>For the trace: integrity and the leak rate of the compartment a hit came to (after the game's processing).</summary>
+        internal static string Describe(object comps, int number, bool port)
+        {
+            try
+            {
+                if (_mFlooding == null || _pIntegrity == null) return "";
+                var fc = _mFlooding.Invoke(comps, new object[] { number, port });
+                if (fc == null) return "";
+                if (_fRate == null) _fRate = Field(fc.GetType(), "_floodingRate");
+                string rate = _fRate == null ? "?" : Convert.ToSingle(_fRate.GetValue(fc)).ToString("0.###", CultureInfo.InvariantCulture);
+                return "integrity " + Convert.ToSingle(_pIntegrity.GetValue(fc, null)).ToString("0.#", CultureInfo.InvariantCulture) + "%, leak " + rate;
+            }
+            catch { return ""; }
         }
 
         /// <summary>The power of the hit as the game takes it for the knock-out chance: the warhead power x damage multiplier for a projectile, else the damage.</summary>
@@ -120,8 +137,7 @@ namespace AlternativeDamageModel
                 if (integ >= 50f) return;
                 float chance = power * (1f - integ / 100f);
                 var tf = _fTaskforce == null ? null : _fTaskforce.GetValue(hitObject);
-                bool enemy = _pIsAi != null ? tf != null && (bool)_pIsAi.GetValue(tf, null)
-                                            : _fEnemy != null && ReferenceEquals(tf, _fEnemy.GetValue(null));
+                bool enemy = tf != null && _pIsAi != null && (bool)_pIsAi.GetValue(tf, null);
                 if (enemy)
                 {
                     bool civ = false;

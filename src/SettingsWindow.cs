@@ -38,7 +38,7 @@ namespace AlternativeDamageModel
 
         const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
         const string TFx = "Effects";
-        static readonly string[] Tabs = { TUi, TFx, TGen, TDbg, "Hull", "Collisions", "Systems", "Fire", "Flooding", "DC Teams" };
+        static readonly string[] Tabs = { TUi, TFx, TGen, "Collisions", TDbg, "Hull", "Systems", "Fire", "Flooding", "DC Teams" };
         const string HealthKey = "DamageControlTeams/TeamHealthEnabled", FatigueKey = "DamageControlTeams/FatigueEnabled";
         const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
         /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
@@ -921,6 +921,34 @@ namespace AlternativeDamageModel
 
         static string GameText(Field f)
         {
+            string g = GameTextCore(f);
+            string pl = f.Global ? null : ProfileLine(f);
+            return pl == null ? g : (g.Length > 0 ? g + "\n" + pl : pl);
+        }
+
+        /// <summary>The "profile: x" line: the value stored in the profile the work came from (what the row's reset button brings back). Not for the mod's global options (they are not in a profile).</summary>
+        static string ProfileLine(Field f)
+        {
+            string v;
+            if (_from == null || !_from.Values.TryGetValue(f.Key, out v) || v == null) return null;
+            if (f.Kind == Kind.Bool) return Loc.F("profile: {0}", v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase) ? Loc.T("on") : Loc.T("off"));
+            if (f.Kind == Kind.Speed) return null;   // a list of multipliers: the editor shows it
+            if (f.Key == "DamageControlTeams/MaxPlugSpeed" && Num(v) == 0f) return Loc.F("profile: {0}", Loc.T("no limit"));
+            if (f.Kind == Kind.Table)
+            {
+                var tb = DcTeams.Parse(v);
+                if (tb == null || tb.Length == 0) return Loc.F("profile: {0}", v);
+                var teams = new List<string>(); var tons = new List<string>();
+                foreach (var r in tb) { teams.Add(r[1].ToString(CultureInfo.InvariantCulture)); if (r[0] > 0) tons.Add(r[0].ToString(CultureInfo.InvariantCulture)); }
+                return Loc.F("profile: {0}", string.Join("/", teams.ToArray())) + (tons.Count > 0 ? "\n" + Loc.F("from {0} t", string.Join("/", tons.ToArray())) : "");
+            }
+            if (f.Key == "Sinking/TrimReferenceLength" && Num(v) == 0f) return Loc.F("profile: {0}", Loc.T("off"));
+            if ((f.Key == "DamageControlTeams/TransferSpeed" || f.Key == "DamageControlTeams/MusterTime") && Num(v) == 0f) return Loc.F("profile: {0}", Loc.T("instant"));
+            return Loc.F("profile: {0}", v);
+        }
+
+        static string GameTextCore(Field f)
+        {
             string v;
             if (NoGame.Contains(f.Key))
             {   // the mod's own mechanic: the default (where the mod has one of its own) and "no analogue", not a value that looks like the game's
@@ -1171,8 +1199,13 @@ namespace AlternativeDamageModel
             g.Children.Add(game);
 
             var rst = new Button { Content = "↺", Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right };
-            try { ToolTipService.SetToolTip(rst, Loc.T(f.Global || ModOnly(f.Key) ? "Back to the default" : NoGame.Contains(f.Key) ? "Back to the Base Game profile's value" : "Back to the game's value")); } catch { }
-            rst.Click += (o, e) => { string gv; Set(f, GameValue(f, out gv) ? gv : FromValue(f)); refresh(); mark(); };
+            try { ToolTipService.SetToolTip(rst, Loc.T(f.Global ? "Back to the default" : "Back to the profile's value")); } catch { }
+            rst.Click += (o, e) =>
+            {
+                string gv, pv = null;
+                if (!f.Global && _from != null) _from.Values.TryGetValue(f.Key, out pv);
+                Set(f, pv != null ? pv : GameValue(f, out gv) ? gv : FromValue(f)); refresh(); mark();
+            };
             Grid.SetColumn(rst, 3);
             g.Children.Add(rst);
 

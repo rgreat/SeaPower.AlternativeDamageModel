@@ -44,6 +44,7 @@ namespace AlternativeDamageModel
 
         static AdmPlugin _inst;
         static bool _debug;
+        internal static bool DebugOn { get { return _debug; } }
         static string _traceFile;
 
         // ------------------------------------------------------------ state
@@ -163,6 +164,22 @@ namespace AlternativeDamageModel
             if (!_debug) return;
             try { File.AppendAllText(_traceFile, DateTime.Now.ToString("HH:mm:ss.fff") + "  " + msg + Environment.NewLine); }
             catch { }
+        }
+
+        /// <summary>Other mods that skip the game's own hit processing (a Harmony prefix on Blastzone.OnHitUnit that can return false, e.g. an armour mod with its own
+        /// damage model for its ships): the hits it takes over never reach the hooks of this mod (hit list, leaks, fires of hits, DC wounds). Said once in the log.</summary>
+        static void NoteForeignHitPatches(Assembly asm)
+        {
+            var tBlast = asm.GetType("SeaPower.Blastzone");
+            var m = tBlast == null ? null : tBlast.GetMethod("OnHitUnit", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var info = m == null ? null : Harmony.GetPatchInfo(m);
+            if (info == null) return;
+            foreach (var pf in info.Prefixes)
+            {
+                if (pf.owner == PluginGuid) continue;
+                string msg = "Another mod (" + pf.owner + ") has a prefix on Blastzone.OnHitUnit: the hits it handles itself (it may skip the game's processing for its own ships) are not seen by the hit list, leaks, fires of hits and DC wounds of this mod.";
+                Say(msg); Trace(msg);
+            }
         }
 
         static void Say(string msg) { if (_inst != null) _inst.Logger.LogInfo(msg); }
@@ -1342,6 +1359,7 @@ namespace AlternativeDamageModel
             {
                 ReserveHits.Trace = Trace;
                 DamageSpill.Trace = Trace;
+                HitLog.Trace = Trace;
                 Patch(harmony, tBlast.GetMethod("ProcessCompartmentHit", all), "SpillPrefix", "ReserveHitPostfix", null, "Blastzone.ProcessCompartmentHit (reserve hits, damage spill)", ref ok, ref failed);
                 Type tBaseSys = asm.GetType("SeaPower.BaseSystem");
                 if (tBaseSys != null) Patch(harmony, tBaseSys.GetMethod("ExplodeSystem", all), "ExplodePreHook", "ExplodePostHook", null, "BaseSystem.ExplodeSystem (secondary explosions in the hit list)", ref ok, ref failed);
@@ -1513,6 +1531,7 @@ namespace AlternativeDamageModel
             catch (Exception e) { Warn("Settings menu entry not available: " + e.Message); }
 
             _patched = failed == 0;
+            try { NoteForeignHitPatches(asm); } catch (Exception e) { Trace("foreign patches: " + e.Message); }
             Logger.LogInfo("Hooks installed: " + ok + (failed > 0 ? ", failed: " + failed + " (see warnings above; game updated?)" : "") + ".");
         }
 
