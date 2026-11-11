@@ -100,7 +100,12 @@ if __name__ == '__main__':
         for l in open(out, encoding='utf-8'):
             p = l.rstrip('\n').split('\t')
             if len(p) >= 2: old.append(p[1].replace('\\t', '\t').replace('\\n', '\n').replace('\\\\', '\\'))
-    for t in old: d.setdefault(t, 'old')
+    # texts kept only to keep the numbering: 'obsolete' = the text is not in the source any more (no translation is needed, nothing reads it); 'old' = still used, only not found by this extractor
+    code = re.sub(r'"\s*\+\s*"', '', ''.join(open(f, encoding='utf-8').read() for f in glob.glob(os.path.join(root, 'src', '*.cs'))))
+    for t in old:
+        if t in d: continue
+        used = t in code or t.replace('\n', '\\n') in code or t.replace('"', '\\"') in code
+        d[t] = 'old' if used or t in EXTRA else 'obsolete'
     order = old + [x for x in sorted(d, key=lambda x: (d[x], x)) + EXTRA if x not in old]
     seen = set(); order = [x for x in order if not (x in seen or seen.add(x))]
     with open(out, 'w', encoding='utf-8', newline='\n') as fh:

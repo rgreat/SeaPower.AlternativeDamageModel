@@ -1,7 +1,7 @@
 a_burning_section_opens_its_plugged_leak.20b488	A burning section opens its plugged leaks again: % of the largest leak the section has had, per second at fire 100% (less at a smaller fire). 0 = off.	AdmPlugin.cs (cfg)
 a_fire_does_not_spread_into_a_compartmen.6e664b	A fire does not spread into a compartment where a damage control team is (it stops the fire at the door). Off = as in the game.	AdmPlugin.cs (cfg)
 a_fire_no_damage_control_team_has_fought.5e3fa0	A fire no damage control team has fought for a while grows faster and faster: every fire check (FireCheckTime, 10 s) its growth rate rises as if the section were hit again. Off = as in the game (a fire grows only from hits).	AdmPlugin.cs (cfg)
-a_fully_flooded_section_water_above_75_i.aaedbd	A fully flooded section (water above 75%): its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.	old
+a_fully_flooded_section_water_above_75_i.aaedbd	A fully flooded section (water above 75%): its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.	obsolete
 a_hit_on_a_compartment_that_is_already_d.364c92	A hit on a compartment that is already destroyed is not lost: half of the damage goes to the neighbouring compartment (the same side, towards the middle of the ship); if that one is destroyed too, a quarter goes to the one after it. The surplus of the hit that destroys a compartment spills the same way.	AdmPlugin.cs (cfg)
 a_hit_on_a_section_can_wound_its_teams_a.ebfa16	A hit on a section can wound its teams at any integrity. Off = as in the game: only a hit section with integrity under 50% can take a team out, with the chance damage x (1 - integrity), at most 20%. On = every hit on a section with teams gets the wound roll (see Wound chance); a wounded team walks to the reserve.	AdmPlugin.cs (cfg)
 a_leak_reopened_by_fire_grows_back_up_to.ccd570	A leak reopened by fire grows back up to this % of the largest leak the section has had.	AdmPlugin.cs (cfg)
@@ -31,7 +31,7 @@ fire_row_two_arrows_up_when_the_fire_gro.8de955	Fire row: two arrows up when the
 fixes_an_error_of_the_game_itself_above.638bbb	Fixes an error of the game itself: above 10x time compression a ship's trim grows with the time compression (a 25 m boat at 47 kn: 2.6 degrees up to 10x, 9 at 100x) - enough to send a short, fast, undamaged ship under. The game moves a ship by a step per physics tick, and above 10x that step is stretched while the buoyancy torque is still taken about the centre of mass from before the step. On: that extra step is left out, so the trim stays what it is at 10x at any time compression; up to 10x nothing changes. Surface ships only. Off: the game's own behaviour.	AdmPlugin.cs (cfg)
 flooding_row_and_flooding_plan_one_arrow.802936	Flooding row and flooding plan: one arrow when the water level changes faster than this, in % of the compartment per second.	AdmPlugin.cs (cfg)
 flooding_row_and_flooding_plan_two_arrow.129e17	Flooding row and flooding plan: two arrows when the water level changes faster than this, in % of the compartment per second.	AdmPlugin.cs (cfg)
-four_small_icons_under_a_ship_s_icon_on.001776	Four small icons under a ship's icon on the map (yours too): fire (the fires' total strength), water, hull (as classed on the Damage Control panel) and engine; yellow / orange / red by severity, and a greyer map icon when the ship is going to sink (within 20 minutes by the flooding / hull trend). A contact: fire, water, hull and engine only in direct sight; by sonar - the engine only (yellow: part of it lost, red: none works); by radar - a guess for a ship hit in the last 10 minutes, marked '?' (yellow: 10 knots or less, red: under 3); nothing by ESM or without a contact, and nothing for a sunk ship. The Fires line of the Damage Control tab uses the same total strength. The Unit Status of a contact shows a Damage State tab with the same information in words.	old
+four_small_icons_under_a_ship_s_icon_on.001776	Four small icons under a ship's icon on the map (yours too): fire (the fires' total strength), water, hull (as classed on the Damage Control panel) and engine; yellow / orange / red by severity, and a greyer map icon when the ship is going to sink (within 20 minutes by the flooding / hull trend). A contact: fire, water, hull and engine only in direct sight; by sonar - the engine only (yellow: part of it lost, red: none works); by radar - a guess for a ship hit in the last 10 minutes, marked '?' (yellow: 10 knots or less, red: under 3); nothing by ESM or without a contact, and nothing for a sunk ship. The Fires line of the Damage Control tab uses the same total strength. The Unit Status of a contact shows a Damage State tab with the same information in words.	obsolete
 health_of_a_damage_control_team_a_multip.330f74	Health of a damage control team, a multiplier of its maximum, which is 1..100 points by the ship's displacement (100 = a crew of 1000 and more, about 30000 t; 1000 t = 24, 10000 t = 101). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower (as much as their health, not below 25%). 0 = teams are never wounded (a hit still takes a team out of its section).	AdmPlugin.cs (cfg)
 how_fast_a_fire_eats_the_hull_of_its_sec.e66317	How fast a fire eats the hull of its section (integrity of both its compartments). 1.0 = as in the game. Damage to the systems in the section is not changed.	AdmPlugin.cs (cfg)
 how_fast_a_team_in_the_reserve_gets_rid.f8c330	How fast a team in the reserve gets rid of fatigue, % of the speed it builds up at while working. 100 = as fast; 50 = rest takes twice as long as the work.	AdmPlugin.cs (cfg)
@@ -81,7 +81,7 @@ work_speed_of_a_team_that_has_just_becom.425925	Work speed of a team that has ju
 work_speed_of_an_exhausted_team_it_stays.4cfc9a	Work speed of an exhausted team, %; it stays there while the team keeps working.	AdmPlugin.cs (cfg)
 writes_a_line_to_the_bepinex_log_for_eve.b5d6a8	Writes a line to the BepInEx log for every ship that enters a mission: its hull integrity in the game and with the mod.	AdmPlugin.cs (cfg)
 add_ship.9be0cd	+ Add ship	SettingsWindow.cs
-back_to_the_game_s_value.a0f2a5	Back to the game's value	old
+back_to_the_game_s_value.a0f2a5	Back to the game's value	obsolete
 delete_profile_0.556c2e	Delete profile "{0}"?	SettingsWindow.cs
 drag_to_resize.e8d9d0	Drag to resize	SettingsWindow.cs
 integrity_on_a_warship_of_0.9799d9	Integrity on a warship of {0}.	SettingsWindow.cs
@@ -490,11 +490,11 @@ tired.0c3fd5	tired	DamageControlUi.cs
 welding_the_hull.10c97b	welding the hull	DamageControlUi.cs
 wounded_slower.1e19ed	wounded: slower	DamageControlUi.cs
 0_left.d004e2	{0} left	DamageControlUi.cs
-auto_flooding_rate_fire_rate_fires_count.e0cff2	Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure. The fastest growing fire or leak first.	old
-dc_priority_fire_teams_take_threats_in_t.7e8e04	DC Priority: Fire - teams take threats in this order: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure	old
-dc_priority_flooding_teams_take_threats.634d72	DC Priority: Flooding - teams take threats in this order: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure	old
-fire_first_fire_rate_fires_flooding_rate.174a7b	Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure. Auto DC sends free teams to the worst fire first.	old
-flooding_first_flooding_rate_counterfloo.a17f7e	Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure. Auto DC sends free teams to leaks, then to water.	old
+auto_flooding_rate_fire_rate_fires_count.e0cff2	Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure. The fastest growing fire or leak first.	obsolete
+dc_priority_fire_teams_take_threats_in_t.7e8e04	DC Priority: Fire - teams take threats in this order: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure	obsolete
+dc_priority_flooding_teams_take_threats.634d72	DC Priority: Flooding - teams take threats in this order: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure	obsolete
+fire_first_fire_rate_fires_flooding_rate.174a7b	Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Systems > Structure. Auto DC sends free teams to the worst fire first.	obsolete
+flooding_first_flooding_rate_counterfloo.a17f7e	Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Systems > Structure. Auto DC sends free teams to leaks, then to water.	obsolete
 attitude_0.b3aee1	Attitude: {0}	EnemyStatus.cs
 contact.ac94c3	Contact	EnemyStatus.cs
 contact_0.04f36d	Contact {0}	EnemyStatus.cs
@@ -545,7 +545,7 @@ game_language.02a4bb	Game language	old
 multiplier_of_the_chance_that_a_hit_on_t.30430b	Multiplier of the chance that a hit on the central compartment wounds a team resting in the reserve; it comes on top of Wound chance (0.5 = half as likely, 0 = resting teams are never wounded). Works only with Wounds in reserve.	AdmPlugin.cs (cfg)
 wounds_in_reserve_chance.8e2414	Wounds in reserve chance	SettingsWindow.cs (label)
 game_no_analogue.34c2b8	game: no analogue	SettingsWindow.cs
-back_to_the_base_game_profile_s_value.d6ede7	Back to the Base Game profile's value	old
+back_to_the_base_game_profile_s_value.d6ede7	Back to the Base Game profile's value	obsolete
 back_to_the_default.e28d5d	Back to the default	SettingsWindow.cs (ternary)
 several_systems_of_a_section_can_be_prio.f5bdbb	Several systems of a section can be prioritised for repair at once (the "!" button of each system): the section repairs them one after another, in the order they were set. Off = as in the game: the "!" of one system switches off the other's.	AdmPlugin.cs (cfg)
 several_repair_priorities.d1ebe8	Several repair priorities	SettingsWindow.cs (label)
@@ -553,7 +553,7 @@ of_several_systems_in_a_section_repaired.beb593	"!" of several systems in a sect
 counterflooding_a_team_s_task_given_by_h.a46cb9	Counterflooding (a team's task given by hand): how fast water is let into a compartment, times the pumping out speed. A team floods a side or pumps one out only where that takes off the list or the trim (the more dangerous of the two first), keeps its action for at least 10 s, and floods nothing when the water in the ship has reached the red band of the LEVEL gauge.	AdmPlugin.cs (cfg)
 auto_dc_counterflooding.8a9733	Auto DC counterflooding	SettingsWindow.cs (label)
 in_a_dangerous_list_trim.1f2a7e	in a dangerous list / trim	SettingsWindow.cs (unit)
-auto_dc_counterfloods_while_holes_still.efd1bd	Auto DC counterfloods: while holes still let water in and the list or trim reaches 40% of the red zone of its gauge (until it is down to 20%), a team goes to the section where letting water into a side or pumping it out takes most off the heel and works as a team ordered to counterflood (see Counterflooding). Off = Auto DC does not counterflood.	old
+auto_dc_counterfloods_while_holes_still.efd1bd	Auto DC counterfloods: while holes still let water in and the list or trim reaches 40% of the red zone of its gauge (until it is down to 20%), a team goes to the section where letting water into a side or pumping it out takes most off the heel and works as a team ordered to counterflood (see Counterflooding). Off = Auto DC does not counterflood.	obsolete
 bow.7c040b	BOW	DamageControlUi.Panels.cs
 level.ecc6fd	LEVEL	DamageControlUi.Panels.cs
 list.4ebbc1	LIST	DamageControlUi.Panels.cs
@@ -568,7 +568,7 @@ pumping_out.728c89	pumping out	old
 flooding.53773d	flooding	old
 hull_damage.fe3c6f	hull damage	old
 now_first_0.c2f993	Now first: {0}.	DamageControlUi.cs
-dc_priority_auto_teams_take_threats_in_t.c58f01	DC Priority: Auto - teams take threats in this order: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure	old
+dc_priority_auto_teams_take_threats_in_t.c58f01	DC Priority: Auto - teams take threats in this order: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Systems > Structure	obsolete
 how_fast_damage_control_teams_repair_sys.96b3fb	How fast damage control teams repair systems (the Systems task). 1.0 = as in the game.	AdmPlugin.cs (cfg)
 how_fast_damage_control_teams_repair_the.d4f3be	How fast damage control teams repair the hull (the Hull task). 1.0 = as in the game.	AdmPlugin.cs (cfg)
 hull_repair.08717f	Hull repair	SettingsWindow.cs (label)
@@ -576,9 +576,9 @@ system_repair.2dfa81	System repair	SettingsWindow.cs (label)
 the_most_a_fire_may_grow_by_itself_of_th.dfe3ad	The most a fire may grow by itself, % of the fire's maximum a second (the game lets a fire grow up to about 30% a second). The growth rate of a burning section is held at this. 0 = off (as in the game).	AdmPlugin.cs (cfg)
 fire_growth_limit.1d6517	Fire growth limit	SettingsWindow.cs (label)
 of_max_fire_a_second_0_off.e64b7b	% of max fire a second · 0 = off	SettingsWindow.cs (unit)
-auto_flooding_rate_fire_rate_fires_count.6c0e92	Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Structure > Systems. The fastest growing fire or leak first.	old
-fire_first_fire_rate_fires_flooding_rate.28dcbb	Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Structure > Systems. Auto DC sends free teams to the worst fire first.	old
-flooding_first_flooding_rate_counterfloo.5389be	Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Structure > Systems. Auto DC sends free teams to leaks, then to water.	old
+auto_flooding_rate_fire_rate_fires_count.6c0e92	Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Structure > Systems. The fastest growing fire or leak first.	obsolete
+fire_first_fire_rate_fires_flooding_rate.28dcbb	Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Structure > Systems. Auto DC sends free teams to the worst fire first.	obsolete
+flooding_first_flooding_rate_counterfloo.5389be	Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Structure > Systems. Auto DC sends free teams to leaks, then to water.	obsolete
 auto_flooding_rate_fire_rate_fires_count.4f5274	Auto: Flooding Rate > Fire Rate > Fires > Counterflooding > Flooding > Flooded Structure > Systems > Structure. The fastest growing fire or leak first.	DamageControlUi.cs (array)
 fire_first_fire_rate_fires_flooding_rate.fe1ddd	Fire first: Fire Rate > Fires > Flooding Rate > Counterflooding > Flooding > Flooded Structure > Systems > Structure. Auto DC sends free teams to the worst fire first.	DamageControlUi.cs (array)
 flooding_first_flooding_rate_counterfloo.4f61f4	Flooding first: Flooding Rate > Counterflooding > Flooding > Fire Rate > Fires > Flooded Structure > Systems > Structure. Auto DC sends free teams to leaks, then to water.	DamageControlUi.cs (array)
@@ -588,7 +588,7 @@ teams_repairing_systems_here_0_efficienc.ab796f	Teams repairing systems here: {0
 the_team_here_is_busy_0.f47ca4	The team here is busy: {0}	DamageControlUi.Systems.cs
 the_team_here_repairs_another_system_of.fe8d20	The team here repairs another system of the section first	DamageControlUi.Systems.cs
 four_small_icons_under_a_ship_s_icon_on.e864ac	Four small icons under a ship's icon on the map (yours too): fire (the fires' total strength), water, hull (as classed on the Damage Control panel) - on your own ship hull damage that cannot be welded any more and water that cannot be pumped out are not shown (a contact's repair plans are not known) - and engine; yellow / orange / red by severity, and a greyer map icon when the ship is going to sink (within 20 minutes by the flooding / hull trend). A contact: fire, water, hull and engine only in direct sight; by sonar - the engine only (yellow: part of it lost, red: none works); by radar - a guess for a ship hit in the last 10 minutes, marked '?' (yellow: 10 knots or less, red: under 3); nothing by ESM or without a contact, and nothing for a sunk ship. The Fires line of the Damage Control tab uses the same total strength. The Unit Status of a contact shows a Damage State tab with the same information in words.	AdmPlugin.cs (cfg)
-fire_unattended.b17175	Fire unattended	old
+fire_unattended.b17175	Fire unattended	obsolete
 uncontrolled_fires.d2cbd5	Uncontrolled Fires	ContactIntel.cs
 status.77496f	Status:	DamageControlUi.Panels.cs
 teams_repairing_it_from_other_sections_t.275c99	Teams repairing it (from other sections too): {0}, efficiency {1}%	DamageControlUi.Systems.cs (ternary)
@@ -597,47 +597,47 @@ hook_times.0a4ecc	Hook times	SettingsWindow.cs (label)
 every_10_s_into_the_debug_trace.6666ab	every 10 s into the debug trace	SettingsWindow.cs (unit)
 auto_dc_counterfloods_while_holes_still.741337	Auto DC counterfloods: while holes still let water in and the list or trim reaches the red zone of its gauge (until it is down to half of it), a team goes to the section where letting water into a side takes most off the heel and works as a team ordered to counterflood (see Counterflooding). Off = Auto DC does not counterflood.	AdmPlugin.cs (cfg)
 contacts_between_ships_at_a_relative_spe.3749a0	Contacts between ships at a relative speed below this, knots, do no damage (ships touching in a formation, mooring).	AdmPlugin.cs (cfg)
-damage_to_the_hull_from_a_collision_with.efa04c	Damage to the hull from a collision with another ship (the game has none: ships only push each other). A collision is not one blow: a ramming bow may climb onto the other ship and slide over it. The damage is the energy the physics wears down while the ships stay in contact, step by step (the blow, the pushing, the scraping; a ship that just rests on another loses nothing). Each ship takes the share that depends on the masses: the speed squared times (m_other / (m_self + m_other))^2 per ton of its own displacement. 1.0 = two equal ships meeting at 19 knots ruin about one and a quarter of a compartment each; a small boat that rams a big ship is wrecked, the ship scratched. The damage goes to the compartments where the ships touch at that moment (the place and the side of the contact points) and opens leaks as a hit does, growing with the damage taken (a contact over the waterline leaks only from a half-destroyed compartment). 0 = off.	old
+damage_to_the_hull_from_a_collision_with.efa04c	Damage to the hull from a collision with another ship (the game has none: ships only push each other). A collision is not one blow: a ramming bow may climb onto the other ship and slide over it. The damage is the energy the physics wears down while the ships stay in contact, step by step (the blow, the pushing, the scraping; a ship that just rests on another loses nothing). Each ship takes the share that depends on the masses: the speed squared times (m_other / (m_self + m_other))^2 per ton of its own displacement. 1.0 = two equal ships meeting at 19 knots ruin about one and a quarter of a compartment each; a small boat that rams a big ship is wrecked, the ship scratched. The damage goes to the compartments where the ships touch at that moment (the place and the side of the contact points) and opens leaks as a hit does, growing with the damage taken (a contact over the waterline leaks only from a half-destroyed compartment). 0 = off.	obsolete
 collision.fdbd2f	Collision	HitLog.cs
-collisions_between_ships.83b4df	Collisions between ships	old
+collisions_between_ships.83b4df	Collisions between ships	obsolete
 collision_damage.a87308	Collision damage	SettingsWindow.cs (label)
-slowest_damaging_impact.476194	Slowest damaging impact	old
+slowest_damaging_impact.476194	Slowest damaging impact	obsolete
 knots_relative_speed.9b9073	knots, relative speed	SettingsWindow.cs (unit)
-hull_loss_and_leaks_from_the_impact_0_of.346833	× · hull loss and leaks from the impact · 0 = off	old
-added_to_gripscrape_in_proportion_to_how.62594f	Added to GripScrape in proportion to how much the ships press together (a ram into the side takes most of the sliding speed, a glancing touch hardly any).	old
+hull_loss_and_leaks_from_the_impact_0_of.346833	× · hull loss and leaks from the impact · 0 = off	obsolete
+added_to_gripscrape_in_proportion_to_how.62594f	Added to GripScrape in proportion to how much the ships press together (a ram into the side takes most of the sliding speed, a glancing touch hardly any).	obsolete
 how_many_times_less_damage_per_ton_the_b.8ff5be	How many times less damage per ton the bow (the stem, with its collision bulkhead) takes than the side of a ship, for an impact along the ship. 1.0 = the same everywhere.	AdmPlugin.cs (cfg)
 ships_in_contact_are_slowly_moved_apart.81b360	Ships in contact are slowly moved apart (about half a metre a second), so that a ship that rammed another does not stay inside it. The game does not separate overlapping ships.	AdmPlugin.cs (cfg)
-ships_of_the_ai_are_slowed_by_a_collisio.bf2860	Ships of the AI are slowed by a collision as well (the ship you control always is, when Braking is above 0).	old
-ships_that_collide_lose_speed_the_relati.eedb87	Ships that collide lose speed: the relative speed across the contact is almost all lost (the lighter ship loses the most, the heavier hardly any), along it only a part (see GripScrape and GripPress). The game's physics does not slow ships, this does. The ship then speeds up again by its own engines. 0 = the ships keep their speed.	old
-the_share_of_the_sliding_along_the_conta.ed336c	The share of the sliding (along the contact) relative speed that a blow takes by scraping and crumpling of the hulls; ships running side by side mix their speeds the more, the higher it is.	old
+ships_of_the_ai_are_slowed_by_a_collisio.bf2860	Ships of the AI are slowed by a collision as well (the ship you control always is, when Braking is above 0).	obsolete
+ships_that_collide_lose_speed_the_relati.eedb87	Ships that collide lose speed: the relative speed across the contact is almost all lost (the lighter ship loses the most, the heavier hardly any), along it only a part (see GripScrape and GripPress). The game's physics does not slow ships, this does. The ship then speeds up again by its own engines. 0 = the ships keep their speed.	obsolete
+the_share_of_the_sliding_along_the_conta.ed336c	The share of the sliding (along the contact) relative speed that a blow takes by scraping and crumpling of the hulls; ships running side by side mix their speeds the more, the higher it is.	obsolete
 hull_damage.14198f	Hull damage	SettingsWindow.cs (group)
 speed_after_a_blow.f893bf	Speed after a blow	SettingsWindow.cs (group)
 bow_strength.5e02f4	Bow strength	SettingsWindow.cs (label)
-drag_when_pressed_together.7a7d6f	Drag when pressed together	old
+drag_when_pressed_together.7a7d6f	Drag when pressed together	obsolete
 push_ships_apart.60b8ec	Push ships apart	SettingsWindow.cs (label)
-scraping_drag.016d24	Scraping drag	old
-slow_ai_ships_too.402213	Slow AI ships too	old
+scraping_drag.016d24	Scraping drag	obsolete
+slow_ai_ships_too.402213	Slow AI ships too	obsolete
 slowing_down.35ac3c	Slowing down	SettingsWindow.cs (label)
 collisions.7117d4	Collisions	SettingsWindow.cs (group)
-added_when_the_hulls_press_on_each_other.d48523	added when the hulls press on each other	old
-share_of_the_sliding_speed_lost_to_scrap.832c8f	share of the sliding speed lost to scraping	old
-slowly_while_they_touch.9ba971	slowly, while they touch	old
-the_bow_takes_this_many_times_less_than.1fb63e	× · the bow takes this many times less than the side	old
-the_speed_the_ships_lose_0_they_keep_it.254537	× · the speed the ships lose · 0 = they keep it	old
-added_to_scraping_drag_in_proportion_to.fc0fa8	Added to "Scraping drag" in proportion to how much the ships press together (a ram into the side takes most of the sliding speed, a glancing touch hardly any).	old
-ships_of_the_ai_are_slowed_by_a_collisio.820975	Ships of the AI are slowed by a collision as well (the ship you control always is, when "Slowing down" is above 0).	old
-ships_that_collide_lose_speed_the_relati.a08a6f	Ships that collide lose speed: the relative speed across the contact is almost all lost (the lighter ship loses the most, the heavier hardly any), along it only a part (see "Scraping drag" and "Drag when pressed together"). The game's physics does not slow ships, this does. The ship then speeds up again by its own engines. 0 = the ships keep their speed.	old
-added_to_scraping_speed_loss_in_proporti.85d194	Added to "Scraping speed loss" in proportion to how much the ships press together (a ram into the side takes most of the sliding speed, a glancing touch hardly any).	old
+added_when_the_hulls_press_on_each_other.d48523	added when the hulls press on each other	obsolete
+share_of_the_sliding_speed_lost_to_scrap.832c8f	share of the sliding speed lost to scraping	obsolete
+slowly_while_they_touch.9ba971	slowly, while they touch	obsolete
+the_bow_takes_this_many_times_less_than.1fb63e	× · the bow takes this many times less than the side	obsolete
+the_speed_the_ships_lose_0_they_keep_it.254537	× · the speed the ships lose · 0 = they keep it	obsolete
+added_to_scraping_drag_in_proportion_to.fc0fa8	Added to "Scraping drag" in proportion to how much the ships press together (a ram into the side takes most of the sliding speed, a glancing touch hardly any).	obsolete
+ships_of_the_ai_are_slowed_by_a_collisio.820975	Ships of the AI are slowed by a collision as well (the ship you control always is, when "Slowing down" is above 0).	obsolete
+ships_that_collide_lose_speed_the_relati.a08a6f	Ships that collide lose speed: the relative speed across the contact is almost all lost (the lighter ship loses the most, the heavier hardly any), along it only a part (see "Scraping drag" and "Drag when pressed together"). The game's physics does not slow ships, this does. The ship then speeds up again by its own engines. 0 = the ships keep their speed.	obsolete
+added_to_scraping_speed_loss_in_proporti.85d194	Added to "Scraping speed loss" in proportion to how much the ships press together (a ram into the side takes most of the sliding speed, a glancing touch hardly any).	obsolete
 collisions_affect_the_ships_of_the_ai_to.f0324c	Collisions affect the ships of the AI too (their hulls and their speed). Off: only the ship you control is affected.	AdmPlugin.cs (cfg)
-ships_that_collide_are_damaged_and_slowe.8a2df6	Ships that collide are damaged and slowed. Off: a collision between ships does nothing, as in the game.	old
-ships_that_collide_lose_speed_the_relati.034c35	Ships that collide lose speed: the relative speed across the contact is almost all lost (the lighter ship loses the most, the heavier hardly any), along it only a part (see "Scraping speed loss" and "Pressing speed loss"). The game's physics does not slow ships, this does. 1.0 = the full loss of speed that such a blow gives, 0.5 = half of it, 0 = the ships keep their speed. The ship then speeds up again by its own engines.	old
+ships_that_collide_are_damaged_and_slowe.8a2df6	Ships that collide are damaged and slowed. Off: a collision between ships does nothing, as in the game.	obsolete
+ships_that_collide_lose_speed_the_relati.034c35	Ships that collide lose speed: the relative speed across the contact is almost all lost (the lighter ship loses the most, the heavier hardly any), along it only a part (see "Scraping speed loss" and "Pressing speed loss"). The game's physics does not slow ships, this does. 1.0 = the full loss of speed that such a blow gives, 0.5 = half of it, 0 = the ships keep their speed. The ship then speeds up again by its own engines.	obsolete
 on_contact.20bdcc	On Contact	SettingsWindow.cs (group)
 enable_collision_damage.3496db	Enable collision damage	SettingsWindow.cs (label)
 enable_collisions_for_ai_ships.fe9625	Enable collisions for AI ships	SettingsWindow.cs (label)
 minimum_collision_speed.c83798	Minimum collision speed	SettingsWindow.cs (label)
 pressing_speed_loss.08f27a	Pressing speed loss	SettingsWindow.cs (label)
-scraping_speed_loss.ac41f8	Scraping speed loss	old
-added_when_pressed.745bb9	added when pressed	old
+scraping_speed_loss.ac41f8	Scraping speed loss	obsolete
+added_when_pressed.745bb9	added when pressed	obsolete
 share_of_sliding_speed.3218a8	share of sliding speed	SettingsWindow.cs (unit)
 0_no_slowing.4b01e7	× · 0 = no slowing	SettingsWindow.cs (unit)
 0_none.6ec501	× · 0 = none	SettingsWindow.cs (unit)
