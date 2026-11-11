@@ -596,3 +596,63 @@
 596|Tiempos de hooks
 597|cada 10 s en la traza de depuración
 598|Auto DC contrainunda: mientras las vías de agua sigan dejando entrar agua y la escora o el asiento llegue a la zona roja de su indicador (hasta que baje a la mitad de ella), un equipo va a la sección donde dejar entrar agua a un costado quita más inclinación y trabaja como un equipo con la orden de contrainundar (véase Contrainundación). Desactivado = Auto DC no contrainunda.
+599|Las colisiones más lentas que esto, en nudos transversales al contacto, no causan daño (buques que se rozan en formación, atraque).
+600|Daño al casco por colisión con otro buque (el juego no lo tiene: los buques solo se empujan entre sí). Cada buque pierde casco por la energía del impacto transversal al contacto, como en una colisión inelástica: el cuadrado de la velocidad y la parte que asume el buque más ligero (m_other / (m_self + m_other))^2. 1.0 = dos buques iguales que chocan a 19 nudos arruinan cada uno aproximadamente 1,25 compartimentos; una lancha pequeña que embiste a un buque grande queda destruida y el buque solo arañado. El daño va a los compartimentos donde los buques se tocaron (el lugar y el costado de los puntos de contacto) y abre vías de agua como un impacto (un contacto sobre la línea de flotación solo filtra desde un compartimento medio destruido). 0 = desactivado.
+601|Colisión
+602|Colisiones entre buques
+603|Daño por colisión
+604|Impacto dañino más lento
+605|nudos transversales al contacto
+606|× · pérdida de casco y vías de agua por el impacto · 0 = desactivado
+599|Los contactos entre buques con una velocidad relativa inferior a esta, en nudos, no causan daño (buques que se tocan en formación, atraque).
+600|Daño al casco por colisión con otro buque (el juego no lo tiene: los buques solo se empujan entre sí). Una colisión no es un solo golpe: una proa que embiste puede subirse al otro buque y deslizarse sobre él. El daño es la energía que la física va disipando, paso a paso, mientras los buques siguen en contacto (el golpe, el empuje, el roce; un buque que solo descansa sobre otro no pierde nada). Cada buque asume la parte que depende de las masas: el cuadrado de la velocidad por (m_other / (m_self + m_other))^2 por tonelada de su propio desplazamiento. 1.0 = dos buques iguales que chocan a 19 nudos arruinan cada uno aproximadamente 1,25 compartimentos; una lancha pequeña que embiste a un buque grande queda destruida y el buque solo arañado. El daño va a los compartimentos donde los buques se tocan en ese momento (el lugar y el costado de los puntos de contacto) y abre vías de agua como un impacto, que crecen con el daño recibido (un contacto sobre la línea de flotación solo filtra desde un compartimento medio destruido). 0 = desactivado.
+605|nudos, velocidad relativa
+608|Cuántas veces menos daño por tonelada recibe la proa (la roda, con su mamparo de colisión) que el costado de un buque, en un impacto a lo largo del buque. 1.0 = igual en todas partes.
+609|Los buques en contacto se separan lentamente (unos medio metro por segundo), para que el buque que embistió no se quede dentro del otro. El juego no separa los buques superpuestos.
+612|La parte de la velocidad de deslizamiento (a lo largo del contacto) que un golpe quita por rozamiento y aplastamiento de los cascos; los buques que navegan costado con costado igualan sus velocidades tanto más cuanto mayor sea.
+613|Daño al casco
+614|Velocidad tras el golpe
+615|Resistencia de la proa
+616|Frenado por presión
+617|Separar los buques
+618|Frenado por roce
+619|Frenar también a los buques de la IA
+620|Frenado por el golpe
+621|Colisiones
+622|se suma cuando los cascos se aprietan entre sí
+623|parte de la velocidad de deslizamiento perdida por roce
+624|despacio, mientras se tocan
+625|× · la proa recibe tantas veces menos que el costado
+626|× · la velocidad que pierden los buques · 0 = la conservan
+627|Se suma a «Frenado por roce» según cuánto se aprieten los buques (un espolonazo en el costado quita casi toda la velocidad de deslizamiento, un roce apenas nada).
+628|Los buques de la IA también frenan por una colisión (el buque que controlas siempre, si «Frenado por el golpe» es mayor que 0).
+629|Los buques que chocan pierden velocidad: la velocidad relativa transversal al contacto se pierde casi toda (el buque ligero pierde más, el pesado apenas), a lo largo del contacto solo una parte (véase «Frenado por roce» y «Frenado por presión»). La física del juego no frena los buques, lo hace el mod. Luego el buque vuelve a acelerar con sus máquinas. 0 = los buques conservan su velocidad.
+630|Se suma a «Pérdida de velocidad por roce» según cuánto se aprieten los buques (un espolonazo en el costado quita casi toda la velocidad de deslizamiento, un roce apenas nada).
+631|Las colisiones afectan también a los buques de la IA (casco y velocidad). Desactivado: solo afecta al buque que controlas.
+632|Los buques que chocan reciben daño y frenan. Desactivado: una colisión entre buques no hace nada, como en el juego.
+633|Los buques que chocan pierden velocidad: la velocidad relativa transversal al contacto se pierde casi toda (el buque ligero pierde más, el pesado apenas), a lo largo del contacto solo una parte (véase «Pérdida de velocidad por roce» y «Pérdida de velocidad por presión»). La física del juego no frena los buques, lo hace el mod. 1.0 = la pérdida completa de velocidad que da un golpe así, 0.5 = la mitad, 0 = los buques conservan su velocidad. Luego el buque vuelve a acelerar con sus máquinas.
+634|En contacto
+635|Activar el daño por colisión
+636|Colisiones para buques de la IA
+637|Velocidad mínima de colisión
+638|Pérdida de velocidad por presión
+639|Pérdida de velocidad por roce
+640|se suma al apretar
+641|parte de la velocidad de deslizamiento
+642|× · 0 = sin frenado
+643|× · 0 = ninguno
+644|× · menos que el costado
+645|Los buques que chocan reciben daño: pérdida de casco y vías de agua donde se tocan los cascos. Desactivado: las colisiones no dañan (el frenado de los buques se ajusta aparte).
+646|El agua retiene a un buque que es empujado de lado o girado (el agua que se mueve con él, la resistencia): a lo ancho del casco un buque cuenta varias veces más pesado que su desplazamiento, a lo largo apenas más. Así un espolonazo en el costado se frena más y desplaza menos a su objetivo. 1.0 = unas cinco veces el desplazamiento a lo ancho, 0 = solo el desplazamiento.
+647|Resistencia del agua
+648|Daño al casco por la colisión de buques (el juego no lo tiene). El daño es la energía perdida mientras los buques siguen en contacto (golpe, empuje, roce), por tonelada de desplazamiento propio; el buque más ligero sufre más. 1.0 = dos buques iguales que chocan a 19 nudos destruyen cada uno cerca de un compartimento y cuarto. Va a los compartimentos donde se tocan y abre vías de agua. 0 = desactivado.
+649|Multiplicador de la inundación que abre una colisión (las vías de agua en los compartimentos dañados). 1.0 = como se calcula, 0 = las colisiones no abren vías de agua.
+650|Los buques que chocan pierden velocidad: la velocidad relativa transversal al contacto se pierde casi toda (el buque ligero pierde más, el pesado apenas), a lo largo del contacto solo una parte (véase «Pérdida de velocidad por presión»). La física del juego no frena los buques, lo hace el mod. 1.0 = la pérdida completa de velocidad que da un golpe así, 0.5 = la mitad, 0 = los buques conservan su velocidad. Luego el buque vuelve a acelerar con sus máquinas.
+651|La parte de la velocidad de deslizamiento (a lo largo del contacto) que quita un golpe, en proporción a cuánto se aprietan los buques (un espolonazo en el costado quita casi toda la velocidad de deslizamiento, el roce de cascos paralelos nada).
+652|Inundación por colisiones
+653|Los buques pequeños arden y se inundan más rápido: el crecimiento de los incendios y el agua que entra aumentan suavemente (según el logaritmo del desplazamiento) de 1 a 1000 toneladas hasta este multiplicador a 50 toneladas, y se quedan así por debajo. Los buques de 1000 toneladas o más no cambian. 1 = desactivado.
+654|Tamaño del buque: efecto en la inundación y el fuego
+655|Buques pequeños: más rápido
+656|× a 50 t · 1 = desactivado
+657|Explosión de {0}
+658|Una sección inundada (75 % de agua o más en uno de sus compartimentos, o 50 % o más en la sección en conjunto): sus sistemas pasan a daño grave, quedan inoperativos y no se pueden reparar mientras siga inundada.

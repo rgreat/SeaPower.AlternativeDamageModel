@@ -15,6 +15,8 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
 
         public static float[] Knots = { 0f, 50f }, FloodMul = { 1f, 1f }, FireMul = { 1f, 1f };
+        public static float SmallBoost = 1f;   // [FireAndFlooding] SmallShipSpeedUp: x fire growth and flooding at SmallToTons and below, 1 = off
+        public const float SmallFromTons = 1000f, SmallToTons = 50f;
         public static float MaxPlugKnots;   // 0 = no limit
         public static bool SmallAiFree;     // [FireAndFlooding] SmallAiNoSpeedLimit: AI ships under SmallAiLength do not slow down from flooding
         public const float SmallAiLength = 50f;
@@ -99,7 +101,7 @@ namespace AlternativeDamageModel
 
         // Called for every flooding / fire compartment of every ship in every physics tick (the transpilers): the owner of a
         // compartment is found once, the speed is read once per frame and ship (a reflection call each time was most of the mod's cost)
-        sealed class Owner { public object Comp; }
+        sealed class Owner { public object Comp; public float Size = -1f; }
         sealed class Kn { public int Frame = -1; public float Value; }
         static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Owner> OwnerOf = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Owner>();
         static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, Kn> Speeds = new System.Runtime.CompilerServices.ConditionalWeakTable<object, Kn>();
@@ -149,8 +151,37 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("SpeedEffect.KnotsOf: " + e.Message); return 0f; }
         }
 
-        public static float Flood(object any) { return FloodAt(KnotsOf(any)); }
-        public static float Fire(object any) { return FireAt(KnotsOf(any)); }
+        /// <summary>
+        /// The ship's size changes how fast fires grow and water comes in: a small ship burns and floods faster. 1 from SmallFromTons (1000 t) up; below it the
+        /// multiplier grows smoothly (along the logarithm of the displacement) to SmallBoost at SmallToTons (50 t) and stays there. 1 when off or the displacement is unknown.
+        /// </summary>
+        public static float SizeFactorOf(float tons)
+        {
+            if (SmallBoost <= 1f || tons <= 0f || tons >= SmallFromTons) return 1f;
+            float t = tons <= SmallToTons ? 1f : (float)(Math.Log(SmallFromTons / tons) / Math.Log(SmallFromTons / SmallToTons));
+            return 1f + (SmallBoost - 1f) * t;
+        }
+
+        static FieldInfo _fDisp; static bool _initDisp;
+        static float SizeOf(object any)
+        {
+            try
+            {
+                Owner ow;
+                if (any == null || !OwnerOf.TryGetValue(any, out ow)) return 1f;   // KnotsOf has just filled it in for every ship it knows
+                if (ow.Size < 0f)
+                {
+                    if (!_initDisp) { _initDisp = true; _fDisp = ow.Comp.GetType().GetField("_displacement", All); }
+                    float tons = _fDisp == null ? 0f : Convert.ToSingle(_fDisp.GetValue(ow.Comp));
+                    ow.Size = tons > 0f ? SizeFactorOf(tons) : 1f;
+                }
+                return ow.Size;
+            }
+            catch { return 1f; }
+        }
+
+        public static float Flood(object any) { float k = KnotsOf(any); return FloodAt(k) * SizeOf(any); }
+        public static float Fire(object any) { float k = KnotsOf(any); return FireAt(k) * SizeOf(any); }
 
         /// <summary>Too fast for a team to plug holes.</summary>
         public static bool TooFastToPlug(object any) { return MaxPlugKnots > 0f && KnotsOf(any) > MaxPlugKnots; }

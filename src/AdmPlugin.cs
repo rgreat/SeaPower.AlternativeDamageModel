@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativedamagemodel";
         public const string PluginName = "Alternative Damage Model";
-        public const string PluginVersion = "1.7.0";
+        public const string PluginVersion = "1.8.0";
 
         /// <summary>Build number (UTC build time, yyyyMMdd.HHmm) stamped into the dll by the csproj; shows which dll is running.</summary>
         public static readonly string BuildId = ReadBuildId();
@@ -59,8 +59,10 @@ namespace AlternativeDamageModel
         static float _mWar = 2f, _mCiv = 2f, _mSub = 1f, _shellVuln = 1f, _fireVuln = 1f, _floodVuln = 1f;
         static bool _teamBlocksSpread = true;
         static float _fireGrowLimit = 0.5f, _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f, _sysRepair = 2f, _hullRepair = 1f;
+        ConfigEntry<Factor> _collisionEntry, _collisionMinEntry, _brakingEntry, _bowEntry, _gripPressEntry, _floodEntry, _waterEntry;
+        ConfigEntry<bool> _collAiEntry, _collOnEntry, _pushEntry;
         ConfigEntry<Factor> _fireGrowLimitEntry, _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _sysRepairEntry, _hullRepairEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _reserveChanceEntry, _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _stunEntry, _stunSpreadEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _smallBoostEntry, _reserveChanceEntry, _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _stunEntry, _stunSpreadEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _imbalanceEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _speedEffectEntry;
         ConfigEntry<Factor> _maxPlugEntry;
@@ -306,8 +308,28 @@ namespace AlternativeDamageModel
             _spillEntry = Pcfg.Bind("HullIntegrity", "DamageSpill", true,
                 "A hit on a compartment that is already destroyed is not lost: half of the damage goes to the neighbouring compartment (the same side, towards the middle of the ship); " +
                 "if that one is destroyed too, a quarter goes to the one after it. The surplus of the hit that destroys a compartment spills the same way.");
+            _collisionEntry = Pcfg.Bind("HullIntegrity", "CollisionDamage", new Factor(1f),
+                "Hull damage from a collision of ships (the game has none). The damage is the energy lost while the ships stay in contact (blow, pushing, scraping), per ton of the ship's own displacement; the lighter ship suffers more. 1.0 = two equal ships meeting at 19 knots ruin about one and a quarter of a compartment each. It goes to the compartments where the ships touch and opens leaks. 0 = off.");
+            _collisionMinEntry = Pcfg.Bind("HullIntegrity", "CollisionMinSpeed", new Factor(3f),
+                "Contacts between ships at a relative speed below this, knots, do no damage (ships touching in a formation, mooring).");
+            _bowEntry = Pcfg.Bind("Collisions", "BowStrength", new Factor(5f),
+                "How many times less damage per ton the bow (the stem, with its collision bulkhead) takes than the side of a ship, for an impact along the ship. 1.0 = the same everywhere.");
+            _brakingEntry = Pcfg.Bind("Collisions", "Braking", new Factor(1f),
+                "Ships that collide lose speed: the relative speed across the contact is almost all lost (the lighter ship loses the most, the heavier hardly any), along it only a part (see \"Pressing speed loss\"). The game's physics does not slow ships, this does. 1.0 = the full loss of speed that such a blow gives, 0.5 = half of it, 0 = the ships keep their speed. The ship then speeds up again by its own engines.");
+            _collOnEntry = Pcfg.Bind("Collisions", "Enabled", true,
+                "Ships that collide are damaged: hull loss and leaks where the hulls touch. Off: no damage from collisions (the slowing of the ships is set separately).");
+            _collAiEntry = Pcfg.Bind("Collisions", "AIShips", false,
+                "Collisions affect the ships of the AI too (their hulls and their speed). Off: only the ship you control is affected.");
+            _waterEntry = Pcfg.Bind("Collisions", "WaterResistance", new Factor(1f),
+                "The water holds a ship that is shoved sideways or turned (the water that moves with it, the drag): across its hull a ship counts several times heavier than its displacement, along it hardly more. So a ram into a side is braked more and shoves its target less. 1.0 = about five times the displacement across, 0 = the displacement only.");
+            _floodEntry = Pcfg.Bind("Collisions", "Flooding", new Factor(1f),
+                "Multiplier of the flooding that a collision opens (the leaks in the damaged compartments). 1.0 = as computed, 0 = no leaks from collisions.");
+            _gripPressEntry = Pcfg.Bind("Collisions", "GripPress", new Factor(0.1f),
+                "The share of the sliding (along the contact) relative speed that a blow takes, in proportion to how much the ships press together (a ram into the side takes most of the sliding speed, a touch of parallel hulls nothing).");
+            _pushEntry = Pcfg.Bind("Collisions", "PushApart", true,
+                "Ships in contact are slowly moved apart (about half a metre a second), so that a ship that rammed another does not stay inside it. The game does not separate overlapping ships.");
             _fullSystemsEntry = Pcfg.Bind("FireAndFlooding", "FullFloodSystems", true,
-                "A fully flooded section (water above 75%): its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.");
+                "A flooded section (75% of water or more in one of its compartments, or 50% or more in the section as a whole): its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.");
             _fullFireEntry = Pcfg.Bind("FireAndFlooding", "FullFloodFireDecay", new Factor(10f),
                 "Water in a section limits its fire: it cannot be stronger than (100 - the section's water %) of the maximum. A stronger fire falls to that limit at this % of the maximum per second. 0 = off.");
             _fireEffEntry = Pcfg.Bind("FireAndFlooding", "FireWorkEfficiency", new Factor(75f),
@@ -403,6 +425,9 @@ namespace AlternativeDamageModel
             _smallAiEntry = Pcfg.Bind("FireAndFlooding", "SmallAiNoSpeedLimit", false,
                 "AI ships (not the player's own) shorter than 50 m do not slow down from flooding: the game's cut of speed by holes and water is off for them " +
                 "(they keep going, like kamikazes). The \"Limit Speed\" button of your own ships is separate.");
+            _smallBoostEntry = Pcfg.Bind("FireAndFlooding", "SmallShipSpeedUp", new Factor(3f),
+                "Small ships burn and flood faster: the growth of fires and the water coming in grow smoothly (along the logarithm of the displacement) from 1 at 1000 tons " +
+                "to this multiplier at 50 tons, and stay there below. Ships of 1000 tons and more are not changed. 1 = off.");
             _maxPlugEntry = Pcfg.Bind("DamageControlTeams", "MaxPlugSpeed", new Factor(0f),
                 "A team cannot plug holes while the ship is faster than this, knots. 0 = no limit.");
             _warTeamsEntry = Pcfg.Bind("DamageControlTeams", "WarshipTeams", "0=1, 500=2, 1500=3, 5000=4, 20000=5",
@@ -890,10 +915,17 @@ namespace AlternativeDamageModel
             DcControl.LeakPump = Math.Max(0f, _leakPumpEntry.Value.V);
             SpeedEffect.Set(_speedEffectEntry.Value);
             SpeedEffect.SmallAiFree = _smallAiEntry.Value;
+            SpeedEffect.SmallBoost = Math.Max(1f, _smallBoostEntry.Value.V);
             SectionEffects.ReopenRate = Math.Max(0f, _reopenEntry.Value.V);
             SectionEffects.ReopenLimit = Math.Max(0f, Math.Min(100f, _reopenLimitEntry.Value.V));
             SectionEffects.SystemsOut = _fullSystemsEntry.Value;
             DamageSpill.Enabled = _spillEntry.Value;
+            Collisions.Strength = Math.Max(0f, _collisionEntry.Value.V);
+            Collisions.MinSpeed = Math.Max(0f, _collisionMinEntry.Value.V);
+            Collisions.Braking = Math.Max(0f, _brakingEntry.Value.V); Collisions.BowStrength = Math.Max(1f, _bowEntry.Value.V);
+            Collisions.FloodFactor = Math.Max(0f, _floodEntry.Value.V); Collisions.GripPress = Math.Min(0.9f, Math.Max(0f, _gripPressEntry.Value.V));
+            Collisions.WaterResistance = Math.Max(0f, _waterEntry.Value.V); Collisions.AIShips = _collAiEntry.Value; Collisions.DamageOn = _collOnEntry.Value; Collisions.PushApart = _pushEntry.Value;
+            Collisions.FloodVuln = _floodVuln;
             SectionEffects.FireDecay = Math.Max(0f, _fullFireEntry.Value.V);
             DcTeams.FireWorkEff = Math.Max(0f, Math.Min(100f, _fireEffEntry.Value.V)) / 100f;
             var nd = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -972,7 +1004,7 @@ namespace AlternativeDamageModel
             _perModule = mods;
 
             Trace("settings: detailed view " + (_uiOn ? "on" : "off") + ", damage model " + (_admOn ? "on" : "off") + ", warships " + F(_mWar) + ", civilian " + F(_mCiv) + ", submarines " + F(_mSub) + ", perShip " + map.Count +
-                  ", shellVuln " + F(_shellVuln) + ", fireVuln " + F(_fireVuln) + ", floodVuln " + F(_floodVuln));
+                  ", shellVuln " + F(_shellVuln) + ", fireVuln " + F(_fireVuln) + ", floodVuln " + F(_floodVuln) + ", collisions " + (Collisions.DamageOn ? "on " : "off ") + F(Collisions.Strength) + " (slowest " + F(Collisions.MinSpeed) + " kn), braking " + F(Collisions.Braking) + (Collisions.AIShips ? "" : " (not AI ships)") + ", bow " + F(Collisions.BowStrength) + (Collisions.PushApart ? ", push apart" : ""));
         }
 
         static float Pos(float v) { return v > 0.01f ? v : 0.01f; }
@@ -1207,6 +1239,15 @@ namespace AlternativeDamageModel
             return SysRepairFix.Prefix(__instance, index, ref __result, out __state);   // the game's loop "repairs" intact systems for ever
         }
         static void SysRepairPost(object __state) { SysRepairFix.Postfix(__state); }
+        static void CollisionPostfix(object __instance, object[] __args) { if (Model) Collisions.Postfix(__instance, __args); }
+        static float HullGameMaxOf(object comps)
+        {
+            HullState st;
+            if (comps != null && Hulls.TryGetValue(comps, out st) && st.OriginalX > 0f) return st.OriginalX;
+            try { return comps == null || _fCompMaxInt == null ? 0f : (float)_fCompMaxInt.GetValue(comps); } catch { return 0f; }
+        }
+        static void ExplodePreHook(object __instance) { HitLog.ExplodePre(__instance); }
+        static void ExplodePostHook(object __instance) { HitLog.ExplodePost(__instance); }
         static void SpillPrefix(object __instance, object[] __args) { HitLog.Before(__instance, __args); DamageSpill.Prefix(__instance, __args); }
 
         static HarmonyMethod Hm(string name)
@@ -1302,6 +1343,16 @@ namespace AlternativeDamageModel
                 ReserveHits.Trace = Trace;
                 DamageSpill.Trace = Trace;
                 Patch(harmony, tBlast.GetMethod("ProcessCompartmentHit", all), "SpillPrefix", "ReserveHitPostfix", null, "Blastzone.ProcessCompartmentHit (reserve hits, damage spill)", ref ok, ref failed);
+                Type tBaseSys = asm.GetType("SeaPower.BaseSystem");
+                if (tBaseSys != null) Patch(harmony, tBaseSys.GetMethod("ExplodeSystem", all), "ExplodePreHook", "ExplodePostHook", null, "BaseSystem.ExplodeSystem (secondary explosions in the hit list)", ref ok, ref failed);
+            }
+
+            // collisions between ships ([HullIntegrity] CollisionDamage): the game's OnCollisionEnter of a ship only looks at the terrain
+            Collisions.Trace = Trace; Collisions.GameNow = GameNow; Collisions.HullGameMax = HullGameMaxOf;
+            foreach (var shipType in new[] { "SeaPower.Vessel", "SeaPower.Submarine" })
+            {
+                var ts = asm.GetType(shipType);
+                Patch(harmony, ts == null ? null : ts.GetMethod("OnCollisionEnter", all | BindingFlags.DeclaredOnly), null, "CollisionPostfix", null, shipType + ".OnCollisionEnter (ship collisions)", ref ok, ref failed);
             }
 
             // several repair priorities in one section ([Systems] SeveralPriorities)

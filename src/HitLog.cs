@@ -163,6 +163,111 @@ namespace AlternativeDamageModel
             }
         }
 
+        /// <summary>A collision with another ship (Collisions): one record in the hit list, and an entry (time, hull % lost) in the hull-loss log;
+        /// the entry is returned, the lasting contact adds to it.</summary>
+        public static double[] AddCollision(object comps, double time, int section, bool port, double lossPercent)
+        {
+            if (comps == null) return null;
+            try
+            {
+                var list = Logs.GetOrCreateValue(comps);
+                lock (list) { list.Add(new Rec { Time = time, Ammo = Loc.T("Collision"), Section = section, Port = port }); if (list.Count > Max) list.RemoveAt(0); }
+                var entry = new[] { time, lossPercent };
+                var d = DirectLogs.GetOrCreateValue(comps);
+                lock (d) { d.Add(entry); if (d.Count > 600) d.RemoveAt(0); }
+                return entry;
+            }
+            catch (Exception e) { Trace("HitLog.AddCollision: " + e.Message); return null; }
+        }
+
+        // ---- secondary explosions of the ship's own systems (BaseSystem.ExplodeSystem): the game builds a Blastzone without an ammunition name (it would be "?"),
+        // hits its own ship with it and logs "Secondary explosion!" only in its own message log. While ExplodeSystem runs, the hits it causes are named after the
+        // system ("Explosion of Mk 45 gun mount"); if none of them came to the exploding ship's own log, one record for the section of the system is added.
+        static string _exploding; static object _explodingComps; static bool _explodingLogged;
+        static PropertyInfo _pSysName; static FieldInfo _fSysBase, _fSysColliders, _fSysMeshColliders, _fSysMount, _fSysLists, _fSysCompList;
+
+        static object ShipCompsOf(object system)
+        {
+            try
+            {
+                if (_fSysBase == null) _fSysBase = ReserveHits.Field(system.GetType(), "_baseObject");
+                var bo = _fSysBase == null ? null : _fSysBase.GetValue(system);
+                var p = bo == null ? null : bo.GetType().GetProperty("Compartments", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                return p == null ? null : p.GetValue(bo, null);
+            }
+            catch { return null; }
+        }
+
+        static string SystemName(object system)
+        {
+            try
+            {
+                if (_pSysName == null) _pSysName = system.GetType().GetProperty("DisplayName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var rp = _pSysName == null ? null : _pSysName.GetValue(system, null);
+                var v = rp == null ? null : rp.GetType().GetProperty("Value").GetValue(rp, null) as string;
+                if (!string.IsNullOrWhiteSpace(v)) return v.Trim();
+            }
+            catch { }
+            return "?";
+        }
+
+        /// <summary>Prefix of BaseSystem.ExplodeSystem.</summary>
+        public static void ExplodePre(object system)
+        {
+            try { _exploding = SystemName(system); _explodingComps = ShipCompsOf(system); _explodingLogged = false; }
+            catch (Exception e) { _exploding = null; Trace("HitLog.ExplodePre: " + e.Message); }
+        }
+
+        /// <summary>Postfix of BaseSystem.ExplodeSystem: the explosion itself, when the blast did not reach the ship's own log.</summary>
+        public static void ExplodePost(object system)
+        {
+            try
+            {
+                if (_exploding == null || _explodingLogged || _explodingComps == null) return;
+                int section = -1; bool port = false;
+                var arr = ReserveHits.Field(_explodingComps.GetType(), "_systemCompartments").GetValue(_explodingComps) as Array;
+                if (arr != null)
+                    for (int i = 0; i < arr.Length && section < 0; i++)
+                    {
+                        var sc = arr.GetValue(i); if (sc == null) continue;
+                        if (_fSysLists == null) _fSysLists = ReserveHits.Field(sc.GetType(), "_listOfSystems");
+                        var list = _fSysLists == null ? null : _fSysLists.GetValue(sc) as IEnumerable;
+                        if (list != null) foreach (var b in list) if (ReferenceEquals(b, system)) { section = i; break; }
+                    }
+                if (section < 0) return;
+                // the side: the system's position in the ship's frame (as the game: the first collider, else the mount)
+                try
+                {
+                    var bo = _fSysBase.GetValue(system) as UnityEngine.Component;
+                    UnityEngine.Vector3? pos = null;
+                    var mount = ReserveHits.Field(system.GetType(), "_mountObject") == null ? null : ReserveHits.Field(system.GetType(), "_mountObject").GetValue(system) as UnityEngine.Component;
+                    if (mount != null) pos = mount.transform.position;
+                    else
+                    {
+                        var cols = ReserveHits.Field(system.GetType(), "_colliders") == null ? null : ReserveHits.Field(system.GetType(), "_colliders").GetValue(system) as IEnumerable;
+                        if (cols != null) foreach (var c in cols) { var go = ReserveHits.Field(c.GetType(), "_go").GetValue(c) as UnityEngine.GameObject; if (go != null) pos = go.transform.position; break; }
+                    }
+                    if (bo != null && pos.HasValue) port = bo.transform.InverseTransformPoint(pos.Value).x < 0f;
+                }
+                catch { }
+                var list2 = Logs.GetOrCreateValue(_explodingComps);
+                lock (list2) { list2.Add(new Rec { Time = Now(system), Ammo = Loc.F("Explosion of {0}", _exploding), Section = section, Port = port, Blast = true }); if (list2.Count > Max) list2.RemoveAt(0); }
+            }
+            catch (Exception e) { Trace("HitLog.ExplodePost: " + e.Message); }
+            finally { _exploding = null; _explodingComps = null; }
+        }
+
+        static double Now(object any)
+        {
+            try
+            {
+                var pt = _pTime;
+                if (pt == null) { var gt = any.GetType().Assembly.GetType("SeaPower.GameTime"); pt = gt == null ? null : gt.GetProperty("missionElapsedTime", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic); }
+                return pt == null ? 0 : Convert.ToDouble(pt.GetValue(null, null), CultureInfo.InvariantCulture);
+            }
+            catch { return 0; }
+        }
+
         /// <summary>Postfix of Blastzone.ProcessCompartmentHit(hitObject, hc, blockedByMainArmor, damage).</summary>
         public static void Postfix(object __instance, object[] __args)
         {
@@ -189,6 +294,11 @@ namespace AlternativeDamageModel
                     Time = _pTime == null ? 0 : Convert.ToDouble(_pTime.GetValue(null, null), CultureInfo.InvariantCulture),
                     Ammo = AmmoName(__instance), Section = number - 1, Port = port, Armor = (bool)__args[2], Blast = (bool)_fSecondary.GetValue(__instance)
                 };
+                if (rec.Blast && _exploding != null)
+                {
+                    rec.Ammo = Loc.F("Explosion of {0}", _exploding);                    // a system of a ship blew up: the blast has no ammunition of its own
+                    if (ReferenceEquals(comps, _explodingComps)) _explodingLogged = true;
+                }
                 var list = Logs.GetOrCreateValue(comps);
                 lock (list) { list.Add(rec); if (list.Count > Max) list.RemoveAt(0); }
             }

@@ -67,7 +67,7 @@ namespace AlternativeDamageModel
     public partial class AdmPlugin
     {
         public const string BaseGameName = "Base Game", AdvancedName = "Advanced", CustomName = "Custom";
-        static readonly string[] ProfileSections = { "HullIntegrity", "SideEffects", "Systems", "FireAndFlooding", "DamageControlTeams", "Sinking" };
+        static readonly string[] ProfileSections = { "HullIntegrity", "SideEffects", "Systems", "FireAndFlooding", "DamageControlTeams", "Sinking", "Collisions" };
         readonly List<ConfigEntryBase> _profileEntries = new List<ConfigEntryBase>();
         readonly List<ConfigEntryBase> _globalEntries = new List<ConfigEntryBase>();
 
@@ -238,6 +238,8 @@ namespace AlternativeDamageModel
             if (!File.Exists(file)) return null;
             var own = new Profile { Name = Path.GetFileNameWithoutExtension(file), BuiltIn = false };
             own.Parent = ReadParentName(file);
+            // a file without the [Profile] section (its parent was lost): made from Advanced, which is written back at the next save
+            if (string.IsNullOrEmpty(own.Parent) && !string.Equals(own.Name, AdvancedName, StringComparison.OrdinalIgnoreCase)) own.Parent = AdvancedName;
             // the keys this file lacks (a setting added in a newer release) come from the profile it was made from; if that one is gone - from the game's (Base Game)
             Profile basis = null;
             if (!string.IsNullOrEmpty(own.Parent) && depth < 3 && !string.Equals(own.Parent, own.Name, StringComparison.OrdinalIgnoreCase)) basis = LoadProfile(own.Parent, depth + 1);
@@ -381,6 +383,8 @@ namespace AlternativeDamageModel
         public Profile CurrentValues()
         {
             var p = new Profile { Name = _profileEntry.Value, BuiltIn = IsBuiltIn(_profileEntry.Value) };
+            // the profile of the player's own keeps the one it was made from (saving it from the settings window used to drop the [Profile] section)
+            if (!p.BuiltIn) { try { string f = UserFile(p.Name); if (File.Exists(f)) p.Parent = ReadParentName(f); } catch { } if (string.IsNullOrEmpty(p.Parent)) p.Parent = AdvancedName; }
             foreach (var e in _profileEntries) p.Values[Key(e.Definition)] = e.GetSerializedValue();
             var orphans = PerShipLines();
             if (orphans != null)

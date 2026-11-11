@@ -596,3 +596,63 @@
 596|Thời gian hook
 597|mỗi 10 giây vào trace gỡ lỗi
 598|Auto DC phản ngập: khi các lỗ thủng vẫn còn cho nước vào và độ nghiêng hoặc chúi đạt vùng đỏ của đồng hồ (cho đến khi giảm còn một nửa vùng đó), một đội đến khoang mà việc cho nước vào một mạn giảm nghiêng nhiều nhất, và làm việc như đội được lệnh phản ngập (xem Phản ngập). Tắt = Auto DC không phản ngập.
+599|Va chạm chậm hơn mức này, tính bằng hải lý/giờ vuông góc với điểm tiếp xúc, không gây hư hại (tàu chạm nhẹ nhau trong đội hình, cập bến).
+600|Hư hại thân tàu khi va chạm với tàu khác (trò chơi không có: các tàu chỉ đẩy nhau). Mỗi tàu mất thân tàu theo năng lượng của cú va vuông góc với điểm tiếp xúc, tính như va chạm không đàn hồi: bình phương tốc độ và phần mà tàu nhẹ hơn phải chịu (m_other / (m_self + m_other))^2. 1.0 = hai tàu giống nhau va nhau ở 19 hải lý/giờ, mỗi tàu hỏng khoảng 1,25 khoang; xuồng nhỏ húc tàu lớn thì bị phá hủy, tàu lớn chỉ bị xước. Hư hại rơi vào các khoang tại chỗ hai tàu chạm nhau (vị trí và mạn của các điểm tiếp xúc) và gây rò nước như một phát trúng (điểm tiếp xúc trên mực nước chỉ rò từ khoang đã hỏng một nửa). 0 = tắt.
+601|Va chạm
+602|Va chạm giữa các tàu
+603|Sát thương va chạm
+604|Cú va chạm gây hại chậm nhất
+605|hải lý/giờ vuông góc với tiếp xúc
+606|× · mất thân tàu và rò nước do cú va · 0 = tắt
+599|Tiếp xúc giữa các tàu với tốc độ tương đối thấp hơn mức này, tính bằng hải lý/giờ, không gây hư hại (tàu chạm nhau trong đội hình, cập bến).
+600|Hư hại thân tàu khi va chạm với tàu khác (trò chơi không có: các tàu chỉ đẩy nhau). Va chạm không phải là một cú đánh: mũi tàu húc có thể trườn lên tàu kia và trượt qua nó. Hư hại là năng lượng mà vật lý tiêu hao từng bước trong lúc hai tàu còn tiếp xúc (cú va, sức đẩy, sự cọ xát; tàu chỉ nằm trên tàu khác thì không mất gì). Mỗi tàu chịu phần phụ thuộc vào khối lượng: bình phương tốc độ nhân (m_other / (m_self + m_other))^2 trên mỗi tấn lượng giãn nước của chính nó. 1.0 = hai tàu giống nhau va nhau ở 19 hải lý/giờ, mỗi tàu hỏng khoảng 1,25 khoang; xuồng nhỏ húc tàu lớn thì bị phá hủy, tàu lớn chỉ bị xước. Hư hại rơi vào các khoang mà hai tàu đang chạm nhau tại thời điểm đó (vị trí và mạn của các điểm tiếp xúc) và gây rò nước như một phát trúng, tăng theo hư hại đã nhận (điểm tiếp xúc trên mực nước chỉ rò từ khoang đã hỏng một nửa). 0 = tắt.
+605|hải lý/giờ, tốc độ tương đối
+608|Mũi tàu (sống mũi cùng vách ngăn va chạm) chịu hư hại trên mỗi tấn ít hơn mạn tàu bao nhiêu lần, khi va chạm dọc theo thân tàu. 1.0 = như nhau ở mọi nơi.
+609|Các tàu đang tiếp xúc được đẩy rời nhau từ từ (khoảng nửa mét mỗi giây), để tàu húc không bị kẹt bên trong tàu kia. Trò chơi không tách các tàu chồng lên nhau.
+612|Tỉ lệ vận tốc trượt (dọc theo chỗ tiếp xúc) mà một cú va mất đi do cọ xát và bẹp thân tàu; các tàu chạy song song cân bằng vận tốc càng nhiều khi giá trị này càng cao.
+613|Hư hại thân tàu
+614|Tốc độ sau cú va
+615|Độ bền mũi tàu
+616|Giảm tốc khi ép sát
+617|Đẩy các tàu rời nhau
+618|Giảm tốc do cọ xát
+619|Giảm tốc cả tàu AI
+620|Giảm tốc khi va chạm
+621|Va chạm
+622|cộng thêm khi các thân tàu ép vào nhau
+623|tỉ lệ vận tốc trượt mất do cọ xát
+624|từ từ, khi còn tiếp xúc
+625|× · mũi tàu chịu ít hơn mạn tàu bấy nhiêu lần
+626|× · tốc độ các tàu mất đi · 0 = giữ nguyên
+627|Cộng vào "Giảm tốc do cọ xát" tùy mức các tàu ép vào nhau (húc vào mạn mất gần hết vận tốc trượt, chạm sượt gần như không mất).
+628|Tàu của AI cũng bị giảm tốc khi va chạm (tàu bạn điều khiển luôn bị, nếu "Giảm tốc khi va chạm" lớn hơn 0).
+629|Các tàu va nhau mất tốc độ: vận tốc tương đối vuông góc với chỗ tiếp xúc gần như mất hết (tàu nhẹ mất nhiều nhất, tàu nặng hầu như không), dọc theo chỗ tiếp xúc chỉ mất một phần (xem "Giảm tốc do cọ xát" và "Giảm tốc khi ép sát"). Vật lý của trò chơi không làm tàu giảm tốc, mod này làm việc đó. Sau đó tàu tự tăng tốc lại bằng máy của mình. 0 = các tàu giữ nguyên tốc độ.
+630|Cộng vào "Mất tốc do cọ xát" tùy mức các tàu ép vào nhau (húc vào mạn mất gần hết vận tốc trượt, chạm sượt gần như không mất).
+631|Va chạm cũng tác động lên tàu của AI (thân tàu và tốc độ). Tắt: chỉ ảnh hưởng tàu bạn điều khiển.
+632|Các tàu va nhau bị hư hại và giảm tốc. Tắt: va chạm giữa các tàu không có tác dụng gì, như trong trò chơi.
+633|Các tàu va nhau mất tốc độ: vận tốc tương đối vuông góc với chỗ tiếp xúc gần như mất hết (tàu nhẹ mất nhiều nhất, tàu nặng hầu như không), dọc theo chỗ tiếp xúc chỉ mất một phần (xem "Mất tốc do cọ xát" và "Mất tốc khi ép sát"). Vật lý của trò chơi không làm tàu giảm tốc, mod này làm việc đó. 1.0 = toàn bộ mức mất tốc mà cú va như vậy gây ra, 0.5 = một nửa, 0 = các tàu giữ nguyên tốc độ. Sau đó tàu tự tăng tốc lại bằng máy của mình.
+634|Khi tiếp xúc
+635|Bật hư hại do va chạm
+636|Va chạm cho tàu AI
+637|Tốc độ va chạm tối thiểu
+638|Mất tốc khi ép sát
+639|Mất tốc do cọ xát
+640|cộng thêm khi ép sát
+641|tỉ lệ vận tốc trượt
+642|× · 0 = không giảm tốc
+643|× · 0 = không
+644|× · ít hơn mạn tàu
+645|Các tàu va nhau bị hư hại: mất độ bền thân tàu và rò nước tại chỗ thân tàu chạm nhau. Tắt: va chạm không gây hư hại (việc giảm tốc của tàu được đặt riêng).
+646|Nước giữ lại tàu bị đẩy ngang hoặc bị xoay (nước chuyển động cùng tàu, lực cản): theo chiều ngang thân tàu, tàu được tính nặng gấp nhiều lần lượng giãn nước, theo chiều dọc hầu như không nặng hơn. Vì vậy cú húc vào mạn bị hãm nhiều hơn và đẩy mục tiêu ít hơn. 1.0 = khoảng năm lần lượng giãn nước theo chiều ngang, 0 = chỉ bằng lượng giãn nước.
+647|Sức cản của nước
+648|Hư hại thân tàu do tàu va chạm nhau (trò chơi không có). Hư hại là năng lượng mất đi trong lúc các tàu còn tiếp xúc (cú va, đẩy, cọ xát), tính trên mỗi tấn lượng giãn nước của chính tàu; tàu nhẹ hơn chịu nhiều hơn. 1.0 = hai tàu giống nhau va nhau ở 19 hải lý/giờ, mỗi tàu hỏng khoảng một khoang rưỡi một phần tư. Hư hại dồn vào các khoang ở chỗ tiếp xúc và gây rò nước. 0 = tắt.
+649|Hệ số của lượng nước tràn vào do va chạm gây ra (các chỗ rò ở khoang bị hỏng). 1.0 = theo tính toán, 0 = va chạm không gây rò nước.
+650|Các tàu va chạm mất tốc độ: vận tốc tương đối vuông góc với chỗ tiếp xúc gần như mất hết (tàu nhẹ mất nhiều nhất, tàu nặng hầu như không), dọc theo chỗ tiếp xúc chỉ mất một phần (xem "Mất tốc khi ép sát"). Vật lý của trò chơi không làm tàu giảm tốc, mod làm việc đó. 1.0 = toàn bộ mức mất tốc độ mà cú va như vậy gây ra, 0.5 = một nửa, 0 = các tàu giữ nguyên tốc độ. Sau đó tàu lại tăng tốc bằng máy của mình.
+651|Phần vận tốc trượt (dọc theo chỗ tiếp xúc) mà một cú va lấy đi, tỉ lệ với mức các tàu ép vào nhau (đâm vào mạn lấy gần hết vận tốc trượt, hai thân tàu song song chạm nhau thì không mất gì).
+652|Ngập nước do va chạm
+653|Tàu nhỏ cháy và ngập nước nhanh hơn: tốc độ lan của đám cháy và lượng nước tràn vào tăng dần đều (theo logarit của lượng giãn nước) từ 1 ở 1000 tấn đến hệ số này ở 50 tấn, và giữ nguyên ở dưới mức đó. Tàu từ 1000 tấn trở lên không thay đổi. 1 = tắt.
+654|Cỡ tàu: ảnh hưởng đến ngập nước và cháy
+655|Tàu nhỏ: nhanh hơn
+656|Hệ số ở 50 tấn · 1 = tắt
+657|Nổ {0}
+658|Một khu vực bị ngập (nước từ 75% trở lên ở một trong các khoang của nó, hoặc từ 50% trở lên ở toàn khu vực): các hệ thống của nó bị đưa xuống mức hư hại nặng, mất tác dụng và không thể sửa chữa chừng nào khu vực còn ngập.

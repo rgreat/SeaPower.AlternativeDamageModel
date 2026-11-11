@@ -596,3 +596,63 @@
 596|Hook-Zeiten
 597|alle 10 s in die Debug-Trace-Datei
 598|Auto DC flutet gegen: solange Lecks noch Wasser einlassen und Krängung oder Trimmung den roten Bereich ihrer Anzeige erreicht (bis sie auf dessen Hälfte gesunken ist), geht ein Trupp in die Sektion, in der Wassereinlass in eine Seite am meisten Neigung abbaut, und arbeitet wie ein Trupp mit dem Auftrag Gegenfluten (siehe Gegenfluten). Aus = Auto DC flutet nicht gegen.
+599|Kollisionen unterhalb dieser Geschwindigkeit (Knoten quer zum Kontakt) richten keinen Schaden an (Schiffe, die sich im Verband berühren, Anlegen).
+600|Rumpfschaden bei einer Kollision mit einem anderen Schiff (das Spiel kennt keinen: Schiffe schieben sich nur gegenseitig weg). Jedes Schiff verliert Rumpf durch die Energie des Aufpralls quer zum Kontakt, wie bei einem unelastischen Stoß: das Quadrat der Geschwindigkeit und der Anteil, den das leichtere Schiff trägt (m_other / (m_self + m_other))^2. 1.0 = zwei gleiche Schiffe, die mit 19 Knoten aufeinandertreffen, zerstören je etwa 1,25 Abteilungen; ein kleines Boot, das ein großes Schiff rammt, wird zerstört, das Schiff nur zerkratzt. Der Schaden trifft die Abteilungen an den Berührungsstellen (Ort und Seite der Kontaktpunkte) und öffnet Lecks wie ein Treffer (ein Kontakt über der Wasserlinie leckt nur aus einer halb zerstörten Abteilung). 0 = aus.
+601|Kollision
+602|Kollisionen zwischen Schiffen
+603|Kollisionsschaden
+604|Schwächster schädigender Aufprall
+605|Knoten quer zum Kontakt
+606|× · Rumpfverlust und Lecks durch den Aufprall · 0 = aus
+599|Kontakte zwischen Schiffen mit einer Relativgeschwindigkeit unter diesem Wert (Knoten) richten keinen Schaden an (Schiffe, die sich im Verband berühren, Anlegen).
+600|Rumpfschaden bei einer Kollision mit einem anderen Schiff (das Spiel kennt keinen: Schiffe schieben sich nur gegenseitig weg). Eine Kollision ist kein einzelner Schlag: ein rammender Bug kann auf das andere Schiff hinaufklettern und darüber gleiten. Der Schaden ist die Energie, die die Physik Schritt für Schritt abbaut, solange die Schiffe in Kontakt bleiben (der Schlag, das Drücken, das Schaben; ein Schiff, das nur auf einem anderen ruht, verliert nichts). Jedes Schiff trägt den Anteil, der von den Massen abhängt: das Quadrat der Geschwindigkeit mal (m_other / (m_self + m_other))^2 je Tonne der eigenen Verdrängung. 1.0 = zwei gleiche Schiffe, die mit 19 Knoten aufeinandertreffen, zerstören je etwa 1,25 Abteilungen; ein kleines Boot, das ein großes Schiff rammt, wird zerstört, das Schiff nur zerkratzt. Der Schaden trifft die Abteilungen, in denen sich die Schiffe in diesem Moment berühren (Ort und Seite der Kontaktpunkte), und öffnet Lecks wie ein Treffer, die mit dem erlittenen Schaden wachsen (ein Kontakt über der Wasserlinie leckt nur aus einer halb zerstörten Abteilung). 0 = aus.
+605|Knoten, Relativgeschwindigkeit
+608|Um das Wievielfache weniger Schaden pro Tonne der Bug (der Steven mit Kollisionsschott) gegenüber der Schiffsseite erleidet, bei einem Aufprall in Schiffslängsrichtung. 1.0 = überall gleich.
+609|Schiffe im Kontakt werden langsam auseinandergeschoben (etwa einen halben Meter pro Sekunde), damit ein rammendes Schiff nicht im anderen stecken bleibt. Das Spiel trennt überlappende Schiffe nicht.
+612|Der Anteil der Gleitgeschwindigkeit (entlang des Kontakts), den ein Aufprall durch Schaben und Zerknittern der Rümpfe nimmt; Schiffe Seite an Seite gleichen ihre Geschwindigkeiten umso stärker an, je höher er ist.
+613|Rumpfschaden
+614|Geschwindigkeit nach dem Stoß
+615|Bugfestigkeit
+616|Bremsen bei Anpressung
+617|Schiffe auseinanderschieben
+618|Bremsen beim Schaben
+619|Auch KI-Schiffe bremsen
+620|Abbremsen beim Stoß
+621|Kollisionen
+622|kommt hinzu, wenn die Rümpfe aneinander gedrückt werden
+623|Anteil der Gleitgeschwindigkeit, der durch Schaben verloren geht
+624|langsam, solange sie sich berühren
+625|× · der Bug nimmt so viel weniger als die Seite
+626|× · die Geschwindigkeit, die die Schiffe verlieren · 0 = sie behalten sie
+627|Wird zu „Bremsen beim Schaben“ addiert, je nachdem wie stark die Schiffe aneinander drücken (ein Rammstoß in die Seite nimmt fast die ganze Gleitgeschwindigkeit, eine streifende Berührung kaum etwas).
+628|Auch Schiffe der KI werden durch eine Kollision gebremst (das von Ihnen gesteuerte Schiff immer, wenn „Abbremsen beim Stoß“ über 0 liegt).
+629|Kollidierende Schiffe verlieren Fahrt: die Relativgeschwindigkeit quer zum Kontakt geht fast ganz verloren (das leichtere Schiff verliert am meisten, das schwerere kaum etwas), entlang des Kontakts nur ein Teil (siehe „Bremsen beim Schaben“ und „Bremsen bei Anpressung“). Die Spielphysik bremst Schiffe nicht, das tut der Mod. Danach beschleunigt das Schiff mit eigenen Maschinen wieder. 0 = die Schiffe behalten ihre Geschwindigkeit.
+630|Wird zu „Tempoverlust beim Schaben“ addiert, je nachdem wie stark die Schiffe aneinander drücken (ein Rammstoß in die Seite nimmt fast die ganze Gleitgeschwindigkeit, eine streifende Berührung kaum etwas).
+631|Kollisionen wirken auch auf die Schiffe der KI (Rumpf und Geschwindigkeit). Aus: nur das von Ihnen gesteuerte Schiff ist betroffen.
+632|Kollidierende Schiffe werden beschädigt und gebremst. Aus: eine Kollision zwischen Schiffen bewirkt nichts, wie im Spiel.
+633|Kollidierende Schiffe verlieren Fahrt: die Relativgeschwindigkeit quer zum Kontakt geht fast ganz verloren (das leichtere Schiff verliert am meisten, das schwerere kaum etwas), entlang des Kontakts nur ein Teil (siehe „Tempoverlust beim Schaben“ und „Tempoverlust bei Anpressung“). Die Spielphysik bremst Schiffe nicht, das tut der Mod. 1.0 = der volle Geschwindigkeitsverlust, den ein solcher Stoß ergibt, 0.5 = die Hälfte, 0 = die Schiffe behalten ihre Geschwindigkeit. Danach beschleunigt das Schiff mit eigenen Maschinen wieder.
+634|Bei Kontakt
+635|Kollisionsschaden aktivieren
+636|Kollisionen für KI-Schiffe
+637|Mindestgeschwindigkeit der Kollision
+638|Tempoverlust bei Anpressung
+639|Tempoverlust beim Schaben
+640|kommt beim Anpressen hinzu
+641|Anteil der Gleitgeschwindigkeit
+642|× · 0 = kein Bremsen
+643|× · 0 = keiner
+644|× · weniger als die Seite
+645|Kollidierende Schiffe werden beschädigt: Rumpfverlust und Lecks dort, wo sich die Rümpfe berühren. Aus: kein Schaden durch Kollisionen (das Abbremsen der Schiffe wird gesondert eingestellt).
+646|Das Wasser hält ein Schiff, das seitlich geschoben oder gedreht wird (mitbewegtes Wasser, Widerstand): quer zum Rumpf zählt ein Schiff mehrfach schwerer als seine Verdrängung, längs kaum mehr. So wird ein Rammstoß in die Seite stärker gebremst und schiebt sein Ziel weniger. 1.0 = etwa das Fünffache der Verdrängung quer, 0 = nur die Verdrängung.
+647|Wasserwiderstand
+648|Rumpfschaden durch eine Kollision von Schiffen (im Spiel gibt es keinen). Der Schaden ist die Energie, die verloren geht, solange die Schiffe in Kontakt bleiben (Stoß, Schieben, Schaben), pro Tonne der eigenen Verdrängung; das leichtere Schiff leidet mehr. 1.0 = zwei gleiche Schiffe, die mit 19 Knoten zusammenstoßen, zerstören je etwa eineinviertel Abteilungen. Der Schaden trifft die Abteilungen an der Berührungsstelle und öffnet Lecks. 0 = aus.
+649|Multiplikator für die Flutung, die eine Kollision öffnet (die Lecks in den beschädigten Abteilungen). 1.0 = wie berechnet, 0 = Kollisionen verursachen keine Lecks.
+650|Kollidierende Schiffe verlieren Fahrt: die Relativgeschwindigkeit quer zum Kontakt geht fast ganz verloren (das leichtere Schiff verliert am meisten, das schwerere kaum etwas), entlang des Kontakts nur ein Teil (siehe „Tempoverlust bei Anpressung“). Die Spielphysik bremst Schiffe nicht, das tut der Mod. 1.0 = der volle Geschwindigkeitsverlust, den ein solcher Stoß ergibt, 0.5 = die Hälfte, 0 = die Schiffe behalten ihre Geschwindigkeit. Danach beschleunigt das Schiff mit eigenen Maschinen wieder.
+651|Der Anteil der Gleitgeschwindigkeit (entlang des Kontakts), den ein Stoß nimmt, im Verhältnis dazu, wie stark die Schiffe aneinander drücken (ein Rammstoß in die Seite nimmt fast die ganze Gleitgeschwindigkeit, die Berührung paralleler Rümpfe nichts).
+652|Flutung durch Kollisionen
+653|Kleine Schiffe brennen und fluten schneller: das Wachstum der Brände und das einströmende Wasser steigen gleichmäßig (nach dem Logarithmus der Verdrängung) von 1 bei 1000 Tonnen auf diesen Multiplikator bei 50 Tonnen und bleiben darunter dabei. Schiffe ab 1000 Tonnen bleiben unverändert. 1 = aus.
+654|Schiffsgröße: Einfluss auf Flutung und Feuer
+655|Kleine Schiffe: schneller
+656|× bei 50 t · 1 = aus
+657|Explosion: {0}
+658|Eine geflutete Sektion (75 % Wasser oder mehr in einer ihrer Abteilungen oder 50 % und mehr in der Sektion insgesamt): ihre Systeme werden auf schwere Schäden gebracht, außer Betrieb gesetzt und können nicht repariert werden, solange sie geflutet bleibt.

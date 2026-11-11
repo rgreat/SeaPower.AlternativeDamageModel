@@ -596,3 +596,63 @@
 596|Temps des hooks
 597|toutes les 10 s dans la trace de débogage
 598|Auto DC contre-inonde : tant que des brèches laissent encore entrer l'eau et que la gîte ou l'assiette atteint la zone rouge de son indicateur (jusqu'à redescendre à sa moitié), une équipe va dans la section où laisser entrer l'eau d'un bord retire le plus de bande, et travaille comme une équipe à qui l'on a ordonné la contre-inondation (voir Contre-inondation). Désactivé = Auto DC ne contre-inonde pas.
+599|Les collisions plus lentes que cela, en nœuds perpendiculairement au contact, ne causent aucun dégât (navires qui se frôlent en formation, amarrage).
+600|Dégâts à la coque lors d'une collision avec un autre navire (le jeu n'en a pas : les navires ne font que se repousser). Chaque navire perd de la coque selon l'énergie du choc perpendiculaire au contact, comme dans une collision inélastique : le carré de la vitesse et la part que prend le navire le plus léger (m_other / (m_self + m_other))^2. 1.0 = deux navires identiques qui se heurtent à 19 nœuds détruisent chacun environ 1,25 compartiment ; une petite embarcation qui éperonne un grand navire est détruite, le navire seulement éraflé. Les dégâts touchent les compartiments aux points de contact (l'endroit et le bord des points de contact) et ouvrent des voies d'eau comme un coup au but (un contact au-dessus de la ligne de flottaison ne fuit que d'un compartiment à moitié détruit). 0 = désactivé.
+601|Collision
+602|Collisions entre navires
+603|Dégâts de collision
+604|Choc dommageable le plus faible
+605|nœuds perpendiculairement au contact
+606|× · perte de coque et voies d'eau dues au choc · 0 = désactivé
+599|Les contacts entre navires à une vitesse relative inférieure à celle-ci, en nœuds, ne causent aucun dégât (navires qui se touchent en formation, amarrage).
+600|Dégâts à la coque lors d'une collision avec un autre navire (le jeu n'en a pas : les navires ne font que se repousser). Une collision n'est pas un seul choc : une étrave qui éperonne peut grimper sur l'autre navire et glisser par-dessus. Les dégâts sont l'énergie que la physique dissipe, pas à pas, tant que les navires restent en contact (le choc, la poussée, le raclage ; un navire qui repose simplement sur un autre ne perd rien). Chaque navire prend la part qui dépend des masses : le carré de la vitesse multiplié par (m_other / (m_self + m_other))^2 par tonne de son propre déplacement. 1.0 = deux navires identiques qui se heurtent à 19 nœuds détruisent chacun environ 1,25 compartiment ; une petite embarcation qui éperonne un grand navire est détruite, le navire seulement éraflé. Les dégâts touchent les compartiments où les navires se touchent à ce moment (l'endroit et le bord des points de contact) et ouvrent des voies d'eau comme un coup au but, qui grandissent avec les dégâts subis (un contact au-dessus de la ligne de flottaison ne fuit que d'un compartiment à moitié détruit). 0 = désactivé.
+605|nœuds, vitesse relative
+608|Combien de fois moins de dégâts par tonne subit l'étrave (avec sa cloison de collision) que le flanc d'un navire, lors d'un choc dans l'axe du navire. 1.0 = partout pareil.
+609|Les navires en contact sont lentement écartés (environ un demi-mètre par seconde), pour qu'un navire qui a éperonné ne reste pas à l'intérieur de l'autre. Le jeu ne sépare pas les navires qui se chevauchent.
+612|La part de la vitesse de glissement (le long du contact) qu'un choc retire par frottement et écrasement des coques ; des navires côte à côte égalisent leurs vitesses d'autant plus qu'elle est élevée.
+613|Dégâts à la coque
+614|Vitesse après le choc
+615|Résistance de l'étrave
+616|Freinage par pression
+617|Écarter les navires
+618|Freinage par frottement
+619|Freiner aussi les navires de l'IA
+620|Freinage au choc
+621|Collisions
+622|s'ajoute quand les coques sont pressées l'une contre l'autre
+623|part de la vitesse de glissement perdue par frottement
+624|lentement, tant qu'ils se touchent
+625|× · l'étrave subit autant de fois moins que le flanc
+626|× · la vitesse que perdent les navires · 0 = ils la gardent
+627|S'ajoute à « Freinage par frottement » selon la pression des navires l'un sur l'autre (un éperonnage dans le flanc retire presque toute la vitesse de glissement, un effleurement presque rien).
+628|Les navires de l'IA sont aussi freinés par une collision (le navire que vous commandez l'est toujours, si « Freinage au choc » dépasse 0).
+629|Les navires qui se heurtent perdent de la vitesse : la vitesse relative perpendiculaire au contact est presque entièrement perdue (le navire léger en perd le plus, le lourd à peine), le long du contact une partie seulement (voir « Freinage par frottement » et « Freinage par pression »). La physique du jeu ne freine pas les navires, c'est le mod qui le fait. Le navire reprend ensuite de la vitesse avec ses machines. 0 = les navires gardent leur vitesse.
+630|S'ajoute à « Perte de vitesse par frottement » selon la pression des navires l'un sur l'autre (un éperonnage dans le flanc retire presque toute la vitesse de glissement, un effleurement presque rien).
+631|Les collisions touchent aussi les navires de l'IA (coque et vitesse). Désactivé : seul le navire que vous commandez est touché.
+632|Les navires qui se heurtent subissent des dégâts et sont freinés. Désactivé : une collision entre navires ne fait rien, comme dans le jeu.
+633|Les navires qui se heurtent perdent de la vitesse : la vitesse relative perpendiculaire au contact est presque entièrement perdue (le navire léger en perd le plus, le lourd à peine), le long du contact une partie seulement (voir « Perte de vitesse par frottement » et « Perte de vitesse par pression »). La physique du jeu ne freine pas les navires, c'est le mod qui le fait. 1.0 = la perte de vitesse complète qu'un tel choc donne, 0.5 = la moitié, 0 = les navires gardent leur vitesse. Le navire reprend ensuite de la vitesse avec ses machines.
+634|Au contact
+635|Activer les dégâts de collision
+636|Collisions pour les navires de l'IA
+637|Vitesse minimale de collision
+638|Perte de vitesse par pression
+639|Perte de vitesse par frottement
+640|s'ajoute sous pression
+641|part de la vitesse de glissement
+642|× · 0 = pas de freinage
+643|× · 0 = aucun
+644|× · moins que le flanc
+645|Les navires qui se heurtent subissent des dégâts : perte de coque et voies d'eau là où les coques se touchent. Désactivé : pas de dégâts de collision (le freinage des navires se règle à part).
+646|L'eau retient un navire poussé de côté ou tourné (l'eau entraînée avec lui, la traînée) : en travers de sa coque un navire compte plusieurs fois plus lourd que son déplacement, dans l'axe à peine plus. Ainsi un éperonnage dans le flanc est plus freiné et déplace moins sa cible. 1.0 = environ cinq fois le déplacement en travers, 0 = le déplacement seul.
+647|Résistance de l'eau
+648|Dégâts à la coque lors d'une collision de navires (le jeu n'en a pas). Les dégâts sont l'énergie perdue tant que les navires restent en contact (choc, poussée, frottement), par tonne de son propre déplacement ; le navire le plus léger souffre le plus. 1.0 = deux navires égaux qui se heurtent à 19 nœuds ruinent chacun environ un compartiment et quart. Ils touchent les compartiments au point de contact et ouvrent des voies d'eau. 0 = désactivé.
+649|Multiplicateur de l'envahissement qu'ouvre une collision (les voies d'eau des compartiments endommagés). 1.0 = comme calculé, 0 = les collisions n'ouvrent pas de voies d'eau.
+650|Les navires qui se heurtent perdent de la vitesse : la vitesse relative perpendiculaire au contact est presque entièrement perdue (le navire léger en perd le plus, le lourd à peine), le long du contact une partie seulement (voir « Perte de vitesse par pression »). La physique du jeu ne freine pas les navires, c'est le mod qui le fait. 1.0 = la perte de vitesse complète qu'un tel choc donne, 0.5 = la moitié, 0 = les navires gardent leur vitesse. Le navire reprend ensuite de la vitesse avec ses machines.
+651|La part de la vitesse de glissement (le long du contact) qu'un choc retire, proportionnelle à la pression des navires l'un sur l'autre (un éperonnage dans le flanc retire presque toute la vitesse de glissement, le contact de coques parallèles rien).
+652|Envahissement par collision
+653|Les petits navires brûlent et se remplissent plus vite : la croissance des incendies et l'eau qui entre augmentent progressivement (selon le logarithme du déplacement) de 1 à 1000 tonnes jusqu'à ce multiplicateur à 50 tonnes, et restent ainsi en dessous. Les navires de 1000 tonnes et plus ne changent pas. 1 = désactivé.
+654|Taille du navire : effet sur l'envahissement et le feu
+655|Petits navires : plus vite
+656|× à 50 t · 1 = désactivé
+657|Explosion de {0}
+658|Une section envahie (75 % d'eau ou plus dans l'un de ses compartiments, ou 50 % et plus dans la section entière) : ses systèmes sont ramenés à des dégâts graves, mis hors service et ne peuvent pas être réparés tant qu'elle reste envahie.

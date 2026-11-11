@@ -38,7 +38,7 @@ namespace AlternativeDamageModel
 
         const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
         const string TFx = "Effects";
-        static readonly string[] Tabs = { TUi, TFx, TGen, TDbg, "Hull", "Systems", "Fire", "Flooding", "DC Teams" };
+        static readonly string[] Tabs = { TUi, TFx, TGen, TDbg, "Hull", "Collisions", "Systems", "Fire", "Flooding", "DC Teams" };
         const string HealthKey = "DamageControlTeams/TeamHealthEnabled", FatigueKey = "DamageControlTeams/FatigueEnabled";
         const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
         /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
@@ -48,6 +48,7 @@ namespace AlternativeDamageModel
         static string ShownWhen(Field f)
         {
             if (f.Group == ArrowsGroup) return UiKey;
+            if (f.Key == "HullIntegrity/CollisionDamage" || f.Key == "Collisions/BowStrength" || f.Key == "Collisions/Flooding") return "Collisions/Enabled";   // the damage settings show while the damage is on
             if (f.Key == "FireAndFlooding/UnattendedFireTime" || f.Key == "FireAndFlooding/UnattendedFireGrowthRate" || f.Key == "FireAndFlooding/UnattendedFireMaxGrowth") return UnattendedKey;
             return null;
         }
@@ -71,7 +72,7 @@ namespace AlternativeDamageModel
 
         static SettingsWindow()
         {
-            const string H = "Hull", FF = "Fire", DC = "DC Teams", S = "Flooding", D = TUi, G = TGen;
+            const string H = "Hull", C = "Collisions", FF = "Fire", DC = "DC Teams", S = "Flooding", D = TUi, G = TGen;
             Add(D, "Language", "General/Language", "Mod language", "applies after reopening this window", Kind.Choice, 0, 0, 0, true);
             Fields[Fields.Count - 1].Options = new[] { "", "en", "ru", "de", "es", "fr", "ko", "ja", "cn", "vn" };
             Fields[Fields.Count - 1].Labels = new[] { "Game language", "English", "Русский", "Deutsch", "Español", "Français", "한국어", "日本語", "中文", "Tiếng Việt" };
@@ -93,6 +94,8 @@ namespace AlternativeDamageModel
 
             Add(G, "Ship speed: effect on flooding and fire", "FireAndFlooding/SmallAiNoSpeedLimit", "Small AI: no speed limit", "AI ships < 50 m: no speed cut", Kind.Bool, 0, 0, 0);
 
+            Add(G, "Ship size: effect on flooding and fire", "FireAndFlooding/SmallShipSpeedUp", "Small ships: faster", "× at 50 t · 1 = off", Kind.Number, 0.5f, 1f, 10f);
+
             Add(TDbg, "Logging (BepInEx log)", "General/LogShipIntegrity", "Hull of every ship", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/LogHeel", "List, trim and buoyancy", "", Kind.Bool, 0, 0, 0, true);
@@ -106,6 +109,16 @@ namespace AlternativeDamageModel
             Add(H, "Hull integrity", "HullIntegrity/Warships", "Warships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/CivilianShips", "Civilian ships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/Submarines", "Submarines", "× game", Kind.Number, 0.5f, 0.1f, 20f);
+            Add(C, "Collisions", "Collisions/Enabled", "Enable collision damage", "", Kind.Bool, 0, 0, 0);
+            Add(C, "Collisions", "Collisions/AIShips", "Enable collisions for AI ships", "", Kind.Bool, 0, 0, 0);
+            Add(C, "On Contact", "Collisions/PushApart", "Push ships apart", "", Kind.Bool, 0, 0, 0);
+            Add(C, "Hull damage", "HullIntegrity/CollisionDamage", "Collision damage", "× · 0 = none", Kind.Number, 0.1f, 0f, 10f);
+            Add(C, "Hull damage", "Collisions/Flooding", "Flooding from collisions", "× · 0 = none", Kind.Number, 0.1f, 0f, 10f);
+            Add(C, "Hull damage", "HullIntegrity/CollisionMinSpeed", "Minimum collision speed", "knots, relative speed", Kind.Number, 0.5f, 0f, 30f);
+            Add(C, "Hull damage", "Collisions/BowStrength", "Bow strength", "× · less than the side", Kind.Number, 0.5f, 1f, 20f);
+            Add(C, "Speed after a blow", "Collisions/Braking", "Slowing down", "× · 0 = no slowing", Kind.Number, 0.1f, 0f, 3f);
+            Add(C, "Speed after a blow", "Collisions/WaterResistance", "Water resistance", "× · 0 = none", Kind.Number, 0.1f, 0f, 3f);
+            Add(C, "Speed after a blow", "Collisions/GripPress", "Pressing speed loss", "share of sliding speed", Kind.Number, 0.05f, 0f, 0.9f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullShellVulnerability", "Gun shells", "", Kind.Number, 0.1f, 0.1f, 10f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFireVulnerability", "Fires", "", Kind.Number, 0.1f, 0.1f, 10f);
             Add(H, "Vulnerability of the stronger hull", "SideEffects/HullFloodingVulnerability", "Flooding", "", Kind.Number, 0.1f, 0.1f, 10f);
@@ -790,10 +803,10 @@ namespace AlternativeDamageModel
 
         static bool ModOnly(string key)
         {
-            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" ||
+            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" || key == "FireAndFlooding/SmallShipSpeedUp" ||
                    key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "DamageControlTeams/HitsInReserveChance" || key == "Systems/NoEngineTeamEffectiveness" || key == "Systems/SeveralPriorities" || key == "FireAndFlooding/AutoCounterflood" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
                    key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
-                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/HealTime" || key == "DamageControlTeams/HealTimeSpread" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill";
+                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/HealTime" || key == "DamageControlTeams/HealTimeSpread" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill" || key == "HullIntegrity/CollisionDamage" || key == "HullIntegrity/CollisionMinSpeed" || key.StartsWith("Collisions/", StringComparison.Ordinal);
         }
 
         static bool GameValue(Field f, out string v)
@@ -902,7 +915,7 @@ namespace AlternativeDamageModel
             "DamageControlTeams/SpeedRested", "DamageControlTeams/SpeedTired", "DamageControlTeams/SpeedExhausted",
             "FireAndFlooding/UnattendedFireGrowth", "FireAndFlooding/UnattendedFireTime", "FireAndFlooding/UnattendedFireGrowthRate", "FireAndFlooding/UnattendedFireMaxGrowth",
             "FireAndFlooding/TeamBlocksFireSpread", "FireAndFlooding/FireReopenLeaks", "FireAndFlooding/FireReopenLimit", "FireAndFlooding/SubmergedFireDecay",
-            "FireAndFlooding/FullFloodSystems", "FireAndFlooding/FullFloodFireDecay", "HullIntegrity/DamageSpill", "Systems/NoEngineTeamEffectiveness", "Systems/SeveralPriorities", "FireAndFlooding/AutoCounterflood",
+            "FireAndFlooding/FullFloodSystems", "FireAndFlooding/FullFloodFireDecay", "HullIntegrity/DamageSpill", "HullIntegrity/CollisionDamage", "HullIntegrity/CollisionMinSpeed", "Collisions/BowStrength", "Collisions/Braking", "Collisions/Enabled", "Collisions/AIShips", "Collisions/WaterResistance", "Collisions/Flooding", "Collisions/GripPress", "Collisions/PushApart", "Systems/NoEngineTeamEffectiveness", "Systems/SeveralPriorities", "FireAndFlooding/AutoCounterflood",
             "UI/DetailedView", "UI/ColorWeaponStatus", "UI/ShowEnemyDamage",
         };
 

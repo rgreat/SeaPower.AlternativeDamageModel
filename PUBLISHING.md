@@ -45,7 +45,7 @@ AnchorChain.dll берётся из `<Steam>\steamapps\workshop\content\1286220\
 2. Включите мод в меню **Mods**. Уберите IntegrityX2 ini-патчи, если они установлены (иначе удвоение применится дважды).
 3. Для проверки поставьте `LogShipIntegrity = true` в `Sea Power_Data\StreamingAssets\user\AlternativeDamageControl\AlternativeDamageModel.cfg` (окно настроек → General).
 4. В `BepInEx\LogOutput.log` должно быть:
-   * `Alternative Damage Model 1.7.0 (build ...) loaded; follows its tick in the game's Mods menu.`
+   * `Alternative Damage Model 1.8.0 (build ...) loaded; follows its tick in the game's Mods menu.`
    * `Hooks installed: 29.` (без `failed`);
    * `Enabled in the game's Mods menu (AlternativeDamageModel).`
    * в миссии — строки `Hull: <ini> (Warships), <т> t, armor <...>: integrity X -> Y (x2), sinking limit ...`.

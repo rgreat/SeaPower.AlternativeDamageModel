@@ -60,6 +60,7 @@ namespace AlternativeDamageModel
             public bool EngineFire;         // a section of the engine burns: the fire is fought first (it keeps damaging the engine), the repair waits
             public int EngineFireMask;      // which of the engine's sections burn (bits, for the trace)
             public int EngineSec = -1;     // the section of the engine that is out of order
+            public bool EngineWet;         // a section that holds the engine is flooded: repairing it is pointless until the water is out
             public bool EngineMarked;      // the lost engine was marked for priority repair (once for each outage)
             public bool CounterCrit;       // the heel is critical: counterflooding is the first job (hysteresis)
         }
@@ -281,6 +282,22 @@ namespace AlternativeDamageModel
                         if (found) { ship.EngineSec = i; if (SysPriority.Mark(sys.GetValue(i), engine)) Trace("Auto DC: the engine is out of order, its repair is a priority (section " + i + ")"); break; }
                     }
                 }
+                // the engine lies in several sections and stays out of order while any of them is flooded (SectionEffects holds its systems down): a team
+                // sent to repair it in another section works for nothing - no repair job, no priority, every team goes to the water
+                bool engineWet = false;
+                if (engine != null)
+                    for (int i = 0; i < count && !engineWet; i++)
+                    {
+                        if (!SectionEffects.Locked(comp, i)) continue;
+                        var list2 = _systems.GetValue(sys.GetValue(i)) as IEnumerable;
+                        if (list2 != null) foreach (var b2 in list2) if (ReferenceEquals(b2, engine)) { engineWet = true; break; }
+                    }
+                if (engineWet != ship.EngineWet)
+                {
+                    ship.EngineWet = engineWet;
+                    Trace(engineWet ? "Auto DC: a section of the engine is flooded - the engine cannot be repaired until the water is pumped out, no team goes to it"
+                                    : "Auto DC: the engine's flooded section is dry - its repair goes on");
+                }
                 bool engineNow = false, prioNow = false, engineFire = false;
                 int fireAll = 0;   // bits: the engine's sections that burn - all their teams fight the fire (DcControl)
                 // the engine lies in several sections (the game puts a system into every section its model spans) and a fire in any of them damages
@@ -313,7 +330,7 @@ namespace AlternativeDamageModel
                             Trace("Auto DC: the engine repair moves from section " + cur + " to section " + best + " (it holds the engine too; " + (best < counts.Length ? counts[best] : 0) + " team(s) there)");
                         }
                     }
-                    if (!SectionEffects.Locked(comp, ship.EngineSec) && SysPriority.Pending(sys.GetValue(ship.EngineSec))) fireAll = engFire;
+                    if (!engineWet && !SectionEffects.Locked(comp, ship.EngineSec) && SysPriority.Pending(sys.GetValue(ship.EngineSec))) fireAll = engFire;
                 }
                 int avail = 0;
                 var holds = new bool[count];   // fire / flooding work that keeps its teams there
@@ -374,12 +391,13 @@ namespace AlternativeDamageModel
 
                     bool systems = false;
                     bool locked = SectionEffects.Locked(comp, i);
-                    bool prio = !locked && SysPriority.Pending(sc);   // a system marked for priority repair: its own job, the first one
+                    bool prio = !locked && !(engineWet && i == ship.EngineSec) && SysPriority.Pending(sc);   // a system marked for priority repair: its own job, the first one
                     var list = locked ? null : _systems.GetValue(sc) as IEnumerable;   // a flooded section's systems cannot be repaired
                     bool minorSys = false;
                     if (list != null)
                         foreach (var b in list)
                         {
+                            if (engineWet && ReferenceEquals(b, engine)) continue;   // the engine of a flooded section: not repairable
                             try
                             {
                                 int cur = Convert.ToInt32(_curDmg.GetValue(b, null));
