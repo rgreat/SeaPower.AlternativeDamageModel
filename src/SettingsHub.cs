@@ -119,6 +119,20 @@ namespace Rgreat.Hub
             // Patching the menu classes at plugin start makes the runtime run their static constructors, which register Noesis properties before Noesis
             // is ready: the game (the Release build) crashes natively. So the patches are made after the game's load screen has finished.
             const BindingFlags any = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            // Keel starts the mods after the start-up load screen is over: the coroutine will not finish again
+            if (LoadScreenIsDone(game))
+            {
+                _harmony = harmony; _installed = true;
+                Log("load screen is already over: menu entries are installed now");
+                try
+                {
+                    DoInstall(harmony);
+                    var menu = GameView("SeapowerUI.MainMenuView");
+                    if (menu != null) MainMenuCtorPostfix(menu);
+                }
+                catch (Exception e) { Log("installing the menu entries failed: " + e); }
+                return;
+            }
             try
             {
                 var ls = game.GetType("SeaPower.LoadScreen");
@@ -137,6 +151,25 @@ namespace Rgreat.Hub
 
         static Harmony _harmony;
         static bool _installed;
+
+        static bool LoadScreenIsDone(Assembly game)
+        {
+            try
+            {
+                var ls = game.GetType("SeaPower.LoadScreen");
+                if (ls == null) return false;
+                // Singleton<LoadScreen>.InstanceExists(false) -> Instance -> LoadText
+                var si = ls.BaseType;
+                var exists = si == null ? null : si.GetMethod("InstanceExists", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                var instProp = si == null ? null : si.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                if (exists == null || instProp == null) return false;
+                if (!(bool)exists.Invoke(null, new object[] { false })) return false;
+                var inst = instProp.GetValue(null, null);
+                var p = ls.GetProperty("LoadText", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                return inst != null && p != null && "Done".Equals(p.GetValue(inst, null) as string);
+            }
+            catch { return false; }
+        }
 
         static void LoadScreenPostfix(bool __result)
         {
