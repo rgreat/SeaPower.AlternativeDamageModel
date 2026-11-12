@@ -1,7 +1,7 @@
 Version 1.8.0.
 
 - Supports Sea Power 0.9.0 only; the code for older game versions is removed.
-- Settings window: every profile setting shows "profile: x" (the value stored in the profile) under "game: x"; the row's reset button (↺) brings back the profile's value (the mod's global options still go back to their default). Tab Collisions moved up, next to Damage Model; Debug is always the last tab.
+- Settings window: every profile setting shows "profile: x" (the value stored in the profile) under "game: x"; the row's reset button (↺) brings back the profile's value (the mod's global options still go back to their default). Tab Collisions is the last one before Debug; Debug is always the last tab.
 - Debug trace: a line for every hit (section, damage, integrity and leak of the compartment afterwards); the log says when another mod takes over Blastzone.OnHitUnit.
 - New: collisions between ships (own "Collisions" tab). The game only lets ships pass through each other; now a blow slows them (across the contact almost all the closing speed is lost, the lighter ship the most; along it only a part, so ships touching side by side hardly slow), the water holds the struck ship back and a strong ram shoves it aside. Each ship loses hull where the hulls touch, for as long as they stay in contact: the damage is the energy the blow wears down, the bow takes several times less than the side. Strong blows open leaks (a multiplier for the flooding is set).
 - Settings: Enable collision damage, Enable collisions for AI ships, Collision damage, Flooding from collisions, Minimum collision speed, Bow strength, Slowing down, Water resistance, Pressing speed loss, Push ships apart.
