@@ -661,3 +661,4 @@
 661|profile: {0}
 662|Về giá trị của profile
 663|tịt ngòi
+664|Độ dễ tổn thương của tàu trước đám cháy do trúng đạn (mọi loại vũ khí). 1.0 = một phát trúng gây đám cháy mạnh như trong game (theo % khoang); thân tàu bền hơn không kìm được lửa. 2.0 = đám cháy mạnh gấp đôi và lan nhanh gấp đôi; 0.5 = một nửa.

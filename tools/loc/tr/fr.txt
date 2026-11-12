@@ -661,3 +661,4 @@
 661|profil : {0}
 662|Revenir à la valeur du profil
 663|raté
+664|Vulnérabilité du navire aux incendies déclenchés par les impacts (tous types d'arme). 1.0 = un impact déclenche un incendie aussi fort que dans le jeu (en % du compartiment) ; la coque plus solide ne retient pas les incendies. 2.0 = incendies deux fois plus forts et qui grandissent deux fois plus vite ; 0.5 = moitié moins forts.

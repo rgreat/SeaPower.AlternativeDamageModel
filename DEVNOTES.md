@@ -26,7 +26,7 @@
   туда прыгает ветка IntegrityOverride). Множитель: [HullIntegrityPerShip] →
   Submarines → CivilianShips → Warships. Состояние (множитель, исходный X) — `ConditionalWeakTable` по Compartments.
 * `CheckForInstakill` — каждое `ldfld _maxLimitIntegrity` → `dup; ldfld; call ShellTierLimit(comp, v)` = `v / (mult·HullShellVulnerability)`.
-* `OnHitUnit` / `ProcessCompartmentHit` — `FireIntegrity*` = `X / HullFireVulnerability` (новый X: сильный корпус горит пропорционально слабее;
+* `OnHitUnit` / `ProcessCompartmentHit` — `FireIntegrity*` = `X / (m × HullFireVulnerability)` (с 1.8.0: игровой X, корпус огонь не сдерживает;
   по тестам rgreat при Warships 5 правдоподобно V_eff = 1/5, поэтому множитель корпуса в пожар НЕ компенсируется, в отличие от снарядов и затопления).
 * `ProcessCompartmentHit` — затопление: `damage / X` → `FloodIntegrityFc` = `X / (mult·HullFloodingVulnerability)` (компенсировано: пробоина как в игре;
   деление на mult пробовали — по тестам rgreat для затопления неверно, откатили);
@@ -780,3 +780,5 @@ Code and texts for older game builds removed: ReserveHits no longer falls back t
 "default: x" and "profile: x" are never shown together: `GameText` passes `withDefault = (ProfileLine == null)` to `GameTextCore`, so profile settings show "game: x" + "profile: x" (or "game: no analogue" + "profile: x"), global options and the Speed table keep "default: x" (+ "game: x").
 
 (244) Hit list marks duds. HitLog.Postfix reads the private Blastzone.WarheadMalfunction (= _weapon._warheadMalfunction, set in Blastzone.CreateExplosion when OptionsManager.WeaponFailuresEnabled and random > _ap._warheadReliability; then GetWeaponDamage uses the reduced _warheadDudPower) via reflection (HitLog.IsDud, PropertyInfo cached in Init) into Rec.Dud; saved as flag 8; tooltip "(dud)" (row 663, 8 languages); trace ", dud". Only ammo that can fail (missiles, torpedoes, RBU, bombs, aerial rockets) and only with Weapon Failures on.
+
+(245) HullFireVulnerability auto-compensated: FireIntegrity/FireIntegrityFc divide by (MultOf * HullFireVulnerability) (like flooding), IncendiaryFrac = share * HullFireVulnerability (no /m). 1.0 = a hit starts a fire of the same % of the compartment as in the game, whatever the hull multiplier. Before: 1.0 = fire m times weaker; profiles that set HullFireVulnerability = Warships to compensate by hand must go back to 1.0. Text row 664 (8 languages).

@@ -10,4 +10,5 @@ Version 1.8.0.
 - Small ships burn and flood faster: the growth of fires and the water coming in rise smoothly from 1x at 1000 tons to 3x at 50 tons (setting "Small ships: faster", 1 = off).
 - Hit list: secondary explosions of the ship's own systems are named ("Explosion of <system>") and recorded with their section and side.
 - Hit list: a hit by a dud warhead (the game's warhead failure, needs "Weapon Failures" on) is marked "(dud)" in the tooltip and the saved log.
+- HullFireVulnerability is compensated automatically: 1.0 = a hit starts as strong a fire as in the game, whatever the hull multiplier (was: m times weaker). If you set it equal to the hull multiplier by hand, set it back to 1.0.
 - Systems of a section go out when one of its compartments holds 75% of water or more, or the section as a whole 50% or more (was: the mean above 75%).

@@ -7,6 +7,7 @@ Changes:
 - Settings: damage, flooding, minimum speed, bow strength, slowing, water resistance, pressing, AI ships, push apart.
 - Auto DC does not repair an engine put out by flooding until the water is out.
 - Hit list marks hits by dud warheads.
+- Fires from hits: 1.0 = as in the game (the stronger hull no longer holds fires back automatically).
 - Small ships (1000 t down to 50 t) burn and flood up to 3x faster.
 - Hit list shows secondary explosions of systems.
 - Systems go out of order from 75% of water in a compartment or 50% in the section.

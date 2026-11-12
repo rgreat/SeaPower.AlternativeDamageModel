@@ -23,7 +23,7 @@ namespace AlternativeDamageModel
     ///  - Gun shell damage tiers (Blastzone.CheckForInstakill): the tier is chosen by
     ///    new limit / (multiplier * HullShellVulnerability), i.e. by the game's own limit at 1.0.
     ///  - Fire ignition by hits (Blastzone.OnHitUnit, Blastzone.ProcessCompartmentHit): relative to
-    ///    new integrity / HullFireVulnerability: a stronger hull burns proportionally weaker at 1.0.
+    ///    new integrity / (multiplier * HullFireVulnerability), i.e. as in the game at 1.0 (the stronger hull does not hold fires back).
     ///  - Flooding through holes and the leak thresholds above the waterline (Blastzone.ProcessCompartmentHit): relative to
     ///    new integrity / (multiplier * HullFloodingVulnerability), i.e. as in the game at 1.0.
     ///  - Point value is not changed (it stays as the game computes it).
@@ -365,9 +365,8 @@ namespace AlternativeDamageModel
                 "2.0 = shells hit as if the hull were half as big; 0.5 = as if it were twice as big (medium shells may stop hurting big ships).");
             _fireVulnEntry = Pcfg.Bind("SideEffects", "HullFireVulnerability", new Factor(1f),
                 "Vulnerability of the ship to fires started by hits (all weapon types). " +
-                "The stronger hull also holds fires back in the same proportion: with Warships = 5.0 a hit starts a fire 5 times weaker " +
-                "(relative to the compartment) than in the game. 1.0 = this normal behaviour of the mod. " +
-                "2.0 = fires twice as strong and grow twice as fast; 0.5 = half as strong. 1.0 with every hull multiplier 1.0 = as in the game.");
+                "1.0 = a hit starts as strong a fire as in the game (in % of the compartment); the stronger hull does not hold fires back. " +
+                "2.0 = fires twice as strong and grow twice as fast; 0.5 = half as strong.");
             _floodVulnEntry = Pcfg.Bind("SideEffects", "HullFloodingVulnerability", new Factor(1f),
                 "Vulnerability of the hull to flooding through holes made by hits (all weapon types). " +
                 "1.0 = each hole lets in as much water as in the game, and holes above the waterline start leaking after the same damage " +
@@ -1834,13 +1833,12 @@ namespace AlternativeDamageModel
         /// <summary>
         /// An incendiary hit (_ap._addFire 1..3) starts a fire of a fixed share of the compartment's maximum severity (0.125 / 0.25 /
         /// 0.5). The maximum grows with the hull multiplier, so the same share would be a fire m times stronger than in the game:
-        /// the share / m, x HullFireVulnerability - as for every other hit.
+        /// the share is kept (the same share of the larger maximum, as in the game), x HullFireVulnerability - as for every other hit.
         /// </summary>
         public static float IncendiaryFrac(float v)
         {
             if (!Model) return v;
-            float m = HullMultOf(_lastFireComp);
-            return m > 0f ? v * _fireVuln / m : v;
+            return v * _fireVuln;
         }
 
         static IEnumerable<CodeInstruction> OnHitUnitTranspiler(IEnumerable<CodeInstruction> instructions)
@@ -1959,7 +1957,7 @@ namespace AlternativeDamageModel
         {
             _lastFireComp = comp;
             if (!Model) return x;
-            return x / _fireVuln; // the ship's own (multiplied) integrity: a stronger hull burns proportionally weaker
+            return x / (MultOf(comp) * _fireVuln); // the game's own integrity: a hit starts as strong a fire (in % of the compartment) as in the game
         }
 
         public static float FireIntegrityFc(object fc, float x)
@@ -1967,7 +1965,7 @@ namespace AlternativeDamageModel
             if (!Model) return x;
             object comp = null;
             try { comp = fc == null ? null : _fFcComp.GetValue(fc); } catch { }
-            return x / _fireVuln; // the ship's own (multiplied) integrity: a stronger hull burns proportionally weaker
+            return x / (MultOf(comp) * _fireVuln); // the game's own integrity (see FireIntegrity)
         }
 
         // separate method: the hub (and Noesis) is loaded only when it runs

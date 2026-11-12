@@ -661,3 +661,4 @@
 661|perfil: {0}
 662|Volver al valor del perfil
 663|proyectil fallido
+664|Vulnerabilidad del barco a los incendios provocados por impactos (todos los tipos de arma). 1.0 = un impacto provoca un incendio tan fuerte como en el juego (en % del compartimento); el casco más fuerte no contiene los incendios. 2.0 = incendios el doble de fuertes que crecen el doble de rápido; 0.5 = la mitad.
