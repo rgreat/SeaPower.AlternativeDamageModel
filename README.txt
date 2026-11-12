@@ -1,5 +1,5 @@
 Alternative Damage Model
-Version 1.8.0.
+Version 1.9.0.
 A mod for Sea Power.
 
 FEATURES
