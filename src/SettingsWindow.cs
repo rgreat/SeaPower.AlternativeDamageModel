@@ -38,7 +38,7 @@ namespace AlternativeDamageModel
 
         const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
         const string TFx = "Effects";
-        static readonly string[] Tabs = { TUi, TFx, TGen, "Collisions", TDbg, "Hull", "Systems", "Fire", "Flooding", "DC Teams" };
+        static readonly string[] Tabs = { TUi, TFx, TGen, "Collisions", "Hull", "Systems", "Fire", "Flooding", "DC Teams", TDbg };
         const string HealthKey = "DamageControlTeams/TeamHealthEnabled", FatigueKey = "DamageControlTeams/FatigueEnabled";
         const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
         /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
