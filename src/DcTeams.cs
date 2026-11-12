@@ -102,7 +102,7 @@ namespace AlternativeDamageModel
                 _obp = t.GetField("_obp", all);
                 _lastRecall = t.GetField("_dcTeamsLastRecall", all);
                 _base = t.GetField("_baseObject", all);
-                var tBo = asm.GetType("SeaPower.BaseObject");
+                var tBo = asm.GetType("SeaPower.ObjectBase");
                 _destroyed = tBo == null ? null : tBo.GetProperty("IsDestroyed", all);
                 _gameTime = asm.GetType("SeaPower.GameTime").GetProperty("missionElapsedTime", all);
                 _length = asm.GetType("SeaPower.ObjectBaseParameters").GetProperty("_length", all);

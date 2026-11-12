@@ -2,6 +2,7 @@ Version 1.9.0.
 
 - Supports Sea Power 0.9.0 only; the code for older game versions is removed.
 - Works under the R.A.T.S. Keel loader: the "Alternative Mods" menu button appears there too (the mod starts after the start-up load screen is over).
+- Fixed: damage control teams are no longer sent to a ship that is already destroyed (the check looked up a type that the game renamed in 0.9.x).
 - Settings window: every profile setting shows "profile: x" (the value stored in the profile) under "game: x"; the row's reset button (↺) brings back the profile's value (the mod's global options still go back to their default). Tab Collisions is the last one before Debug; Debug is always the last tab.
 - Debug trace: a line for every hit (section, damage, integrity and leak of the compartment afterwards); the log says when another mod takes over Blastzone.OnHitUnit.
 - Small ships burn and flood faster: the growth of fires and the water coming in rise smoothly from 1x at 1000 tons to 3x at 50 tons (setting "Small ships: faster", 1 = off).

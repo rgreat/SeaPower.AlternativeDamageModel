@@ -45,7 +45,7 @@ namespace AlternativeDamageModel
                 var tSc = comp.GetType();
                 var asm = tSc.Assembly;
                 _fPrio = ReserveHits.Field(tSc, "_systemPrioritisedForRepair");
-                var tSum = asm.GetType("SeaPower.DamageSummary") ?? asm.GetType("SeapowerUI.DamageSummary");
+                var tSum = asm.GetType("SeapowerUI.ViewModels.DamageSummary");
                 if (tSum == null) foreach (var t in asm.GetTypes()) if (t.Name == "DamageSummary") { tSum = t; break; }
                 var tBase = asm.GetType("SeaPower.BaseSystem");
                 if (tSum != null)
