@@ -921,8 +921,8 @@ namespace AlternativeDamageModel
 
         static string GameText(Field f)
         {
-            string g = GameTextCore(f);
             string pl = f.Global ? null : ProfileLine(f);
+            string g = GameTextCore(f, pl == null);   // "profile: x" replaces "default: x" (the mod's default is shown only where there is no profile line)
             return pl == null ? g : (g.Length > 0 ? g + "\n" + pl : pl);
         }
 
@@ -947,13 +947,13 @@ namespace AlternativeDamageModel
             return Loc.F("profile: {0}", v);
         }
 
-        static string GameTextCore(Field f)
+        static string GameTextCore(Field f, bool withDefault)
         {
             string v;
             if (NoGame.Contains(f.Key))
             {   // the mod's own mechanic: the default (where the mod has one of its own) and "no analogue", not a value that looks like the game's
                 var ne = f.Global || ModOnly(f.Key) ? Entry(f.Key) : null;
-                string nd = ne == null ? "" : Loc.F("default: {0}", OnOff(TomlTypeConverter.ConvertToString(ne.DefaultValue, ne.SettingType))) + "\n";
+                string nd = ne == null || !withDefault ? "" : Loc.F("default: {0}", OnOff(TomlTypeConverter.ConvertToString(ne.DefaultValue, ne.SettingType))) + "\n";
                 return nd + Loc.T("game: no analogue");
             }
             if (f.Global)
@@ -967,9 +967,9 @@ namespace AlternativeDamageModel
             {   // not in the game as such: the mod's own default, and under it the value of the Base Game profile (the game's own rule where it has one)
                 var ue = Entry(f.Key);
                 if (ue == null) return "";
-                string d = Loc.F("default: {0}", OnOff(TomlTypeConverter.ConvertToString(ue.DefaultValue, ue.SettingType)));
+                string d = withDefault ? Loc.F("default: {0}", OnOff(TomlTypeConverter.ConvertToString(ue.DefaultValue, ue.SettingType))) : "";
                 string gl = _game != null && _game.Values.TryGetValue(f.Key, out v) ? GameLine(f, v) : "";
-                return gl.Length > 0 ? d + "\n" + gl : d;
+                return gl.Length > 0 ? (d.Length > 0 ? d + "\n" : "") + gl : d;
             }
             if (_game == null || !_game.Values.TryGetValue(f.Key, out v)) return "";
             return GameLine(f, v);
