@@ -3,6 +3,7 @@ Version 1.9.0.
 Changes:
 - Supports Sea Power 0.9.0 only.
 - Works under the R.A.T.S. Keel loader: the "Alternative Mods" button appears.
+- The menu button text is refreshed when mods start one after another (Keel).
 - Fixed: no damage control teams for a destroyed ship.
 - Settings window: "profile: x" next to "game: x"; the reset button brings back the profile's value. Debug is the last tab.
 - Debug trace: a line for every hit.

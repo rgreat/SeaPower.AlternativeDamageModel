@@ -16,6 +16,7 @@
 //    and opens a small list, one button per mod, in the order of the entries (then by id).
 //  - The hub logs to LogOutput.log (source 'rgreat settings hub'): every click, every failure.
 //  - Menus are built each time they are shown, so the label always reflects the mods that are active now. No polling anywhere.
+//  - A mod that registers later than the first one (early start under Keel) refreshes the text of the buttons already in the menus (RefreshLabels, in Register and in Install).
 // ======================================================================================================================
 using System;
 using System.Collections;
@@ -59,6 +60,30 @@ namespace Rgreat.Hub
                 r.RemoveAll(e => e.Length > 0 && string.Equals(e[0] as string, id, StringComparison.Ordinal));
                 r.Add(new object[] { id, title, version, order, open, active });
             }
+            RefreshLabels();
+        }
+
+        /// <summary>The buttons already in the menus get the text for the mods registered now (a mod that starts later than the first one).</summary>
+        static void RefreshLabels()
+        {
+            try
+            {
+                if (_game == null) return;
+                string label = Label();
+                if (label == null) return;
+                var view = GameView("SeapowerUI.MainMenuView") as FrameworkElement;
+                var scroll = view == null ? null : view.FindName("scrollViewer") as ScrollViewer;
+                var list = scroll == null ? null : scroll.Content as StackPanel;
+                if (list != null)
+                    foreach (var c in list.Children)
+                    {
+                        var b = c as Button;
+                        if (b != null && b.Name == ButtonName) b.Content = label.ToUpperInvariant();
+                    }
+                if (_setContent != null)
+                    foreach (var w in _pauseButtons) { var b = w.Target; if (b != null) _setContent.Invoke(b, new object[] { label }); }
+            }
+            catch (Exception e) { _trace("SettingsHub refresh: " + e.Message); }
         }
 
         static List<object[]> Active()
@@ -116,6 +141,7 @@ namespace Rgreat.Hub
         public static void Install(Harmony harmony, Assembly game, Action<string> trace, Func<string> language)
         {
             _game = game; if (trace != null) _trace = trace; if (language != null) _language = language;
+            RefreshLabels();   // each mod has its own copy of this class: Register above ran before _game was known, so the buttons of the mods started earlier get their text here
             // Patching the menu classes at plugin start makes the runtime run their static constructors, which register Noesis properties before Noesis
             // is ready: the game (the Release build) crashes natively. So the patches are made after the game's load screen has finished.
             const BindingFlags any = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -149,9 +175,6 @@ namespace Rgreat.Hub
             DoInstall(harmony);
         }
 
-        static Harmony _harmony;
-        static bool _installed;
-
         static bool LoadScreenIsDone(Assembly game)
         {
             try
@@ -170,6 +193,9 @@ namespace Rgreat.Hub
             }
             catch { return false; }
         }
+
+        static Harmony _harmony;
+        static bool _installed;
 
         static void LoadScreenPostfix(bool __result)
         {
