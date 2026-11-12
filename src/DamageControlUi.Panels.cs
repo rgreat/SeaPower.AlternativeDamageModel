@@ -65,7 +65,7 @@ namespace AlternativeDamageModel
                 var ts = TimeSpan.FromSeconds(Math.Max(0.0, r.Time));
                 string when = ((int)ts.TotalHours).ToString("0", CultureInfo.InvariantCulture) + ":" + ts.Minutes.ToString("00", CultureInfo.InvariantCulture) + ":" + ts.Seconds.ToString("00", CultureInfo.InvariantCulture);
                 string where = SectionName(_sectionNames, r.Section) + ", " + (r.Port ? Loc.T("port") : Loc.T("starboard"));
-                root.Children.Add(line(when + "   " + r.Ammo + "   " + where + (r.Armor ? "   (" + Loc.T("stopped by armour") + ")" : "") + (r.Blast ? "   (" + Loc.T("explosion") + ")" : ""), r.Armor ? dim : text, false));
+                root.Children.Add(line(when + "   " + r.Ammo + "   " + where + (r.Armor ? "   (" + Loc.T("stopped by armour") + ")" : "") + (r.Blast ? "   (" + Loc.T("explosion") + ")" : "") + (r.Dud ? "   (" + Loc.T("dud") + ")" : ""), r.Armor ? dim : text, false));
             }
             return root;
         }

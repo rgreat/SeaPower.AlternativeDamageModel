@@ -660,3 +660,4 @@
 660|sin límite
 661|perfil: {0}
 662|Volver al valor del perfil
+663|proyectil fallido

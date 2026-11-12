@@ -6,6 +6,7 @@ Changes:
 - New tab Collisions: ships slow down and lose hull where they touch (the bow takes less than the side); strong rams open leaks; the water holds the struck ship. Side-by-side touches hardly slow the ships.
 - Settings: damage, flooding, minimum speed, bow strength, slowing, water resistance, pressing, AI ships, push apart.
 - Auto DC does not repair an engine put out by flooding until the water is out.
+- Hit list marks hits by dud warheads.
 - Small ships (1000 t down to 50 t) burn and flood up to 3x faster.
 - Hit list shows secondary explosions of systems.
 - Systems go out of order from 75% of water in a compartment or 50% in the section.

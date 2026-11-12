@@ -9,4 +9,5 @@ Version 1.8.0.
 - Auto DC: an engine put out by the flooding of a section is not repaired while that section is flooded (no priority, no team sent to it); the repair goes on when the water is pumped out.
 - Small ships burn and flood faster: the growth of fires and the water coming in rise smoothly from 1x at 1000 tons to 3x at 50 tons (setting "Small ships: faster", 1 = off).
 - Hit list: secondary explosions of the ship's own systems are named ("Explosion of <system>") and recorded with their section and side.
+- Hit list: a hit by a dud warhead (the game's warhead failure, needs "Weapon Failures" on) is marked "(dud)" in the tooltip and the saved log.
 - Systems of a section go out when one of its compartments holds 75% of water or more, or the section as a whole 50% or more (was: the mean above 75%).

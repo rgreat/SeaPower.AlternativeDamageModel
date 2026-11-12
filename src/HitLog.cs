@@ -15,7 +15,7 @@ namespace AlternativeDamageModel
     /// </summary>
     static class HitLog
     {
-        public sealed class Rec { public double Time; public string Ammo; public int Section; public bool Port, Armor, Blast; }
+        public sealed class Rec { public double Time; public string Ammo; public int Section; public bool Port, Armor, Blast, Dud; }
 
         const int Max = 400;
         static readonly ConditionalWeakTable<object, List<Rec>> Logs = new ConditionalWeakTable<object, List<Rec>>();
@@ -23,7 +23,7 @@ namespace AlternativeDamageModel
 
         static bool _init, _ok;
         static FieldInfo _fImpact, _fImpactComp, _fHitIndex, _fPortHit, _fSecondary, _fAp;
-        static PropertyInfo _pTime;
+        static PropertyInfo _pTime, _pDud;
 
         static void Init(object blastzone, object impact)
         {
@@ -33,6 +33,7 @@ namespace AlternativeDamageModel
                 _fImpact = ReserveHits.Field(blastzone.GetType(), "_unitImpactData");
                 _fSecondary = ReserveHits.Field(blastzone.GetType(), "_isSecondaryExplosion");
                 _fAp = ReserveHits.Field(blastzone.GetType(), "_ap");
+                _pDud = blastzone.GetType().GetProperty("WarheadMalfunction", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);   // the warhead failed (a dud): the game does reduced damage
                 _fImpactComp = ReserveHits.Field(impact.GetType(), "_compartments");
                 _fHitIndex = ReserveHits.Field(impact.GetType(), "_hitCompartmentIndex");
                 _fPortHit = ReserveHits.Field(impact.GetType(), "_portSideHit");
@@ -42,6 +43,12 @@ namespace AlternativeDamageModel
                 if (!_ok) Trace("HitLog: members missing (game updated?)");
             }
             catch (Exception e) { Trace("HitLog.Init: " + e.Message); }
+        }
+
+        static bool IsDud(object blastzone)
+        {
+            try { return _pDud != null && (bool)_pDud.GetValue(blastzone, null); }
+            catch { return false; }
         }
 
         static string AmmoName(object blastzone)
@@ -292,7 +299,7 @@ namespace AlternativeDamageModel
                 var rec = new Rec
                 {
                     Time = _pTime == null ? 0 : Convert.ToDouble(_pTime.GetValue(null, null), CultureInfo.InvariantCulture),
-                    Ammo = AmmoName(__instance), Section = number - 1, Port = port, Armor = (bool)__args[2], Blast = (bool)_fSecondary.GetValue(__instance)
+                    Ammo = AmmoName(__instance), Section = number - 1, Port = port, Armor = (bool)__args[2], Blast = (bool)_fSecondary.GetValue(__instance), Dud = IsDud(__instance)
                 };
                 if (rec.Blast && _exploding != null)
                 {
@@ -300,7 +307,7 @@ namespace AlternativeDamageModel
                     if (ReferenceEquals(comps, _explodingComps)) _explodingLogged = true;
                 }
                 if (AdmPlugin.DebugOn)
-                    Trace("hit " + rec.Ammo + ": section " + number + (port ? " port" : " stbd") + (rec.Armor ? ", stopped by armour" : "") + (rec.Blast ? ", explosion" : "") +
+                    Trace("hit " + rec.Ammo + ": section " + number + (port ? " port" : " stbd") + (rec.Armor ? ", stopped by armour" : "") + (rec.Blast ? ", explosion" : "") + (rec.Dud ? ", dud" : "") +
                           ", damage " + Convert.ToSingle(__args[3]).ToString("0.##", CultureInfo.InvariantCulture) + " -> " + ReserveHits.Describe(comps, number, port));
                 var list = Logs.GetOrCreateValue(comps);
                 lock (list) { list.Add(rec); if (list.Count > Max) list.RemoveAt(0); }
@@ -308,7 +315,7 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("HitLog: " + e.Message); }
         }
 
-        // ---- saved games: "ammunition|ammunition|.../time,ammo,section,flags|..." (flags: 1 port, 2 stopped by armour, 4 explosion)
+        // ---- saved games: "ammunition|ammunition|.../time,ammo,section,flags|..." (flags: 1 port, 2 stopped by armour, 4 explosion, 8 dud)
 
         static string Clean(string a) { return (a ?? "?").Replace('|', '-').Replace('/', '-').Replace('#', ' ').Replace(',', ' ').Replace(';', ' ').Replace('=', ' ').Trim(); }
 
@@ -326,7 +333,7 @@ namespace AlternativeDamageModel
                 if (i < 0) { names.Add(a); i = names.Count - 1; }
                 if (body.Length > 0) body.Append('|');
                 body.Append(r.Time.ToString("0.#", CultureInfo.InvariantCulture)).Append(',').Append(i).Append(',').Append(r.Section).Append(',')
-                    .Append((r.Port ? 1 : 0) | (r.Armor ? 2 : 0) | (r.Blast ? 4 : 0));
+                    .Append((r.Port ? 1 : 0) | (r.Armor ? 2 : 0) | (r.Blast ? 4 : 0) | (r.Dud ? 8 : 0));
             }
             sb.Append(string.Join("|", names.ToArray())).Append('/').Append(body);
             return sb.ToString();
@@ -346,7 +353,7 @@ namespace AlternativeDamageModel
                     int idx, sec, flags; double t;
                     if (f.Length < 4 || !double.TryParse(f[0], NumberStyles.Float, CultureInfo.InvariantCulture, out t) || !int.TryParse(f[1], out idx) ||
                         !int.TryParse(f[2], out sec) || !int.TryParse(f[3], out flags)) continue;
-                    list.Add(new Rec { Time = t, Ammo = idx >= 0 && idx < names.Length ? names[idx] : "?", Section = sec, Port = (flags & 1) != 0, Armor = (flags & 2) != 0, Blast = (flags & 4) != 0 });
+                    list.Add(new Rec { Time = t, Ammo = idx >= 0 && idx < names.Length ? names[idx] : "?", Section = sec, Port = (flags & 1) != 0, Armor = (flags & 2) != 0, Blast = (flags & 4) != 0, Dud = (flags & 8) != 0 });
                 }
                 if (list.Count > Max) list.RemoveRange(0, list.Count - Max);
                 var cur = Logs.GetOrCreateValue(comps);

@@ -660,3 +660,4 @@
 660|keine Grenze
 661|Profil: {0}
 662|Zurück zum Wert des Profils
+663|Blindgänger
