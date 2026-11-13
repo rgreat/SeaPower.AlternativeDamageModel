@@ -32,7 +32,7 @@
 32|Dòng ngập và kế hoạch ngập: một mũi tên khi mực nước thay đổi nhanh hơn mức này, tính bằng % của khoang mỗi giây.
 33|Dòng ngập và kế hoạch ngập: hai mũi tên khi mực nước thay đổi nhanh hơn mức này, tính bằng % của khoang mỗi giây.
 34|Bốn biểu tượng nhỏ dưới biểu tượng tàu trên bản đồ (cả của bạn): lửa (tổng cường độ các đám cháy), nước, thân tàu (phân loại như bảng Damage Control) và động cơ; vàng / cam / đỏ theo mức nghiêm trọng, và biểu tượng bản đồ xám hơn khi tàu sắp chìm (trong 20 phút theo xu hướng ngập / thân tàu). Một mục tiêu liên lạc: lửa, nước, thân tàu và động cơ chỉ khi nhìn trực tiếp; qua sonar - chỉ động cơ (vàng: mất một phần, đỏ: không cái nào hoạt động); qua radar - ước đoán cho tàu bị trúng trong 10 phút qua, đánh dấu '?' (vàng: 10 hải lý/giờ trở xuống, đỏ: dưới 3); không có gì qua ESM hoặc khi không có liên lạc, và không có gì cho tàu đã chìm. Dòng Fires của thẻ Damage Control dùng cùng tổng cường độ. Unit Status của mục tiêu liên lạc hiển thị thẻ Damage State với cùng thông tin bằng chữ.
-35|Máu của một đội kiểm soát thiệt hại, hệ số của mức tối đa, vốn là 1..100 điểm theo lượng giãn nước của tàu (100 = thủy thủ đoàn 1000 người trở lên, khoảng 30000 t; 1000 t = 24, 10000 t = 101). Hiển thị trong gợi ý của đội dưới dạng phần của đầy. Đội ở 0 là đã chết. Đội bị thương làm việc chậm hơn (theo máu của họ, không dưới 25%). 0 = đội không bao giờ bị thương (một phát trúng vẫn loại đội khỏi khu vực).
+35|Máu của một đội kiểm soát thiệt hại, hệ số của mức tối đa, vốn là 1..100 điểm theo lượng giãn nước của tàu (100 = thủy thủ đoàn 1000 người trở lên, khoảng 100000 t; 1000 t = 10, 10000 t = 32). Hiển thị trong gợi ý của đội dưới dạng phần của đầy. Đội ở 0 là đã chết. Đội bị thương làm việc chậm hơn (theo máu của họ, không dưới 25%). 0 = đội không bao giờ bị thương (một phát trúng vẫn loại đội khỏi khu vực).
 36|Tốc độ lửa ăn mòn thân tàu của khu vực (độ nguyên vẹn của cả hai khoang). 1.0 = như trong game. Sát thương lên hệ thống trong khu vực không đổi.
 37|Tốc độ đội trong lực lượng dự bị hết mệt, % tốc độ mệt tích lũy khi làm việc. 100 = nhanh bằng; 50 = nghỉ lâu gấp đôi làm việc.
 38|Tốc độ đội đi bộ trong tàu, mét mỗi phút (lực lượng dự bị ở giữa). Một lần chuyển = MusterTime + thời gian đi, làm tròn tới 10 giây. 0 = không có thời gian đi; khi MusterTime cũng 0, các đội di chuyển ngay và Auto DC là của game.
@@ -662,3 +662,61 @@
 662|Về giá trị của profile
 663|tịt ngòi
 664|Độ dễ tổn thương của tàu trước đám cháy do trúng đạn (mọi loại vũ khí). 1.0 = một phát trúng gây đám cháy mạnh như trong game (theo % khoang); thân tàu bền hơn không kìm được lửa. 2.0 = đám cháy mạnh gấp đôi và lan nhanh gấp đôi; 0.5 = một nửa.
+665|Hỏa hoạn do đạn pháo bị giáp chính chặn lại. Trong game, đạn không xuyên giáp không gây cháy ở các khoang cạnh khoang trúng đạn. Với tùy chọn này, đạn đó vẫn có thể gây cháy ở đó (không hư hại thân tàu, không gây ngập nước): xác suất của game cho đạn xuyên giáp nhân với số này. 0 = tắt (như game), 1 = cùng xác suất với đạn xuyên giáp, 0.4 = 40 % xác suất đó.
+666|đã gây cháy
+667|Cháy do trúng đạn bị giáp chặn
+668|× xác suất của đạn xuyên giáp · 0 = tắt
+669|Kích thước ban đầu của đám cháy do đạn pháo gây ra. Trong game, đám cháy của đạn pháo bắt đầu từ không và chỉ lớn dần; bom hoặc tên lửa còn cho đám cháy một kích thước ban đầu (một nửa của sát thương / độ bền khoang). Với tùy chọn này đạn pháo cũng cho đám cháy kích thước đó, nhân với số này. 0 = tắt (như game), 1 = như bom và tên lửa, 0.5 = một nửa. Đạn cháy giữ giá trị riêng.
+670|Cháy do đạn pháo: kích thước ban đầu
+671|× như bom và tên lửa · 0 = tắt
+672|Cháy do trúng đạn pháo
+674|Chẩn đoán: ghi vào tệp trace mọi đám cháy do phát trúng gây ra và mọi thay đổi giai đoạn của đám cháy (tàu, khoang, thời gian nhiệm vụ, mức độ và tăng trưởng theo % của mức tối đa của khoang, các đội kiểm soát thiệt hại ở đó). Hoạt động cả khi mod bị tắt trong menu Mods, để so sánh với game.
+675|Ghi một dòng vào tệp trace cho mỗi tàu vào nhiệm vụ: độ nguyên vẹn thân tàu trong game và với mod.
+676|Máu của một đội kiểm soát thiệt hại, hệ số của mức tối đa, vốn là 1..100 điểm theo lượng giãn nước của tàu (100 = thủy thủ đoàn 1000 người trở lên, khoảng 100000 t; 1000 t = 10, 10000 t = 32). Hiển thị trong gợi ý của đội dưới dạng phần của đầy. Đội ở 0 là đã chết. Đội bị thương làm việc chậm hơn (theo máu của họ, không dưới 25%). 0 = đội không bao giờ bị thương (một phát trúng vẫn loại đội khỏi khu vực).
+678|Xác suất chấn động
+679|× vết thương · 100 = luôn luôn
+680|Xác suất một đội bị thương bị chấn động (xem HealTime): trung bình của vết thương và toàn bộ máu đội đã mất cho đến nay (đều tính theo phần máu của đội), nhân với số này, tối đa 100%. Với đội còn nguyên vẹn thì đó chính là vết thương: với 2.0, vết thương 20% gây chấn động trong 40% trường hợp, từ 50% trở lên luôn luôn; đội đã bị thương trước đó dễ bị chấn động hơn. 100 = luôn bị chấn động (như trong game). Đội mà game loại khỏi chiến đấu khi không có mô hình máu thì luôn bị chấn động.
+681|Hệ số nhân của xác suất một đội bị thương bị chấn động (xem HealTime). Xác suất là vết thương cộng với toàn bộ máu đội đã mất cho đến nay (tính theo phần máu của đội), tối đa 100%: với 1.0, đội còn nguyên vẹn bị thương 20% sẽ bị chấn động trong 40% trường hợp, từ 50% trở lên luôn luôn, và đội đã bị thương trước đó dễ bị chấn động hơn. 0 = không bao giờ, 100 = luôn luôn (như trong game).
+682|Hệ số nhân của xác suất một đội bị thương bị chấn động (xem HealTime). Xác suất là trung bình của vết thương và toàn bộ máu đội đã mất cho đến nay (tính theo phần máu của đội), nhân với số này, tối đa 100%. Với đội còn nguyên vẹn thì đó chính là vết thương: với 1.0, vết thương 20% gây chấn động trong 20% trường hợp, 50% thì 50%; đội đã bị thương trước đó dễ bị chấn động hơn. 0 = không bao giờ, 100 = luôn luôn (như trong game).
+683|Hệ số nhân của xác suất một đội bị thương bị chấn động (xem HealTime). Xác suất là phần máu hiện có của đội mà vết thương lấy đi, nhân với số này, tối đa 100%: đội còn nguyên vẹn bị thương 20% sẽ bị chấn động trong 20% trường hợp; đội chỉ còn 40% máu bị cùng vết thương 20% (một nửa số máu đang có) thì là 50%. 0 = không bao giờ, 100 = luôn luôn (như trong game).
+684|Hệ số nhân của xác suất một đội bị thương bị chấn động (xem HealTime). Xác suất là một nửa phần máu hiện có của đội mà vết thương lấy đi, nhân với số này, tối đa 100%: với 1.0, đội còn nguyên vẹn bị thương 20% sẽ bị chấn động trong 10% trường hợp; đội chỉ còn 40% máu bị cùng vết thương 20% (một nửa số máu đang có) thì là 25%. 0 = không bao giờ, 1000 = gần như luôn luôn (như trong game).
+685|Hệ số của xác suất trên (ShellFireByPower). 1 = như mô tả, 0.5 = một nửa.
+686|Xác suất đạn pháo gây cháy một khoang phụ thuộc vào sức công phá của đầu đạn. Trong game, khoang bị trúng luôn là 20% cố định (các khoang lân cận 12–18%, chỉ khi đạn xuyên giáp), bất kể loại đạn. Với tùy chọn này: 90% cho đạn từ 100 mm trở lên, nhỏ hơn thì giảm theo tỷ lệ (37 mm = 17%, 76 mm = 43%), giảm một nửa nếu giáp chặn được đạn. Các khoang lân cận giữ 0.6–0.9 của mức này. Đạn cháy do game xử lý.
+687|Xác suất cháy do đạn
+688|Xác suất cháy theo sức đạn
+689|90% từ 100 mm, một nửa nếu bị giáp chặn
+690|× xác suất theo sức đạn
+691|Xác suất đạn pháo gây cháy một khoang phụ thuộc vào sức công phá của đầu đạn. Trong game, khoang bị trúng luôn là 20% cố định (các khoang lân cận 12–18%, chỉ khi đạn xuyên giáp), bất kể loại đạn. Với tùy chọn này: 90% cho đạn từ 100 mm trở lên, nhỏ hơn thì giảm theo tỷ lệ (37 mm = 17%, 76 mm = 43%); nếu giáp chặn được đạn, xác suất được nhân với tùy chọn «Cháy do đòn trúng bị giáp chặn» (BlockedHitFireChance). Các khoang lân cận giữ 0.6–0.9 của mức này. Đạn cháy do game xử lý.
+692|90% từ 100 mm, nhỏ hơn thì thấp hơn
+693|Hỏa hoạn do đạn pháo bị giáp chính chặn lại. Trong game, đạn không xuyên giáp không gây cháy ở các khoang cạnh khoang trúng đạn. Với tùy chọn này, đạn đó vẫn có thể gây cháy ở đó (không hư hại thân tàu, không gây ngập nước): xác suất của game cho đạn xuyên giáp nhân với số này. 0 = tắt (như game), 1 = cùng xác suất với đạn xuyên giáp, 0.5 = một nửa.
+694|bị thương, đang về đội dự bị
+695|bị thương, đang về đội dự bị (In Transfer)
+696|Các cấp giáp thân tàu của mod Thế chiến II: LightCruiser, HeavyCruiser, BattleCruiser, BattleCruiser2 và SuperHeavy (không phân biệt hoa thường). Game chỉ biết none / minor / moderate / heavy và coi mọi cấp khác là none: khi đó mọi quả đạn đều xuyên qua giáp. Khi bật, năm cấp này hoạt động, mỗi cấp có bảng xuyên giáp của mod (damage.ini); giáp của thân tàu có trong dòng Hull của nhật ký.
+697|Cấp giáp của mod WW2
+698|LightCruiser … SuperHeavy
+699|Các cấp giáp của mod Thế chiến II: LightCruiser, HeavyCruiser, BattleCruiser, BattleCruiser2 và SuperHeavy (không phân biệt hoa thường). Game chỉ biết none / minor / moderate / heavy và coi mọi cấp khác là none: khi đó mọi quả đạn đều xuyên qua giáp. Khi bật, năm cấp này hoạt động cho thân tàu và mô-đun (tháp pháo, hầm đạn, buồng máy…), mỗi cấp có bảng xuyên giáp của mod (damage.ini); giáp của thân tàu có trong dòng Hull của nhật ký. Thân tàu không có ArmorType trong [General] sẽ lấy từ [TaskForce] (usn_bb_iowa45 và usn_bb_missouri2 của mod ghi như vậy; game sẽ cho chúng minor).
+700|Các cấp giáp của mod Thế chiến II: LightCruiser, HeavyCruiser, BattleCruiser, BattleCruiser2 và SuperHeavy (không phân biệt hoa thường). Game chỉ biết none / minor / moderate / heavy và coi mọi cấp khác là none: khi đó mọi quả đạn đều xuyên qua giáp. Khi bật, năm cấp này hoạt động cho thân tàu và mô-đun (tháp pháo, hầm đạn, buồng máy…), mỗi cấp nằm giữa các cấp gốc của game trong ma trận xuyên giáp (từ cứng nhất: SuperHeavy, heavy, BattleCruiser2, BattleCruiser, moderate = HeavyCruiser, LightCruiser, minor); giáp của thân tàu có trong dòng Hull của nhật ký. Thân tàu không có ArmorType trong [General] sẽ lấy từ [TaskForce] (usn_bb_iowa45 và usn_bb_missouri2 của mod ghi như vậy; game sẽ cho chúng minor).
+701|Các cấp giáp của mod Thế chiến II: LightCruiser, HeavyCruiser, BattleCruiser, BattleCruiser2 và SuperHeavy (không phân biệt hoa thường). Game chỉ biết none / minor / moderate / heavy và coi mọi cấp khác là none: khi đó mọi quả đạn đều xuyên qua giáp. Khi bật, năm cấp này hoạt động cho thân tàu và mô-đun (tháp pháo, hầm đạn, buồng máy…), mỗi cấp nằm giữa các cấp gốc của game trong ma trận xuyên giáp (từ cứng nhất: SuperHeavy, heavy, BattleCruiser2, BattleCruiser, HeavyCruiser, moderate, LightCruiser, minor); giáp của thân tàu có trong dòng Hull của nhật ký. Thân tàu không có ArmorType trong [General] sẽ lấy từ [TaskForce] (usn_bb_iowa45 và usn_bb_missouri2 của mod ghi như vậy; game sẽ cho chúng minor).
+702|Các cấp giáp của mod Thế chiến II: LightCruiser, HeavyCruiser, BattleCruiser, BattleCruiser2 và SuperHeavy (không phân biệt hoa thường). Game chỉ biết none / minor / moderate / heavy và coi mọi cấp khác là none: khi đó mọi quả đạn đều xuyên qua giáp. Khi bật, năm cấp này hoạt động cho thân tàu và mô-đun (tháp pháo, hầm đạn, buồng máy…), mỗi cấp nằm giữa các cấp gốc của game trong ma trận xuyên giáp (từ cứng nhất: SuperHeavy, heavy, BattleCruiser2, BattleCruiser, HeavyCruiser, moderate, LightCruiser, minor); giáp của thân tàu có trong dòng Hull của nhật ký. Chúng cũng nhận thưởng độ bền thân tàu của giáp trong game (×1,2 minor, ×1,25 moderate, ×1,3 heavy) theo các bước đều ở giữa: SuperHeavy ×1,3125, BattleCruiser2 ×1,2875, BattleCruiser ×1,275, HeavyCruiser ×1,2625, LightCruiser ×1,225. Thân tàu không có ArmorType trong [General] sẽ lấy từ [TaskForce] (usn_bb_iowa45 và usn_bb_missouri2 của mod ghi như vậy; game sẽ cho chúng minor).
+703|Các cấp giáp của mod Thế chiến II: LightCruiser, HeavyCruiser, BattleCruiser, BattleCruiser2 và SuperHeavy (không phân biệt hoa thường). Game chỉ biết none / minor / moderate / heavy và coi mọi cấp khác là none: khi đó mọi quả đạn đều xuyên qua giáp. Khi bật, năm cấp này hoạt động cho thân tàu và mô-đun (tháp pháo, hầm đạn, buồng máy…), mỗi cấp nằm giữa các cấp gốc của game trong ma trận xuyên giáp (từ cứng nhất: SuperHeavy, heavy, BattleCruiser2, BattleCruiser, HeavyCruiser, moderate, LightCruiser, minor); giáp của thân tàu có trong dòng Hull của nhật ký. Chúng cũng nhận thưởng độ bền thân tàu của giáp trong game (×1,2 minor, ×1,25 moderate, ×1,3 heavy) như sau: SuperHeavy ×1,3, BattleCruiser2, BattleCruiser và HeavyCruiser ×1,25, LightCruiser ×1,2. Thân tàu không có ArmorType trong [General] sẽ lấy từ [TaskForce] (usn_bb_iowa45 và usn_bb_missouri2 của mod ghi như vậy; game sẽ cho chúng minor).
+704|Cấp giáp WW2
+706|Các cấp giáp của mod Thế chiến II (LightCruiser, HeavyCruiser, BattleCruiser, BattleCruiser2, SuperHeavy; không phân biệt hoa thường) cho thân tàu và mô-đun. Game coi chúng là không có giáp: mọi quả đạn đều xuyên qua. Khi bật, mỗi cấp hoạt động giữa các cấp của game (từ cứng nhất: SuperHeavy, heavy, BattleCruiser2, BattleCruiser, HeavyCruiser, moderate, LightCruiser, minor) và có thưởng độ bền thân tàu riêng. Thân tàu không có ArmorType trong [General] sẽ lấy từ [TaskForce].
+707|Luôn luôn
+708|Giáp
+709|Nặng
+710|Độ bền thân tàu ×{0}
+711|Sức xuyên của đạn:
+712|{0}: chặn {1} %, sát thương ×{2}–{3} nếu xuyên qua
+713|Tuần dương chiến liệt
+714|Tuần dương chiến liệt II
+715|Tuần dương hạng nặng
+716|Tuần dương hạng nhẹ
+717|Siêu nặng
+718|Hệ thống:
+719|{0}: chặn {1} %, sát thương {2} % ± {3} % nếu xuyên qua
+720|{0}: chặn {1} %, sát thương {2} % ± {3} % nếu xuyên qua
+721|{0}: chặn {1}%, sát thương {2}% ± {3}% nếu xuyên qua
+722|Sát thương nếu xuyên qua
+723|Sức xuyên của đạn
+724|Chặn
+725|Sát thương nếu xuyên

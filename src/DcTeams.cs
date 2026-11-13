@@ -36,7 +36,7 @@ namespace AlternativeDamageModel
         public static float WoundChance = 1f;     // x the chance of a wound
         public static float ReserveWoundChance = 1f;   // x the chance of a wound of a team resting in the reserve (on top of WoundChance)
         public static float HitWound = 1f;        // x the warhead power of the hit = the wound in points
-        public static float StunTime = 90f, StunSpread = 0f;   // [DamageControlTeams] HealTime / HealTimeSpread: seconds a team hit by a weapon stays in the reserve concussed (+- spread)
+        public static float StunTime = 90f, StunSpread = 0f, StunChance = 1f;   // [DamageControlTeams] HealTime / HealTimeSpread: seconds a team hit by a weapon stays in the reserve concussed (+- spread)
         static readonly System.Random Rnd = new System.Random();
         public static bool AnyIntegrity = true;   // a hit on a section wounds its teams at any integrity (not only the game's under 50%)
         public static bool AutoRest = true;       // Auto DC: wounded (under 33% health) and exhausted teams go to the reserve and come back after the rest (RestPull)
@@ -265,8 +265,8 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The ship's team health in points, 1..100 by displacement (x TeamHealth, rounded to whole points, at least 1): 100 is a ship with a crew of 1000 and more (about 30000 t and up),
-        /// below that it falls with the crew, which grows roughly as displacement^0.6: 1000 t = 12, 4000 t = 29, 10000 t = 50.
+        /// The ship's team health in points, 1..100 by displacement (x TeamHealth, rounded to whole points, at least 1): 100 is a ship with a crew of 1000 and more (about 100000 t and up),
+        /// below that it falls with the crew, which grows roughly as the square root of displacement: 1000 t = 10, 4000 t = 20, 10000 t = 32, 30000 t = 55.
         /// A hit wounds a team by the warhead power of the ammunition (the game's ammunition: 0..196, half of it under 25).
         /// </summary>
         public static float MaxHp(object comp)
@@ -282,31 +282,29 @@ namespace AlternativeDamageModel
         /// <summary>The same with the multiplier given (the settings window's table: values not applied yet).</summary>
         public static float MaxHpFor(float tons, float mul)
         {
-            double hp = 100.0 * Math.Pow(Math.Max(1.0, tons) / 30000.0, 0.62);
+            double hp = 100.0 * Math.Pow(Math.Max(1.0, tons) / 100000.0, 0.5);
             hp = Math.Max(1.0, Math.Min(100.0, hp)) * mul;
             return (float)Math.Max(1.0, Math.Round(hp));
         }
 
         /// <summary>
-        /// The chance that a hit of the given power wounds a team of the given health, before the limit of 100%: 5.4% x power^1.83 / health^1.18 x WoundChance.
-        /// It grows steeply with the warhead and falls with the ship's toughness: warhead 2.2 against health 2 - about 10%, against 100 - about 0.1%;
-        /// warhead 82 against 100 - about 75%. Above 100% the margin keeps a sure wound sure while the multiplier is below 1.
+        /// The chance that a hit of the given power wounds a team of the given health (before the limit of 100%): power / 12 / sqrt(health) x WoundChance, in percent -
+        /// a 90 mm shell (power 3) against health 100 (a big ship): 2.5%; a 356 mm (25): 21%; a 381 mm (32): 27%; against health 2 (a patrol boat) about 7 times that.
         /// </summary>
         public static double WoundOdds(float power, float hp) { return WoundOdds(power, hp, WoundChance); }
 
         public static double WoundOdds(float power, float hp, double wc)
         {
             if (wc <= 0.0 || hp <= 0f || power <= 0f) return 0.0;
-            return 0.054 * Math.Pow(power, 1.83) / Math.Pow(hp, 1.18) * wc;
+            return power / 12.0 / Math.Sqrt(Math.Max(1f, hp)) * wc;
         }
 
-        /// <summary>The average wound of a team that is wounded by a hit, as a part of its full health (0..1; what WoundOf does: the strength is uniform up to min(1, 2q), the wound power x HitWound x strength / health, at most the whole).</summary>
+        /// <summary>The average wound of a team that is wounded by a hit, as a part of its full health (0..1): 0.2 x power^0.6 / health^0.3 x HitWound, at most the whole.
+        /// Against health 100: 90 mm about 10%, 152 mm AP 17%, 356 mm 36%, 381 mm 41%.</summary>
         public static double WoundMean(float power, float hp, double hitWound)
         {
             if (hp <= 0f || power <= 0f || hitWound <= 0.0) return 0.0;
-            double q = power / hp, m = Math.Min(1.0, 2.0 * q), k = q * hitWound;
-            if (k * m <= 1.0) return k * m / 2.0;
-            return 1.0 - (1.0 / k) / (2.0 * m);
+            return Math.Min(1.0, 0.2 * Math.Pow(power, 0.6) / Math.Pow(Math.Max(1f, hp), 0.3) * hitWound);
         }
 
         // the power of the last hit on a ship's compartments (Blastzone.ProcessCompartmentHit, ReserveHits): a team knocked out takes it as a wound
@@ -319,16 +317,33 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>
-        /// The wound of a team hit by a warhead of this power, as a part of its full health (0 = not wounded). The chance is 5.4% x power^1.83 / health^1.18 x WoundChance (q = power / health; the bigger the ship, the smaller;
+        /// The wound of a team hit by a warhead of this power, as a part of its full health (0 = not wounded). The chance is 5.4% x power^1.83 / R^1.05 x WoundChance (R = health^0.8; q = power / R; the bigger the ship, the smaller;
         /// the bigger the warhead, the larger - even the weakest hit has a small chance); the wound is a random part of the power (x HitWound), at most the whole.
         /// </summary>
         static float WoundOf(object comp, float power) { double odds; return WoundOf(comp, power, out odds); }
 
-        /// <summary>A team hit by a weapon is concussed: HealTime +- HealTimeSpread seconds in the reserve (counted there, next to its health).</summary>
-        static void Concuss(Team t)
+        /// <summary>
+        /// A team wounded by a weapon may be concussed: HealTime +- HealTimeSpread seconds in the reserve (counted there, next to its health). The chance is the share of the
+        /// team's health that the wound takes: wound / health before the wound / 2 x ConcussionChance, at most 100% (a fresh team wounded by 20%: 10%; a team with 40% left
+        /// wounded by 20%: 25%). Call it after the wound is taken off the health. wound &lt; 0 = not known (the game's knock-out without health): always concussed.
+        /// </summary>
+        static string No(Ship s, Team t) { return "#" + (s.Teams.IndexOf(t) + 1); }
+
+        static bool Concuss(Team t, float wound = -1f, string who = "")
         {
+            if (StunTime <= 0f) return false;
+            if (wound >= 0f)
+            {
+                double before = Math.Max(0.01, Math.Min(1.0, (double)t.Health) + wound);
+                double chance = Math.Min(1.0, wound / before / 2.0 * StunChance);
+                bool yes = Rnd.NextDouble() < chance;
+                Trace("DC team " + who + " concussion: wound " + (wound * 100f).ToString("0", CultureInfo.InvariantCulture) + "% of " + (before * 100.0).ToString("0", CultureInfo.InvariantCulture) + "% health, chance " +
+                      (chance * 100.0).ToString("0", CultureInfo.InvariantCulture) + "% -> " + (yes ? "concussed" : "not concussed"));
+                if (!yes) return false;
+            }
             double sec = StunTime + (StunSpread > 0f ? (Rnd.NextDouble() * 2.0 - 1.0) * StunSpread : 0.0);
             t.Stun = Math.Max(0.0, sec);
+            return t.Stun > 0.0;
         }
 
         /// <summary>The same; odds is the chance that was rolled (for the trace statistics).</summary>
@@ -340,12 +355,12 @@ namespace AlternativeDamageModel
             odds = 0.0;
             float max = MaxHp(comp);
             if (max <= 0f || power <= 0f) return 0f;
-            // the chance of a wound: 0.1 x q^1.2 x WoundChance (WoundOdds, over 100% = sure); the strength is a random part of the range up to 2q
-            double q = power / max;
+            // the chance of a wound: WoundOdds (over 100% = sure); the wound is a random value around the mean (WoundMean): uniform up to twice the mean,
+            // or, when twice the mean is over the whole, from (twice the mean - 1) to the whole
             odds = WoundOdds(power, max) * chanceMul;
             if (Rnd.NextDouble() >= odds) return 0f;
-            double strength = Rnd.NextDouble() * Math.Min(1.0, 2.0 * q);
-            return (float)(power * HitWound * strength / max);
+            double mean = WoundMean(power, max, HitWound), hi = Math.Min(1.0, 2.0 * mean), lo = Math.Max(0.0, 2.0 * mean - 1.0);
+            return (float)(lo + Rnd.NextDouble() * (hi - lo));
         }
 
         /// <summary>Hits on a section (Blastzone, ReserveHits) waiting for the next tick: with AnyIntegrity they wound the section's teams.</summary>
@@ -362,30 +377,53 @@ namespace AlternativeDamageModel
         /// <summary>One queued hit: a random team working in the section gets the roll for a wound; wounded, it walks to the reserve (dead at 0).</summary>
         static void ApplySectionHit(object comp, Ship s, int section, float power, double now)
         {
+            // the teams that can be hit: those working in the section and those on their way that are passing it just now
             var here = s.Teams.FindAll(x => x.State == St.InSection && x.Section == section);
+            int working = here.Count;
+            here.AddRange(s.Teams.FindAll(x => x.State == St.Moving && SectionOnTheWay(x, now) == section));
             WoundStats.SecHits++;
             if (here.Count == 0) { WoundStats.SecNoTeam++; Trace("Hit on section " + (section + 1) + ": power " + power.ToString("0.#", CultureInfo.InvariantCulture) + ", no team working there"); return; }
             var t = here[Rnd.Next(here.Count)];
+            bool walking = t.State == St.Moving;
             double odds;
             float wound = WoundOf(comp, power, out odds);
             WoundStats.Rolled(false, odds, wound);
             Trace("Hit on section " + (section + 1) + ": power " + power.ToString("0.#", CultureInfo.InvariantCulture) + ", team health scale " + MaxHp(comp).ToString("0") + ", chance " + (odds * 100.0).ToString("0.#", CultureInfo.InvariantCulture) +
-                  "%, teams there " + here.Count + " -> " + (wound > 0f ? "wound " + (wound * 100f).ToString("0.#", CultureInfo.InvariantCulture) + "%" : "missed"));
+                  "%, teams there " + working + (here.Count > working ? " + " + (here.Count - working) + " on the way" : "") + " -> " + (wound > 0f ? "wound " + (wound * 100f).ToString("0.#", CultureInfo.InvariantCulture) + "%" + (walking ? " (a team on the way)" : "") : "missed"));
             if (wound <= 0f) return;
-            var counts = Counts(comp);
-            if (counts != null && section < counts.Length && counts[section] > 0) Set(comp, section, counts[section] - 1);
-            Leave(t);
             t.Health -= wound;
-            Concuss(t);
-            if (t.Health <= 0f) { t.State = St.Dead; t.Health = 0f; Trace("DC team dead (section " + section + ")"); }
+            bool dead = t.Health <= 0f;
+            bool stunned = !dead && Concuss(t, wound, No(s, t));
+            if (!dead && !stunned)
+            {
+                // wounded, not concussed: the team keeps working (or walking), only weaker (its health)
+                Trace("DC team " + No(s, t) + " wounded (section " + section + (walking ? ", on the way" : "") + "), health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture) + ", goes on");
+                return;
+            }
+            if (!walking)
+            {
+                var counts = Counts(comp);
+                if (counts != null && section < counts.Length && counts[section] > 0) Set(comp, section, counts[section] - 1);
+            }
+            Leave(t);
+            if (dead) { t.State = St.Dead; t.Health = 0f; Trace("DC team " + No(s, t) + " dead (section " + section + (walking ? ", on the way" : "") + ")"); }
             else
             {
                 t.State = St.Injured;
-                t.Total = TransferTime(comp, section);
+                t.Total = InjuredTime(comp, section);
                 t.Until = now + t.Total;
-                Trace("DC team wounded (section " + section + "), health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture));
+                Trace("DC team " + No(s, t) + " wounded and concussed (section " + section + (walking ? ", on the way" : "") + "), health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture));
             }
             t.Section = -1; t.From = section;
+        }
+
+        /// <summary>The section a team on its way is in just now (the straight line from where it left to where it goes; the reserve is the central section).</summary>
+        static int SectionOnTheWay(Team t, double now)
+        {
+            int from = t.From < 0 ? 2 : t.From, to = t.Section < 0 ? 2 : t.Section;
+            double f = t.Total > 0.0 ? 1.0 - (t.Until - now) / t.Total : 1.0;
+            f = Math.Max(0.0, Math.Min(1.0, f));
+            return (int)Math.Round(from + (to - from) * f);
         }
 
         static float TakeHit(object comp)
@@ -411,7 +449,7 @@ namespace AlternativeDamageModel
             float wound = WoundOf(comp, power, out odds, ReserveWoundChance);
             WoundStats.Rolled(true, odds, wound);
             t.Health -= wound;
-            if (wound > 0f) Concuss(t);
+            if (wound > 0f) Concuss(t, wound, No(s, t));
             Trace("Hit on the central compartment: power " + power.ToString("0.#", CultureInfo.InvariantCulture) + ", chance to reach the reserve " + chancePct.ToString("0") + "%, wound chance " + (odds * 100.0).ToString("0.#", CultureInfo.InvariantCulture) +
                   "% -> " + (wound > 0f ? "wound " + (wound * 100f).ToString("0.#", CultureInfo.InvariantCulture) + "%" : "missed"));
             if (t.Health <= 0f)
@@ -420,9 +458,9 @@ namespace AlternativeDamageModel
                 if (counts != null && counts.Length > 5 && counts[5] > 0) Set(comp, 5, counts[5] - 1);
                 Leave(t);
                 t.State = St.Dead; t.Health = 0f; t.Section = -1; t.From = -1;
-                Trace("DC team dead in the reserve (central compartment hit)");
+                Trace("DC team " + No(s, t) + " dead in the reserve (central compartment hit)");
             }
-            else if (wound > 0f) Trace("DC team in the reserve wounded, health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture));
+            else if (wound > 0f) Trace("DC team " + No(s, t) + " in the reserve wounded, health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture));
         }
 
         public static bool Wounded(Team t) { return Wounded(t.Health); }
@@ -563,6 +601,15 @@ namespace AlternativeDamageModel
             return t <= 0f ? 0f : Math.Max(10f, (float)Math.Round(t / 10f) * 10f);
         }
 
+        /// <summary>The way of a wounded team back to the reserve: a team hit in the middle section (the reserve is there, nothing to walk) is back at once, no muster.</summary>
+        public static float InjuredTime(object comp, int section)
+        {
+            int count = 5;
+            try { count = Math.Max(1, (int)_count.GetValue(comp)); } catch { }
+            if (Math.Abs((section + 0.5f) / count - 0.5f) < 0.001f) return 0f;
+            return TransferTime(comp, section);
+        }
+
         /// <summary>Walk between two places (-1 = the reserve, in the middle of the ship), with the muster time; rounded to 10 s.</summary>
         public static float TransferTime(object comp, int a, int b)
         {
@@ -616,6 +663,7 @@ namespace AlternativeDamageModel
                 other.Sort((a, b) => Rank(a).CompareTo(Rank(b)));
                 for (int k2 = 0; k2 < other.Count - allowed; k2++) spare.Add(other[k2]);
             }
+            foreach (var sp in spare) if (sp.Stun > 0.0) Trace("DC teams reconciled: a concussed team (" + sp.Stun.ToString("0", CultureInfo.InvariantCulture) + " s left, " + sp.State + ") is moved or dropped");
             double now = Now();
             int k = 0, made = 0;
             for (int loc = 5; loc >= 0; loc--)
@@ -955,14 +1003,14 @@ namespace AlternativeDamageModel
                         Leave(hit);
                         float wound = HealthOn ? WoundOf(comp, TakeHit(comp)) : 0f;
                         hit.Health -= wound;
-                        Concuss(hit);
-                        if (HealthOn && hit.Health <= 0f) { hit.State = St.Dead; hit.Health = 0f; Trace("DC team dead (section " + from + ")"); }
+                        Concuss(hit, HealthOn ? wound : -1f, No(s, hit));
+                        if (HealthOn && hit.Health <= 0f) { hit.State = St.Dead; hit.Health = 0f; Trace("DC team " + No(s, hit) + " dead (section " + from + ")"); }
                         else
                         {
                             hit.State = St.Injured;   // wounded: walks to the reserve
-                            hit.Total = TransferTime(comp, from);
+                            hit.Total = InjuredTime(comp, from);
                             hit.Until = now + hit.Total;
-                            Trace("DC team hit (section " + from + "), health " + hit.Health.ToString("0.00", CultureInfo.InvariantCulture) + ", back in " + hit.Total + " s");
+                            Trace("DC team " + No(s, hit) + " hit (section " + from + "), health " + hit.Health.ToString("0.00", CultureInfo.InvariantCulture) + ", back in " + hit.Total + " s");
                         }
                         hit.Section = -1; hit.From = from;   // From: where it was hit (shown in its tooltip)
                     }
@@ -1001,6 +1049,7 @@ namespace AlternativeDamageModel
                         counts = Counts(comp);
                         Set(comp, 5, counts[5] + 1);
                         t.State = St.Pool; t.Section = -1;
+                        Trace("DC team " + No(s, t) + " back in the reserve, health " + t.Health.ToString("0.00", CultureInfo.InvariantCulture) + ", concussion left " + t.Stun.ToString("0", CultureInfo.InvariantCulture) + " s");
                     }
                 }
 

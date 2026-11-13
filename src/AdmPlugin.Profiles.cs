@@ -464,7 +464,7 @@ namespace AlternativeDamageModel
                     WriteProfileFile(UserFile(own), oc);
                     if (_profileEntry.Value != own) { _reloading = true; try { _profileEntry.Value = own; } finally { _reloading = false; } SaveConfig(); }
                     _profWatch.Set(UserFile(own));
-                    Say("Settings differ from profile " + (prof == null ? "?" : prof.Name) + ": kept as profile \"" + own + "\".");
+                    Trace("Settings differ from profile " + (prof == null ? "?" : prof.Name) + ": kept as profile \"" + own + "\".");
                 }
                 else { var pc = cur.Copy(prof.Name); pc.Parent = prof.Parent; WriteProfileFile(UserFile(prof.Name), pc); }
             }
@@ -502,7 +502,7 @@ namespace AlternativeDamageModel
                 finally { _reloading = false; }
             }
             ApplyValues(values, name);
-            Say("Settings profile \"" + name + "\" in use.");
+            Trace("Settings profile \"" + name + "\" in use.");
             return name;
         }
 

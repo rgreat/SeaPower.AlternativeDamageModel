@@ -1,13 +1,18 @@
 Version 1.9.0.
 
 Changes:
-- Supports Sea Power 0.9.0 only.
-- Works under the R.A.T.S. Keel loader: the "Alternative Mods" button appears.
-- The menu button text is refreshed when mods start one after another (Keel).
-- Fixed: no damage control teams for a destroyed ship.
-- Settings window: "profile: x" next to "game: x"; the reset button brings back the profile's value. Debug is the last tab.
-- Debug trace: a line for every hit.
-- Small ships (1000 t down to 50 t) burn and flood up to 3x faster.
-- Fires from hits: 1.0 = as in the game (the stronger hull no longer holds fires back automatically).
-- Hit list shows secondary explosions of systems and marks hits by dud warheads.
+- Supports Sea Power 0.9.0 only. Works under the R.A.T.S. Keel loader.
+- Fixed: DC teams wounded again (big ships far more often, also on the way); one shell = one roll per section.
+- Settings: "profile: x" next to "game: x".
+- Small ships (1000-50 t) burn and flood up to 3x faster.
+- Fires from hits: 1.0 = as in the game (the stronger hull no longer holds fires back).
+- New: a gun shell's fire starts with a size, as for bombs (Fire tab).
+- New: shells stopped by armour may start a fire next to the hit compartment (Fire tab).
+- New: gun shell fire chance by power (Fire tab): 90% from 100 mm, less if stopped.
+- Hit list: secondary explosions, duds, fires from shells.
 - Systems go out of order from 75% of water in a compartment or 50% in the section.
+- Wounded teams keep working; only concussed ones leave.
+- New: Concussion chance (Weapon hits, x1).
+- New: WW2 armour classes; DC armour card.
+- Critical by fires: mean, not sum.
+- Fix: mast hits in the hit list.

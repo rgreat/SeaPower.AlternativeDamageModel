@@ -15,7 +15,7 @@ namespace AlternativeDamageModel
     /// </summary>
     static class HitLog
     {
-        public sealed class Rec { public double Time; public string Ammo; public int Section; public bool Port, Armor, Blast, Dud; }
+        public sealed class Rec { public double Time; public string Ammo; public int Section; public bool Port, Armor, Blast, Dud, ArmFire; public string System; }   // System: a hit on a system only (no hull compartment): the list names it instead of the section
 
         const int Max = 400;
         static readonly ConditionalWeakTable<object, List<Rec>> Logs = new ConditionalWeakTable<object, List<Rec>>();
@@ -43,6 +43,30 @@ namespace AlternativeDamageModel
                 if (!_ok) Trace("HitLog: members missing (game updated?)");
             }
             catch (Exception e) { Trace("HitLog.Init: " + e.Message); }
+        }
+
+        // A blocked shell may light a fire in a compartment next to the hit one (BlockedFire). That compartment is processed in another call of
+        // ProcessCompartmentHit than the hit one, before or after it: the note waits for the record or marks the one already made.
+        sealed class Pending { public object Hit; public Rec Last; public bool Fire; }
+        static readonly ConditionalWeakTable<object, Pending> _pending = new ConditionalWeakTable<object, Pending>();
+
+        static Pending PendingOf(object blastzone, object hitObject)
+        {
+            var p = _pending.GetOrCreateValue(blastzone);
+            if (!ReferenceEquals(p.Hit, hitObject)) { p.Hit = hitObject; p.Last = null; p.Fire = false; }
+            return p;
+        }
+
+        /// <summary>A hit stopped by the armour has lit a fire (BlockedFire): the hit's record says so.</summary>
+        public static void NoteBlockedFire(object blastzone, object hitObject)
+        {
+            try
+            {
+                var p = PendingOf(blastzone, hitObject);
+                p.Fire = true;
+                if (p.Last != null) p.Last.ArmFire = true;
+            }
+            catch (Exception e) { Trace("HitLog.NoteBlockedFire: " + e.Message); }
         }
 
         static bool IsDud(object blastzone)
@@ -275,6 +299,10 @@ namespace AlternativeDamageModel
             catch { return 0; }
         }
 
+        static int _unplaced;
+        sealed class Made { public Rec Rec; public bool Matched; }
+        static readonly ConditionalWeakTable<object, Made> _made = new ConditionalWeakTable<object, Made>();
+
         /// <summary>Postfix of Blastzone.ProcessCompartmentHit(hitObject, hc, blockedByMainArmor, damage).</summary>
         public static void Postfix(object __instance, object[] __args)
         {
@@ -289,33 +317,159 @@ namespace AlternativeDamageModel
                 if (parts.Length < 3 || parts[0] != "flooding" || !int.TryParse(parts[2], out number)) return;
                 bool port = parts[1] == "port";
                 var map = ReserveHits.Field(__instance.GetType(), "_unitImpactData").GetValue(__instance) as IDictionary;
-                if (map == null || !map.Contains(hitObject)) return;
+                if (map == null || !map.Contains(hitObject))
+                {
+                    // a hit the list cannot place (the game keeps no impact data of it): said in the trace, a few times, to find what it is
+                    if (AdmPlugin.DebugOn && _unplaced < 12) { _unplaced++; Trace("hit not in the list: " + hitObject.GetType().Name + " in " + hc.transform.name + ", damage " + Convert.ToSingle(__args[3]).ToString("0.##", CultureInfo.InvariantCulture)); }
+                    return;
+                }
                 var impact = map[hitObject];
                 if (!_init) Init(__instance, impact);
                 if (!_ok) return;
-                if (Convert.ToInt32(_fHitIndex.GetValue(impact)) != number || (bool)_fPortHit.GetValue(impact) != port) return;   // a neighbour of the hit one
+                // The game takes the section and the side of a hit from the hit point (GetCompartmentIndex, the sign of x), but processes the colliders
+                // the blast touched: they can be other ones (a hit near a boundary or the centre line, a shell through the deck). So one record per
+                // shell: made at the first compartment processed, and put on the hit compartment (the section and the side of the hit point) when it comes.
+                bool match = Convert.ToInt32(_fHitIndex.GetValue(impact)) == number && (bool)_fPortHit.GetValue(impact) == port;
                 var comps = _fImpactComp.GetValue(impact);
                 if (comps == null) return;
-                var rec = new Rec
+                bool blast = (bool)_fSecondary.GetValue(__instance);
+                var st = _made.GetOrCreateValue(impact);
+                Rec rec;
+                bool added;
+                if (st.Rec == null)
                 {
-                    Time = _pTime == null ? 0 : Convert.ToDouble(_pTime.GetValue(null, null), CultureInfo.InvariantCulture),
-                    Ammo = AmmoName(__instance), Section = number - 1, Port = port, Armor = (bool)__args[2], Blast = (bool)_fSecondary.GetValue(__instance), Dud = IsDud(__instance)
-                };
-                if (rec.Blast && _exploding != null)
-                {
-                    rec.Ammo = Loc.F("Explosion of {0}", _exploding);                    // a system of a ship blew up: the blast has no ammunition of its own
-                    if (ReferenceEquals(comps, _explodingComps)) _explodingLogged = true;
+                    rec = new Rec
+                    {
+                        Time = _pTime == null ? 0 : Convert.ToDouble(_pTime.GetValue(null, null), CultureInfo.InvariantCulture),
+                        Ammo = AmmoName(__instance), Section = number - 1, Port = port, Armor = (bool)__args[2], Blast = blast, Dud = IsDud(__instance)
+                    };
+                    var pend = PendingOf(__instance, hitObject);
+                    rec.ArmFire = pend.Fire; pend.Last = rec;   // a fire the shell started (the hit compartment's own or a neighbour's)
+                    if (rec.Blast && _exploding != null)
+                    {
+                        rec.Ammo = Loc.F("Explosion of {0}", _exploding);                    // a system of a ship blew up: the blast has no ammunition of its own
+                        if (ReferenceEquals(comps, _explodingComps)) _explodingLogged = true;
+                    }
+                    st.Rec = rec; st.Matched = match; added = true;
                 }
+                else if (match && !st.Matched)
+                {
+                    rec = st.Rec; rec.Section = number - 1; rec.Port = port; rec.Armor = (bool)__args[2]; rec.System = null; st.Matched = true; added = false;   // the hit compartment came after a neighbour
+                }
+                else return;
                 if (AdmPlugin.DebugOn)
-                    Trace("hit " + rec.Ammo + ": section " + number + (port ? " port" : " stbd") + (rec.Armor ? ", stopped by armour" : "") + (rec.Blast ? ", explosion" : "") + (rec.Dud ? ", dud" : "") +
+                    Trace("hit " + rec.Ammo + ": section " + number + (port ? " port" : " stbd") + (match ? "" : " (a neighbour of the hit point's " + _fHitIndex.GetValue(impact) + ((bool)_fPortHit.GetValue(impact) ? " port" : " stbd") + ")") + (added ? "" : " (the hit compartment, replaces the record)") +
+                          (rec.Armor ? ", stopped by armour" : "") + (rec.Blast ? ", explosion" : "") + (rec.Dud ? ", dud" : "") + (rec.ArmFire ? ", started a fire" : "") +
                           ", damage " + Convert.ToSingle(__args[3]).ToString("0.##", CultureInfo.InvariantCulture) + " -> " + ReserveHits.Describe(comps, number, port));
-                var list = Logs.GetOrCreateValue(comps);
-                lock (list) { list.Add(rec); if (list.Count > Max) list.RemoveAt(0); }
+                if (added)
+                {
+                    var list = Logs.GetOrCreateValue(comps);
+                    lock (list) { list.Add(rec); if (list.Count > Max) list.RemoveAt(0); }
+                }
             }
             catch (Exception e) { Trace("HitLog: " + e.Message); }
         }
 
-        // ---- saved games: "ammunition|ammunition|.../time,ammo,section,flags|..." (flags: 1 port, 2 stopped by armour, 4 explosion, 8 dud)
+        // the OnHitUnit in progress and the first system it damaged (BaseSystem.AddDamage): the hit list puts such a hit on the system's section
+        [ThreadStatic] static object _curBz, _curHit, _curSys;
+
+        public static void HitUnitPre(object blastzone, object hitObject) { _curBz = blastzone; _curHit = hitObject; _curSys = null; }
+
+        public static void SystemDamaged(object system)
+        {
+            if (_curBz != null && _curSys == null) _curSys = system;
+        }
+
+        /// <summary>The section (0-based) and the side of a system of a ship, -1 when it is not found.</summary>
+        static int SectionOfSystem(object system, out bool port)
+        {
+            port = false;
+            try
+            {
+                var comps = ShipCompsOf(system);
+                if (comps == null) return -1;
+                int section = -1;
+                var arr = ReserveHits.Field(comps.GetType(), "_systemCompartments").GetValue(comps) as Array;
+                if (arr != null)
+                    for (int i = 0; i < arr.Length && section < 0; i++)
+                    {
+                        var sc = arr.GetValue(i); if (sc == null) continue;
+                        if (_fSysLists == null) _fSysLists = ReserveHits.Field(sc.GetType(), "_listOfSystems");
+                        var list = _fSysLists == null ? null : _fSysLists.GetValue(sc) as IEnumerable;
+                        if (list != null) foreach (var b in list) if (ReferenceEquals(b, system)) { section = i; break; }
+                    }
+                if (section < 0) return -1;
+                try
+                {
+                    var bo = _fSysBase.GetValue(system) as UnityEngine.Component;
+                    UnityEngine.Vector3? pos = null;
+                    var mountF = ReserveHits.Field(system.GetType(), "_mountObject");
+                    var mount = mountF == null ? null : mountF.GetValue(system) as UnityEngine.Component;
+                    if (mount != null) pos = mount.transform.position;
+                    else
+                    {
+                        var colsF = ReserveHits.Field(system.GetType(), "_colliders");
+                        var cols = colsF == null ? null : colsF.GetValue(system) as IEnumerable;
+                        if (cols != null) foreach (var c in cols) { var go = ReserveHits.Field(c.GetType(), "_go").GetValue(c) as UnityEngine.GameObject; if (go != null) pos = go.transform.position; break; }
+                    }
+                    if (bo != null && pos.HasValue) port = bo.transform.InverseTransformPoint(pos.Value).x < 0f;
+                }
+                catch { }
+                return section;
+            }
+            catch { return -1; }
+        }
+
+        /// <summary>Postfix of Blastzone.OnHitUnit(hitObject, hc, hitPoint). The game's ProcessCompartmentHit returns at once for a collider that is
+        /// not "flooding_<side>_<n>" (a mast, a turret, a system), so a shell that touches only those never reaches Postfix: the record is made here,
+        /// on the section and the side of the hit point (the game's own _hitCompartmentIndex / _portSideHit), when none is there yet.</summary>
+        public static void HitUnitPost(object blastzone, object hitObject)
+        {
+            try
+            {
+                if (blastzone == null || hitObject == null) return;
+                var map = ReserveHits.Field(blastzone.GetType(), "_unitImpactData").GetValue(blastzone) as IDictionary;
+                if (map == null || !map.Contains(hitObject)) return;
+                var impact = map[hitObject];
+                if (!_init) Init(blastzone, impact);
+                if (!_ok) return;
+                var st = _made.GetOrCreateValue(impact);
+                if (st.Rec != null) return;
+                var comps = _fImpactComp.GetValue(impact);
+                if (comps == null) return;
+                int number = Convert.ToInt32(_fHitIndex.GetValue(impact));
+                bool port = (bool)_fPortHit.GetValue(impact);
+                string sysNote = null;
+                if (_curSys != null && ReferenceEquals(_curBz, blastzone) && ReferenceEquals(_curHit, hitObject))
+                {
+                    // a system was hit: the list says where it stands (the hit point of a mast can be in another section than the systems on it)
+                    bool sp; int sec = SectionOfSystem(_curSys, out sp);
+                    if (sec >= 0) { number = sec + 1; port = sp; sysNote = SystemName(_curSys); }
+                }
+                var rec = new Rec
+                {
+                    Time = _pTime == null ? 0 : Convert.ToDouble(_pTime.GetValue(null, null), CultureInfo.InvariantCulture),
+                    Ammo = AmmoName(blastzone), Section = number - 1, Port = port, Armor = false, Blast = (bool)_fSecondary.GetValue(blastzone), Dud = IsDud(blastzone), System = sysNote
+                };
+                var pend = PendingOf(blastzone, hitObject);
+                rec.ArmFire = pend.Fire; pend.Last = rec;
+                if (rec.Blast && _exploding != null)
+                {
+                    rec.Ammo = Loc.F("Explosion of {0}", _exploding);
+                    if (ReferenceEquals(comps, _explodingComps)) _explodingLogged = true;
+                }
+                st.Rec = rec; st.Matched = false;
+                if (AdmPlugin.DebugOn)
+                    Trace("hit " + rec.Ammo + ": section " + number + (port ? " port" : " stbd") + (sysNote != null ? " (system hit: " + sysNote + ")" : " (no compartment collider touched: a mast, a turret or a system)") +
+                          (rec.Blast ? ", explosion" : "") + (rec.Dud ? ", dud" : "") + " -> " + ReserveHits.Describe(comps, number, port));
+                var list = Logs.GetOrCreateValue(comps);
+                lock (list) { list.Add(rec); if (list.Count > Max) list.RemoveAt(0); }
+            }
+            catch (Exception e) { Trace("HitLog.HitUnitPost: " + e.Message); }
+            finally { _curBz = null; _curHit = null; _curSys = null; }
+        }
+
+        // ---- saved games: "ammunition|ammunition|.../time,ammo,section,flags,system|..." (system: the index in the names, -1 none) (flags: 1 port, 2 stopped by armour, 4 explosion, 8 dud, 16 fire from a blocked hit)
 
         static string Clean(string a) { return (a ?? "?").Replace('|', '-').Replace('/', '-').Replace('#', ' ').Replace(',', ' ').Replace(';', ' ').Replace('=', ' ').Trim(); }
 
@@ -332,8 +486,10 @@ namespace AlternativeDamageModel
                 int i = names.IndexOf(a);
                 if (i < 0) { names.Add(a); i = names.Count - 1; }
                 if (body.Length > 0) body.Append('|');
+                int si = -1;
+                if (r.System != null) { string sn = Clean(r.System); si = names.IndexOf(sn); if (si < 0) { names.Add(sn); si = names.Count - 1; } }
                 body.Append(r.Time.ToString("0.#", CultureInfo.InvariantCulture)).Append(',').Append(i).Append(',').Append(r.Section).Append(',')
-                    .Append((r.Port ? 1 : 0) | (r.Armor ? 2 : 0) | (r.Blast ? 4 : 0) | (r.Dud ? 8 : 0));
+                    .Append((r.Port ? 1 : 0) | (r.Armor ? 2 : 0) | (r.Blast ? 4 : 0) | (r.Dud ? 8 : 0) | (r.ArmFire ? 16 : 0)).Append(',').Append(si);
             }
             sb.Append(string.Join("|", names.ToArray())).Append('/').Append(body);
             return sb.ToString();
@@ -350,10 +506,11 @@ namespace AlternativeDamageModel
                 foreach (var part in text.Substring(hash + 1).Split('|'))
                 {
                     var f = part.Split(',');
-                    int idx, sec, flags; double t;
+                    int idx, sec, flags, sysIdx; double t;
                     if (f.Length < 4 || !double.TryParse(f[0], NumberStyles.Float, CultureInfo.InvariantCulture, out t) || !int.TryParse(f[1], out idx) ||
                         !int.TryParse(f[2], out sec) || !int.TryParse(f[3], out flags)) continue;
-                    list.Add(new Rec { Time = t, Ammo = idx >= 0 && idx < names.Length ? names[idx] : "?", Section = sec, Port = (flags & 1) != 0, Armor = (flags & 2) != 0, Blast = (flags & 4) != 0, Dud = (flags & 8) != 0 });
+                    list.Add(new Rec { Time = t, Ammo = idx >= 0 && idx < names.Length ? names[idx] : "?", Section = sec, Port = (flags & 1) != 0, Armor = (flags & 2) != 0, Blast = (flags & 4) != 0, Dud = (flags & 8) != 0, ArmFire = (flags & 16) != 0,
+                                       System = f.Length >= 5 && int.TryParse(f[4], out sysIdx) && sysIdx >= 0 && sysIdx < names.Length ? names[sysIdx] : null });
                 }
                 if (list.Count > Max) list.RemoveRange(0, list.Count - Max);
                 var cur = Logs.GetOrCreateValue(comps);

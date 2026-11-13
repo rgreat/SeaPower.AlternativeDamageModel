@@ -1966,7 +1966,7 @@ namespace AlternativeDamageModel
                             return sb.ToString();
                         }
                         case DcTeams.St.Injured:
-                            return dc + Loc.T("concussed, going to the reserve") + "\n" + Loc.F("There in {0}", Clock(v.Left)) + (kn != null ? "\n" + kn : "");
+                            return dc + (v.Stun > 0f ? Loc.T("concussed, going to the reserve") : Loc.T("wounded, going to the reserve")) + "\n" + Loc.F("There in {0}", Clock(v.Left)) + (kn != null ? "\n" + kn : "");
                         case DcTeams.St.Dead:
                             return dc + Loc.T("lost") + (v.From >= 0 ? " (" + SectionName(names, v.From) + ")" : "");
                         case DcTeams.St.Pool:
@@ -2382,7 +2382,7 @@ namespace AlternativeDamageModel
                 case TaskSystems: return Loc.T("repairing systems");
                 case IconKnocked: case IconDead: return Loc.T("lost");
                 case IconTransit: return Loc.T("on the move (In Transfer)");
-                case IconInjured: return Loc.T("concussed, going to the reserve (In Transfer)");
+                case IconInjured: return Loc.T("wounded, going to the reserve (In Transfer)");
                 default: return Loc.T("no task");
             }
         }

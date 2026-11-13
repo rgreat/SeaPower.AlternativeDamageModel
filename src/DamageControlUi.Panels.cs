@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -38,6 +39,8 @@ namespace AlternativeDamageModel
             public object Comp;                         // the unit shown: another one -> values at once, no smoothing across units
             public Schematic Schem;
             public UIElement[] GameCard2, OurCard2;     // "Teams Knocked Out" (the game's) / "In Transfer" (ours)
+            public Border ArmorCard; public TextBlock ArmorVal, ArmorSub; public string ArmorSig;      // the card "Armour" left of the hull card
+            public ColumnDefinition HullCol; public GridLength HullColWidth;                       // the hull card's column, made narrower
             public int Card2Mode = -1;                     // the card's tooltip: the sections and their water (DamageControlUi.Schematic.cs)
         }
 
@@ -64,8 +67,8 @@ namespace AlternativeDamageModel
             {
                 var ts = TimeSpan.FromSeconds(Math.Max(0.0, r.Time));
                 string when = ((int)ts.TotalHours).ToString("0", CultureInfo.InvariantCulture) + ":" + ts.Minutes.ToString("00", CultureInfo.InvariantCulture) + ":" + ts.Seconds.ToString("00", CultureInfo.InvariantCulture);
-                string where = SectionName(_sectionNames, r.Section) + ", " + (r.Port ? Loc.T("port") : Loc.T("starboard"));
-                root.Children.Add(line(when + "   " + r.Ammo + "   " + where + (r.Armor ? "   (" + Loc.T("stopped by armour") + ")" : "") + (r.Blast ? "   (" + Loc.T("explosion") + ")" : "") + (r.Dud ? "   (" + Loc.T("dud") + ")" : ""), r.Armor ? dim : text, false));
+                string where = r.System ?? (SectionName(_sectionNames, r.Section) + ", " + (r.Port ? Loc.T("port") : Loc.T("starboard")));   // a hit on a system only: its name, no hull place
+                root.Children.Add(line(when + "   " + r.Ammo + "   " + where + (r.Armor || r.ArmFire ? "   (" + (r.Armor ? Loc.T("stopped by armour") : "") + (r.Armor && r.ArmFire ? ", " : "") + (r.ArmFire ? Loc.T("started a fire") : "") + ")" : "") + (r.Blast ? "   (" + Loc.T("explosion") + ")" : "") + (r.Dud ? "   (" + Loc.T("dud") + ")" : ""), r.Armor ? dim : text, false));
             }
             return root;
         }
@@ -265,6 +268,9 @@ namespace AlternativeDamageModel
                 hullCard.MouseEnter += (s2, e2) => { try { holder.Child = HitLogTip(x.Comp); } catch (Exception ex) { Trace("hit log: " + ex.Message); } };
             }
 
+            // ---- the card "Armour": the class of the hull's armour (column 3, against the hull card, which gets a little narrower)
+            try { AddArmorCard(view, summary, styleCard, x); } catch (Exception e) { Trace("armour card: " + e.Message); }
+
             // ---- team cards: free teams and knocked-out teams as icons (each team is shown once on the tab:
             //      free ones here, the others in their sections)
             try { AddTeamCards(summary, x); } catch (Exception e) { Trace("team cards: " + e.Message); }
@@ -377,6 +383,165 @@ namespace AlternativeDamageModel
             }
         }
 
+        static void AddArmorCard(FrameworkElement view, Grid summary, Border styleCard, Extras x)
+        {
+            if (summary.ColumnDefinitions.Count >= 5)
+            {
+                x.HullCol = summary.ColumnDefinitions[4]; x.HullColWidth = x.HullCol.Width;
+                x.HullCol.Width = new GridLength(190f, GridUnitType.Pixel);
+            }
+            // the look of the neighbour card's title and value
+            TextBlock titleLike = null, valueLike = null;
+            for (int k = 0, n = VisualTreeHelper.GetChildrenCount(summary); k < n; k++)
+            {
+                var b = VisualTreeHelper.GetChild(summary, k) as Border;
+                var g = b == null ? null : b.Child as Grid;
+                if (g == null || Grid.GetColumn(b) != 0) continue;
+                for (int j = 0, m = VisualTreeHelper.GetChildrenCount(g); j < m; j++)
+                {
+                    var t = VisualTreeHelper.GetChild(g, j) as TextBlock;
+                    if (t == null) continue;
+                    if (Grid.GetRow(t) == 0) titleLike = t; else if (Grid.GetRow(t) == 1) valueLike = t;
+                }
+            }
+            var card = new Border
+            {
+                Background = styleCard.Background, BorderBrush = styleCard.BorderBrush, BorderThickness = styleCard.BorderThickness,
+                Padding = new Thickness(8f, 4f, 8f, 4f), Margin = new Thickness(0f, 0f, 6f, 0f), MinWidth = 120f,
+                HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Stretch
+            };
+            Grid.SetColumn(card, 3);
+            var sp = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = HorizontalAlignment.Center };
+            var title = new TextBlock { Text = Loc.T("Armour"), HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, Margin = new Thickness(0f, 0f, 0f, 4f) };
+            if (titleLike != null) { title.FontSize = titleLike.FontSize; title.Foreground = titleLike.Foreground; }
+            x.ArmorVal = new TextBlock { Text = "", HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center };
+            if (valueLike != null) x.ArmorVal.FontSize = valueLike.FontSize;
+            x.ArmorSub = new TextBlock { Text = "", HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, Margin = new Thickness(0f, 4f, 0f, 0f) };
+            if (titleLike != null) { x.ArmorSub.FontSize = titleLike.FontSize; x.ArmorSub.Foreground = titleLike.Foreground; }
+            sp.Children.Add(title); sp.Children.Add(x.ArmorVal); sp.Children.Add(x.ArmorSub);
+            card.Child = sp;
+            var holder = new Border();
+            try
+            {
+                ToolTipService.SetToolTip(card, holder);
+                ToolTipService.SetPlacement(card, PlacementMode.Top);
+                ToolTipService.SetShowDuration(card, int.MaxValue);
+            }
+            catch (Exception e) { Trace("armour tip: " + e.Message); }
+            card.MouseEnter += (s2, e2) => { try { holder.Child = ArmorTip(x.Comp); } catch (Exception ex) { Trace("armour tip: " + ex.Message); } };
+            x.ArmorCard = card;
+            Add(x, summary, card);
+        }
+
+        static string ArmorName(int type, string custom)
+        {
+            if (custom != null)
+            {
+                switch (custom)
+                {
+                    case "LightCruiser": return Loc.T("Light cruiser");
+                    case "HeavyCruiser": return Loc.T("Heavy cruiser");
+                    case "BattleCruiser": return Loc.T("Battlecruiser");
+                    case "BattleCruiser2": return Loc.T("Battlecruiser II");
+                    case "SuperHeavy": return Loc.T("Super heavy");
+                    default: return custom;
+                }
+            }
+            return type == 1 ? Loc.T("Minor") : type == 2 ? Loc.T("Moderate") : type == 3 ? Loc.T("Heavy") : Loc.T("None");
+        }
+
+        static string Pct1(float v) { return (v <= 0.0001f ? 0 : Math.Max(1, (int)Math.Round(v))).ToString(CultureInfo.InvariantCulture); }   // whole per cent, not less than 1 (0 stays 0)
+        static string Mult(float v) { return v.ToString("0.###", CultureInfo.InvariantCulture); }
+
+        /// <summary>The tooltip of the card: per shell penetration the chance that the armour stops the shell and the damage it lets through.</summary>
+        static FrameworkElement ArmorTip(object comp)
+        {
+            var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(10f) };
+            Func<string, Color, bool, TextBlock> line = (t, c, bold) => new TextBlock { Text = t, FontSize = 12f, Foreground = new SolidColorBrush(c), FontWeight = bold ? FontWeight.Bold : FontWeight.Normal, Margin = new Thickness(0f, 1f, 0f, 1f) };
+            var text = Color.FromRgb(225, 228, 232); var dim = Color.FromRgb(150, 156, 164);
+            int type; string custom; float bonus; float[] pass;
+            if (!ArmorClasses.Info(comp, out type, out custom, out bonus, out pass)) { root.Children.Add(line(Loc.T("None yet"), dim, false)); return root; }
+            root.Children.Add(line(Loc.T("Armour") + ": " + ArmorName(type, custom), text, true));
+            if (bonus > 1.0001f) root.Children.Add(line(Loc.F("Hull integrity x{0}", Mult(bonus)), dim, false));
+            // a table: the shell's penetration | the chance that the armour stops it | the damage when it gets through (mean +/- spread, per cent)
+            var grid = new Grid { Margin = new Thickness(0f, 4f, 0f, 2f) };
+            for (int c = 0; c < 3; c++) grid.ColumnDefinitions.Add(ColDef(0f, GridUnitType.Auto));
+            for (int r = 0; r < 5; r++) grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(0f, GridUnitType.Auto) });
+            Action<int, int, string, Color, bool> cell = (r, c, t, col, left) =>
+            {
+                var tb = new TextBlock { Text = t, FontSize = 12f, Foreground = new SolidColorBrush(col), Margin = new Thickness(left ? 0f : 14f, 1f, 0f, 1f),
+                                         HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right };
+                Grid.SetRow(tb, r); Grid.SetColumn(tb, c); grid.Children.Add(tb);
+            };
+            cell(0, 0, Loc.T("Shell penetration"), dim, true); cell(0, 1, Loc.T("Stops"), dim, false); cell(0, 2, Loc.T("Damage if penetrated"), dim, false);
+            string[] pen = { Loc.T("Minor"), Loc.T("Moderate"), Loc.T("Heavy"), Loc.T("Always") };
+            for (int i = 0; i < 4; i++)
+            {
+                float mn = pass[i * 2], mx = pass[i * 2 + 1];
+                int stop = (int)Math.Round((1f - mx) * 100f);
+                cell(i + 1, 0, pen[i], text, true);
+                cell(i + 1, 1, stop.ToString(CultureInfo.InvariantCulture) + "%", text, false);
+                cell(i + 1, 2, Pct1((mn + mx) * 50f) + "% \u00B1 " + Pct1((mx - mn) * 50f) + "%", text, false);
+            }
+            root.Children.Add(grid);
+            try { AddSystemArmor(root, comp, line, dim, text); } catch (Exception e) { Trace("armour of systems: " + e.Message); }
+            return root;
+        }
+
+        /// <summary>"Systems:" - the systems that have armour of their own (ArmorType of the module), by class, strongest first; none - no lines.
+        /// Names differing only by a trailing _N (WeaponMagazine_203mm_1, _2, ...) are grouped into one with a count ("4 x WeaponMagazine_203mm").</summary>
+        static void AddSystemArmor(StackPanel root, object comp, Func<string, Color, bool, TextBlock> line, Color dim, Color text)
+        {
+            var sys = _compSys == null ? null : _compSys.GetValue(comp) as Array;
+            if (sys == null) return;
+            var byType = new Dictionary<int, Dictionary<string, int>>();
+            for (int i = 0; i < sys.Length; i++)
+            {
+                var sc = sys.GetValue(i);
+                if (sc == null) continue;
+                if (_fScList == null) _fScList = ReserveHits.Field(sc.GetType(), "_listOfSystems");
+                var list = _fScList == null ? null : _fScList.GetValue(sc) as IList;
+                if (list == null) continue;
+                foreach (var s in list)
+                {
+                    if (s == null) continue;
+                    var fa = s.GetType().GetField("_armorType", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    var pn = s.GetType().GetProperty("DisplayName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (fa == null) continue;
+                    int t = Convert.ToInt32(fa.GetValue(s));
+                    if (t <= 0) continue;
+                    string name = pn == null ? "?" : Convert.ToString(pn.GetValue(s, null));
+                    if (string.IsNullOrEmpty(name)) name = "?";
+                    name = System.Text.RegularExpressions.Regex.Replace(name, "_\\d+$", ""); // WeaponMagazine_203mm_1.._4 - one group
+                    Dictionary<string, int> names;
+                    if (!byType.TryGetValue(t, out names)) byType[t] = names = new Dictionary<string, int>();
+                    int n; names.TryGetValue(name, out n); names[name] = n + 1;
+                }
+            }
+            if (byType.Count == 0) return;
+            root.Children.Add(line(Loc.T("Systems:"), dim, false));
+            foreach (int t in ArmorClasses.StrongestFirst)
+            {
+                Dictionary<string, int> names;
+                if (!byType.TryGetValue(t, out names)) continue;
+                var parts = new List<string>(); int shown = 0, more = 0;
+                foreach (var kv in names)
+                {
+                    if (shown >= 6) { more += kv.Value; continue; }
+                    parts.Add(kv.Value > 1 ? kv.Value + " x " + kv.Key : kv.Key); shown++;
+                }
+                if (more > 0) parts.Add("... +" + more);
+                // the class on its own line, then one system per line with an indent
+                root.Children.Add(line(ArmorName(t, ArmorClasses.CustomId(t)) + ":", text, false));
+                foreach (var part in parts)
+                {
+                    var pl = line(part, text, false);
+                    pl.Margin = new Thickness(14f, 1f, 0f, 1f);
+                    root.Children.Add(pl);
+                }
+            }
+        }
+
         /// <summary>The forecast card in the middle of the free space of the summary row: between the right edge of the last visible card on the left
         /// and the left edge of the card of the last column (hull damage / flooding / fires), from the positions as laid out.</summary>
         static void CenterForecast(Extras x)
@@ -391,7 +556,7 @@ namespace AlternativeDamageModel
                     var b = VisualTreeHelper.GetChild(summary, k) as FrameworkElement;
                     if (b == null || ReferenceEquals(b, fc) || b.Visibility != Visibility.Visible || b.ActualWidth < 1f) continue;
                     float bx = b.TranslatePoint(new Point(0f, 0f), summary).X;
-                    if (Grid.GetColumn(b) >= 4) { if (rightEdge < 0f || bx < rightEdge) rightEdge = bx; }
+                    if (Grid.GetColumn(b) >= 4 || ReferenceEquals(b, x.ArmorCard)) { if (rightEdge < 0f || bx < rightEdge) rightEdge = bx; }
                     else leftEdge = Math.Max(leftEdge, bx + b.ActualWidth);
                 }
                 if (rightEdge < 0f) rightEdge = summary.ActualWidth;
@@ -648,6 +813,14 @@ namespace AlternativeDamageModel
                 foreach (var e in x.GameCard2) if (e != null) e.Visibility = mode == 0 ? Visibility.Visible : Visibility.Collapsed;
                 foreach (var e in x.OurCard2) if (e != null) e.Visibility = mode == 1 ? Visibility.Visible : Visibility.Collapsed;
             }
+            if (x.ArmorVal != null)
+            {
+                int at; string ac; float ab; float[] ap;
+                string name = "", sub = "";
+                if (ArmorClasses.Info(comp, out at, out ac, out ab, out ap)) { name = ArmorName(at, ac); if (ab > 1.0001f) sub = Loc.F("Hull integrity x{0}", Mult(ab)); }
+                string asig = name + "|" + sub;
+                if (asig != x.ArmorSig) { x.ArmorVal.Text = name; x.ArmorSub.Text = sub; x.ArmorSig = asig; }
+            }
             // Fires: the worst stage on board, and how many sections burn
             if (x.FireValue != null)
             {
@@ -856,6 +1029,7 @@ namespace AlternativeDamageModel
             try { if (x.FloodVal != null) { x.FloodVal.Text = StripPct(x.FloodVal.Text); x.FloodVal.ClearValue(TextBlock.ForegroundProperty); } } catch { }
             try { if (x.HullInner != null && x.FireRow != null) x.HullInner.Children.Remove(x.FireRow); } catch { }
             try { if (x.HullInner != null && x.FireRowDef != null) x.HullInner.RowDefinitions.Remove(x.FireRowDef); } catch { }
+            try { if (x.HullCol != null) x.HullCol.Width = x.HullColWidth; } catch { }
             HideSchem(x);
             try { if (x.ListHost != null && x.ListCard != null) x.ListHost.Children.Remove(x.ListCard); } catch { }
             foreach (var kv in x.Added) try { kv.Key.Children.Remove(kv.Value); } catch { }

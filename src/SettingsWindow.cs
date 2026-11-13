@@ -106,6 +106,7 @@ namespace AlternativeDamageModel
             Add(TDbg, "Visualisation (selected ship)", "General/ShipModelView", "Ship's 3D model", "for the two above", Kind.Choice, 0, 0, 0, true);
             Fields[Fields.Count - 1].Options = new[] { "Show", "Translucent", "Hide" };
 
+            Add(H, "Hull integrity", "HullIntegrity/ArmorClasses", "Armour classes of the WW2 mod", "LightCruiser … SuperHeavy", Kind.Bool, 0, 0, 0);
             Add(H, "Hull integrity", "HullIntegrity/Warships", "Warships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/CivilianShips", "Civilian ships", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(H, "Hull integrity", "HullIntegrity/Submarines", "Submarines", "× game", Kind.Number, 0.5f, 0.1f, 20f);
@@ -129,6 +130,9 @@ namespace AlternativeDamageModel
             Add(FF, "Fire", "FireAndFlooding/FlameUpSpeed", "Fire growth", "× game", Kind.Number, 0.1f, 0f, 10f);
             Add(FF, "Fire", "FireAndFlooding/FireGrowthLimit", "Fire growth limit", "% of max fire a second · 0 = off", Kind.Number, 0.1f, 0f, 30f);
             Add(FF, "Fire", "FireAndFlooding/FireHullDamageSpeed", "Fire damage to the hull", "× game", Kind.Number, 0.1f, 0f, 10f);
+            Add(FF, "Fire", "FireAndFlooding/GunFireSeverity", "Fires from a gun shell hit", "× as for bombs and missiles · 0 = off", Kind.Number, 0.05f, 0f, 3f);
+            Add(FF, "Fire", "FireAndFlooding/BlockedHitFireChance", "Fire from hits stopped by armour", "× the chance of a shell that gets through · 0 = off", Kind.Number, 0.05f, 0f, 3f);
+            Add(FF, "Fire", "FireAndFlooding/ShellFireByPower", "Shell fire chance by shell power", "90 % from 100 mm, less below", Kind.Bool, 0, 0, 0);
             Add(FF, "Fire", "FireAndFlooding/FireSpreadPercent", "Fire spread chance", "% per fire check (10 s)", Kind.Number, 0.005f, 0f, 100f);
             Add(FF, "Unattended fire", UnattendedKey, "Grows when nobody fights it", "", Kind.Bool, 0, 0, 0);
             Add(FF, "Fire and damage control", "FireAndFlooding/FireWorkEfficiency", "Work amid fire", "% effectiveness without fighting the fire · 100 = off", Kind.Number, 5f, 0f, 100f);
@@ -163,6 +167,7 @@ namespace AlternativeDamageModel
             Add(DC, "Weapon hits", "DamageControlTeams/HitWound", "Wound strength", "× warhead power", Kind.Number, 0.1f, 0f, 20f);
             Add(DC, "Weapon hits", "DamageControlTeams/HealTime", "Concussion time", "s in the reserve · 0 = off", Kind.Number, 10f, 0f, 1200f);
             Add(DC, "Weapon hits", "DamageControlTeams/HealTimeSpread", "Concussion spread", "± s", Kind.Number, 10f, 0f, 600f);
+            Add(DC, "Weapon hits", "DamageControlTeams/ConcussionChance", "Concussion chance", "× chance", Kind.Number, 0.1f, 0f, 1000f);
             Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserve", "Wounds in reserve", "central compartment hits wound resting teams", Kind.Bool, 0, 0, 0);
             Add(DC, "Weapon hits", "DamageControlTeams/HitsInReserveChance", "Wounds in reserve chance", "× chance", Kind.Number, 0.1f, 0f, 10f);
             Add(DC, "Time", "DamageControlTeams/FatigueMinutes", "Tired after", "min of work", Kind.Number, 1f, 0f, 240f);
@@ -803,10 +808,10 @@ namespace AlternativeDamageModel
 
         static bool ModOnly(string key)
         {
-            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" || key == "FireAndFlooding/SmallShipSpeedUp" ||
+            return key.StartsWith("FireAndFlooding/Unattended", StringComparison.Ordinal) || key == "FireAndFlooding/FireReopenLimit" || key == "FireAndFlooding/SmallShipSpeedUp" || key == "FireAndFlooding/BlockedHitFireChance" || key == "FireAndFlooding/GunFireSeverity" || key == "FireAndFlooding/ShellFireByPower" || key == "HullIntegrity/ArmorClasses" ||
                    key == "DamageControlTeams/TeamHealth" || key == "DamageControlTeams/TeamHealthEnabled" || key == "DamageControlTeams/FatigueEnabled" || key == "DamageControlTeams/FatigueRecovery" || key == "DamageControlTeams/HitsInReserve" || key == "DamageControlTeams/HitsInReserveChance" || key == "Systems/NoEngineTeamEffectiveness" || key == "Systems/SeveralPriorities" || key == "FireAndFlooding/AutoCounterflood" || key == "DamageControlTeams/WoundChance" || key == "DamageControlTeams/WoundsAnyIntegrity" || key == "DamageControlTeams/ExhaustedMinutes" ||
                    key == "DamageControlTeams/SpeedRested" || key == "DamageControlTeams/SpeedTired" || key == "DamageControlTeams/SpeedExhausted" || key == "DamageControlTeams/HealthRegen" || key == "DamageControlTeams/FireWound" ||
-                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/HealTime" || key == "DamageControlTeams/HealTimeSpread" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill" || key == "HullIntegrity/CollisionDamage" || key == "HullIntegrity/CollisionMinSpeed" || key.StartsWith("Collisions/", StringComparison.Ordinal);
+                   key == "DamageControlTeams/HitWound" || key == "DamageControlTeams/HealTime" || key == "DamageControlTeams/HealTimeSpread" || key == "DamageControlTeams/ConcussionChance" || key == "DamageControlTeams/FatigueMinutes" || key == "HullIntegrity/DamageSpill" || key == "HullIntegrity/CollisionDamage" || key == "HullIntegrity/CollisionMinSpeed" || key.StartsWith("Collisions/", StringComparison.Ordinal);
         }
 
         static bool GameValue(Field f, out string v)
@@ -914,7 +919,7 @@ namespace AlternativeDamageModel
             "DamageControlTeams/FatigueMinutes", "DamageControlTeams/ExhaustedMinutes", "DamageControlTeams/FatigueRecovery",
             "DamageControlTeams/SpeedRested", "DamageControlTeams/SpeedTired", "DamageControlTeams/SpeedExhausted",
             "FireAndFlooding/UnattendedFireGrowth", "FireAndFlooding/UnattendedFireTime", "FireAndFlooding/UnattendedFireGrowthRate", "FireAndFlooding/UnattendedFireMaxGrowth",
-            "FireAndFlooding/TeamBlocksFireSpread", "FireAndFlooding/FireReopenLeaks", "FireAndFlooding/FireReopenLimit", "FireAndFlooding/SubmergedFireDecay",
+            "FireAndFlooding/TeamBlocksFireSpread", "FireAndFlooding/FireReopenLeaks", "FireAndFlooding/FireReopenLimit", "FireAndFlooding/SubmergedFireDecay", "FireAndFlooding/BlockedHitFireChance", "FireAndFlooding/GunFireSeverity", "FireAndFlooding/ShellFireByPower", "HullIntegrity/ArmorClasses",
             "FireAndFlooding/FullFloodSystems", "FireAndFlooding/FullFloodFireDecay", "HullIntegrity/DamageSpill", "HullIntegrity/CollisionDamage", "HullIntegrity/CollisionMinSpeed", "Collisions/BowStrength", "Collisions/Braking", "Collisions/Enabled", "Collisions/AIShips", "Collisions/WaterResistance", "Collisions/Flooding", "Collisions/GripPress", "Collisions/PushApart", "Systems/NoEngineTeamEffectiveness", "Systems/SeveralPriorities", "FireAndFlooding/AutoCounterflood",
             "UI/DetailedView", "UI/ColorWeaponStatus", "UI/ShowEnemyDamage",
         };

@@ -33,7 +33,8 @@ namespace AlternativeDamageModel
         static FieldInfo _vObject;
         static PropertyInfo _vSensors, _vObserved, _vIdentified, _vDormant, _rpValue;
         static PropertyInfo _oCompartments, _oDestroyed, _cFlood, _cInt, _oPlayer;
-        static FieldInfo _oPower, _cBase, _cSys, _cCount, _scMax, _oTaskforce, _cSinking, _cProp, _cImmobile, _gPlayerTf;
+        static System.Reflection.MemberInfo _oTaskforce;
+        static FieldInfo _oPower, _cBase, _cSys, _cCount, _scMax, _cSinking, _cProp, _cImmobile, _gPlayerTf;
         static PropertyInfo _sInoperable, _sDamage, _scSev;
         static MethodInfo _oSpeed;
         static PropertyInfo _gameTime;
@@ -85,7 +86,7 @@ namespace AlternativeDamageModel
                 _vDormant = _tVehicle.GetProperty("IsDormant", all);
                 _oCompartments = tObj.GetProperty("Compartments", all);
                 _oDestroyed = tObj.GetProperty("IsDestroyed", all);
-                _oTaskforce = tObj.GetField("_taskforce", all);
+                _oTaskforce = ReserveHits.TaskforceMember(tObj);
                 _oPlayer = tObj.GetProperty("IsPlayerObject", all);
                 _gPlayerTf = tGlobals.GetField("_playerTaskforce", all);
                 _cFlood = tComp.GetProperty("FloodingPercentage", all);
@@ -165,7 +166,7 @@ namespace AlternativeDamageModel
             try
             {
                 if (_oPlayer != null && (bool)_oPlayer.GetValue(obj, null)) return true;
-                var tf = _oTaskforce == null ? null : _oTaskforce.GetValue(obj);
+                var tf = ReserveHits.TaskforceOf(_oTaskforce, obj);
                 var mine = _gPlayerTf == null ? null : _gPlayerTf.GetValue(null);
                 return tf != null && ReferenceEquals(tf, mine);
             }
@@ -517,7 +518,7 @@ namespace AlternativeDamageModel
 
         /// <summary>
         /// The critical state by its kind: 2 - the ship is in danger (sinking; flooding stage 3+ with a leak; hull stage 3+ with a fire or a leak;
-        /// fires 50% in all), 1 - only a fire that no team fights (not a danger by itself, but no team rests while it burns), 0 - none.
+        /// fires: the mean over the sections 30% or more), 1 - only a fire that no team fights (not a danger by itself, but no team rests while it burns), 0 - none.
         /// </summary>
         public static int HeavyLevel(object comp)
         {
@@ -546,7 +547,7 @@ namespace AlternativeDamageModel
                 }
                 if (FloodStage(flood) >= 3 && leak) return 2;
                 if (HullStage(hull, ModelOn()) >= 3 && (fire || leak)) return 2;
-                if (FireTotal(comp) >= 50f) return 2;
+                if (count > 0 && FireTotal(comp) / count >= 30f) return 2;   // the mean fire over all sections (the total over the sections made a ship with 9% hull damage critical)
                 return unfought ? 1 : 0;
             }
             catch { return 0; }

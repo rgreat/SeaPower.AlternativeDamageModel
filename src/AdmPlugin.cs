@@ -54,6 +54,7 @@ namespace AlternativeDamageModel
         /// <summary>[General] AlternativeDamageControl: the damage model and the damage control logic (the UI stays with Enabled).</summary>
         static volatile bool _admOn = true;
         static bool Model { get { return Enabled && _admOn; } }
+        internal static bool ModelOn { get { return Model; } }
         static bool _patched, _patchTried;
 
         // settings, cached for the hooks (updated on SettingChanged)
@@ -63,7 +64,7 @@ namespace AlternativeDamageModel
         ConfigEntry<Factor> _collisionEntry, _collisionMinEntry, _brakingEntry, _bowEntry, _gripPressEntry, _floodEntry, _waterEntry;
         ConfigEntry<bool> _collAiEntry, _collOnEntry, _pushEntry;
         ConfigEntry<Factor> _fireGrowLimitEntry, _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _sysRepairEntry, _hullRepairEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
-        ConfigEntry<Factor> _smallBoostEntry, _reserveChanceEntry, _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _stunEntry, _stunSpreadEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _imbalanceEntry;
+        ConfigEntry<Factor> _smallBoostEntry, _blockedFireEntry, _gunFireEntry, _reserveChanceEntry, _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _stunEntry, _stunSpreadEntry, _stunChanceEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _imbalanceEntry;
         ConfigEntry<string> _profileEntry;
         ConfigEntry<string> _speedEffectEntry;
         ConfigEntry<Factor> _maxPlugEntry;
@@ -81,7 +82,7 @@ namespace AlternativeDamageModel
         ConfigEntry<Factor> _fireSpreadEntry;
         static float _fireSpread = GameFireSpreadPct;   // % per check
         ConfigEntry<Factor> _noEngineEntry;
-        ConfigEntry<bool> _autoCounterEntry, _sysPrioEntry, _anyIntegrityEntry, _reserveHitsEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
+        ConfigEntry<bool> _armorClassesEntry, _autoCounterEntry, _sysPrioEntry, _anyIntegrityEntry, _reserveHitsEntry, _healthOnEntry, _fatigueOnEntry, _smallAiEntry, _shellFireEntry, _unattendedEntry, _keepComEntry, _teamBlocksSpreadEntry;
         ConfigEntry<Factor> _unattendedTimeEntry, _unattendedRateEntry, _unattendedMaxEntry;
         static bool _unattended; static float _unattendedTime = 60f, _unattendedRate = 0.25f, _unattendedMax = 0.5f;
         static bool _dumpXaml;
@@ -159,8 +160,10 @@ namespace AlternativeDamageModel
             return "unknown";
         }
 
-        static void Trace(string msg)
+        static readonly List<string> _early = new List<string>();   // lines written before the trace file is known (settings are read first)
+        internal static void Trace(string msg)
         {
+            if (_traceFile == null) { if (_early.Count < 200) _early.Add(DateTime.Now.ToString("HH:mm:ss.fff") + "  " + msg); return; }
             if (!_debug) return;
             try { File.AppendAllText(_traceFile, DateTime.Now.ToString("HH:mm:ss.fff") + "  " + msg + Environment.NewLine); }
             catch { }
@@ -178,12 +181,20 @@ namespace AlternativeDamageModel
             {
                 if (pf.owner == PluginGuid) continue;
                 string msg = "Another mod (" + pf.owner + ") has a prefix on Blastzone.OnHitUnit: the hits it handles itself (it may skip the game's processing for its own ships) are not seen by the hit list, leaks, fires of hits and DC wounds of this mod.";
-                Say(msg); Trace(msg);
+                Say(msg);
             }
         }
 
-        static void Say(string msg) { if (_inst != null) _inst.Logger.LogInfo(msg); }
-        static void Warn(string msg) { if (_inst != null) _inst.Logger.LogWarning(msg); Trace("WARN " + msg); }
+        /// <summary>Diagnostics (LogFires, LogShipIntegrity): into the trace file, whether Debug is on or not; nothing goes to the BepInEx log.</summary>
+        static void Diag(string msg)
+        {
+            try { File.AppendAllText(_traceFile, DateTime.Now.ToString("HH:mm:ss.fff") + "  " + msg + Environment.NewLine); }
+            catch { }
+        }
+
+        /// <summary>The BepInEx log: only for what is wrong or a start-up diagnostic; the trace file gets every line (these too).</summary>
+        static void Say(string msg) { if (_inst != null) _inst.Logger.LogInfo(msg); Trace(msg); }
+        internal static void Warn(string msg) { if (_inst != null) _inst.Logger.LogWarning(msg); Trace("WARN " + msg); }
 
         static string F(float v) { return v.ToString("0.##", CultureInfo.InvariantCulture); }
 
@@ -229,9 +240,9 @@ namespace AlternativeDamageModel
                 }
                 try { var tmp = Path.Combine(old, "~profile-in-memory.cfg"); if (File.Exists(tmp)) File.Delete(tmp); } catch { }
                 if (Directory.GetFileSystemEntries(old).Length == 0) Directory.Delete(old);
-                Logger.LogInfo("Settings moved from " + old + " to " + now);
+                Say("Settings moved from " + old + " to " + now);
             }
-            catch (Exception e) { Logger.LogWarning("Moving the old settings folder failed (" + e.Message + "); copy it by hand from " + old + "."); }
+            catch (Exception e) { Warn("Moving the old settings folder failed (" + e.Message + "); copy it by hand from " + old + "."); }
         }
 
         void OpenSettingsFile()
@@ -247,14 +258,14 @@ namespace AlternativeDamageModel
                 if (!File.Exists(path) && File.Exists(old))
                 {
                     File.Move(old, path);
-                    Logger.LogInfo("Settings moved to " + path);
+                    Say("Settings moved to " + path);
                 }
                 Cfg = new ConfigFile(path, true);
                 Cfg.SaveOnConfigSet = false;   // saved once, without comments, by SaveConfig
             }
             catch (Exception e)
             {
-                Logger.LogWarning("Settings in StreamingAssets/user not available (" + e.Message + "); BepInEx/config is used.");
+                Warn("Settings in StreamingAssets/user not available (" + e.Message + "); BepInEx/config is used.");
                 Cfg = Config;
                 UserDir = Path.Combine(Paths.ConfigPath, "AlternativeDamageModel");
             }
@@ -283,7 +294,7 @@ namespace AlternativeDamageModel
             _debugEntry = Cfg.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/AlternativeDamageModel.trace.txt.");
             _logFiresEntry = Cfg.Bind("General", "LogFires", false,
-                "Diagnostics: writes every fire started by a hit and every change of a fire's stage to the BepInEx log " +
+                "Diagnostics: writes every fire started by a hit and every change of a fire's stage to the trace file " +
                 "(ship, compartment, mission time, severity and growth in % of the compartment's maximum, damage control teams there). " +
                 "Works also while the mod is off in the Mods menu, to compare with the game.");
             _logHeelEntry = Cfg.Bind("General", "LogHeel", false,
@@ -293,7 +304,7 @@ namespace AlternativeDamageModel
                 "Diagnostics: every 10 seconds writes to the trace (Debug) how much time the mod's hooks took: per hook the calls, the time in ms and " +
                 "in % of the real time - to find what slows the game (at high time compression the physics hooks run many times a frame).");
             _logShipsEntry = Cfg.Bind("General", "LogShipIntegrity", false,
-                "Writes a line to the BepInEx log for every ship that enters a mission: its hull integrity in the game and with the mod.");
+                "Writes a line to the trace file for every ship that enters a mission: its hull integrity in the game and with the mod.");
             _deckCornersEntry = Cfg.Bind("General", "ShowDeckCorners", false,
                 "Debug: for the ship currently selected in the Unit Status panel, draws a line from the current wave to the " +
                 "estimated deck height at the hull's bow and stern centreline, and at a port/starboard pair per damage-model " +
@@ -444,6 +455,23 @@ namespace AlternativeDamageModel
             _smallBoostEntry = Pcfg.Bind("FireAndFlooding", "SmallShipSpeedUp", new Factor(3f),
                 "Small ships burn and flood faster: the growth of fires and the water coming in grow smoothly (along the logarithm of the displacement) from 1 at 1000 tons " +
                 "to this multiplier at 50 tons, and stay there below. Ships of 1000 tons and more are not changed. 1 = off.");
+            _blockedFireEntry = Pcfg.Bind("FireAndFlooding", "BlockedHitFireChance", new Factor(0.5f),
+                "Fires from gun shells stopped by the main armour. In the game a shell that does not get through the armour starts no fire in the compartments around the hit one. " +
+                "With this, such a shell may still start one there (no hull damage, no flooding): the game's chance for a shell that gets through, times this number. " +
+                "0 = off (as in the game), 1 = the same chance as a shell that gets through, 0.5 = half of it.");
+            _gunFireEntry = Pcfg.Bind("FireAndFlooding", "GunFireSeverity", new Factor(0.5f),
+                "The starting size of a fire that a gun shell starts. In the game a shell's fire starts at zero and only grows; a bomb or a missile also gives its fire a starting size " +
+                "(half of damage / integrity of the compartment). With this a shell gives its fire such a size too, times this number. " +
+                "0 = off (as in the game), 1 = as for bombs and missiles, 0.5 = half of it. Incendiary shells keep their own.");
+            _armorClassesEntry = Pcfg.Bind("HullIntegrity", "ArmorClasses", false,
+                "The armour classes of the World War II mod (LightCruiser, HeavyCruiser, BattleCruiser, BattleCruiser2, SuperHeavy; any letter case) for hulls and modules. " +
+                "The game takes them for no armour: every shell goes through. With this each works between the game's classes (hardest to easiest: SuperHeavy, heavy, BattleCruiser2, BattleCruiser, HeavyCruiser, moderate, LightCruiser, minor), with its own hull integrity bonus. " +
+                "A hull with no ArmorType in [General] takes it from [TaskForce].");
+            _shellFireEntry = Pcfg.Bind("FireAndFlooding", "ShellFireByPower", false,
+                "The chance that a gun shell sets a compartment on fire depends on the power of its warhead. In the game it is a flat 20 % for the compartment that was hit " +
+                "(and 12-18 % for the neighbours, only when the shell gets through the armour), whatever the shell. With this: 90 % for shells of 100 mm and bigger, " +
+                "less in proportion for smaller ones (37 mm = 17 %, 76 mm = 43 %), the chance of Fire from hits stopped by armour (BlockedHitFireChance) times that when the armour stopped the shell. The neighbouring compartments keep their 0.6-0.9 of it. " +
+                "Incendiary shells are left to the game.");
             _maxPlugEntry = Pcfg.Bind("DamageControlTeams", "MaxPlugSpeed", new Factor(0f),
                 "A team cannot plug holes while the ship is faster than this, knots. 0 = no limit.");
             _warTeamsEntry = Pcfg.Bind("DamageControlTeams", "WarshipTeams", "0=1, 500=2, 1500=3, 5000=4, 20000=5",
@@ -474,8 +502,8 @@ namespace AlternativeDamageModel
                 "Multiplier of the chance that a hit on the central compartment wounds a team resting in the reserve; it comes on top of Wound chance " +
                 "(0.5 = half as likely, 0 = resting teams are never wounded). Works only with Wounds in reserve.");
             _healthEntry = Pcfg.Bind("DamageControlTeams", "TeamHealth", new Factor(1f),
-                "Health of a damage control team, a multiplier of its maximum, which is 1..100 points by the ship's displacement (100 = a crew of 1000 and more, about 30000 t; " +
-                "1000 t = 24, 10000 t = 101). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
+                "Health of a damage control team, a multiplier of its maximum, which is 1..100 points by the ship's displacement (100 = a crew of 1000 and more, about 100000 t; " +
+                "1000 t = 10, 10000 t = 32). Shown in the team's hint as a part of the full. A team at 0 is dead. Wounded teams work slower " +
                 "(as much as their health, not below 25%). 0 = teams are never wounded (a hit still takes a team out of its section).");
             _regenEntry = Pcfg.Bind("DamageControlTeams", "HealthRegen", new Factor(0.5f),
                 "A team in the reserve recovers this much of its full health a second.");
@@ -490,6 +518,10 @@ namespace AlternativeDamageModel
                 "Auto DC does not send it back to work until the concussion has passed. It runs next to the team's health, which has its own recovery. 0 = no concussion.");
             _stunSpreadEntry = Pcfg.Bind("DamageControlTeams", "HealTimeSpread", new Factor(0f),
                 "Random spread of the concussion time, seconds either way: HealTime 90 with 30 = 60 to 120 s, as in the game. 0 = always HealTime.");
+            _stunChanceEntry = Pcfg.Bind("DamageControlTeams", "ConcussionChance", new Factor(1f),
+                "Multiplier of the chance that a wounded team is concussed (see HealTime). The chance is half of the share of the team's health that the wound takes, times this number, at most 100%: " +
+                "at 1.0 a fresh team wounded by 20% is concussed in 10% of cases; a team with 40% health left wounded by the same 20% (half of what it had) in 25%. " +
+                "0 = never, 1000 = practically always (as in the game).");
             _woundChanceEntry = Pcfg.Bind("DamageControlTeams", "WoundChance", new Factor(1f),
                 "Multiplier of the chance that a hit wounds a team (0.5 = half as likely, 2 = twice; the result is at most 100%). Step 1 (only while Wounds at any hull integrity is off) - the game decides whether a hit takes a team out of its section at all " +
                 "(only a hit section with integrity under 50%: damage x (1 - integrity), at most 20%). Step 2 - the mod decides the wound: the chance grows steeply with the warhead power (about power^1.8) and falls with the team's health (about health^1.2) - " +
@@ -589,6 +621,7 @@ namespace AlternativeDamageModel
             _debug = _debugEntry.Value;
             _traceFile = Path.Combine(Paths.BepInExRootPath, "AlternativeDamageModel.trace.txt");
             if (_debug) { try { File.WriteAllText(_traceFile, ""); } catch { } }
+            if (_early.Count > 0) { if (_debug) { try { File.AppendAllText(_traceFile, string.Join(Environment.NewLine, _early.ToArray()) + Environment.NewLine); } catch { } } _early.Clear(); }
             Trace(PluginName + " " + PluginVersion + " build " + BuildId);
 
             Cfg.SaveOnConfigSet = false; // saved by SaveConfig
@@ -601,7 +634,7 @@ namespace AlternativeDamageModel
 
             RefreshEnabled();
             TryPatch();
-            Logger.LogInfo(PluginName + " " + PluginVersion + " (build " + BuildId + ") loaded" +
+            Say(PluginName + " " + PluginVersion + " (build " + BuildId + ") loaded" +
                            (ModState.Controlled ? "; follows its tick in the game's Mods menu." : "."));
         }
 
@@ -703,14 +736,14 @@ namespace AlternativeDamageModel
             string before = _profileEntry.Value;
             _reloading = true;
             try { Cfg.Reload(); }
-            catch (Exception e) { Logger.LogWarning("Reading the changed settings failed (" + e.Message + "); will try again."); _cfgWatch.Forget(); return; }
+            catch (Exception e) { Warn("Reading the changed settings failed (" + e.Message + "); will try again."); _cfgWatch.Forget(); return; }
             finally { _reloading = false; }
             bool cleaned = CleanCfg();   // lines that do not belong here (profile values typed in by hand): dropped from the file too
             string name = _profileEntry.Value;
             if (!string.Equals(before, name, StringComparison.OrdinalIgnoreCase))
             {
                 var prof = LoadProfile(name);
-                if (prof != null) { ApplyValues(prof, prof.Name); Say("Settings profile \"" + prof.Name + "\" in use (.cfg)."); }
+                if (prof != null) { ApplyValues(prof, prof.Name); Trace("Settings profile \"" + prof.Name + "\" in use (.cfg)."); }
                 else
                 {
                     Warn("Profile \"" + name + "\" (.cfg) not found; \"" + before + "\" stays in use.");
@@ -720,7 +753,7 @@ namespace AlternativeDamageModel
             }
             else { ReadSettings(); if (cleaned) SaveConfig(); }
             if (cleaned) Warn("Lines that are not general settings were removed from the .cfg; the damage model's values are in the profile files.");
-            Logger.LogInfo("Settings re-read from the .cfg" + (Enabled ? "" : " (the mod is off in the Mods menu)") + ".");
+            Trace("Settings re-read from the .cfg" + (Enabled ? "" : " (the mod is off in the Mods menu)") + ".");
             RescaleLiveHulls();
             SettingsWindow.Refresh();
         }
@@ -732,7 +765,7 @@ namespace AlternativeDamageModel
             if (prof == null) return;   // deleted: the values in use stay
             if (prof.SameAs(CurrentValues())) return;
             ApplyValues(prof, prof.Name);
-            Logger.LogInfo("Settings profile \"" + prof.Name + "\" re-read from its file: warships x" + F(_mWar) + ", civilian x" + F(_mCiv) +
+            Trace("Settings profile \"" + prof.Name + "\" re-read from its file: warships x" + F(_mWar) + ", civilian x" + F(_mCiv) +
                            ", submarines x" + F(_mSub) + ", per-ship " + _perShip.Count + ".");
             SettingsWindow.Refresh();
         }
@@ -762,7 +795,7 @@ namespace AlternativeDamageModel
                     try
                     {
                         Rescale(comp, m / st.Mult);
-                        if (_logShips) Say("Hull: " + (st.Ini ?? "?") + " (" + group + ") changed during the mission: integrity " +
+                        if (_logShips) Diag("Hull: " + (st.Ini ?? "?") + " (" + group + ") changed during the mission: integrity " +
                                            F(st.OriginalX * st.Mult) + " -> " + F(st.OriginalX * m) + " (x" + F(m) + ")");
                         st.Mult = m;
                         n++;
@@ -770,7 +803,7 @@ namespace AlternativeDamageModel
                     catch (Exception e) { Warn("Changing the hull of " + (st.Ini ?? "?") + " failed: " + e.Message); }
                 }
             }
-            if (n > 0) Say("Hull integrity changed for " + n + " ship(s) at sea.");
+            if (n > 0) Trace("Hull integrity changed for " + n + " ship(s) at sea.");
         }
 
         // ------------------------------------------------------------ systems (modules)
@@ -932,6 +965,10 @@ namespace AlternativeDamageModel
             SpeedEffect.Set(_speedEffectEntry.Value);
             SpeedEffect.SmallAiFree = _smallAiEntry.Value;
             SpeedEffect.SmallBoost = Math.Max(1f, _smallBoostEntry.Value.V);
+            BlockedFire.Chance = Math.Max(0f, _blockedFireEntry.Value.V);
+            GunFire.Start = Math.Max(0f, _gunFireEntry.Value.V);
+            ShellFire.On = _shellFireEntry.Value;
+            ArmorClasses.On = _armorClassesEntry.Value;
             SectionEffects.ReopenRate = Math.Max(0f, _reopenEntry.Value.V);
             SectionEffects.ReopenLimit = Math.Max(0f, Math.Min(100f, _reopenLimitEntry.Value.V));
             SectionEffects.SystemsOut = _fullSystemsEntry.Value;
@@ -961,7 +998,7 @@ namespace AlternativeDamageModel
             if (adm != _admOn)
             {
                 _admOn = adm;
-                Say("Alternative Damage Control " + (adm ? "on" : "off") + (Enabled ? " - ships at sea follow now." : "."));
+                Trace("Alternative Damage Control " + (adm ? "on" : "off") + (Enabled ? " - ships at sea follow now." : "."));
                 if (!adm) ReleaseTeams();
             }
             DcTeams.WarTable = DcTeams.Parse(_warTeamsEntry.Value);
@@ -983,6 +1020,7 @@ namespace AlternativeDamageModel
             DcTeams.HitWound = Math.Max(0f, _hitWoundEntry.Value.V);
             DcTeams.StunTime = Math.Max(0f, _stunEntry.Value.V);
             DcTeams.StunSpread = Math.Max(0f, _stunSpreadEntry.Value.V);
+            DcTeams.StunChance = Math.Max(0f, _stunChanceEntry.Value.V);
             DcTeams.FatigueRecover = Math.Max(0f, _fatigueRecoverEntry.Value.V);
             DcTeams.ExhaustedMin = Math.Max(Math.Max(0f, _fatigueEntry.Value.V), Math.Max(0f, _exhaustEntry.Value.V));   // never below 'Tired after'
             DcTeams.SpeedRested = Math.Max(0f, _speedRestedEntry.Value.V) / 100f;
@@ -1019,6 +1057,7 @@ namespace AlternativeDamageModel
             ReadSection(PerModuleSection, mods);
             _perModule = mods;
 
+            Trace("teams: health " + (DcTeams.HealthOn ? "on x" + F(DcTeams.HealthMul) : "off") + ", any integrity " + DcTeams.AnyIntegrity + ", reserve hits " + DcTeams.ReserveHits + ", wound chance " + F(DcTeams.WoundChance) + ", fire wound " + F(DcTeams.FireWound));
             Trace("settings: detailed view " + (_uiOn ? "on" : "off") + ", damage model " + (_admOn ? "on" : "off") + ", warships " + F(_mWar) + ", civilian " + F(_mCiv) + ", submarines " + F(_mSub) + ", perShip " + map.Count +
                   ", shellVuln " + F(_shellVuln) + ", fireVuln " + F(_fireVuln) + ", floodVuln " + F(_floodVuln) + ", collisions " + (Collisions.DamageOn ? "on " : "off ") + F(Collisions.Strength) + " (slowest " + F(Collisions.MinSpeed) + " kn), braking " + F(Collisions.Braking) + (Collisions.AIShips ? "" : " (not AI ships)") + ", bow " + F(Collisions.BowStrength) + (Collisions.PushApart ? ", push apart" : ""));
         }
@@ -1063,7 +1102,7 @@ namespace AlternativeDamageModel
             try
             {
                 var orphans = Orphans(Cfg);
-                if (orphans == null) { Logger.LogWarning("The .cfg cannot be cleaned up (BepInEx changed?)."); return null; }
+                if (orphans == null) { Warn("The .cfg cannot be cleaned up (BepInEx changed?)."); return null; }
                 foreach (var kv in orphans)
                 {
                     string sec = kv.Key.Section, key = kv.Key.Key.Trim();
@@ -1131,7 +1170,7 @@ namespace AlternativeDamageModel
                 var oc = old.Copy(own); oc.Parent = prof.BuiltIn ? prof.Name : prof.Parent;
                 WriteProfileFile(UserFile(own), oc);
                 prof = LoadProfile(own) ?? prof;
-                Say("Settings from the .cfg kept as profile \"" + own + "\".");
+                Trace("Settings from the .cfg kept as profile \"" + own + "\".");
             }
             ApplyValues(prof, prof.Name);
         }
@@ -1140,7 +1179,7 @@ namespace AlternativeDamageModel
         void SaveConfig()
         {
             try { Cfg.Save(); }
-            catch (Exception e) { Logger.LogWarning("Saving the settings failed: " + e.Message); return; }
+            catch (Exception e) { Warn("Saving the settings failed: " + e.Message); return; }
             try
             {
                 // without BepInEx's comments (descriptions, types, defaults): everything is explained in the settings window
@@ -1192,7 +1231,7 @@ namespace AlternativeDamageModel
                 if (!string.Equals(kv.Key.Section, section, StringComparison.OrdinalIgnoreCase)) continue;
                 Factor v;
                 if (Factor.TryParse(kv.Value, out v) && v.V > 0f) map[kv.Key.Key.Trim()] = Pos(v.V);
-                else Logger.LogWarning("[" + section + "] " + kv.Key.Key + " = '" + kv.Value + "' is not a positive number (e.g. 2.0); ignored.");
+                else Warn("[" + section + "] " + kv.Key.Key + " = '" + kv.Value + "' is not a positive number (e.g. 2.0); ignored.");
             }
         }
 
@@ -1209,7 +1248,7 @@ namespace AlternativeDamageModel
                 Factor v;
                 if (!Factor.TryParse(kv.Value, out v) || v.V <= 0f)
                 {
-                    Logger.LogWarning("[HullIntegrityPerShip] " + kv.Key.Key + " = '" + kv.Value + "' is not a positive number (e.g. 3.0); ignored.");
+                    Warn("[HullIntegrityPerShip] " + kv.Key.Key + " = '" + kv.Value + "' is not a positive number (e.g. 3.0); ignored.");
                     continue;
                 }
                 map[name] = Pos(v.V);
@@ -1225,7 +1264,7 @@ namespace AlternativeDamageModel
             if (now == Enabled) return;
             Enabled = now;
             if (ModState.Controlled)
-                Say(now ? "Enabled in the game's Mods menu (" + ModState.ModId + ")." : "Disabled in the game's Mods menu (" + ModState.ModId + "); the game's damage model is used.");
+                Trace(now ? "Enabled in the game's Mods menu (" + ModState.ModId + ")." : "Disabled in the game's Mods menu (" + ModState.ModId + "); the game's damage model is used.");
         }
 
         static Assembly GameAssembly()
@@ -1235,7 +1274,7 @@ namespace AlternativeDamageModel
             return null;
         }
 
-        static void ReserveHitPostfix(object __instance, object[] __args) { long t = Prof.Start(); ReserveHits.Postfix(__instance, __args); HitLog.Postfix(__instance, __args); HitLog.After(__instance, __args); Prof.Stop(Prof.Hits, t); }
+        static void ReserveHitPostfix(object __instance, object[] __args) { GunFire.CompPost(); long t = Prof.Start(); ReserveHits.Postfix(__instance, __args); HitLog.Postfix(__instance, __args); HitLog.After(__instance, __args); Prof.Stop(Prof.Hits, t); }
         static void SysSetPre(object __instance, out object __state) { __state = null; if (Enabled) SysPriority.SetterPrefix(__instance, out __state); }
         static void SysSetPost(object __instance, object value, object __state) { SysPriority.SetterPostfix(__instance, value, __state); }
         static bool SysFlagPre(bool value) { return !Enabled || SysPriority.FlagPrefix(value); }
@@ -1264,7 +1303,7 @@ namespace AlternativeDamageModel
         }
         static void ExplodePreHook(object __instance) { HitLog.ExplodePre(__instance); }
         static void ExplodePostHook(object __instance) { HitLog.ExplodePost(__instance); }
-        static void SpillPrefix(object __instance, object[] __args) { HitLog.Before(__instance, __args); DamageSpill.Prefix(__instance, __args); }
+        static void SpillPrefix(object __instance, object[] __args) { GunFire.CompPre(); HitLog.Before(__instance, __args); DamageSpill.Prefix(__instance, __args); BlockedFire.Prefix(__instance, __args); }
 
         static HarmonyMethod Hm(string name)
         {
@@ -1349,6 +1388,9 @@ namespace AlternativeDamageModel
             // 3. fire ignition by hits
             if (tBlast != null && _fCompMaxInt != null)
                 Patch(harmony, tBlast.GetMethod("OnHitUnit", all), null, null, "OnHitUnitTranspiler", "Blastzone.OnHitUnit", ref ok, ref failed);
+            if (tBlast != null)
+                Patch(harmony, tBlast.GetMethod("OnHitUnit", all), "GunHitPre", "GunHitPost", null, "Blastzone.OnHitUnit (starting severity of a shell's fire)", ref ok, ref failed);
+            ArmorClasses.Install(harmony, asm, ref ok, ref failed);
             // + flooding through holes (same method)
             if (tBlast != null && tFc != null && _fFcComp != null && _fFcCur != null && _fFcMaxInt != null)
                 Patch(harmony, tBlast.GetMethod("ProcessCompartmentHit", all), null, null, "CompartmentHitTranspiler", "Blastzone.ProcessCompartmentHit", ref ok, ref failed);
@@ -1359,6 +1401,7 @@ namespace AlternativeDamageModel
                 ReserveHits.Trace = Trace;
                 DamageSpill.Trace = Trace;
                 HitLog.Trace = Trace;
+                BlockedFire.Trace = Trace;
                 Patch(harmony, tBlast.GetMethod("ProcessCompartmentHit", all), "SpillPrefix", "ReserveHitPostfix", null, "Blastzone.ProcessCompartmentHit (reserve hits, damage spill)", ref ok, ref failed);
                 Type tBaseSys = asm.GetType("SeaPower.BaseSystem");
                 if (tBaseSys != null) Patch(harmony, tBaseSys.GetMethod("ExplodeSystem", all), "ExplodePreHook", "ExplodePostHook", null, "BaseSystem.ExplodeSystem (secondary explosions in the hit list)", ref ok, ref failed);
@@ -1441,7 +1484,7 @@ namespace AlternativeDamageModel
             SpeedEffect.Trace = Trace;
             if (tComp != null && DcTeams.Init(asm))
             {
-                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Logger.LogInfo(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; SectionEffects.Trace = Trace; SectionEffects.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; AttitudeSave.Trace = Trace; AttitudeSave.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
+                DcAuto.Trace = Trace; SettingsWindow.Trace = Trace; TrimFlooding.Trace = Trace; TrimFlooding.Log = m => Say(m); TrimFlooding.IsEnabled = () => Model; SubmergedFlooding.Trace = Trace; SubmergedFlooding.IsEnabled = () => Model; SectionEffects.Trace = Trace; SectionEffects.IsEnabled = () => Model; CapsizeFix.Trace = Trace; CapsizeFix.IsEnabled = () => Model; AttitudeSave.Trace = Trace; AttitudeSave.IsEnabled = () => Model; WreckDrag.Trace = Trace; WreckDrag.IsEnabled = () => Model;
                 SettingsWindow.Warn = Warn; SettingsWindow.Info = Say;
                 if (!DcAuto.Init(asm)) Warn("Optimised Auto DC: game members not found; the game's Auto DC is used.");
                 DcControl.StayWhenIdle = c => DcAuto.Ok && DcTeams.TransfersOn && DcTeams.Active(c) && DcAuto.AnyWork(c);
@@ -1505,6 +1548,7 @@ namespace AlternativeDamageModel
                 {
                     Patch(harmony, tBs.GetMethod("SaveStateToFile", all), null, "SysSavePostfix", null, "BaseSystem.SaveStateToFile", ref ok, ref failed);
                     Patch(harmony, tBs.GetMethod("LoadStateFromFile", all), null, "SysLoadPostfix", null, "BaseSystem.LoadStateFromFile", ref ok, ref failed);
+                    Patch(harmony, tBs.GetMethod("AddDamage", all, null, new[] { typeof(float) }, null), "SysDamagePre", null, null, "BaseSystem.AddDamage (the hit list: the section of a hit system)", ref ok, ref failed);
                 }
             }
             else { Warn("Saved-game members not found: hull multipliers, teams and DC Priority are not kept in saved games."); failed++; }
@@ -1531,7 +1575,7 @@ namespace AlternativeDamageModel
 
             _patched = failed == 0;
             try { NoteForeignHitPatches(asm); } catch (Exception e) { Trace("foreign patches: " + e.Message); }
-            Logger.LogInfo("Hooks installed: " + ok + (failed > 0 ? ", failed: " + failed + " (see warnings above; game updated?)" : "") + ".");
+            Say("Hooks installed: " + ok + (failed > 0 ? ", failed: " + failed + " (see warnings above; game updated?)" : "") + ".");
         }
 
         void Patch(Harmony h, MethodInfo target, string prefix, string postfix, string transpiler, string label, ref int ok, ref int failed)
@@ -1637,10 +1681,10 @@ namespace AlternativeDamageModel
                 if (_logShips || _debug)
                 {
                     string disp = _fCompDisp == null ? "?" : F((float)_fCompDisp.GetValue(comp));
-                    string armor = _fObpArmor == null ? "?" : Convert.ToString(_fObpArmor.GetValue(obp));
+                    string armor = _fObpArmor == null ? "?" : (ArmorClasses.NameOf(_fObpArmor.GetValue(obp)) ?? Convert.ToString(_fObpArmor.GetValue(obp)));
                     string line = "Hull: " + (ini ?? "?") + " (" + group + (fixedByIni ? ", IntegrityOverride" : "") + "), " + disp + " t, armor " + armor +
                                   ": integrity " + F(x0) + " -> " + F(x) + " (x" + F(m) + "), sinking limit " + F(x0 * 5f) + " -> " + F(x * 5f);
-                    if (_logShips) Say(line); else Trace(line);
+                    Diag(line);
                 }
             }
             catch (Exception e)
@@ -1841,9 +1885,52 @@ namespace AlternativeDamageModel
             return v * _fireVuln;
         }
 
+        /// <summary>The local variable a Stloc stores to (its index), -1 for any other instruction.</summary>
+        static int StlocIndex(CodeInstruction c)
+        {
+            if (c.opcode == OpCodes.Stloc_0) return 0;
+            if (c.opcode == OpCodes.Stloc_1) return 1;
+            if (c.opcode == OpCodes.Stloc_2) return 2;
+            if (c.opcode == OpCodes.Stloc_3) return 3;
+            if (c.opcode != OpCodes.Stloc && c.opcode != OpCodes.Stloc_S) return -1;
+            if (c.operand is LocalBuilder) return ((LocalBuilder)c.operand).LocalIndex;
+            if (c.operand is LocalVariableInfo) return ((LocalVariableInfo)c.operand).LocalIndex;
+            return c.operand is int ? (int)c.operand : c.operand is byte ? (byte)c.operand : -1;
+        }
+
+        /// <summary>
+        /// The game sets the chance of a fire to a constant per weapon: "num8 = 30" first and then, for a projectile, "num8 = 20" (OnHitUnit: an int percent, ProcessCompartmentHit: a float
+        /// percent). The constant 20 stored to the same local as the 30 gets <paramref name="hook"/>(value, this): ShellFire. Returns how many were patched.
+        /// </summary>
+        static int PatchFireChance(List<CodeInstruction> list, bool isFloat, MethodInfo hook)
+        {
+            int local = -1, n = 0;
+            for (int i = 0; i < list.Count - 1; i++)
+            {
+                double v;
+                if (isFloat) { if (list[i].opcode != OpCodes.Ldc_R4 || !(list[i].operand is float)) continue; v = (float)list[i].operand; }
+                else if (list[i].opcode == OpCodes.Ldc_I4_S && list[i].operand is sbyte) v = (sbyte)list[i].operand;
+                else if (list[i].opcode == OpCodes.Ldc_I4 && list[i].operand is int) v = (int)list[i].operand;
+                else continue;
+                int st = StlocIndex(list[i + 1]);
+                if (st < 0) continue;
+                if (v == 30.0 && local < 0) { local = st; continue; }
+                if (v == 20.0 && local >= 0 && st == local)
+                {
+                    list.Insert(i + 1, new CodeInstruction(OpCodes.Ldarg_0));
+                    list.Insert(i + 2, new CodeInstruction(OpCodes.Call, hook));
+                    i += 2; n++;
+                }
+            }
+            return n;
+        }
+
         static IEnumerable<CodeInstruction> OnHitUnitTranspiler(IEnumerable<CodeInstruction> instructions)
         {
             var list = new List<CodeInstruction>(instructions);
+            int nOwn = PatchFireChance(list, false, typeof(ShellFire).GetMethod("OwnGame", BindingFlags.Static | BindingFlags.Public));
+            if (nOwn != 1) Warn("Blastzone.OnHitUnit: " + nOwn + " fire chances patched, 1 expected (game updated?): the fire chance of a shell by its power does not work for the hit compartment.");
+            Trace("OnHitUnit: " + nOwn + " fire chance patched");
             // incendiary shares: "if (_ap._addFire == k) num7 = 0.5f / 0.25f / 0.125f"
             var mi = typeof(AdmPlugin).GetMethod("IncendiaryFrac", BindingFlags.Static | BindingFlags.Public);
             int inc = 0;
@@ -1920,6 +2007,9 @@ namespace AlternativeDamageModel
                 i += 2;
                 if (fire) nFire++; else nFlood++;
             }
+            int nChance = PatchFireChance(list, true, typeof(ShellFire).GetMethod("NeighbourGame", BindingFlags.Static | BindingFlags.Public));
+            if (nChance != 1) Warn("Blastzone.ProcessCompartmentHit: " + nChance + " fire chances patched, 1 expected (game updated?): the fire chance of a shell by its power does not work for the neighbouring compartments.");
+            Trace("ProcessCompartmentHit: " + nChance + " fire chance patched");
             if (nFire != 1 || nFlood != 1 || nPct != 4)
                 Warn("Blastzone.ProcessCompartmentHit: patched fire " + nFire + ", flooding " + nFlood + ", percent " + nPct + "; expected 1, 1, 4 (game updated?).");
             Trace("ProcessCompartmentHit: fire " + nFire + ", flooding " + nFlood + ", percent " + nPct);
@@ -2079,7 +2169,7 @@ namespace AlternativeDamageModel
         {
             if (_xamlDir == null) _xamlDir = System.IO.Path.Combine(Paths.BepInExRootPath, "AlternativeDamageModel_xaml");
             int n = DamageControlUi.ExportXaml(_xamlDir);
-            if (n > 0) Say("XAML: " + n + " file(s) written to " + _xamlDir);
+            if (n > 0) Trace("XAML: " + n + " file(s) written to " + _xamlDir);
         }
 
         // ------------------------------------------------------------ thresholds of faster flooding (Compartments.OnFixedUpdate)
@@ -2379,6 +2469,9 @@ namespace AlternativeDamageModel
         const string SysSaveKey = "AlternativeDamageModel_IntegrityMult";
 
         static float HullMultOf(object comp) { HullState st; return comp != null && Hulls.TryGetValue(comp, out st) ? st.Mult : 1f; }
+        /// <summary>What the saved absolute integrities are relative to: the hull multiplier and the integrity bonus of the new armour classes
+        /// (a game saved with the classes off, or by a build without them, then loads in percent: not 80 % with the bonus on).</summary>
+        static float HullSaveMult(object comp) { return HullMultOf(comp) * ArmorClasses.BonusOf(comp); }
         static float SysMultOf(object sys) { SysState st; return sys != null && Systems.TryGetValue(sys, out st) ? st.Mult : 1f; }
 
         static string ReadKey(object ini, string section, string key)
@@ -2431,7 +2524,7 @@ namespace AlternativeDamageModel
             }
             // saved by this build: its systems without a key were not scaled by the mod then (the mod off, or never on) - x1
             else TakePendingSystems(comp, true);
-            float k = HullMultOf(comp) / saved;
+            float k = HullSaveMult(comp) / saved;
             if (Math.Abs(k - 1f) < 0.0001f) return;
             foreach (var arrField in new[] { _fCompPort, _fCompStar })
             {
@@ -2517,7 +2610,7 @@ namespace AlternativeDamageModel
             try
             {
                 if (ini == null) return;
-                _mIniWriteStr.Invoke(ini, new object[] { sectionName, HullSaveKey, HullMultOf(__instance).ToString("0.0####", CultureInfo.InvariantCulture) });
+                _mIniWriteStr.Invoke(ini, new object[] { sectionName, HullSaveKey, HullSaveMult(__instance).ToString("0.0####", CultureInfo.InvariantCulture) });
                 if (!Enabled || isCampaignStateSave) return;
                 var text = _uiOn ? DcControl.Save(__instance) : null;
                 if (text != null) _mIniWriteStr.Invoke(ini, new object[] { sectionName, DcSaveKey, text });
@@ -2572,6 +2665,9 @@ namespace AlternativeDamageModel
         sealed class FireLog { public int State; }
         static readonly ConditionalWeakTable<object, FireLog> FireLogs = new ConditionalWeakTable<object, FireLog>();
 
+        /// <summary>The fire diagnostics go to the BepInEx log and to the trace file.</summary>
+        static void FireOut(string msg) { Diag(msg); }
+
         static string FireLine(object sc, string what)
         {
             var comp = _fScComp.GetValue(sc);
@@ -2610,14 +2706,19 @@ namespace AlternativeDamageModel
                 if (!FireLogs.TryGetValue(__instance, out fl)) { fl = new FireLog(); FireLogs.Add(__instance, fl); }
                 if (fl.State == st) return;
                 fl.State = st;
-                Say(FireLine(__instance, "-> " + _pScState.GetValue(__instance, null)));
+                FireOut(FireLine(__instance, "-> " + _pScState.GetValue(__instance, null)));
             }
             catch (Exception e) { Trace("FireStatePostfix: " + e.Message); }
         }
 
-        static void AddFirePrefix(object __instance, out float __state)
+        static void GunHitPre(object __instance, object hitObject) { GunFire.HitPre(__instance); HitLog.HitUnitPre(__instance, hitObject); }
+        static void SysDamagePre(object __instance) { HitLog.SystemDamaged(__instance); }
+        static void GunHitPost(object __instance, object hitObject) { GunFire.HitPost(); HitLog.HitUnitPost(__instance, hitObject); }
+
+        static void AddFirePrefix(object __instance, ref float relativeSeverity, float relativeGrowRate, out float __state)
         {
             __state = 0f;
+            if (relativeSeverity <= 0f && relativeGrowRate > 0f) relativeSeverity = GunFire.Severity(relativeGrowRate);   // a shell's fire: the starting severity of GunFireSeverity
             if (!_logFires || __instance == null) return;
             try { __state = (float)_pScSeverity.GetValue(__instance, null); } catch { }
         }
@@ -2627,7 +2728,7 @@ namespace AlternativeDamageModel
             if (!_logFires || __instance == null) return;
             try
             {
-                Say(FireLine(__instance, "hit (+" + (100f * relativeSeverity).ToString("0.#", CultureInfo.InvariantCulture) + "% severity, +" +
+                FireOut(FireLine(__instance, "hit (+" + (100f * relativeSeverity).ToString("0.#", CultureInfo.InvariantCulture) + "% severity, +" +
                                          (100f * relativeGrowRate).ToString("0.#", CultureInfo.InvariantCulture) + "% of max growth)"));
             }
             catch (Exception e) { Trace("AddFirePostfix: " + e.Message); }

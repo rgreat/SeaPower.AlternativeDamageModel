@@ -3,6 +3,18 @@ Version 1.9.0.
 - Supports Sea Power 0.9.0 only; the code for older game versions is removed.
 - Works under the R.A.T.S. Keel loader: the "Alternative Mods" menu button appears there too (the mod starts after the start-up load screen is over).
 - Settings hub: the text of the menu button ("Alternative Mods" or the mod's name) is refreshed when a mod starts later than the first one (mods started under Keel).
+- DC teams walking between sections can be wounded too (they were untouchable on the way).
+- Wound table: smoother colour gradation at high chances (red -> orange -> amber).
+- DC teams: one shell = one wound roll per section (the game calls the hit once per collider, 2-4 times a shell).
+- New: Shell fire chance by shell power (Fire tab, ShellFireByPower; Advanced on, Base Game off): 90% for shells of 100 mm and bigger, in proportion below (37 mm 17%, 76 mm 43%); a shell stopped by the armour: times "Fire from hits stopped by armour" (0.5); neighbouring compartments keep 0.6-0.9 of it.
+- Hit list: "started a fire" now also for the fire of the hit compartment itself and for shells that got through.
+- A wounded team that is not concussed goes on working (weaker) instead of walking to the reserve; only a concussed one leaves.
+- A team wounded in the middle section is back in the reserve at once (it waited the muster time before).
+- Chance of a wound halved in the formula (the WoundChance option is the same).
+- New: Concussion chance (Weapon hits, x1): the share of the team's health a wound takes, halved.
+- Team health now grows with displacement up to 100000 t (was 30000 t): big ships (Kongo, Roma, Nimitz) differ in wound chance.
+- DC teams on big ships are wounded far more often (the wound formula is flatter): a 90 mm shell about 5% a hit and 10% of the team health, 356 mm 42% / 36%, 381 mm 53% / 41%.
+- Fixed: DC teams were never wounded or killed in battle (the hit-to-team link looked for a game field that is a property; found in the 0.9.0 and 0.9.1 code alike); works again.
 - Fixed: damage control teams are no longer sent to a ship that is already destroyed (the check looked up a type that the game renamed in 0.9.x).
 - Settings window: every profile setting shows "profile: x" (the value stored in the profile) under "game: x"; the row's reset button (↺) brings back the profile's value (the mod's global options still go back to their default). Tab Collisions is the last one before Debug; Debug is always the last tab.
 - Debug trace: a line for every hit (section, damage, integrity and leak of the compartment afterwards); the log says when another mod takes over Blastzone.OnHitUnit.
@@ -10,4 +22,11 @@ Version 1.9.0.
 - Hit list: secondary explosions of the ship's own systems are named ("Explosion of <system>") and recorded with their section and side.
 - Hit list: a hit by a dud warhead (the game's warhead failure, needs "Weapon Failures" on) is marked "(dud)" in the tooltip and the saved log.
 - HullFireVulnerability is compensated automatically: 1.0 = a hit starts as strong a fire as in the game, whatever the hull multiplier (was: m times weaker). If you set it equal to the hull multiplier by hand, set it back to 1.0.
+- New: fires from gun shells stopped by the main armour (Fire tab, "Fire from hits stopped by armour", FireAndFlooding/BlockedHitFireChance, default 0.5 in Advanced, 0 = off in Base Game). The game rolls the fire of the compartments around the hit one only for a shell that gets through; now a stopped shell may light them too, with this share of the game's chance (no hull damage, no flooding). The hit list marks such a hit: "stopped by armour, started a fire".
+- New: a gun shell that starts a fire also gives it a starting size, as a bomb or a missile does (the game starts a shell's fire at zero and only lets it grow). Fire tab, "Fires from a gun shell hit" (FireAndFlooding/GunFireSeverity): 1 = as for bombs and missiles, default 0.5 in Advanced, 0 = off (Base Game). Fires of shells stopped by the armour get it too.
 - Systems of a section go out when one of its compartments holds 75% of water or more, or the section as a whole 50% or more (was: the mean above 75%).
+- New: armour classes of the World War II mod (Hulls tab, "Armour classes of the WW2 mod", HullIntegrity/ArmorClasses, on in Advanced, off in Base Game). The game knows only none / minor / moderate / heavy and takes any other hull ArmorType for none, so every shell went through a Kongo or a Bismarck. LightCruiser, HeavyCruiser, BattleCruiser, BattleCruiser2 and SuperHeavy (any letter case) now work for hulls and modules (turrets, magazines, engines), each placed between the game's own classes in the penetration matrix (hardest to easiest: SuperHeavy, heavy, BattleCruiser2, BattleCruiser, HeavyCruiser, moderate, LightCruiser, minor) and a hull integrity bonus (SuperHeavy x1.3, BattleCruiser2 / BattleCruiser / HeavyCruiser x1.25, LightCruiser x1.2), whatever matrix is loaded. A hull with no ArmorType in [General] takes it from [TaskForce] (usn_bb_iowa45, usn_bb_missouri2). The Hull line of the log shows the class.
+- New: the Damage Control tab shows the hull's armour class in a card left of Hull Damage / Flooding / Fires (the tooltip: the chance to stop a shell by its penetration, the hull integrity bonus, the armour of systems).
+- The "Critical" state by fires now needs the mean fire over all sections to reach 30% (was the sum over the sections: three small fires made a barely damaged ship critical).
+- Fixed: the list of hits on a ship missed hits that touched no hull compartment (a mast, a turret, a system) and hits whose hull compartment differs from the hit point's. Now every shell is listed once; a hit on a system only shows the system's name instead of a section.
+- Fixed: a ship loaded from a game saved without the armour-class integrity bonus started at 80% in every section (the bonus is saved with the hull multiplier now).

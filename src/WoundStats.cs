@@ -14,7 +14,7 @@ namespace AlternativeDamageModel
         const int Every = 20;
 
         // the funnel (ReserveHits.Postfix, DcTeams.QueueHit)
-        public static int Calls, Blocked, NotSection, NoShip, Overflow, Queued;
+        public static int Calls, Blocked, NotSection, NoShip, Overflow, Queued, Dup;
         // hits on a section (ApplySectionHit)
         public static int SecHits, SecNoTeam, SecRolls, SecWounds;
         public static double SecExp, SecVar, SecWoundSum;
@@ -45,7 +45,7 @@ namespace AlternativeDamageModel
         {
             _printed = _rolls;
             var ic = CultureInfo.InvariantCulture;
-            Trace("WoundStats: funnel: hit calls " + Calls + ", blocked by armour " + Blocked + ", not a section compartment " + NotSection + ", ship unknown " + NoShip + ", queue full " + Overflow + ", queued " + Queued +
+            Trace("WoundStats: funnel: hit calls " + Calls + ", blocked by armour " + Blocked + ", not a section compartment " + NotSection + ", same shell and section again " + Dup + ", ship unknown " + NoShip + ", queue full " + Overflow + ", queued " + Queued +
                   " | sections: hits " + SecHits + ", no team there " + SecNoTeam + ", rolled " + SecRolls + ", wounds " + SecWounds + " (expected " + SecExp.ToString("0.0", ic) + " +-" + (2.0 * Math.Sqrt(SecVar)).ToString("0.0", ic) + ")" + Verdict(SecWounds, SecExp, SecVar) +
                   ", mean wound " + (SecWounds > 0 ? (SecWoundSum / SecWounds * 100.0).ToString("0", ic) : "-") + "%" +
                   " | reserve: hits " + ResHits + ", no team " + ResNoPool + ", chance missed " + ResChanceMiss + ", rolled " + ResRolls + ", wounds " + ResWounds + " (expected " + ResExp.ToString("0.0", ic) + " +-" + (2.0 * Math.Sqrt(ResVar)).ToString("0.0", ic) + ")" + Verdict(ResWounds, ResExp, ResVar) +
