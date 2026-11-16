@@ -792,7 +792,7 @@ namespace AlternativeDamageModel
             return true;
         }
 
-        static readonly Dictionary<object, double> HeavyUntil = new Dictionary<object, double>();
+        static readonly ConditionalWeakTable<object, StrongBox<double>> HeavyUntil = new ConditionalWeakTable<object, StrongBox<double>>();   // weak: a ship that is gone is not kept
         const double HeavyHold = 60.0;   // the critical state holds 60 s after it ends: a plugged hole must not send half the teams to rest at once and call them back
 
         public static void RestPull(object comp)
@@ -809,7 +809,7 @@ namespace AlternativeDamageModel
                     bool wounded = HealthOn && t.Health < RestHealth;
                     bool relieved = !wounded && FatigueLevel(t.Fatigue) >= 1 && FreshAfter(s, t);   // a fresh team took over: the tired one goes to rest at once
                     if (!wounded && !relieved && FatigueLevel(t.Fatigue) < 2) continue;
-                    if (!wounded && !relieved) { if (heavy < 0) { bool h = false; try { h = Heavy(comp); } catch { } double nw = Now(); if (h) HeavyUntil[comp] = nw + HeavyHold; double hu; heavy = (h || (HeavyUntil.TryGetValue(comp, out hu) && nw < hu)) ? 1 : 0; } if (heavy == 1) continue; }
+                    if (!wounded && !relieved) { if (heavy < 0) { bool h = false; try { h = Heavy(comp); } catch { } double nw = Now(); if (h) HeavyUntil.GetOrCreateValue(comp).Value = nw + HeavyHold; StrongBox<double> hu; heavy = (h || (HeavyUntil.TryGetValue(comp, out hu) && nw < hu.Value)) ? 1 : 0; } if (heavy == 1) continue; }
                     // the last team of a section whose hull is under 19% does not leave it for fatigue: the game opens its leak again once the section is empty
                     if (!wounded && !relieved)
                     {

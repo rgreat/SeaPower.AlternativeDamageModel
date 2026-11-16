@@ -131,9 +131,10 @@ namespace AlternativeDamageModel
                 int n = Math.Min(5, _gCount.Get(comp));
                 var port = _gPort.Get(comp); var star = _gStar.Get(comp); var sys = _gSys.Get(comp);
                 if (port == null || star == null || sys == null) return;
+                object[] portO = port as object[], starO = star as object[], sysO = sys as object[];   // arrays of classes: no Array.GetValue call per element
                 for (int i = 0; i < n && i < port.Length && i < star.Length && i < sys.Length; i++)
                 {
-                    object p = port.GetValue(i), s = star.GetValue(i), sc = sys.GetValue(i);
+                    object p = portO != null ? portO[i] : port.GetValue(i), s = starO != null ? starO[i] : star.GetValue(i), sc = sysO != null ? sysO[i] : sys.GetValue(i);
                     float sev = _gSev.Get(sc), max = _gScMax.Get(sc), grow = _gScGrow.Get(sc);
                     float fire = max > 0f ? Math.Min(1f, sev / max) : 0f;
 

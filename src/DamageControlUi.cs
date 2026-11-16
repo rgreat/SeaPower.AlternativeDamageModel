@@ -568,14 +568,15 @@ namespace AlternativeDamageModel
         /// <summary>The text blocks of the Flooding / Fire rows inside this compartment's list, when its items are in the visual tree.</summary>
         const float TeamGapBelow = 1f, TeamHeaderGap = 2f;   // the gap under the team row (the game: 5) and the section name's margins above and below (6 / 4)
         const float TeamBtnHeight = 22f;   // the - / + buttons of the DC team row (the game's are about 32): the row is lower, the sections are higher
-        static readonly HashSet<object> _compacted = new HashSet<object>();
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, object> _compacted = new System.Runtime.CompilerServices.ConditionalWeakTable<object, object>();   // weak: the views are the game's and come and go
         static int _compactTrace;
 
         /// <summary>Makes the row with the - / + buttons and the team icon lower: buttons of a fixed small height, no extra margins of the row, a fixed row height of the grid made automatic.</summary>
         static void CompactTeamRow(DependencyObject holder)
         {
-            if (holder == null || _compacted.Contains(holder)) return;
-            _compacted.Add(holder);
+            object seen;
+            if (holder == null || _compacted.TryGetValue(holder, out seen)) return;
+            _compacted.Add(holder, holder);
             try
             {
                 var sb = new System.Text.StringBuilder();

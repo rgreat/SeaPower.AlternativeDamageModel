@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativedamagemodel";
         public const string PluginName = "Alternative Damage Model";
-        public const string PluginVersion = "1.9.0";
+        public const string PluginVersion = "2.1.0";
 
         /// <summary>Build number (UTC build time, yyyyMMdd.HHmm) stamped into the dll by the csproj; shows which dll is running.</summary>
         public static readonly string BuildId = ReadBuildId();
@@ -127,9 +127,8 @@ namespace AlternativeDamageModel
         static readonly ConditionalWeakTable<object, HullState> Hulls = new ConditionalWeakTable<object, HullState>();
         static readonly List<WeakReference> LiveHulls = new List<WeakReference>(); // Compartments of ships in the current mission
 
-        // live reload of the .cfg
+        // set while the mod itself writes a setting (SettingChanged is not handled then)
         static bool _reloading;
-        float _nextCfgCheck;
 
         // fields rescaled when a hull multiplier changes during a mission
         static FieldInfo _fCompFireMult, _fCompMaxTotal, _fCompLimit, _fCompPort, _fCompStar, _fCompSys,
@@ -137,6 +136,9 @@ namespace AlternativeDamageModel
 
         // game members (looked up by name)
         static FieldInfo _fFcCur, _fFcMaxInt, _fScComp, _fScNum, _fScGrow, _fScMaxSev;
+        static Fld<float> _gScGrow, _gScMaxSev, _gScMaxGrow;   // fast access in the per-tick fire hooks (Fast.cs)
+        static Fld<Array> _gCompSys;
+        static Prop<float> _gScSeverity;
         static PropertyInfo _pScSeverity, _pScState, _pGameTime, _pCompDcTeams;
         static MethodInfo _mUidName;
         static FieldInfo _fCompObp, _fCompBase, _fCompMaxInt, _fCompMaxLimit, _fCompDisp, _fFcComp,
@@ -625,7 +627,7 @@ namespace AlternativeDamageModel
             Trace(PluginName + " " + PluginVersion + " build " + BuildId);
 
             Cfg.SaveOnConfigSet = false; // saved by SaveConfig
-            // a change made in game (settings window, Configuration Manager); changes made in the files are picked up by WatchConfigFile
+            // a change made in game (settings window, Configuration Manager)
             Cfg.SettingChanged += (s, e) => { if (_reloading) return; ReadSettings(); SaveConfig(); RescaleLiveHulls(); };
             Pcfg.SettingChanged += (s, e) => { if (_reloading) return; ReadSettings(); RescaleLiveHulls(); SyncProfile(); };
             CollectEntries();
@@ -641,7 +643,6 @@ namespace AlternativeDamageModel
         void Update()
         {
             if (!_patchTried) TryPatch();
-            WatchConfigFile();
             Prof.Frame();
             long pt = Prof.Start();
             try { DeckCorners.Tick(UnityEngine.Time.unscaledTime); } catch (Exception e) { Trace("DeckCorners.Tick: " + e.Message); }
@@ -683,91 +684,6 @@ namespace AlternativeDamageModel
                 }
                 Prof.Stop(Prof.UiTick, pt);
             }
-        }
-
-        /// <summary>
-        /// Checks the .cfg once a second; when it has been changed outside the game (and stays unchanged for half a second,
-        /// i.e. the editor has finished writing), its values are read again and applied at once.
-        /// </summary>
-        /// <summary>A file changed outside the game: reported once it has stopped changing for half a second.</summary>
-        sealed class FileWatch
-        {
-            public string Path; DateTime _stamp; long _size; float _changedAt = -1f;
-            public void Remember()
-            {
-                try { var fi = new FileInfo(Path); _stamp = fi.Exists ? fi.LastWriteTimeUtc : default(DateTime); _size = fi.Exists ? fi.Length : -1; }
-                catch { }
-                _changedAt = -1f;
-            }
-            public void Set(string path) { Path = path; Remember(); }
-            public void Forget() { _stamp = default(DateTime); }
-            public bool Busy { get { return _changedAt >= 0f; } }
-            public bool Poll(float now)
-            {
-                if (string.IsNullOrEmpty(Path)) return false;
-                var fi = new FileInfo(Path);
-                if (!fi.Exists) return false;
-                if (fi.LastWriteTimeUtc == _stamp && fi.Length == _size)
-                {
-                    if (_changedAt >= 0f && now - _changedAt >= 0.5f) { _changedAt = -1f; return true; }
-                    return false;
-                }
-                _stamp = fi.LastWriteTimeUtc; _size = fi.Length;
-                _changedAt = now; // wait until it stops changing
-                return false;
-            }
-        }
-        readonly FileWatch _cfgWatch = new FileWatch(), _profWatch = new FileWatch();
-
-        void WatchConfigFile()
-        {
-            float now = UnityEngine.Time.unscaledTime;
-            if (now < _nextCfgCheck) return;
-            _nextCfgCheck = now + (_cfgWatch.Busy || _profWatch.Busy ? 0.25f : 1f);
-            try { if (_cfgWatch.Poll(now)) ReloadConfig(); } catch (Exception e) { Trace("WatchConfigFile: " + e.Message); }
-            try { if (_profWatch.Poll(now)) ReloadProfile(); } catch (Exception e) { Trace("WatchProfileFile: " + e.Message); }
-        }
-
-        void RememberCfgStamp() { _cfgWatch.Path = Cfg.ConfigFilePath; _cfgWatch.Remember(); }
-
-        /// <summary>The .cfg (general settings) changed: re-read; another profile named in it comes into use.</summary>
-        void ReloadConfig()
-        {
-            string before = _profileEntry.Value;
-            _reloading = true;
-            try { Cfg.Reload(); }
-            catch (Exception e) { Warn("Reading the changed settings failed (" + e.Message + "); will try again."); _cfgWatch.Forget(); return; }
-            finally { _reloading = false; }
-            bool cleaned = CleanCfg();   // lines that do not belong here (profile values typed in by hand): dropped from the file too
-            string name = _profileEntry.Value;
-            if (!string.Equals(before, name, StringComparison.OrdinalIgnoreCase))
-            {
-                var prof = LoadProfile(name);
-                if (prof != null) { ApplyValues(prof, prof.Name); Trace("Settings profile \"" + prof.Name + "\" in use (.cfg)."); }
-                else
-                {
-                    Warn("Profile \"" + name + "\" (.cfg) not found; \"" + before + "\" stays in use.");
-                    _reloading = true; try { _profileEntry.Value = before; } finally { _reloading = false; }
-                    ReadSettings(); SaveConfig();
-                }
-            }
-            else { ReadSettings(); if (cleaned) SaveConfig(); }
-            if (cleaned) Warn("Lines that are not general settings were removed from the .cfg; the damage model's values are in the profile files.");
-            Trace("Settings re-read from the .cfg" + (Enabled ? "" : " (the mod is off in the Mods menu)") + ".");
-            RescaleLiveHulls();
-            SettingsWindow.Refresh();
-        }
-
-        /// <summary>The file of the profile in use changed (edited by hand): its values come into use.</summary>
-        void ReloadProfile()
-        {
-            var prof = LoadProfile(_profileEntry.Value);
-            if (prof == null) return;   // deleted: the values in use stay
-            if (prof.SameAs(CurrentValues())) return;
-            ApplyValues(prof, prof.Name);
-            Trace("Settings profile \"" + prof.Name + "\" re-read from its file: warships x" + F(_mWar) + ", civilian x" + F(_mCiv) +
-                           ", submarines x" + F(_mSub) + ", per-ship " + _perShip.Count + ".");
-            SettingsWindow.Refresh();
         }
 
         /// <summary>
@@ -1196,7 +1112,6 @@ namespace AlternativeDamageModel
                     File.WriteAllText(path, string.Join(Environment.NewLine, lines.ToArray()) + Environment.NewLine, new UTF8Encoding(false));
             }
             catch (Exception e) { Trace("SaveConfig: " + e.Message); }
-            RememberCfgStamp(); // our own write is not a change to re-read
         }
 
         /// <summary>
@@ -1343,6 +1258,7 @@ namespace AlternativeDamageModel
                 _fCompPort = tComp.GetField("_portCompartments", all);
                 _fCompStar = tComp.GetField("_starboardCompartments", all);
                 _fCompSys = tComp.GetField("_systemCompartments", all);
+                if (_fCompSys != null) _gCompSys = new Fld<Array>(_fCompSys);
                 _fCompCount = tComp.GetField("_compartmentsCount", all);
             }
             if (tFc != null)
@@ -1443,6 +1359,10 @@ namespace AlternativeDamageModel
                 _pScState = tSc.GetProperty("FireState", all);
                 _fScMaxGrow = tSc.GetField("_maxfireGrowRate", all);
                 _fScMinGrow = tSc.GetField("_minfireGrowRate", all);
+                if (_fScGrow != null) _gScGrow = new Fld<float>(_fScGrow);
+                if (_fScMaxSev != null) _gScMaxSev = new Fld<float>(_fScMaxSev);
+                if (_fScMaxGrow != null) _gScMaxGrow = new Fld<float>(_fScMaxGrow);
+                if (_pScSeverity != null) _gScSeverity = new Prop<float>(_pScSeverity);
                 if (tGt != null) { _pGameTime = tGt.GetProperty("missionElapsedTime", all); _nGameTimeA = _pGameTime == null ? null : new StaticNum(_pGameTime); }
                 if (tOb != null) _mUidName = tOb.GetMethod("getUIDAndName", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
                 if (tComp != null) _pCompDcTeams = tComp.GetProperty("DamageControlTeamsNumbers", all);
@@ -1842,8 +1762,8 @@ namespace AlternativeDamageModel
         {
             try
             {
-                if (!Model || __instance == null || _fScMaxSev == null || _fCompSys == null || _pScSeverity == null || _fScGrow == null || _fScMaxGrow == null) return;
-                var sys = _fCompSys.GetValue(__instance) as Array;
+                if (!Model || __instance == null || _fScMaxSev == null || _gCompSys == null || _gScSeverity == null || _gScGrow == null || _gScMaxGrow == null || _gScMaxSev == null) return;
+                var sys = _gCompSys.Get(__instance);
                 if (sys == null) return;
                 var w = FireWatches.GetOrCreateValue(__instance);
                 double now = GameNow();
@@ -1851,15 +1771,15 @@ namespace AlternativeDamageModel
                 {
                     var sc = sys.GetValue(i);
                     if (sc == null) continue;
-                    bool burning = (float)_pScSeverity.GetValue(sc, null) > 0f || (float)_fScGrow.GetValue(sc) > 0f;
+                    bool burning = _gScSeverity.Get(sc) > 0f || _gScGrow.Get(sc) > 0f;
                     if (!burning) { w.Since[i] = -1; continue; }
                     if (w.Since[i] < 0) w.Since[i] = now;
                     if (!_unattended || _unattendedRate <= 0f) continue;
                     if (now - Math.Max(w.Since[i], w.Fought[i]) < _unattendedTime) continue;
-                    float max = (float)_fScMaxGrow.GetValue(sc), cap = _unattendedMax / 100f * (float)_fScMaxSev.GetValue(sc);
-                    float g = (float)_fScGrow.GetValue(sc);
+                    float max = _gScMaxGrow.Get(sc), cap = _unattendedMax / 100f * _gScMaxSev.Get(sc);
+                    float g = _gScGrow.Get(sc);
                     if (g >= cap) continue;   // UnattendedFireMaxGrowth: a share of the fire's maximum a second
-                    _fScGrow.SetValue(sc, Math.Min(cap, g + _unattendedRate / 100f * max));
+                    _gScGrow.Set(sc, Math.Min(cap, g + _unattendedRate / 100f * max));
                 }
             }
             catch (Exception e) { Trace("CheckFirePostfix: " + e.Message); }
@@ -2248,15 +2168,15 @@ namespace AlternativeDamageModel
         {
             if (!Model) return v;
             float r = v * _flameUp * SpeedEffect.Fire(sc);
-            if (_fireGrowLimit > 0f && _fScMaxSev != null && sc != null)
+            if (_fireGrowLimit > 0f && _gScMaxSev != null && sc != null)
             {
                 // FireGrowthLimit: the growth rate itself is held at the limit (so a spread fire, the tooltips and Auto DC see it too), and so is the growth
                 try
                 {
-                    float cap = _fireGrowLimit / 100f * (float)_fScMaxSev.GetValue(sc);
+                    float cap = _fireGrowLimit / 100f * _gScMaxSev.Get(sc);
                     if (cap > 0f)
                     {
-                        if (v > cap && _fScGrow != null) _fScGrow.SetValue(sc, cap);
+                        if (v > cap && _gScGrow != null) _gScGrow.Set(sc, cap);
                         if (r > cap) r = cap;
                     }
                 }

@@ -1,8 +1,10 @@
 # Alternative Damage Model
 
-**Version 1.9.0.**
+**Version 2.1.0**
 
-A mod for Sea Power.
+Alternative Damage Model: a deeper, more realistic damage model for Sea Power. Fires, flooding, wounded damage control teams and a Damage Control interface that lets you fight for your ship.
+
+## Requires **Anchor Chain** or **R.A.T.S. Keel**
 
 ## Features
 
@@ -38,8 +40,8 @@ Preconfigured:
 
 ## Compatibility
 
-- Supports Sea Power version 0.9.0 only (Release and Stable Beta).
-- Requires Anchor Chain.
+- Supports Sea Power version 0.9.0 and newer.
+- Loaders: Anchor Chain or R.A.T.S. Keel.
 - Can be switched on/off in the game's Mods menu.
 - Special effects moved to Alternative Special Effects; install it to keep them. Settings are taken over on its first start.
 - Settings also open from the main menu and the pause menu (with other Alternative mods they share one "Alternative Mods" entry).
@@ -47,9 +49,10 @@ Preconfigured:
 
 ## Install
 
-1. Install the Anchor Chain preloader as described in the [documentation](https://seapower-modders.github.io/AnchorChain/install-anchor-chain.html).
+1. Subscribe to [Anchor Chain](https://steamcommunity.com/workshop/filedetails/?id=3380210757) or [RATS Keel](https://steamcommunity.com/workshop/filedetails/?id=3835527459) (temporarily unavailable) and follow instructions on mods page.
 2. Subscribe to this mod.
-3. Restart the game.
+3. Start **Sea Power**.
+4. Enable mod in game's **Mod Manager** and press **Apply** button.
 
 ## Usage
 

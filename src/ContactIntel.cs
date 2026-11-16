@@ -520,10 +520,18 @@ namespace AlternativeDamageModel
         /// The critical state by its kind: 2 - the ship is in danger (sinking; flooding stage 3+ with a leak; hull stage 3+ with a fire or a leak;
         /// fires: the mean over the sections 30% or more), 1 - only a fire that no team fights (not a danger by itself, but no team rests while it burns), 0 - none.
         /// </summary>
+        sealed class HeavyMemo { public int Frame = -1; public int Level; }
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, HeavyMemo> HeavyMemos = new System.Runtime.CompilerServices.ConditionalWeakTable<object, HeavyMemo>();
+
         public static int HeavyLevel(object comp)
         {
+            if (comp == null) return 0;
+            // every team of a ship asks in the same tick: worked out once a frame and ship
+            int frame = UnityEngine.Time.frameCount;
+            var memo = HeavyMemos.GetOrCreateValue(comp);
+            if (memo.Frame == frame) return memo.Level;
             long _p0 = Prof.Start();
-            try { return HeavyLevelCore(comp); }
+            try { memo.Level = HeavyLevelCore(comp); memo.Frame = frame; return memo.Level; }
             finally { Prof.Stop(Prof.Heavy, _p0); }
         }
 
@@ -580,11 +588,13 @@ namespace AlternativeDamageModel
         /// <summary>A hole still lets water in somewhere (a compartment's flooding rate above 0).</summary>
         static bool AnyLeak(object comp)
         {
-            foreach (var arr in new[] { _cPortC == null ? null : _cPortC.GetValue(comp) as Array, _cStarC == null ? null : _cStarC.GetValue(comp) as Array })
+            for (int side = 0; side < 2; side++)
             {
+                var arr = (side == 0 ? _cPortC : _cStarC) == null ? null : (side == 0 ? _cPortC : _cStarC).GetValue(comp) as Array;
                 if (arr == null) continue;
-                foreach (var fc in arr)
+                for (int ai = 0; ai < arr.Length; ai++)
                 {
+                    var fc = arr.GetValue(ai);
                     if (fc == null) continue;
                     if (_fcRateF == null) _fcRateF = fc.GetType().GetField("_floodingRate", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                     if (_fcRateF != null && Convert.ToSingle(_fcRateF.GetValue(fc)) > 0f) return true;

@@ -374,7 +374,6 @@ namespace AlternativeDamageModel
             foreach (var kv in p.Modules) sb.Append(kv.Key).Append(" = ").Append(kv.Value).AppendLine();
             Directory.CreateDirectory(Path.GetDirectoryName(file));
             File.WriteAllText(file, sb.ToString(), new UTF8Encoding(false));
-            if (string.Equals(file, _profWatch.Path, StringComparison.OrdinalIgnoreCase)) _profWatch.Remember();   // our own write
         }
 
         // ------------------------------------------------------------ the values in use
@@ -429,7 +428,6 @@ namespace AlternativeDamageModel
                 _profileEntry.Value = name;
             }
             finally { _reloading = false; }
-            _profWatch.Set(ProfilePath(name));
             ReadSettings();
             SaveConfig();
             RescaleLiveHulls();
@@ -463,7 +461,6 @@ namespace AlternativeDamageModel
                     var oc = cur.Copy(own); oc.Parent = prof == null ? null : prof.Name;
                     WriteProfileFile(UserFile(own), oc);
                     if (_profileEntry.Value != own) { _reloading = true; try { _profileEntry.Value = own; } finally { _reloading = false; } SaveConfig(); }
-                    _profWatch.Set(UserFile(own));
                     Trace("Settings differ from profile " + (prof == null ? "?" : prof.Name) + ": kept as profile \"" + own + "\".");
                 }
                 else { var pc = cur.Copy(prof.Name); pc.Parent = prof.Parent; WriteProfileFile(UserFile(prof.Name), pc); }
@@ -541,7 +538,6 @@ namespace AlternativeDamageModel
                 {
                     _reloading = true; try { _profileEntry.Value = to; } finally { _reloading = false; }
                     SaveConfig();
-                    _profWatch.Set(b);
                 }
                 return null;
             }

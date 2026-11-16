@@ -876,7 +876,8 @@ namespace AlternativeDamageModel
             }
             for (int i = _root.transform.childCount - 1; i >= 0; i--)
                 UnityEngine.Object.Destroy(_root.transform.GetChild(i).gameObject);
-            Material mat = OnTopMaterial();
+            if (_onTopMat == null) _onTopMat = OnTopMaterial();   // one material for all the lines and labels, for good (a new one per selection was never freed)
+            Material mat = _onTopMat;
             _lines = new LineRenderer[count];
             for (int i = 0; i < count; i++)
             {
@@ -887,10 +888,11 @@ namespace AlternativeDamageModel
                 lr.positionCount = 2;
                 lr.receiveShadows = false;
                 lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                if (mat != null) lr.material = mat;
+                if (mat != null) lr.sharedMaterial = mat;   // .material would make a copy per line that nothing frees
                 _lines[i] = lr;
             }
             // the level labels: one mesh of line segments (digits drawn as 7-segment glyphs), rebuilt every tick
+            if (_labelMesh != null) UnityEngine.Object.Destroy(_labelMesh);
             _labelMesh = new Mesh(); _labelMesh.MarkDynamic();
             var lgo = new GameObject("levels");
             lgo.transform.SetParent(_root.transform, false);
@@ -902,6 +904,7 @@ namespace AlternativeDamageModel
         }
 
         static Mesh _labelMesh;
+        static Material _onTopMat;
 
         /// <summary>Vertex-coloured, no depth test (seen through the sea surface), drawn after everything else.</summary>
         static Material OnTopMaterial()
@@ -993,7 +996,13 @@ namespace AlternativeDamageModel
 
         static void ClearColliderOverlays()
         {
-            foreach (var go in _colliderOverlays) if (go != null) UnityEngine.Object.Destroy(go);
+            foreach (var go in _colliderOverlays)
+            {
+                if (go == null) continue;
+                var wm = go.name == "hull_wire" ? go.GetComponent<MeshFilter>() : null;   // the wireframe meshes are ours (the fill's mesh is the game's: not destroyed)
+                if (wm != null && wm.sharedMesh != null) UnityEngine.Object.Destroy(wm.sharedMesh);
+                UnityEngine.Object.Destroy(go);
+            }
             _colliderOverlays.Clear();
         }
 
@@ -1112,6 +1121,8 @@ namespace AlternativeDamageModel
             indices.Add(a); indices.Add(b);
         }
 
+        static LineRenderer[] _lineLast; static int[] _wetApplied; static float _widthApplied = -1f;
+
         public static void Tick(float now)
         {
             if (!_ok) return;
@@ -1124,6 +1135,7 @@ namespace AlternativeDamageModel
                 Matrix4x4 ltw = _shipTransform.localToWorldMatrix;
                 if (_lblAt == null || _lblAt.Length != _points.Length) { _lblAt = new Vector3[_points.Length]; _lblM = new float[_points.Length]; }
                 var labelAt = _lblAt; var labelM = _lblM;
+                if (_lineLast == null || _lineLast.Length != _points.Length) { _lineLast = new LineRenderer[_points.Length]; _wetApplied = new int[_points.Length]; }
                 for (int i = 0; i < _points.Length; i++)
                 {
                     Vector3 deck = ltw.MultiplyPoint3x4(_points[i]);
@@ -1131,12 +1143,14 @@ namespace AlternativeDamageModel
                     if (float.IsNaN(waveY)) waveY = deck.y;
                     labelAt[i] = deck; labelM[i] = (deck.y - waveY) * 67.200066f;
                     var lr = _lines[i];
-                    lr.startWidth = lr.endWidth = _lineWidth;
+                    if (_widthApplied != _lineWidth || lr != _lineLast[i]) { lr.startWidth = lr.endWidth = _lineWidth; }   // only when it changed (each setter dirties the line's mesh)
                     lr.SetPosition(0, new Vector3(deck.x, waveY, deck.z));
                     lr.SetPosition(1, deck);
-                    Color c = deck.y < waveY ? CWet : CDry;   // red: this point is under the current wave; green: clear of it
-                    lr.startColor = lr.endColor = c;
+                    bool wet = deck.y < waveY;   // red: this point is under the current wave; green: clear of it
+                    if (_wetApplied[i] != (wet ? 1 : 0) || lr != _lineLast[i]) { _wetApplied[i] = wet ? 1 : 0; lr.startColor = lr.endColor = wet ? CWet : CDry; }
+                    _lineLast[i] = lr;
                 }
+                _widthApplied = _lineWidth;
                 UpdateLabels(labelAt, labelM);
             }
 

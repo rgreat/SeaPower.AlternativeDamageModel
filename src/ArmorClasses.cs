@@ -42,7 +42,6 @@ namespace AlternativeDamageModel
         static FieldInfo _fGlobDv, _fDvMatrix;
         const int First = 4;   // armour type of the first class
         [ThreadStatic] static int _found;   // class (index + 1) read for the hull being loaded; 0 = none
-        static readonly Dictionary<object, string> Kept = new Dictionary<object, string>();
         [ThreadStatic] static int _foundMod;   // the same for a module (class index + 1)
         [ThreadStatic] static bool _fromTaskForce;
         static FieldInfo _fArmor, _fIni;
