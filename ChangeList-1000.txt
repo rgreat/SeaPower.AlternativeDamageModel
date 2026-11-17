@@ -1,5 +1,2 @@
-Version 2.1.0.
-- Loaders: Anchor Chain or R.A.T.S. Keel. See Install in the README.
-- Faster in big battles: fires, the "Critical" check of a ship and the deck lines take less processor time.
-- Fixed: memory grew during a long session (ships of finished missions, 3D deck line materials were never released).
-- The mod no longer checks its settings files on the disk while the game runs. Change settings in the Settings window; a file edited by hand is read at the next start of the game.
+Version 2.1.1.
+- Advanced profile: warship hull integrity 2.5 (was 3), civilian ships 1.5 (was 2), counterflooding limit 70% (was 50%), team transfer speed 75% (was 100%). Your own profiles are not changed.
