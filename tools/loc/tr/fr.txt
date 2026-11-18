@@ -720,3 +720,7 @@
 723|Pénétration de l'obus
 724|Arrête
 725|Dégâts si pénétré
+726|Captures de tous les onglets
+727|Exécuter
+728|Outils
+729|Fait une capture de chaque onglet de cette fenêtre (la fenêtre est ajustée à l'onglet, à la plus petite taille où toutes ses options sont visibles) dans BepInEx/AlternativeDamageModel_screens, puis remet la fenêtre comme avant. Rien n'est appliqué ni modifié.

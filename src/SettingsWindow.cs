@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using BepInEx.Configuration;
 using Noesis;
+using Rgreat.Kit;
 
 namespace AlternativeDamageModel
 {
@@ -24,7 +25,7 @@ namespace AlternativeDamageModel
         public static Action<string> Trace = s => { };
 
         // ------------------------------------------------------------ what is shown
-        enum Kind { Number, Integer, Table, Speed, Bool, Choice }
+        enum Kind { Number, Integer, Table, Speed, Bool, Choice, Action }
 
         sealed class Field
         {
@@ -32,6 +33,7 @@ namespace AlternativeDamageModel
             public Kind Kind;
             public float Step, Min, Max;
             public bool Global;
+            public Action Act;         // Kind.Action: what the button does
             public string[] Options;   // Kind.Choice
             public string[] Labels;    // Kind.Choice: shown names when they differ from the values (Labels[0] is translated, the rest are native names)
         }
@@ -64,6 +66,12 @@ namespace AlternativeDamageModel
         static bool ModelTab(string tab) { return tab != TUi && tab != TGen && tab != TFx && tab != TDbg; }
 
         static readonly List<Field> Fields = new List<Field>();
+
+        /// <summary>A button in the list of options (no value, nothing to save).</summary>
+        static void AddAction(string tab, string group, string key, string label, Action act)
+        {
+            Fields.Add(new Field { Tab = tab, Group = group, Key = key, Label = label, Unit = "", Kind = Kind.Action, Global = true, Act = act });
+        }
 
         static void Add(string tab, string group, string key, string label, string unit, Kind kind, float step, float min, float max, bool global = false)
         {
@@ -100,6 +108,7 @@ namespace AlternativeDamageModel
             Add(TDbg, "Logging (BepInEx log)", "General/LogFires", "Fires", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/LogHeel", "List, trim and buoyancy", "", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Logging (BepInEx log)", "General/Debug", "Debug trace", "", Kind.Bool, 0, 0, 0, true);
+            AddAction(TDbg, "Tools", "Debug/ScreenshotTabs", "Screenshot all tabs now", StartShots);
             Add(TDbg, "Logging (BepInEx log)", "General/ProfilePerformance", "Hook times", "every 10 s into the debug trace", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Visualisation (selected ship)", "General/ShowDeckCorners", "Deck point heights", "wave to hull-only deck, 10 points", Kind.Bool, 0, 0, 0, true);
             Add(TDbg, "Visualisation (selected ship)", "General/ShowHullCollider", "Hull collider (translucent)", "coll_hull* only", Kind.Bool, 0, 0, 0, true);
@@ -486,7 +495,7 @@ namespace AlternativeDamageModel
             // the profile row is shown on the General tab (ShowTab), not above the tabs
 
             // tabs
-            var tabs = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 10f, 12f, 0f) };
+            var tabs = new StackPanel { Orientation = Orientation.Horizontal };
             _tabButtons.Clear(); _tabDots.Clear();
             for (int i = 0; i < Tabs.Length; i++)
             {
@@ -502,7 +511,9 @@ namespace AlternativeDamageModel
                 _tabButtons.Add(tb); _tabDots.Add(dot);
                 tabs.Children.Add(tb);
             }
-            main.Children.Add(tabs);
+            _tabScroll = new TabScroll(tabs, B(CPanel), B(CLine), B(CText));   // one line, scrolled by the arrows at its ends / the wheel; the chosen tab is kept in view
+            _tabScroll.Root.Margin = new Thickness(12f, 10f, 12f, 0f);
+            main.Children.Add(_tabScroll.Root);
 
             _body = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 6f, 0f, 6f) };
             var scroll = _scroll = new ScrollViewer { Content = _body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
@@ -619,6 +630,7 @@ namespace AlternativeDamageModel
         // ------------------------------------------------------------ size (kept while the game runs)
         static float _winW = 1150f, _winH = 1000f;   // UI units; set from screen pixels at the first opening
         static ScrollViewer _scroll;
+        static TabScroll _tabScroll;   // the one-line strip of tabs (Rgreat.Kit)
 
         /// <summary>
         /// Resizing by the window's edges (5 px strips) and corners (16 px; the bottom right one shows the grip lines):
@@ -839,7 +851,7 @@ namespace AlternativeDamageModel
             return !_globals.TryGetValue(UiKey, out v) || !v.Trim().Equals("false", StringComparison.OrdinalIgnoreCase);
         }
 
-        static bool Differs(Field f) { return !AdmPlugin.SameValue(Get(f), FromValue(f)); }
+        static bool Differs(Field f) { return f.Kind != Kind.Action && !AdmPlugin.SameValue(Get(f), FromValue(f)); }
 
         static bool MapSame(Func<Profile, SortedDictionary<string, string>> mapOf)
         {
@@ -1031,6 +1043,7 @@ namespace AlternativeDamageModel
                 var row = _tabButtons[i].Child as StackPanel;
                 if (row != null && row.Children.Count > 0) ((TextBlock)row.Children[0]).Foreground = B(on ? CText : CDim);
             }
+            if (_tabScroll != null && _tab < _tabButtons.Count) _tabScroll.Reveal(_tabButtons[_tab]);   // the chosen tab is kept in view in the scrolled strip
             if (_body == null) return;
             _body.Children.Clear();
             string group = null;
@@ -1157,8 +1170,58 @@ namespace AlternativeDamageModel
             return g;
         }
 
+        /// <summary>A row with a button (Kind.Action): the label, the button, the help on hover.</summary>
+        static FrameworkElement ActionRow(Field f)
+        {
+            var g = RowGrid();
+            var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f), Background = B(Color.FromArgb(0, 0, 0, 0)) };
+            var lab = Text(f.Label, CText);
+            g.Children.Add(lab);
+            var btn = Btn("Run", f.Act, 70f); btn.HorizontalAlignment = HorizontalAlignment.Left; btn.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(btn, 1); g.Children.Add(btn);
+            outer.MouseEnter += (o, e) =>
+            {
+                outer.Background = B(CHl);
+                _help.Inlines.Clear();
+                var r = new Run(Loc.T(f.Label)); r.FontWeight = FontWeight.Bold; r.Foreground = B(CText);
+                _help.Inlines.Add(r);
+                _help.Inlines.Add(new Run(" - " + Loc.T(ShotHelp)));
+            };
+            outer.MouseLeave += (o, e) => outer.Background = B(Color.FromArgb(0, 0, 0, 0));
+            return outer;
+        }
+
+        const string ShotHelp = "Takes a screenshot of every tab of this window (the window is fitted to each tab, the smallest size in which all its options are seen) into BepInEx/AlternativeDamageModel_screens, then puts the window back as it was. Nothing is applied or changed.";
+
+        // ---- screenshots of every tab (the settings kit, SettingsShotKit.cs): the window fitted to each tab, a PNG in BepInEx/AlternativeDamageModel_screens
+        static void StartShots()
+        {
+            if (P == null || SettingsShots.Busy) return;
+            P.StartCoroutine(SettingsShots.Run(new ShotAdapter(), System.IO.Path.Combine(BepInEx.Paths.BepInExRootPath, "AlternativeDamageModel_screens"), s => Trace(s), s => AdmPlugin.Warn(s)));
+        }
+
+        sealed class ShotAdapter : IShotWindow
+        {
+            int _tab0, _sub0;
+            static bool DcTab(int tab) { return Tabs[tab] == "DC Teams"; }
+            /// <summary>The inner tabs of "DC Teams" that are shown now (the page numbers count only these).</summary>
+            static int SubAt(int page) { int n = 0; for (int i = 0; i < Subs.Length; i++) if (SubShown(i)) { if (n == page) return i; n++; } return 0; }
+            public bool Begin() { if (_root == null || _body == null || !_root.IsVisible) return false; _tab0 = _tab; _sub0 = _sub; return true; }
+            public int TabCount { get { return Tabs.Length; } }
+            public bool TabUsable(int tab) { return AdmOn() || !ModelTab(Tabs[tab]); }
+            public int Pages(int tab) { if (!DcTab(tab)) return 1; int n = 0; for (int i = 0; i < Subs.Length; i++) if (SubShown(i)) n++; return Math.Max(1, n); }
+            public void Show(int tab, int page) { if (DcTab(tab)) _sub = SubAt(page); ShowTab(tab); }
+            public string Name(int tab, int page) { return Loc.T(Tabs[tab]) + (DcTab(tab) ? "_" + Loc.T(Subs[SubAt(page)]) : ""); }
+            public bool Rect(out float x, out float y, out float w, out float h) { return ShotFit.Rect(_root, out x, out y, out w, out h); }
+            public void FitMax() { ShotFit.Max(_root, _move); }
+            public void FitWidth() { ShotFit.Width(_root, _body, _scroll, _move, 560f); }
+            public void FitHeight() { ShotFit.Height(_root, _scroll, _move, 420f); }
+            public void End() { _sub = _sub0; ShotFit.Restore(_root, _move, _winW, _winH); ShowTab(_tab0); }
+        }
+
         static FrameworkElement Row(Field f)
         {
+            if (f.Kind == Kind.Action) return ActionRow(f);
             var g = RowGrid();
             var outer = new Border { Child = g, Padding = new Thickness(12f, 4f, 6f, 4f), Background = B(Color.FromArgb(0, 0, 0, 0)) };
 

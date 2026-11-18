@@ -720,3 +720,7 @@
 723|Durchschlagskraft
 724|Hält auf
 725|Schaden bei Durchschlag
+726|Screenshots aller Tabs
+727|Ausführen
+728|Werkzeuge
+729|Macht von jedem Tab dieses Fensters einen Screenshot (das Fenster wird dem Tab angepasst, in der kleinsten Größe, in der alle Optionen zu sehen sind) nach BepInEx/AlternativeDamageModel_screens und stellt das Fenster wieder her. Nichts wird angewendet oder geändert.

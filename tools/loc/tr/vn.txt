@@ -720,3 +720,7 @@
 723|Sức xuyên của đạn
 724|Chặn
 725|Sát thương nếu xuyên
+726|Chụp màn hình mọi thẻ
+727|Chạy
+728|Công cụ
+729|Chụp màn hình từng thẻ của cửa sổ này (cửa sổ được điều chỉnh theo thẻ, cỡ nhỏ nhất mà thấy hết các tùy chọn) vào BepInEx/AlternativeDamageModel_screens, rồi trả cửa sổ về như cũ. Không áp dụng hay thay đổi gì.

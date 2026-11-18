@@ -720,3 +720,7 @@
 723|Penetración del proyectil
 724|Detiene
 725|Daño si penetra
+726|Capturas de todas las pestañas
+727|Ejecutar
+728|Herramientas
+729|Hace una captura de cada pestaña de esta ventana (la ventana se ajusta a la pestaña, al tamaño mínimo en el que se ven todas sus opciones) en BepInEx/AlternativeDamageModel_screens y deja la ventana como estaba. No se aplica ni se cambia nada.
