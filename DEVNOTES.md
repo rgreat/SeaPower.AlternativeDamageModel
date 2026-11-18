@@ -850,3 +850,7 @@ Code and texts for older game builds removed: ReserveHits no longer falls back t
 (2.1.0) Advanced.cfg defaults changed to the author's: Warships 2.5, CivilianShips 1.5, CounterFloodLimit 70, TransferSpeed 75.
 
 (2.1.1) Minor release: only the new Advanced.cfg defaults (see above); version bumped everywhere.
+
+Collisions: a contact with a unit that has the LifeRaft role (Role=Deco,LifeRaft in all_life_raft*.ini; a vessel for the game) is skipped in StepCore (Collisions.IsRaft, memo per Compartments): no slowing, no hull damage, no push from the mod; the game's own handling stays. all_assault_raft has Role=Deco only (not a LifeRaft) and is still handled as a ship.
+
+(2.1.2) Minor release: collisions skip life rafts; version bumped everywhere.

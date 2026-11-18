@@ -1,2 +1,2 @@
-Version 2.1.1.
-- Advanced profile: warship hull integrity 2.5 (was 3), civilian ships 1.5 (was 2), counterflooding limit 70% (was 50%), team transfer speed 75% (was 100%). Your own profiles are not changed.
+Version 2.1.2.
+- Collisions: ships no longer slow down, take hull damage or get pushed by the mod when they touch an inflatable life raft (the game's own handling only).

@@ -196,6 +196,33 @@ namespace AlternativeDamageModel
             catch (Exception e) { Trace("Collisions.Init: " + e.Message); }
         }
 
+        static FieldInfo _fCompObpR, _fObpRolesR;
+        static readonly ConditionalWeakTable<object, StrongBox<bool>> RaftMemo = new ConditionalWeakTable<object, StrongBox<bool>>();
+
+        /// <summary>The unit has the LifeRaft role (an inflatable raft: a vessel for the game, but not a ship for the collision logic).</summary>
+        static bool IsRaft(object comps)
+        {
+            if (comps == null) return false;
+            StrongBox<bool> m;
+            if (RaftMemo.TryGetValue(comps, out m)) return m.Value;
+            bool raft = false;
+            try
+            {
+                const BindingFlags all = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+                if (_fCompObpR == null) _fCompObpR = comps.GetType().GetField("_obp", all);
+                var obp = _fCompObpR == null ? null : _fCompObpR.GetValue(comps);
+                if (obp != null)
+                {
+                    if (_fObpRolesR == null) _fObpRolesR = obp.GetType().GetField("_unitRoles", all);
+                    var roles = _fObpRolesR == null ? null : _fObpRolesR.GetValue(obp) as System.Collections.IEnumerable;
+                    if (roles != null) foreach (var r in roles) if (r != null && r.ToString() == "LifeRaft") { raft = true; break; }
+                }
+            }
+            catch { }
+            RaftMemo.Add(comps, new StrongBox<bool>(raft));
+            return raft;
+        }
+
         static bool IsShip(object o)
         {
             var t = o == null ? null : o.GetType();
@@ -312,6 +339,7 @@ namespace AlternativeDamageModel
 
             object compsOther = _pComps.GetValue(other, null);
             if (compsOther == null) { Skip(self, "the other ship has no compartments"); return; }
+            if (IsRaft(comps) || IsRaft(compsOther)) { Skip(self, "a life raft is in the contact: the game's own business"); return; }   // inflatable rafts are not ships: no slowing, no hull damage from the mod
 
             // the contact points, the mean normal (horizontal)
             int n = Math.Min(16, Convert.ToInt32(_pCount.GetValue(col, null)));

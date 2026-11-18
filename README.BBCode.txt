@@ -1,4 +1,4 @@
-[b]Version 2.1.1[/b]
+[b]Version 2.1.2[/b]
 
 Alternative Damage Model: a deeper, more realistic damage model for Sea Power. Fires, flooding, wounded damage control teams and a Damage Control interface that lets you fight for your ship.
 
