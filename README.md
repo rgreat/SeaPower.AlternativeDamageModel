@@ -58,5 +58,5 @@ Preconfigured:
 
 - **Unit Status → Damage Control:** point at icons, arrows and gauges for details.
 - **Settings:** the gear next to (i). Profiles: Base Game, Advanced (the mod's damage model) or your own (Save as / Rename / Delete). Changes apply at once, also to ships at sea. Next to every setting: its default and the game's value.
-- **Language:** the game's language (9 languages) or Settings > User Interface > Language. Texts are in the lang folder (machine translations, corrections welcome).
+- **Language:** the game's language (9 languages) or the Language drop-down of the settings window (shared by the Alternative mods). Texts are in the lang folder (machine translations, corrections welcome).
 - **Saved games** keep the state of the damage control teams and the ship's DC Priority.
