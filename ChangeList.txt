@@ -1,2 +1,12 @@
+Version 2.2.0
+- Settings window (the same window and rules in all four Alternative mods):
+  - One-line tab strip with arrows; the mouse wheel scrolls it.
+  - Search box: finds options by their names (not by descriptions); the X clears it; the text stays when you switch to another mod's window.
+  - The row of the installed mods at the top of the window: a click opens that mod's window (the edits are kept). Language is now one drop-down at its right for all mods ("Default" = the game's language); the window is rebuilt in place, keeping its place, size and the edits.
+  - Ctrl+C copies the help text of the option under the mouse.
+  - The settings window opens on the mod used last (menu button; the gear of the World View window).
+- Debug: "Screenshot all tabs now" (all installed Alternative mods, BepInEx/<Mod>_screens).
+- Six option descriptions (collisions, concussion, fire diagnostics) were English in every language: translated. Game terms are written as in the game's own language files.
+
 Version 2.1.2.
 - Collisions: ships no longer slow down, take hull damage or get pushed by the mod when they touch an inflatable life raft (the game's own handling only).

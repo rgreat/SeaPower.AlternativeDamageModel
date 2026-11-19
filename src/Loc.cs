@@ -68,6 +68,9 @@ namespace AlternativeDamageModel
 
         public static string Language { get { Check(); return _lang; } }
 
+        /// <summary>The language setting changed: the next text is read in the new language.</summary>
+        public static void Refresh() { _checkedAt = -1; }
+
         static bool _checking;
 
         static void Check()

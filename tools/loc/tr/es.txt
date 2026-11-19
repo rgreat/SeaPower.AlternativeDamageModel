@@ -585,8 +585,8 @@
 585|Crítico
 586|Entre un fuego que no combate: {0}%
 587|Equipos reparando sistemas aquí: {0}, eficiencia {1}%
-589|El equipo de aquí repara primero otro sistema de la sección
 588|El equipo de aquí está ocupado: {0}
+589|El equipo de aquí repara primero otro sistema de la sección
 590|Cuatro iconos pequeños bajo el icono de un barco en el mapa (también el tuyo): fuego (la fuerza total de los fuegos), agua, casco (clasificado como en el panel Damage Control) (en tu propio barco no se muestran los daños del casco que ya no se pueden soldar ni el agua que no se puede achicar; los planes de reparación de un contacto no se conocen) y motor; amarillo / naranja / rojo según la gravedad, y un icono de mapa más gris cuando el barco va a hundirse (en 20 minutos según la tendencia de inundación / casco). Un contacto: fuego, agua, casco y motor solo a la vista directa; por sonar - solo el motor (amarillo: parte perdida, rojo: nada funciona); por radar - una estimación para un barco alcanzado en los últimos 10 minutos, marcada con '?' (amarillo: 10 nudos o menos, rojo: menos de 3); nada por ESM o sin contacto, y nada para un barco hundido. La línea Fires de la pestaña Damage Control usa la misma fuerza total. El Unit Status de un contacto muestra una pestaña Damage State con la misma información en palabras.
 591|Incendio sin atender
 592|Incendios sin control
@@ -596,17 +596,14 @@
 596|Tiempos de hooks
 597|cada 10 s en la traza de depuración
 598|Auto DC contrainunda: mientras las vías de agua sigan dejando entrar agua y la escora o el asiento llegue a la zona roja de su indicador (hasta que baje a la mitad de ella), un equipo va a la sección donde dejar entrar agua a un costado quita más inclinación y trabaja como un equipo con la orden de contrainundar (véase Contrainundación). Desactivado = Auto DC no contrainunda.
-599|Las colisiones más lentas que esto, en nudos transversales al contacto, no causan daño (buques que se rozan en formación, atraque).
-600|Daño al casco por colisión con otro buque (el juego no lo tiene: los buques solo se empujan entre sí). Cada buque pierde casco por la energía del impacto transversal al contacto, como en una colisión inelástica: el cuadrado de la velocidad y la parte que asume el buque más ligero (m_other / (m_self + m_other))^2. 1.0 = dos buques iguales que chocan a 19 nudos arruinan cada uno aproximadamente 1,25 compartimentos; una lancha pequeña que embiste a un buque grande queda destruida y el buque solo arañado. El daño va a los compartimentos donde los buques se tocaron (el lugar y el costado de los puntos de contacto) y abre vías de agua como un impacto (un contacto sobre la línea de flotación solo filtra desde un compartimento medio destruido). 0 = desactivado.
+599|Los contactos entre buques con una velocidad relativa inferior a esta, en nudos, no causan daño (buques que se tocan en formación, atraque).
+600|Daño al casco por colisión con otro buque (el juego no lo tiene: los buques solo se empujan entre sí). Una colisión no es un solo golpe: una proa que embiste puede subirse al otro buque y deslizarse sobre él. El daño es la energía que la física va disipando, paso a paso, mientras los buques siguen en contacto (el golpe, el empuje, el roce; un buque que solo descansa sobre otro no pierde nada). Cada buque asume la parte que depende de las masas: el cuadrado de la velocidad por (m_other / (m_self + m_other))^2 por tonelada de su propio desplazamiento. 1.0 = dos buques iguales que chocan a 19 nudos arruinan cada uno aproximadamente 1,25 compartimentos; una lancha pequeña que embiste a un buque grande queda destruida y el buque solo arañado. El daño va a los compartimentos donde los buques se tocan en ese momento (el lugar y el costado de los puntos de contacto) y abre vías de agua como un impacto, que crecen con el daño recibido (un contacto sobre la línea de flotación solo filtra desde un compartimento medio destruido). 0 = desactivado.
 601|Colisión
 602|Colisiones entre buques
 603|Daño por colisión
 604|Impacto dañino más lento
-605|nudos transversales al contacto
-606|× · pérdida de casco y vías de agua por el impacto · 0 = desactivado
-599|Los contactos entre buques con una velocidad relativa inferior a esta, en nudos, no causan daño (buques que se tocan en formación, atraque).
-600|Daño al casco por colisión con otro buque (el juego no lo tiene: los buques solo se empujan entre sí). Una colisión no es un solo golpe: una proa que embiste puede subirse al otro buque y deslizarse sobre él. El daño es la energía que la física va disipando, paso a paso, mientras los buques siguen en contacto (el golpe, el empuje, el roce; un buque que solo descansa sobre otro no pierde nada). Cada buque asume la parte que depende de las masas: el cuadrado de la velocidad por (m_other / (m_self + m_other))^2 por tonelada de su propio desplazamiento. 1.0 = dos buques iguales que chocan a 19 nudos arruinan cada uno aproximadamente 1,25 compartimentos; una lancha pequeña que embiste a un buque grande queda destruida y el buque solo arañado. El daño va a los compartimentos donde los buques se tocan en ese momento (el lugar y el costado de los puntos de contacto) y abre vías de agua como un impacto, que crecen con el daño recibido (un contacto sobre la línea de flotación solo filtra desde un compartimento medio destruido). 0 = desactivado.
 605|nudos, velocidad relativa
+606|× · pérdida de casco y vías de agua por el impacto · 0 = desactivado
 608|Cuántas veces menos daño por tonelada recibe la proa (la roda, con su mamparo de colisión) que el costado de un buque, en un impacto a lo largo del buque. 1.0 = igual en todas partes.
 609|Los buques en contacto se separan lentamente (unos medio metro por segundo), para que el buque que embistió no se quede dentro del otro. El juego no separa los buques superpuestos.
 612|La parte de la velocidad de deslizamiento (a lo largo del contacto) que un golpe quita por rozamiento y aplastamiento de los cascos; los buques que navegan costado con costado igualan sus velocidades tanto más cuanto mayor sea.
@@ -724,3 +721,12 @@
 727|Ejecutar
 728|Herramientas
 729|Hace una captura de cada pestaña de esta ventana (la ventana se ajusta a la pestaña, al tamaño mínimo en el que se ven todas sus opciones) en BepInEx/AlternativeDamageModel_screens y deja la ventana como estaba. No se aplica ni se cambia nada.
+730|Predeterminado
+731|↺ = volver al valor del perfil
+732|No se encontró nada.
+607|Se suma a GripScrape en proporción a cuánto se presionan los barcos entre sí (un choque contra el costado quita casi toda la velocidad de deslizamiento; un roce apenas nada).
+610|Los barcos de la IA también se frenan con una colisión (el barco que controlas siempre, cuando Braking es superior a 0).
+611|Los barcos que chocan pierden velocidad: la velocidad relativa perpendicular al contacto se pierde casi por completo (el barco más ligero pierde más, el más pesado apenas), y a lo largo solo una parte (véanse GripScrape y GripPress). La física del juego no frena los barcos; esto sí. Después el barco vuelve a acelerar con sus propios motores. 0 = los barcos conservan su velocidad.
+673|Diagnóstico: escribe cada incendio provocado por un impacto y cada cambio de fase de un incendio en el registro de BepInEx y en el archivo de traza (barco, compartimento, tiempo de misión, gravedad y crecimiento en % del máximo del compartimento, equipos de control de daños allí). Funciona también con el mod desactivado en el menú Mods, para comparar con el juego.
+677|Probabilidad de que un equipo herido quede aturdido (véase HealTime): la herida (su proporción de la salud del equipo) por este número, como máximo 100 %. 2.0 = una herida del 20 % aturde en el 40 % de los casos, del 50 % o más siempre; 1.0 = una herida del 20 % en el 20 %. 100 = siempre aturdido (como en el juego). Un equipo que el juego deja fuera de combate sin el modelo de salud siempre queda aturdido.
+705|5 clases

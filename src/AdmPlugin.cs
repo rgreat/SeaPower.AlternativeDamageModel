@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativedamagemodel";
         public const string PluginName = "Alternative Damage Model";
-        public const string PluginVersion = "2.1.2";
+        public const string PluginVersion = "2.2.0";
 
         /// <summary>Build number (UTC build time, yyyyMMdd.HHmm) stamped into the dll by the csproj; shows which dll is running.</summary>
         public static readonly string BuildId = ReadBuildId();
@@ -293,6 +293,7 @@ namespace AlternativeDamageModel
                 "Language of the mod's texts: en, ru, cn, de, es, fr, ko, ja or vn. Empty = the language of the game. The texts are in the lang folder " +
                 "of the mod (lang/<code>.ini); a missing text is shown in English.");
             Loc.Forced = () => _langEntry.Value;
+            Rgreat.Hub.SettingsHub.JoinLanguage(_langEntry.Value, v => { _langEntry.Value = v; Loc.Refresh(); });   // one language for all the rgreat mods
             _debugEntry = Cfg.Bind("General", "Debug", false,
                 "Enables verbose logging and BepInEx/AlternativeDamageModel.trace.txt.");
             _logFiresEntry = Cfg.Bind("General", "LogFires", false,
@@ -1983,7 +1984,8 @@ namespace AlternativeDamageModel
         void RegisterHub(Harmony harmony, Assembly asm)
         {
             Rgreat.Hub.SettingsHub.Register("alternative-damage-model", () => Loc.T("Damage Model"), PluginVersion, 30,
-                anchor => SettingsWindow.Open(anchor as Noesis.UIElement), () => Enabled);
+                anchor => SettingsWindow.Open(anchor as Noesis.UIElement), () => Enabled,
+                SettingsWindow.IsDirty, SettingsWindow.CommitKept, SettingsWindow.DiscardKept, SettingsWindow.Hide, SettingsWindow.Kept, SettingsWindow.ShotsRun);
             Rgreat.Hub.SettingsHub.Install(harmony, asm, Trace, () => Loc.Language);
         }
 

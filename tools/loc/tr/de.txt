@@ -585,8 +585,8 @@
 585|Kritisch
 586|Im Feuer, das es nicht bekämpft: {0}%
 587|Teams bei der Systemreparatur hier: {0}, Effizienz {1}%
-589|Das Team hier repariert zuerst ein anderes System der Sektion
 588|Das Team hier ist beschäftigt: {0}
+589|Das Team hier repariert zuerst ein anderes System der Sektion
 590|Vier kleine Symbole unter dem Schiffssymbol auf der Karte (auch Ihres): Feuer (Gesamtstärke der Brände), Wasser, Rumpf (wie im Damage-Control-Panel eingestuft) (auf dem eigenen Schiff werden Rumpfschäden, die nicht mehr geschweißt werden können, und Wasser, das nicht abgepumpt werden kann, nicht gezeigt; die Reparaturpläne eines Kontakts sind unbekannt) und Motor; gelb / orange / rot nach Schwere, und ein grauer werdendes Kartensymbol, wenn das Schiff sinken wird (binnen 20 Minuten nach dem Flut-/Rumpftrend). Ein Kontakt: Feuer, Wasser, Rumpf und Motor nur bei direkter Sicht; per Sonar - nur der Motor (gelb: Teil verloren, rot: nichts funktioniert); per Radar - eine Schätzung für ein in den letzten 10 Minuten getroffenes Schiff, mit '?' markiert (gelb: 10 Knoten oder weniger, rot: unter 3); nichts per ESM oder ohne Kontakt, und nichts für ein gesunkenes Schiff. Die Zeile Fires des Reiters Damage Control nutzt dieselbe Gesamtstärke. Der Unit Status eines Kontakts zeigt einen Reiter Damage State mit denselben Informationen in Worten.
 591|Brand ohne Trupp
 592|Unkontrollierte Brände
@@ -596,17 +596,14 @@
 596|Hook-Zeiten
 597|alle 10 s in die Debug-Trace-Datei
 598|Auto DC flutet gegen: solange Lecks noch Wasser einlassen und Krängung oder Trimmung den roten Bereich ihrer Anzeige erreicht (bis sie auf dessen Hälfte gesunken ist), geht ein Trupp in die Sektion, in der Wassereinlass in eine Seite am meisten Neigung abbaut, und arbeitet wie ein Trupp mit dem Auftrag Gegenfluten (siehe Gegenfluten). Aus = Auto DC flutet nicht gegen.
-599|Kollisionen unterhalb dieser Geschwindigkeit (Knoten quer zum Kontakt) richten keinen Schaden an (Schiffe, die sich im Verband berühren, Anlegen).
-600|Rumpfschaden bei einer Kollision mit einem anderen Schiff (das Spiel kennt keinen: Schiffe schieben sich nur gegenseitig weg). Jedes Schiff verliert Rumpf durch die Energie des Aufpralls quer zum Kontakt, wie bei einem unelastischen Stoß: das Quadrat der Geschwindigkeit und der Anteil, den das leichtere Schiff trägt (m_other / (m_self + m_other))^2. 1.0 = zwei gleiche Schiffe, die mit 19 Knoten aufeinandertreffen, zerstören je etwa 1,25 Abteilungen; ein kleines Boot, das ein großes Schiff rammt, wird zerstört, das Schiff nur zerkratzt. Der Schaden trifft die Abteilungen an den Berührungsstellen (Ort und Seite der Kontaktpunkte) und öffnet Lecks wie ein Treffer (ein Kontakt über der Wasserlinie leckt nur aus einer halb zerstörten Abteilung). 0 = aus.
+599|Kontakte zwischen Schiffen mit einer Relativgeschwindigkeit unter diesem Wert (Knoten) richten keinen Schaden an (Schiffe, die sich im Verband berühren, Anlegen).
+600|Rumpfschaden bei einer Kollision mit einem anderen Schiff (das Spiel kennt keinen: Schiffe schieben sich nur gegenseitig weg). Eine Kollision ist kein einzelner Schlag: ein rammender Bug kann auf das andere Schiff hinaufklettern und darüber gleiten. Der Schaden ist die Energie, die die Physik Schritt für Schritt abbaut, solange die Schiffe in Kontakt bleiben (der Schlag, das Drücken, das Schaben; ein Schiff, das nur auf einem anderen ruht, verliert nichts). Jedes Schiff trägt den Anteil, der von den Massen abhängt: das Quadrat der Geschwindigkeit mal (m_other / (m_self + m_other))^2 je Tonne der eigenen Verdrängung. 1.0 = zwei gleiche Schiffe, die mit 19 Knoten aufeinandertreffen, zerstören je etwa 1,25 Abteilungen; ein kleines Boot, das ein großes Schiff rammt, wird zerstört, das Schiff nur zerkratzt. Der Schaden trifft die Abteilungen, in denen sich die Schiffe in diesem Moment berühren (Ort und Seite der Kontaktpunkte), und öffnet Lecks wie ein Treffer, die mit dem erlittenen Schaden wachsen (ein Kontakt über der Wasserlinie leckt nur aus einer halb zerstörten Abteilung). 0 = aus.
 601|Kollision
 602|Kollisionen zwischen Schiffen
 603|Kollisionsschaden
 604|Schwächster schädigender Aufprall
-605|Knoten quer zum Kontakt
-606|× · Rumpfverlust und Lecks durch den Aufprall · 0 = aus
-599|Kontakte zwischen Schiffen mit einer Relativgeschwindigkeit unter diesem Wert (Knoten) richten keinen Schaden an (Schiffe, die sich im Verband berühren, Anlegen).
-600|Rumpfschaden bei einer Kollision mit einem anderen Schiff (das Spiel kennt keinen: Schiffe schieben sich nur gegenseitig weg). Eine Kollision ist kein einzelner Schlag: ein rammender Bug kann auf das andere Schiff hinaufklettern und darüber gleiten. Der Schaden ist die Energie, die die Physik Schritt für Schritt abbaut, solange die Schiffe in Kontakt bleiben (der Schlag, das Drücken, das Schaben; ein Schiff, das nur auf einem anderen ruht, verliert nichts). Jedes Schiff trägt den Anteil, der von den Massen abhängt: das Quadrat der Geschwindigkeit mal (m_other / (m_self + m_other))^2 je Tonne der eigenen Verdrängung. 1.0 = zwei gleiche Schiffe, die mit 19 Knoten aufeinandertreffen, zerstören je etwa 1,25 Abteilungen; ein kleines Boot, das ein großes Schiff rammt, wird zerstört, das Schiff nur zerkratzt. Der Schaden trifft die Abteilungen, in denen sich die Schiffe in diesem Moment berühren (Ort und Seite der Kontaktpunkte), und öffnet Lecks wie ein Treffer, die mit dem erlittenen Schaden wachsen (ein Kontakt über der Wasserlinie leckt nur aus einer halb zerstörten Abteilung). 0 = aus.
 605|Knoten, Relativgeschwindigkeit
+606|× · Rumpfverlust und Lecks durch den Aufprall · 0 = aus
 608|Um das Wievielfache weniger Schaden pro Tonne der Bug (der Steven mit Kollisionsschott) gegenüber der Schiffsseite erleidet, bei einem Aufprall in Schiffslängsrichtung. 1.0 = überall gleich.
 609|Schiffe im Kontakt werden langsam auseinandergeschoben (etwa einen halben Meter pro Sekunde), damit ein rammendes Schiff nicht im anderen stecken bleibt. Das Spiel trennt überlappende Schiffe nicht.
 612|Der Anteil der Gleitgeschwindigkeit (entlang des Kontakts), den ein Aufprall durch Schaben und Zerknittern der Rümpfe nimmt; Schiffe Seite an Seite gleichen ihre Geschwindigkeiten umso stärker an, je höher er ist.
@@ -724,3 +721,12 @@
 727|Ausführen
 728|Werkzeuge
 729|Macht von jedem Tab dieses Fensters einen Screenshot (das Fenster wird dem Tab angepasst, in der kleinsten Größe, in der alle Optionen zu sehen sind) nach BepInEx/AlternativeDamageModel_screens und stellt das Fenster wieder her. Nichts wird angewendet oder geändert.
+730|Standard
+731|↺ = zurück zum Wert des Profils
+732|Nichts gefunden.
+607|Wird GripScrape im Verhältnis dazu zugeschlagen, wie stark sich die Schiffe aneinanderpressen (ein Rammstoß in die Seite nimmt den Großteil der Gleitgeschwindigkeit, eine streifende Berührung kaum etwas).
+610|Auch Schiffe der KI werden durch eine Kollision abgebremst (das Schiff, das du steuerst, immer, wenn Braking über 0 liegt).
+611|Kollidierende Schiffe verlieren Fahrt: Die Relativgeschwindigkeit quer zur Berührung geht fast ganz verloren (das leichtere Schiff verliert am meisten, das schwerere kaum etwas), längs dazu nur ein Teil (siehe GripScrape und GripPress). Die Physik des Spiels bremst Schiffe nicht, dies hier schon. Danach beschleunigt das Schiff mit eigenen Maschinen wieder. 0 = die Schiffe behalten ihre Fahrt.
+673|Diagnose: schreibt jeden durch einen Treffer ausgelösten Brand und jede Änderung der Brandstufe in das BepInEx-Log und in die Trace-Datei (Schiff, Abteilung, Missionszeit, Schwere und Wachstum in % des Maximums der Abteilung, Schadensabwehrtrupps dort). Wirkt auch bei im Mods-Menü ausgeschaltetem Mod, zum Vergleich mit dem Spiel.
+677|Wahrscheinlichkeit, dass ein verwundeter Trupp benommen ist (siehe HealTime): die Verwundung (ihr Anteil an der Gesundheit des Trupps) mal dieser Zahl, höchstens 100 %. 2.0 = eine Verwundung von 20 % macht in 40 % der Fälle benommen, ab 50 % immer; 1.0 = eine Verwundung von 20 % in 20 %. 100 = immer benommen (wie im Spiel). Ein Trupp, den das Spiel ohne das Gesundheitsmodell ausschaltet, ist immer benommen.
+705|5 Klassen

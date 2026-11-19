@@ -39,8 +39,15 @@ namespace AlternativeDamageModel
         }
 
         const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
-        const string TFx = "Effects";
-        static readonly string[] Tabs = { TUi, TFx, TGen, "Hull", "Systems", "Fire", "Flooding", "DC Teams", "Collisions", TDbg };
+        const string TFx = "Sinking";
+        // the pages (Field.Tab); the strip shows them grouped: "Damage Model" has the pages General, Hull, Systems, Fire, Flooding, Collisions (a second row of buttons)
+        static readonly string[] Tabs = { TUi, TFx, TGen, "Hull", "Systems", "Fire", "Flooding", "Collisions", "DC Teams", TDbg };
+        static readonly string[] TopNames = { TUi, TFx, "Damage Model", "DC Teams", TDbg };
+        static readonly string[][] Top = { new[] { TUi }, new[] { TFx }, new[] { TGen, "Hull", "Systems", "Fire", "Flooding", "Collisions" }, new[] { "DC Teams" }, new[] { TDbg } };
+        static readonly int[] _lastPage = { 0, 0, 0, 0, 0 };   // the page of each group shown last (a click on the group comes back to it)
+        static int GroupOf(int tab) { for (int g = 0; g < Top.Length; g++) if (Array.IndexOf(Top[g], Tabs[tab]) >= 0) return g; return 0; }
+        static bool PageShown(string page, bool adm) { return adm || !ModelTab(page); }
+        static string PageName(string page) { return page == TGen ? "General" : page; }
         const string HealthKey = "DamageControlTeams/TeamHealthEnabled", FatigueKey = "DamageControlTeams/FatigueEnabled";
         const string AdmKey = "General/AlternativeDamageControl", UiKey = "UI/DetailedView", ArrowsGroup = "Trend arrows";
         /// <summary>Settings applied at once (not on Apply): the window shows / hides tabs or groups with them.</summary>
@@ -81,9 +88,6 @@ namespace AlternativeDamageModel
         static SettingsWindow()
         {
             const string H = "Hull", C = "Collisions", FF = "Fire", DC = "DC Teams", S = "Flooding", D = TUi, G = TGen;
-            Add(D, "Language", "General/Language", "Mod language", "applies after reopening this window", Kind.Choice, 0, 0, 0, true);
-            Fields[Fields.Count - 1].Options = new[] { "", "en", "ru", "de", "es", "fr", "ko", "ja", "cn", "vn" };
-            Fields[Fields.Count - 1].Labels = new[] { "Game language", "English", "Русский", "Deutsch", "Español", "Français", "한국어", "日本語", "中文", "Tiếng Việt" };
             Add(D, "Damage Control tab", UiKey, "Detailed view", "applies at once", Kind.Bool, 0, 0, 0, true);
             Add(D, "Bottom panel", "UI/ColorWeaponStatus", "Weapon status colours", "yellow: part inoperable, red: all", Kind.Bool, 0, 0, 0, true);
             Add(D, "Map", "UI/ShowEnemyDamage", "Ship damage icons", "fire, water, hull, engine", Kind.Bool, 0, 0, 0, true);
@@ -202,12 +206,10 @@ namespace AlternativeDamageModel
         }
 
         // ------------------------------------------------------------ colours (the game's dark panels)
-        static readonly Color CBg = Color.FromRgb(30, 33, 38), CPanel = Color.FromRgb(38, 42, 48), CCard = Color.FromRgb(45, 50, 57),
-                              CLine = Color.FromRgb(70, 76, 86), CText = Color.FromRgb(230, 232, 235), CDim = Color.FromRgb(150, 156, 162),
-                              CWarn = Color.FromRgb(236, 212, 110), CTitle = Color.FromRgb(43, 48, 56), CField = Color.FromRgb(21, 24, 28),
-                              CErr = Color.FromRgb(232, 96, 80), CHl = Color.FromRgb(52, 58, 66);
+        static readonly Color CBg = WinStyle.Bg, CPanel = WinStyle.Panel, CCard = WinStyle.Card, CLine = WinStyle.Line, CText = WinStyle.Text, CDim = WinStyle.Dim,
+                              CWarn = WinStyle.Warn, CTitle = WinStyle.Title, CField = WinStyle.Field, CErr = WinStyle.Err, CHl = WinStyle.Hl;
 
-        static SolidColorBrush B(Color c) { return new SolidColorBrush(c); }
+        static SolidColorBrush B(Color c) { return WinStyle.B(c); }
 
         /// <summary>The game's value next to a list row: as the other rows' (grey, 11 px); a type the game scales with tonnage in light blue.</summary>
         static readonly Color CGame = Color.FromRgb(132, 186, 238);
@@ -218,9 +220,24 @@ namespace AlternativeDamageModel
         }
 
         // ------------------------------------------------------------ state
-        static Popup _popup;
-        static UIElement _top;             // the screen the window is centred on (mouse positions for dragging)
-        static Grid _root;                 // window content + the overlay of the small dialogs
+        // the window itself (Rgreat.Kit): where it is, its size, dragging, resizing, the game's keyboard
+        static readonly WinFrame _f = MakeFrame();
+
+        static WinFrame MakeFrame()
+        {
+            var f = new WinFrame(1150f, 1000f);   // screen pixels (+80: the Effects tab; +10: the Debug tab; +100: the Sinking tab): converted to UI units at the first opening
+            f.Id = SelfId;
+            f.Trace = s => Trace(s);
+            f.Tr = s => Loc.T(s);
+            f.ResizeTip = () => Loc.T("Drag to resize");
+            f.LanguageLabel = () => Loc.T("Language");
+            f.Languages = () => new List<KeyValuePair<string, string>> {
+                new KeyValuePair<string, string>("", Loc.T("Default")), new KeyValuePair<string, string>("en", "English"), new KeyValuePair<string, string>("ru", "Русский"),
+                new KeyValuePair<string, string>("de", "Deutsch"), new KeyValuePair<string, string>("es", "Español"), new KeyValuePair<string, string>("fr", "Français"),
+                new KeyValuePair<string, string>("ko", "한국어"), new KeyValuePair<string, string>("ja", "日本語"), new KeyValuePair<string, string>("cn", "中文"), new KeyValuePair<string, string>("vn", "Tiếng Việt") };
+            f.LanguageChanged = () => RebuildAfterLanguage();
+            return f;
+        }
         static Border _overlay;
         static ComboBox _combo;
         static TextBlock _note, _help, _tag, _status;
@@ -228,6 +245,7 @@ namespace AlternativeDamageModel
         static StackPanel _body, _profRow;
         static readonly List<Border> _tabButtons = new List<Border>();
         static readonly List<Ellipse> _tabDots = new List<Ellipse>();
+        static readonly List<KeyValuePair<string, Ellipse>> _pageDots = new List<KeyValuePair<string, Ellipse>>();   // the dots of the page buttons shown now
         static int _tab;
         static bool _syncing;
 
@@ -257,10 +275,19 @@ namespace AlternativeDamageModel
             return null;
         }
 
-        public static bool IsOpen { get { return (_host != null && _root != null && SafeParent(_root) != null) || (_popup != null && _popup.IsOpen); } }
+        public static bool IsOpen { get { return _f.Attached; } }
 
-        static Panel _host;                // the top panel of the screen the window was put into (null: shown in a Popup)
-        static TranslateTransform _move;   // dragging
+        // ------------------------------------------------------------ the switch between the mods' windows (Rgreat.Hub.SettingsHub)
+        const string SelfId = "alternative-damage-model";
+        static bool _kept;   // taken off the screen by the switch to another mod's window, the edits kept (Open puts them back)
+        public static bool IsDirty() { return (_kept || IsOpen) && Dirty(); }
+        public static bool Kept() { return _kept; }
+        public static void Hide() { Close(); _kept = true; }
+        public static void CommitKept() { Commit(true); _kept = false; }
+        public static void DiscardKept() { Close(); _kept = false; }
+        /// <summary>Cancel / ✕: the edits are dropped, here and in the windows of the other mods that are kept.</summary>
+        static void Cancel() { Rgreat.Hub.SettingsHub.DiscardOthers(SelfId); Close(); }
+
 
         public static Action<string> Warn = s => { };
         public static Action<string> Info = s => { };
@@ -285,84 +312,45 @@ namespace AlternativeDamageModel
                 if (IsOpen)
                 {
                     bool shown = false;
-                    try { shown = _root != null && _root.IsVisible; } catch { }
+                    try { shown = _f.Root != null && _f.Root.IsVisible; } catch { }
                     if (shown) return;   // open already
                     Trace("settings window: left over from an earlier screen, opened again");
                 }
                 Close();
-                // the screen's root, and the topmost panel on the way up to it
-                DependencyObject top = anchor; Panel panel = null;
-                for (DependencyObject p = anchor; p != null; p = SafeParent(p))
-                {
-                    top = p;
-                    var pn = p as Panel;
-                    bool itemsHost = false;
-                    try { itemsHost = pn != null && pn.IsItemsHost; } catch { }
-                    if (pn != null && !itemsHost && (pn is Grid || pn is Canvas)) panel = pn;
-                }
-                if (panel == null && other != null)
-                    for (DependencyObject p = other; p != null; p = SafeParent(p))
-                    {
-                        top = p;
-                        var pn = p as Panel;
-                        bool itemsHost = false;
-                        try { itemsHost = pn != null && pn.IsItemsHost; } catch { }
-                        if (pn != null && !itemsHost && (pn is Grid || pn is Canvas)) panel = pn;
-                    }
-                _top = top as UIElement ?? anchor;
-                LoadFrom(P.ActiveProfileName);
+                var panel = _f.Locate(anchor, other);
+                if (_kept) _kept = false; else LoadFrom(P.ActiveProfileName);   // put back after a switch to another mod's window: the edits are kept
                 BuildWindow();
-                _move = new TranslateTransform(0f, 0f);
-                _place = 0;
-                _root.LayoutUpdated += OnLayout;   // size in screen pixels and centring on the screen: once laid out (below)
-                _root.RenderTransform = _move;
-                if (panel != null)
-                {
-                    var grid = panel as Grid;
-                    if (grid != null)
-                    {
-                        _root.HorizontalAlignment = HorizontalAlignment.Center;
-                        _root.VerticalAlignment = VerticalAlignment.Center;
-                        Grid.SetRow(_root, 0); Grid.SetColumn(_root, 0);
-                        Grid.SetRowSpan(_root, Math.Max(1, grid.RowDefinitions.Count));
-                        Grid.SetColumnSpan(_root, Math.Max(1, grid.ColumnDefinitions.Count));
-                    }
-                    else
-                    {
-                        float w = panel.ActualWidth > 0 ? panel.ActualWidth : 1280f, h = panel.ActualHeight > 0 ? panel.ActualHeight : 720f;
-                        Canvas.SetLeft(_root, Math.Max(0f, (w - _root.Width) / 2f));
-                        Canvas.SetTop(_root, Math.Max(0f, (h - _root.Height) / 2f));
-                    }
-                    Panel.SetZIndex(_root, 30000);
-                    panel.Children.Add(_root);
-                    _host = panel;
-                    Trace("settings window: in " + panel.GetType().Name + " (" + panel.ActualWidth + " x " + panel.ActualHeight + ")");
-                }
-                else
-                {
-                    _popup = new Popup
-                    {
-                        Child = _root, StaysOpen = true, AllowsTransparency = true,
-                        Placement = PlacementMode.Center, PlacementTarget = _top
-                    };
-                    _popup.IsOpen = true;
-                    Trace("settings window: popup");
-                }
-                ShowTab(_tab);
-                if (!_saidOpen) { _saidOpen = true; Info("Settings window opened (" + (_host != null ? "in " + _host.GetType().Name : "popup") + ")."); }
+                _f.Mount(panel);
+                Trace("settings window: " + (_f.Host != null ? "in " + _f.Host.GetType().Name + " (" + _f.Host.ActualWidth + " x " + _f.Host.ActualHeight + ")" : "popup"));
+                Redraw();
+                if (!_saidOpen) { _saidOpen = true; Info("Settings window opened (" + (_f.Host != null ? "in " + _f.Host.GetType().Name : "popup") + ")."); }
             }
             catch (Exception e) { Warn("Settings window could not be opened: " + e.Message); Trace("SettingsWindow.Open: " + e); }
         }
 
-        static DependencyObject SafeParent(DependencyObject e) { try { return VisualTreeHelper.GetParent(e); } catch { return null; } }
+
+        /// <summary>The language changed: the window is built again with the new texts (the edits stay), not inside the click of the drop-down.</summary>
+        static void RebuildAfterLanguage()
+        {
+            Loc.Refresh();
+            var root = _f.Root;
+            if (root == null) return;
+            Noesis.EventHandler h = null;
+            h = (o, e) =>
+            {
+                root.LayoutUpdated -= h;
+                if (!ReferenceEquals(root, _f.Root)) return;
+                try { Typing(false); _f.Root.Children.Clear(); FillWindow(); Redraw(); }   // in place: the window keeps its place, size and search
+                catch (Exception ex) { Trace("settings rebuild: " + ex.Message); }
+            };
+            root.LayoutUpdated += h;
+            try { root.InvalidateMeasure(); } catch { }
+        }
 
         static void Close()
         {
             Typing(false);
-            try { if (_host != null && _root != null) _host.Children.Remove(_root); } catch { }
-            try { var pp = _root == null ? null : SafeParent(_root) as Panel; if (pp != null) pp.Children.Remove(_root); } catch { }   // wherever it is now
-            try { if (_popup != null) { _popup.IsOpen = false; _popup.Child = null; } } catch { }
-            _host = null; _popup = null;
+            _f.Unmount();
         }
 
         /// <summary>The .cfg was changed outside the window: the window shows it, unless there are unsaved edits.</summary>
@@ -372,7 +360,7 @@ namespace AlternativeDamageModel
             if (Dirty()) return;
             LoadFrom(P.ActiveProfileName);
             RebuildProfiles();
-            ShowTab(_tab);
+            Redraw();
         }
 
         static void LoadFrom(string name)
@@ -403,76 +391,38 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ the game's keyboard while typing
 
-        static PropertyInfo _ihInstance; static FieldInfo _ihTyping; static bool _ihTried;
+        static TextBlock Text(string s, Color c, float size = 13f) { return _f.Text(s, c, size); }
+        static Button Btn(string s, Action click, float minW = 0f) { return _f.Btn(s, click, minW); }
+        static TextBox Edit(string text, float width) { return _f.Edit(text, width); }
+        static void Typing(bool on) { _f.Typing(on); }
+        static bool TryNum(string s, out float v) { return WinStyle.TryNum(s, out v); }
+        static float Num(string s) { return WinStyle.Num(s); }
+        static TextBlock GroupTitle(string s) { return WinStyle.GroupTitle(Loc.T(s)); }
+        static Path Cross(float size) { return WinStyle.Cross(size); }
+        static DependencyObject SafeParent(DependencyObject e) { return WinStyle.SafeParent(e); }
 
-        static void Typing(bool on)
-        {
-            try
-            {
-                if (!_ihTried)
-                {
-                    _ihTried = true;
-                    foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
-                    {
-                        if (a.GetName().Name != "Seapower-Scripts") continue;
-                        var ih = a.GetType("SeaPower.InputHandler"); var sg = a.GetType("SeaPower.Singleton`1");
-                        if (ih != null && sg != null)
-                        {
-                            _ihInstance = sg.MakeGenericType(ih).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public);
-                            _ihTyping = ih.GetField("typingActive", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                        }
-                    }
-                }
-                if (_ihInstance == null || _ihTyping == null) return;
-                var inst = _ihInstance.GetValue(null, null);
-                if (inst != null) _ihTyping.SetValue(inst, on);
-            }
-            catch (Exception e) { Trace("typing: " + e.Message); }
-        }
 
-        static TextBox Edit(string text, float width)
-        {
-            var t = new TextBox { Text = text ?? "", Width = width, Height = 24f, TextAlignment = TextAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
-                                  Background = B(CField), Foreground = B(CText), BorderBrush = B(CLine), Padding = new Thickness(2f, 0f, 2f, 0f) };
-            t.GotFocus += (s, e) => { Typing(true); try { t.SelectAll(); } catch { } };
-            t.LostFocus += (s, e) => Typing(false);
-            return t;
-        }
+
 
         // ------------------------------------------------------------ building
 
-        static TextBlock Text(string s, Color c, float size = 13f)
-        {
-            return new TextBlock { Text = Loc.T(s), Foreground = B(c), FontSize = size, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.NoWrap };
-        }
 
-        static Button Btn(string s, Action click, float minW = 0f)
-        {
-            var b = new Button { Content = Loc.T(s), Padding = new Thickness(10f, 2f, 10f, 2f), Margin = new Thickness(0f, 0f, 6f, 0f), MinHeight = 26f, MinWidth = minW };
-            b.Click += (o, e) => { try { click(); } catch (Exception ex) { Trace("button " + s + ": " + ex); } };
-            return b;
-        }
 
         static void BuildWindow()
         {
-            _root = new Grid { Width = _winW, Height = _winH };
-            var win = new Border { Background = B(CBg), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), CornerRadius = new CornerRadius(4f) };
-            _root.Children.Add(win);
+            _f.NewRoot();
+            FillWindow();
+        }
+
+        /// <summary>The content of the window (its texts are read now): also used to rebuild it in place after the language changed.</summary>
+        static void FillWindow()
+        {
+            var win = _f.Window();
             var main = new StackPanel { Orientation = Orientation.Vertical };   // filled top to bottom, then moved into 'layout' below
 
-            // title bar: drag to move, ✕ to close
-            var title = new Grid { Background = B(CTitle), Height = 32f };
-            title.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
-            title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var tt = Text("Alternative Damage Model - Settings", CText, 14f); tt.Margin = new Thickness(10f, 0f, 0f, 0f);
-            title.Children.Add(tt);
-            var x = new Button { Content = Cross(10f), Width = 28f, Height = 24f, Padding = new Thickness(0f), Margin = new Thickness(0f, 0f, 4f, 0f),
-                                 HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            x.Click += (o, e) => Close();
-            Grid.SetColumn(x, 1);
-            title.Children.Add(x);
-            Draggable(title);
-            main.Children.Add(title);
+            main.Children.Add(_f.TitleBar("Alternative Damage Model - Settings", Cancel));   // drag to move, ✕ to close
+            var modRow = _f.ModRow();   // the installed mods: a click switches to that mod's window
+            if (modRow != null) main.Children.Add(modRow);
 
             // profile row
             var prof = _profRow = new StackPanel { Orientation = Orientation.Horizontal, Background = B(CPanel), Margin = new Thickness(0f, 1f, 0f, 0f) };
@@ -497,202 +447,61 @@ namespace AlternativeDamageModel
             // tabs
             var tabs = new StackPanel { Orientation = Orientation.Horizontal };
             _tabButtons.Clear(); _tabDots.Clear();
-            for (int i = 0; i < Tabs.Length; i++)
+            for (int i = 0; i < Top.Length; i++)
             {
                 int idx = i;
                 var row = new StackPanel { Orientation = Orientation.Horizontal };
-                row.Children.Add(Text(Tabs[i], CDim));
+                row.Children.Add(Text(TopNames[i], CDim));
                 var dot = new Ellipse { Width = 6f, Height = 6f, Fill = B(CWarn), Margin = new Thickness(5f, 0f, 0f, 0f), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
                 row.Children.Add(dot);
                 var tb = new Border { Child = row, Padding = new Thickness(12f, 6f, 12f, 6f), Margin = new Thickness(0f, 0f, 2f, 0f), BorderBrush = B(CLine),
                                       BorderThickness = new Thickness(1f, 1f, 1f, 0f), CornerRadius = new CornerRadius(3f, 3f, 0f, 0f), Background = B(CPanel) };
                 try { tb.Cursor = Cursors.Hand; } catch { }
-                tb.MouseLeftButtonUp += (o, e) => { ShowTab(idx); e.Handled = true; };
+                tb.MouseLeftButtonUp += (o, e) => { ShowTab(Array.IndexOf(Tabs, Top[idx][Math.Min(_lastPage[idx], Top[idx].Length - 1)])); e.Handled = true; };
                 _tabButtons.Add(tb); _tabDots.Add(dot);
                 tabs.Children.Add(tb);
             }
             _tabScroll = new TabScroll(tabs, B(CPanel), B(CLine), B(CText));   // one line, scrolled by the arrows at its ends / the wheel; the chosen tab is kept in view
-            _tabScroll.Root.Margin = new Thickness(12f, 10f, 12f, 0f);
-            main.Children.Add(_tabScroll.Root);
+            main.Children.Add(_f.ToolRow(_tabScroll.Root, "Search...", () => Redraw(), () => TopDiffers(GroupOf(_tab)), RevertTop, "Take back the edits of this tab that differ from the profile"));   // the tabs, the search, the revert of the tab
 
             _body = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 6f, 0f, 6f) };
             var scroll = _scroll = new ScrollViewer { Content = _body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
             scroll.SizeChanged += (o, e) => FitPage();
-            var settingsArea = new Border { Child = scroll, Background = B(CCard), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 0f) };
+            var settingsArea = _f.Card(scroll);
             main.Children.Add(settingsArea);
 
-            _help = new TextBlock { Foreground = B(Color.FromRgb(194, 199, 204)), FontSize = 12f, TextWrapping = TextWrapping.Wrap, Text = Loc.T("Point at a setting to see what it does.") };
-            main.Children.Add(new Border { Child = _help, Background = B(Color.FromRgb(34, 38, 44)), BorderBrush = B(CLine), BorderThickness = new Thickness(1f),
-                                           Padding = new Thickness(10f, 8f, 10f, 8f), Margin = new Thickness(12f, 8f, 12f, 0f), Height = 108f, CornerRadius = new CornerRadius(3f) });   // fixed: 6 lines - the window does not jump as the text changes
+            main.Children.Add(_f.HelpPane(Loc.T("Point at a setting to see what it does.")));   // fixed: 6 lines - the window does not jump as the text changes
+            _help = _f.Help;
 
             // footer
-            var foot = new Grid { Margin = new Thickness(12f, 10f, 12f, 12f) };
-            foot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            foot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1f, GridUnitType.Star) });
-            foot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             _reset = Btn("Reset to profile", ResetAll);
-            foot.Children.Add(_reset);
-            _status = Text("", CDim, 11f); _status.HorizontalAlignment = HorizontalAlignment.Right; _status.Margin = new Thickness(0f, 0f, 10f, 0f);
-            Grid.SetColumn(_status, 1); foot.Children.Add(_status);
-            var right = new StackPanel { Orientation = Orientation.Horizontal };
-            right.Children.Add(Btn("Cancel", Close, 70f));
-            right.Children.Add(Btn("Apply", () => Commit(false), 70f));
-            var ok = Btn("OK", () => Commit(true), 70f); ok.Margin = new Thickness(0f);
-            right.Children.Add(ok);
-            Grid.SetColumn(right, 2); foot.Children.Add(right);
-            main.Children.Add(foot);
+            main.Children.Add(_f.Footer(_reset, out _status, "Cancel", Cancel, "Apply", () => Commit(false), "OK", () => Commit(true)));
 
             // the rows: all as tall as they need, the settings area (4th) takes the rest of the window's height
-            var layout = new Grid();
             var parts = new List<UIElement>();
             foreach (UIElement e in main.Children) parts.Add(e);
             main.Children.Clear();
-            for (int r = 0; r < parts.Count; r++)
-            {
-                layout.RowDefinitions.Add(new RowDefinition { Height = ReferenceEquals(parts[r], settingsArea) ? new GridLength(1f, GridUnitType.Star) : GridLength.Auto });
-                Grid.SetRow(parts[r], r);
-                layout.Children.Add(parts[r]);
-            }
-            win.Child = layout;
-
-            AddResizeHandles();
+            _f.Assemble(win, parts, settingsArea);
 
             _overlay = new Border { Background = B(Color.FromArgb(150, 0, 0, 0)), CornerRadius = new CornerRadius(4f), Visibility = Visibility.Collapsed };
-            _root.Children.Add(_overlay);
+            _f.Root.Children.Add(_overlay);
 
             RebuildProfiles();
         }
 
-        /// <summary>A drawn ✕ for a button: the font's glyph sat low in the button, cut at the bottom and off centre.</summary>
-        static Path Cross(float size)
-        {
-            return new Path { Data = new StreamGeometry("M0,0 L10,10 M10,0 L0,10"), Stroke = B(CText), StrokeThickness = 1.5f, Stretch = Stretch.Uniform,
-                              Width = size, Height = size, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        }
 
-        // drag the window by its title bar
-        static void Draggable(FrameworkElement handle)
-        {
-            bool down = false; Point start = new Point(); float h0 = 0f, v0 = 0f;
-            handle.MouseLeftButtonDown += (o, e) =>
-            {
-                if (_move == null) return;
-                down = true; start = e.GetPosition(_top); h0 = _move.X; v0 = _move.Y;
-                handle.CaptureMouse(); e.Handled = true;
-            };
-            handle.MouseMove += (o, e) =>
-            {
-                if (!down || _move == null) return;
-                var p = e.GetPosition(_top);
-                _move.X = h0 + (p.X - start.X);
-                _move.Y = v0 + (p.Y - start.Y);
-            };
-            handle.MouseLeftButtonUp += (o, e) => { if (!down) return; down = false; handle.ReleaseMouseCapture(); e.Handled = true; };
-        }
 
         // ------------------------------------------------------------ placing on the screen
         // The window lives in the panel of the Unit Status window (its own UI root), and the game scales its UI: sizes are set in
         // screen pixels (1040 x 990 by default, at most the screen less 40) and the window is centred on the screen, not in that panel.
-        static int _place;
-        static bool _sizedOnce;
 
-        static void OnLayout(object sender, Noesis.EventArgs e)
-        {
-            if (_root == null || _place >= 2) return;
-            try
-            {
-                if (_root.ActualWidth <= 0f) return;
-                var a = _root.PointToScreen(new Point(0f, 0f)); var b = _root.PointToScreen(new Point(100f, 0f));
-                float k = (float)Math.Sqrt((b.X - a.X) * (b.X - a.X) + (b.Y - a.Y) * (b.Y - a.Y)) / 100f;   // screen pixels per UI unit
-                if (k <= 0.01f || float.IsNaN(k)) { _place = 2; return; }
-                float sw = UnityEngine.Screen.width, sh = UnityEngine.Screen.height;
-                if (_place == 0)
-                {
-                    if (!_sizedOnce) { _winW = PixW / k; _winH = PixH / k; _sizedOnce = true; }   // the first time: 1040 x 990 screen pixels
-                    _root.Width = Math.Min(_winW, (sw - 40f) / k);
-                    _root.Height = Math.Min(_winH, (sh - 40f) / k);
-                    _place = 1;
-                    Trace("settings window: " + k.ToString("0.##") + " px per unit, " + _root.Width.ToString("0") + " x " + _root.Height.ToString("0") + " units");
-                    return;   // laid out again with the new size
-                }
-                // centre on the screen
-                float w = _root.Width * k, h = _root.Height * k;
-                _move.X += ((sw - w) / 2f - a.X) / k;
-                _move.Y += ((sh - h) / 2f - a.Y) / k;
-                _place = 2;
-                _root.LayoutUpdated -= OnLayout;
-            }
-            catch (Exception ex) { _place = 2; Trace("settings window placing: " + ex.Message); }
-        }
 
-        const float PixW = 1150f, PixH = 1000f;   // +80: the Effects tab; +10: the Debug tab; +100: the Sinking tab
 
         // ------------------------------------------------------------ size (kept while the game runs)
-        static float _winW = 1150f, _winH = 1000f;   // UI units; set from screen pixels at the first opening
         static ScrollViewer _scroll;
         static TabScroll _tabScroll;   // the one-line strip of tabs (Rgreat.Kit)
 
-        /// <summary>
-        /// Resizing by the window's edges (5 px strips) and corners (16 px; the bottom right one shows the grip lines):
-        /// 560..1600 x 420..1400, the settings area takes the change. Dragging the left or top side keeps the opposite side in place.
-        /// The size is kept while the game runs.
-        /// </summary>
-        static void AddResizeHandles()
-        {
-            for (int sy = -1; sy <= 1; sy++)
-                for (int sx = -1; sx <= 1; sx++)
-                    if (sx != 0 || sy != 0) _root.Children.Add(ResizeHandle(sx, sy));
-        }
 
-        /// <param name="sx">-1 left, 1 right, 0 neither</param>
-        /// <param name="sy">-1 top, 1 bottom, 0 neither</param>
-        static FrameworkElement ResizeHandle(int sx, int sy)
-        {
-            const float Edge = 5f, Corner = 16f;
-            bool corner = sx != 0 && sy != 0;
-            var h = new Border { Background = B(Color.FromArgb(0, 0, 0, 0)),
-                                 HorizontalAlignment = sx < 0 ? HorizontalAlignment.Left : sx > 0 ? HorizontalAlignment.Right : HorizontalAlignment.Stretch,
-                                 VerticalAlignment = sy < 0 ? VerticalAlignment.Top : sy > 0 ? VerticalAlignment.Bottom : VerticalAlignment.Stretch };
-            if (sx != 0) h.Width = corner ? Corner : Edge;
-            if (sy != 0) h.Height = corner ? Corner : Edge;
-            if (sx == 0) h.Margin = new Thickness(Corner, 0f, Corner, 0f);        // the corners belong to the corner handles
-            else if (sy == 0) h.Margin = new Thickness(0f, Corner, 0f, Corner);
-            if (sx > 0 && sy > 0)
-            {
-                h.Margin = new Thickness(0f, 0f, 1f, 1f);
-                h.Child = new Path { Data = new StreamGeometry("M15,4 L4,15 M15,8 L8,15 M15,12 L12,15"), Stroke = B(CDim), StrokeThickness = 1f };
-                try { ToolTipService.SetToolTip(h, Loc.T("Drag to resize")); } catch { }
-            }
-            try { h.Cursor = corner ? (sx == sy ? Cursors.SizeNWSE : Cursors.SizeNESW) : sx != 0 ? Cursors.SizeWE : Cursors.SizeNS; } catch { }
-            bool down = false; Point start = new Point(); float w0 = 0f, h0 = 0f;
-            h.MouseLeftButtonDown += (o, e) =>
-            {
-                down = true; start = e.GetPosition(_top); w0 = _winW; h0 = _winH;
-                h.CaptureMouse(); e.Handled = true;
-            };
-            h.MouseMove += (o, e) =>
-            {
-                if (!down || _root == null) return;
-                e.Handled = true;   // while resizing the mouse events go no further
-                var p = e.GetPosition(_top);
-                float w = sx == 0 ? _winW : Math.Max(560f, Math.Min(1600f, w0 + sx * (p.X - start.X)));
-                float hh = sy == 0 ? _winH : Math.Max(420f, Math.Min(1400f, h0 + sy * (p.Y - start.Y)));
-                float dw = w - _winW, dh = hh - _winH;
-                if (Math.Abs(dw) < 0.5f && Math.Abs(dh) < 0.5f) return;
-                _winW = w; _winH = hh;
-                _root.Width = w; _root.Height = hh;
-                if (_move == null) return;
-                // a window centred in a Grid grows both ways; one placed by its top left corner grows right / down:
-                // move it so that only the dragged side moves
-                bool centred = _host is Grid;
-                if (sx != 0) _move.X += centred ? sx * dw / 2f : (sx < 0 ? -dw : 0f);
-                if (sy != 0) _move.Y += centred ? sy * dh / 2f : (sy < 0 ? -dh : 0f);
-            };
-            h.MouseLeftButtonUp += (o, e) => { if (!down) return; down = false; h.ReleaseMouseCapture(); e.Handled = true; };
-            h.MouseWheel += (o, e) => { if (down) e.Handled = true; };
-            h.MouseRightButtonDown += (o, e) => { if (down) e.Handled = true; };
-            return h;
-        }
 
         static void RebuildProfiles()
         {
@@ -731,11 +540,12 @@ namespace AlternativeDamageModel
             if (p == null) return;
             _selected = p.Name; _from = p; _work = p.Copy(p.Name);
             RebuildProfiles();
-            ShowTab(_tab);
+            Redraw();
         }
 
         static void UpdateHeader()
         {
+            _f.UpdateModDots();
             if (_tag == null) return;
             bool builtIn = AdmPlugin.IsBuiltIn(_selected);
             bool edited = _work != null && !_work.SameAs(_from);
@@ -745,17 +555,25 @@ namespace AlternativeDamageModel
             bool saved = !builtIn && Array.Exists(AdmPlugin.ProfileNames().ToArray(), n => string.Equals(n, _selected, StringComparison.OrdinalIgnoreCase));
             _rename.IsEnabled = !builtIn;
             _delete.IsEnabled = saved;
-            _reset.IsEnabled = edited;
+            _reset.Visibility = edited ? Visibility.Visible : Visibility.Collapsed;   // hidden, not grey, while there is nothing to take back
             _note.Text = _from != null && !string.Equals(_from.Name, _selected, StringComparison.OrdinalIgnoreCase) ? Loc.F("based on {0}", _from.Name) : "";
-            if (_status != null) _status.Text = edited ? Loc.F("● differs from {0}   ↺ = back to it", _from != null ? _from.Name : Loc.T("the profile")) : "";
-            for (int t = 0; t < Tabs.Length && t < _tabDots.Count; t++)
+            if (_status != null) _status.Text = edited ? Loc.F("● differs from {0}   ↺ = back to it", _from != null ? _from.Name : Loc.T("the profile")) : Loc.T("↺ = back to the profile's value");
+            for (int g = 0; g < Top.Length && g < _tabDots.Count; g++)
             {
                 bool any = false;
-                foreach (var f in Fields) if (f.Tab == Tabs[t] && Differs(f)) { any = true; break; }
-                if (Tabs[t] == "Hull" && _work != null && !MapSame(p => p.Ships)) any = true;
-                if (Tabs[t] == "Systems" && _work != null && !MapSame(p => p.Modules)) any = true;
-                _tabDots[t].Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+                foreach (var pg in Top[g]) if (TabDiffers(pg)) { any = true; break; }
+                _tabDots[g].Visibility = any ? Visibility.Visible : Visibility.Collapsed;
             }
+            foreach (var kv in _pageDots) kv.Value.Visibility = TabDiffers(kv.Key) ? Visibility.Visible : Visibility.Collapsed;
+            _f.UpdateTools();
+        }
+
+        static bool TabDiffers(string tab)
+        {
+            foreach (var f in Fields) if (f.Tab == tab && Differs(f)) return true;
+            if (tab == "Hull" && _work != null && !MapSame(p => p.Ships)) return true;
+            if (tab == "Systems" && _work != null && !MapSame(p => p.Modules)) return true;
+            return false;
         }
 
         // ------------------------------------------------------------ values
@@ -893,7 +711,7 @@ namespace AlternativeDamageModel
             float ta, xb;
             if (!float.TryParse(a, NumberStyles.Float, CultureInfo.InvariantCulture, out ta) || !float.TryParse(b, NumberStyles.Float, CultureInfo.InvariantCulture, out xb) || xb >= ta) return;
             _work.Values[X] = a;   // exhausted = tired (the one moved: exhausted too low, or tired too high)
-            ShowTab(_tab);
+            Redraw();
         }
 
         static void BecomeOwn()
@@ -910,16 +728,7 @@ namespace AlternativeDamageModel
             return new Factor(v).ToString();
         }
 
-        static bool TryNum(string s, out float v)
-        {
-            return float.TryParse((s ?? "").Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out v) && !float.IsNaN(v) && !float.IsInfinity(v);
-        }
 
-        static float Num(string s)
-        {
-            float v;
-            return float.TryParse((s ?? "").Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out v) ? v : 0f;
-        }
 
         static string OnOff(string v) { return Loc.T(v.Replace("True", "on").Replace("False", "off").Replace("true", "on").Replace("false", "off")); }
 
@@ -1025,27 +834,41 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ tabs and rows
 
+        /// <summary>The page is built again where it stands (a switch, a table row, the search): the scroll position stays.</summary>
+        static void Redraw() { _f.KeepScroll(_scroll, () => ShowTab(_tab)); }
+
         static void ShowTab(int t)
         {
             _tab = Math.Max(0, Math.Min(Tabs.Length - 1, t));
             bool adm = AdmOn();
             if (!adm && ModelTab(Tabs[_tab])) _tab = Array.IndexOf(Tabs, TGen);
+            bool searching = !string.IsNullOrEmpty(_f.Query);
+            if (searching && !GroupHasHits(GroupOf(_tab), adm))   // the search: a tab with nothing found is left
+                for (int g0 = 0; g0 < Top.Length; g0++) if (GroupHasHits(g0, adm)) { _tab = Array.IndexOf(Tabs, Top[g0][0]); break; }
             if (_profRow != null)
             {
                 var host = _profRow.Parent as Panel;   // taken out of the previous tab's body
                 if (host != null) host.Children.Remove(_profRow);
             }
+            int grp = GroupOf(_tab);
+            _lastPage[grp] = Array.IndexOf(Top[grp], Tabs[_tab]);
             for (int i = 0; i < _tabButtons.Count; i++)
             {
-                _tabButtons[i].Visibility = !adm && ModelTab(Tabs[i]) ? Visibility.Collapsed : Visibility.Visible;
-                bool on = i == _tab;
+                bool any = false;
+                foreach (var pg in Top[i]) if (PageShown(pg, adm)) any = true;
+                if (searching && !GroupHasHits(i, adm)) any = false;   // the tabs with nothing found are hidden
+                _tabButtons[i].Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+                bool on = i == grp;
                 _tabButtons[i].Background = B(on ? CCard : CPanel);
                 var row = _tabButtons[i].Child as StackPanel;
                 if (row != null && row.Children.Count > 0) ((TextBlock)row.Children[0]).Foreground = B(on ? CText : CDim);
             }
-            if (_tabScroll != null && _tab < _tabButtons.Count) _tabScroll.Reveal(_tabButtons[_tab]);   // the chosen tab is kept in view in the scrolled strip
+            if (_tabScroll != null && grp < _tabButtons.Count) _tabScroll.Reveal(_tabButtons[grp]);   // the chosen tab is kept in view in the scrolled strip
             if (_body == null) return;
             _body.Children.Clear();
+            _pageDots.Clear();
+            if (!string.IsNullOrEmpty(_f.Query)) { ShowFound(adm); UpdateHeader(); return; }
+            { var pb = PageBar(grp, adm); if (pb != null) _body.Children.Add(pb); }
             string group = null;
             bool ui = UiOn();
             bool dcTab = Tabs[_tab] == "DC Teams";
@@ -1081,7 +904,8 @@ namespace AlternativeDamageModel
                             rowHost.Children.Add(GroupTitle("Settings profile"));
                             rowHost.Children.Add(_profRow);
                         }
-                        group = f.Group; rowHost.Children.Add(GroupTitle(group));
+                        group = f.Group;
+                        { string gr = group, tabNow = f.Tab; rowHost.Children.Add(_f.GroupHeader(gr, () => GroupDiffers(tabNow, gr), () => RevertWhere(x => x.Tab == tabNow && x.Group == gr, false), "Take back the edits of this group that differ from the profile")); }
                     }
                     rowHost.Children.Add(Row(f));
                 }
@@ -1122,12 +946,14 @@ namespace AlternativeDamageModel
         }
 
         static Border _page;
+        static bool _shotting;   // screenshots of the tabs are being taken
 
         /// <summary>The page panel of the DC Teams tab reaches the bottom of the settings area (the area scrolls, so its height is set from the area's).</summary>
         static void FitPage()
         {
             try
             {
+                if (_shotting) { if (_page != null && _page.MinHeight > 0f) _page.MinHeight = 0f; return; }   // screenshots: the page is as tall as its content, so the window can be fitted to it
                 if (_page == null || _scroll == null || _body == null || _page.Parent == null) return;
                 var pt = _page.TranslatePoint(new Point(0f, 0f), _body);
                 float h = (float)_scroll.ActualHeight - pt.Y - 6f - 12f;
@@ -1135,6 +961,86 @@ namespace AlternativeDamageModel
                 if (Math.Abs(_page.MinHeight - use) > 0.5f) _page.MinHeight = use;
             }
             catch { }
+        }
+
+        /// <summary>The search: the options of the tab that fit (the model's own ones only while the damage model is on).</summary>
+        static bool FieldHit(Field f, bool adm)
+        {
+            if (!PageShown(f.Tab, adm) || (!adm && f.Tab == TGen && !f.Global)) return false;
+            string when = ShownWhen(f);
+            if (when != null && !IsOn(when)) return false;
+            var en = f.Key == null ? null : Entry(f.Key);
+            return _f.Match(Loc.T(f.Label));
+        }
+
+        static bool GroupHasHits(int g, bool adm)
+        {
+            foreach (var f in Fields) if (Array.IndexOf(Top[g], f.Tab) >= 0 && FieldHit(f, adm)) return true;
+            return false;
+        }
+
+        static void ShowFound(bool adm)
+        {
+            string tab = null, group = null; int n = 0, grp = GroupOf(_tab);
+            foreach (var f in Fields)
+            {
+                if (Array.IndexOf(Top[grp], f.Tab) < 0 || !FieldHit(f, adm)) continue;
+                FrameworkElement row;
+                try { row = Row(f); } catch (Exception e) { Trace("Settings row '" + f.Key + "' failed: " + e); continue; }   // the title of a group goes in only with a row under it
+                if (f.Tab != tab || f.Group != group) { tab = f.Tab; group = f.Group; _body.Children.Add(GroupTitle(Top[grp].Length > 1 ? Loc.T(PageName(tab)) + "  >  " + Loc.T(group) : Loc.T(group))); }
+                _body.Children.Add(row); n++;
+            }
+            if (n == 0) { var t = Text("Nothing found.", CDim); t.Margin = new Thickness(12f, 14f, 12f, 0f); _body.Children.Add(t); }
+        }
+
+        static bool GroupDiffers(string tab, string group)
+        {
+            foreach (var f in Fields) if (f.Tab == tab && f.Group == group && Differs(f)) return true;
+            return false;
+        }
+
+        static bool TopDiffers(int g) { foreach (var pg in Top[g]) if (TabDiffers(pg)) return true; return false; }
+
+        /// <summary>The profile's values back into the options picked (what the window was opened with; the edits are dropped, nothing closes). maps: the ships and modules tables too.</summary>
+        static void RevertWhere(Func<Field, bool> pick, bool maps)
+        {
+            foreach (var f in Fields) if (f.Kind != Kind.Action && pick(f) && Differs(f)) Set(f, FromValue(f));
+            if (maps && _from != null && _work != null)
+            {
+                if (!MapSame(p => p.Ships)) { _work.Ships.Clear(); foreach (var kv in _from.Ships) _work.Ships[kv.Key] = kv.Value; }
+                if (!MapSame(p => p.Modules)) { _work.Modules.Clear(); foreach (var kv in _from.Modules) _work.Modules[kv.Key] = kv.Value; }
+            }
+            Redraw();
+        }
+
+        static void RevertTop()
+        {
+            var pages = new List<string>(Top[GroupOf(_tab)]);
+            RevertWhere(x => pages.Contains(x.Tab), pages.Contains("Hull") || pages.Contains("Systems"));
+        }
+
+        /// <summary>The second row of a group with several pages (Damage Model: General, Hull, ...); null when there is one page.</summary>
+        static FrameworkElement PageBar(int grp, bool adm)
+        {
+            int n = 0; foreach (var pg in Top[grp]) if (PageShown(pg, adm)) n++;
+            if (n < 2) return null;
+            var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12f, 8f, 12f, 0f) };
+            foreach (var pg in Top[grp])
+            {
+                if (!PageShown(pg, adm)) continue;
+                string page = pg; bool on = Tabs[_tab] == page;
+                var row = new StackPanel { Orientation = Orientation.Horizontal };
+                var dot = new Ellipse { Width = 6f, Height = 6f, Fill = B(CWarn), Margin = new Thickness(0f, 0f, 5f, 0f), VerticalAlignment = VerticalAlignment.Center, Visibility = TabDiffers(page) ? Visibility.Visible : Visibility.Collapsed };
+                row.Children.Add(dot);
+                row.Children.Add(Text(PageName(page), on ? CText : CDim, 12f));
+                _pageDots.Add(new KeyValuePair<string, Ellipse>(page, dot));
+                var tb = new Border { Child = row, Padding = new Thickness(12f, 4f, 12f, 4f), Margin = new Thickness(0f, 0f, 4f, 0f), CornerRadius = new CornerRadius(3f),
+                                      Background = B(on ? CBg : CCard), BorderBrush = B(on ? CText : CLine), BorderThickness = new Thickness(1f) };
+                try { tb.Cursor = Cursors.Hand; } catch { }
+                tb.MouseLeftButtonUp += (o, e) => { ShowTab(Array.IndexOf(Tabs, page)); e.Handled = true; };
+                bar.Children.Add(tb);
+            }
+            return bar;
         }
 
         static FrameworkElement SubBar()
@@ -1149,16 +1055,12 @@ namespace AlternativeDamageModel
                                       CornerRadius = new CornerRadius(3f, 3f, 0f, 0f), Background = B(on ? CPanel : CCard), BorderBrush = B(CLine),
                                       BorderThickness = new Thickness(1f, 1f, 1f, 0f) };
                 try { tb.Cursor = Cursors.Hand; } catch { }
-                tb.MouseLeftButtonUp += (o, e) => { _sub = idx; ShowTab(_tab); e.Handled = true; };
+                tb.MouseLeftButtonUp += (o, e) => { _sub = idx; Redraw(); e.Handled = true; };
                 bar.Children.Add(tb);
             }
             return bar;
         }
 
-        static TextBlock GroupTitle(string s)
-        {
-            return new TextBlock { Text = Loc.T(s).ToUpperInvariant(), Foreground = B(CDim), FontSize = 11f, Margin = new Thickness(12f, 10f, 12f, 2f) };
-        }
 
         static Grid RowGrid()
         {
@@ -1182,10 +1084,7 @@ namespace AlternativeDamageModel
             outer.MouseEnter += (o, e) =>
             {
                 outer.Background = B(CHl);
-                _help.Inlines.Clear();
-                var r = new Run(Loc.T(f.Label)); r.FontWeight = FontWeight.Bold; r.Foreground = B(CText);
-                _help.Inlines.Add(r);
-                _help.Inlines.Add(new Run(" - " + Loc.T(ShotHelp)));
+                _f.ShowHelp(Loc.T(f.Label), Loc.T(ShotHelp));
             };
             outer.MouseLeave += (o, e) => outer.Background = B(Color.FromArgb(0, 0, 0, 0));
             return outer;
@@ -1194,10 +1093,13 @@ namespace AlternativeDamageModel
         const string ShotHelp = "Takes a screenshot of every tab of this window (the window is fitted to each tab, the smallest size in which all its options are seen) into BepInEx/AlternativeDamageModel_screens, then puts the window back as it was. Nothing is applied or changed.";
 
         // ---- screenshots of every tab (the settings kit, SettingsShotKit.cs): the window fitted to each tab, a PNG in BepInEx/AlternativeDamageModel_screens
+        /// <summary>The screenshots of the tabs of the window on the screen (the Game Interface's Debug runs it for every mod).</summary>
+        internal static System.Collections.IEnumerator ShotsRun() { return SettingsShots.Run(new ShotAdapter(), System.IO.Path.Combine(BepInEx.Paths.BepInExRootPath, "AlternativeDamageModel_screens"), s => Trace(s), s => AdmPlugin.Warn(s)); }
+
         static void StartShots()
         {
             if (P == null || SettingsShots.Busy) return;
-            P.StartCoroutine(SettingsShots.Run(new ShotAdapter(), System.IO.Path.Combine(BepInEx.Paths.BepInExRootPath, "AlternativeDamageModel_screens"), s => Trace(s), s => AdmPlugin.Warn(s)));
+            P.StartCoroutine(ShotsRun());
         }
 
         sealed class ShotAdapter : IShotWindow
@@ -1206,17 +1108,17 @@ namespace AlternativeDamageModel
             static bool DcTab(int tab) { return Tabs[tab] == "DC Teams"; }
             /// <summary>The inner tabs of "DC Teams" that are shown now (the page numbers count only these).</summary>
             static int SubAt(int page) { int n = 0; for (int i = 0; i < Subs.Length; i++) if (SubShown(i)) { if (n == page) return i; n++; } return 0; }
-            public bool Begin() { if (_root == null || _body == null || !_root.IsVisible) return false; _tab0 = _tab; _sub0 = _sub; return true; }
+            public bool Begin() { if (_f.Root == null || _body == null || !_f.Root.IsVisible) return false; _tab0 = _tab; _sub0 = _sub; _shotting = true; return true; }
             public int TabCount { get { return Tabs.Length; } }
             public bool TabUsable(int tab) { return AdmOn() || !ModelTab(Tabs[tab]); }
             public int Pages(int tab) { if (!DcTab(tab)) return 1; int n = 0; for (int i = 0; i < Subs.Length; i++) if (SubShown(i)) n++; return Math.Max(1, n); }
             public void Show(int tab, int page) { if (DcTab(tab)) _sub = SubAt(page); ShowTab(tab); }
             public string Name(int tab, int page) { return Loc.T(Tabs[tab]) + (DcTab(tab) ? "_" + Loc.T(Subs[SubAt(page)]) : ""); }
-            public bool Rect(out float x, out float y, out float w, out float h) { return ShotFit.Rect(_root, out x, out y, out w, out h); }
-            public void FitMax() { ShotFit.Max(_root, _move); }
-            public void FitWidth() { ShotFit.Width(_root, _body, _scroll, _move, 560f); }
-            public void FitHeight() { ShotFit.Height(_root, _scroll, _move, 420f); }
-            public void End() { _sub = _sub0; ShotFit.Restore(_root, _move, _winW, _winH); ShowTab(_tab0); }
+            public bool Rect(out float x, out float y, out float w, out float h) { return ShotFit.Rect(_f.Root, out x, out y, out w, out h); }
+            public void FitMax() { _f.ClearHelp(); ShotFit.Max(_f.Root, _f.Move); }
+            public void FitWidth() { ShotFit.Width(_f.Root, _body, _scroll, _f.Move, _f.ShotMinW); }
+            public void FitHeight() { ShotFit.Height(_f.Root, _scroll, _f.Move, 420f); }
+            public void End() { _shotting = false; _sub = _sub0; ShotFit.Restore(_f.Root, _f.Move, _f.W, _f.H); ShowTab(_tab0); }
         }
 
         static FrameworkElement Row(Field f)
@@ -1284,91 +1186,56 @@ namespace AlternativeDamageModel
 
         static void Hover(Border row, string label, string key, string extra = null)
         {
-            row.MouseEnter += (o, e) =>
+            _f.Hover(row, () => Loc.T(label), () =>
             {
-                row.Background = B(CHl);
                 var en = key == null || key.StartsWith("#") ? null : Entry(key);
                 string d = en != null && en.Description != null ? en.Description.Description : "";
                 if (key == null || key == "#ships") d = "Ships with their own hull multiplier, chosen from the game's ships (or by ini file name): how many times stronger than in the game; replaces the class value, is not multiplied by it.";
                 else if (key == "#nodeck") d = "Ships that get no Deck Points (Flooding): water over the deck edge is not calculated for them, the old simpler rules are used, as for a ship without a hull collider. Picked from the game's ships or by ini file name.";
                 else if (key == "#modules") d = "Module types (modules.ini) with their own Integrity, set explicitly in place of modules.ini's (the game's value is put in when a type is picked); the Integrity multiplier above does not apply to them. The game's own adjustments keep their proportion: types marked \"× tonnage\" (amber) grow with the ship's displacement - point at one for its final values -, and a ship's own value for a system is changed in the same ratio.";
-                _help.Inlines.Clear();
-                var r = new Run(Loc.T(label)); r.FontWeight = FontWeight.Bold; r.Foreground = B(CText);
-                _help.Inlines.Add(r);
-                _help.Inlines.Add(new Run(" - " + Loc.T(d)));
-                if (!string.IsNullOrEmpty(extra)) { var x = new Run("  " + Loc.T(extra)); x.Foreground = B(CWarn); _help.Inlines.Add(x); }
-            };
-            row.MouseLeave += (o, e) => row.Background = B(Color.FromArgb(0, 0, 0, 0));
+                return Loc.T(d);
+            }, string.IsNullOrEmpty(extra) ? (Func<string>)null : () => Loc.T(extra));
         }
 
         static FrameworkElement NumberEditor(Field f, Action mark, out Action refresh)
         {
-            var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            var box = Edit(Get(f), 66f);
-            Action<float> put = v =>
-            {
-                v = Math.Max(f.Min, Math.Min(f.Max, v));
-                string s = Fmt(f, v);
-                box.Text = s;
-                Set(f, s);
-                mark();
-            };
-            var minus = new Button { Content = "−", Width = 24f, Height = 24f, Padding = new Thickness(0f) };
-            var plus = new Button { Content = "+", Width = 24f, Height = 24f, Padding = new Thickness(0f) };
-            minus.Click += (o, e) => put((float)Math.Round((Num(box.Text) - f.Step) / f.Step) * f.Step);
-            plus.Click += (o, e) => put((float)Math.Round((Num(box.Text) + f.Step) / f.Step) * f.Step);
-            // typed in: a number is taken (within the limits); anything else puts the value back as it was
-            Action typed = () => { float v; if (TryNum(box.Text, out v)) put(v); else box.Text = Get(f); };
-            box.LostFocus += (o, e) => typed();
-            box.KeyDown += (o, e) => { if (e.Key == Key.Return) { typed(); e.Handled = true; } };
-            sp.Children.Add(minus); sp.Children.Add(box); sp.Children.Add(plus);
-            if (!string.IsNullOrEmpty(f.Unit)) { var u = Text(f.Unit, CDim, 12f); u.Margin = new Thickness(8f, 0f, 0f, 0f); sp.Children.Add(u); }
-            refresh = () => box.Text = Get(f);
-            return sp;
+            return _f.Number(() => Get(f), null, v => Set(f, Fmt(f, v)), f.Step, f.Min, f.Max, f.Unit, mark, out refresh);
         }
 
         static FrameworkElement ChoiceEditor(Field f, Action mark, out Action refresh)
         {
-            var cb = new ComboBox { Width = 150f, MinHeight = 24f, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
-            for (int oi = 0; oi < f.Options.Length; oi++) cb.Items.Add(f.Labels != null ? (oi == 0 ? Loc.T(f.Labels[oi]) : f.Labels[oi]) : Loc.T(f.Options[oi]));
-            Func<int> index = () =>
+            var labels = new List<string>();
+            for (int oi = 0; oi < f.Options.Length; oi++) labels.Add(f.Labels != null ? (oi == 0 ? Loc.T(f.Labels[oi]) : f.Labels[oi]) : Loc.T(f.Options[oi]));
+            return _f.Combo(labels, () =>
             {
                 string cur = Get(f).Trim();
                 for (int i = 0; i < f.Options.Length; i++) if (string.Equals(f.Options[i], cur, StringComparison.OrdinalIgnoreCase)) return i;
                 return 0;
-            };
-            cb.SelectedIndex = index();
-            cb.SelectionChanged += (o, e) =>
+            }, i =>
             {
-                int i = cb.SelectedIndex;
-                if (i < 0 || i >= f.Options.Length || string.Equals(f.Options[i], Get(f).Trim(), StringComparison.OrdinalIgnoreCase)) return;
+                if (i >= f.Options.Length || string.Equals(f.Options[i], Get(f).Trim(), StringComparison.OrdinalIgnoreCase)) return;
                 Set(f, f.Options[i]); mark();
-            };
-            refresh = () => cb.SelectedIndex = index();
-            return cb;
+            }, 150f, 24f, out refresh);
         }
 
         static FrameworkElement BoolEditor(Field f, Action mark, out Action refresh)
         {
-            var cb = new CheckBox { IsChecked = Get(f).Trim().Equals("true", StringComparison.OrdinalIgnoreCase), VerticalAlignment = VerticalAlignment.Center };
-            cb.Click += (o, e) =>
+            return _f.Check(() => Get(f).Trim().Equals("true", StringComparison.OrdinalIgnoreCase), on =>
             {
-                string v = cb.IsChecked == true ? "true" : "false";
+                string v = on ? "true" : "false";
                 if (LiveKey(f.Key))
                 {
                     // applies at once, not on Apply: ships at sea / the Damage Control tab follow, tabs and groups of the window show / hide
                     try { var en = Entry(f.Key); if (en != null) en.SetSerializedValue(v); } catch (Exception ex) { Trace(f.Key + ": " + ex.Message); }
                     _globals[f.Key] = v; _globalsFrom[f.Key] = v;
                     DamageControlUi.RefreshNow();
-                    ShowTab(_tab);
+                    Redraw();
                     return;
                 }
                 Set(f, v); mark();
-                if (f.Key == HealthKey || f.Key == FatigueKey) { ShowTab(_tab); return; }
-                foreach (var other in Fields) if (ShownWhen(other) == f.Key) { ShowTab(_tab); break; }   // rows that show / hide with it
-            };
-            refresh = () => cb.IsChecked = Get(f).Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
-            return cb;
+                if (f.Key == HealthKey || f.Key == FatigueKey) { Redraw(); return; }
+                foreach (var other in Fields) if (ShownWhen(other) == f.Key) { Redraw(); break; }   // rows that show / hide with it
+            }, out refresh);
         }
 
         /// <summary>"tons=teams" pairs as a two-row table: tons on top, teams below; + adds a column, − removes the last.</summary>
@@ -1554,7 +1421,7 @@ namespace AlternativeDamageModel
         static void NoDeckSet(List<string> l)
         {
             _work.Values[NoDeckKey] = string.Join(", ", l.ToArray());
-            BecomeOwn(); ShowTab(_tab);
+            BecomeOwn(); Redraw();
         }
 
         /// <summary>Flooding tab: ships that get no Deck Points (flooded by the old, simpler rules). The same list editor as Hull: Single ships.</summary>
@@ -1725,7 +1592,7 @@ namespace AlternativeDamageModel
                     string s = new Factor(v).ToString();
                     box.Text = s;
                     if (AdmPlugin.SameValue(mapOf(_work)[name], s)) return;
-                    mapOf(_work)[name] = s; BecomeOwn(); ShowTab(_tab);
+                    mapOf(_work)[name] = s; BecomeOwn(); Redraw();
                 };
                 var minus = new Button { Content = "−", Width = 24f, Height = 24f, Padding = new Thickness(0f) };
                 var plus = new Button { Content = "+", Width = 24f, Height = 24f, Padding = new Thickness(0f) };
@@ -1744,7 +1611,7 @@ namespace AlternativeDamageModel
                 var rm = new Button { Content = Cross(8f), Width = 24f, Height = 22f, Padding = new Thickness(0f), HorizontalAlignment = HorizontalAlignment.Right,
                                       HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center };
                 try { ToolTipService.SetToolTip(rm, removeTip); } catch { }
-                rm.Click += (o, e) => { mapOf(_work).Remove(name); BecomeOwn(); ShowTab(_tab); };
+                rm.Click += (o, e) => { mapOf(_work).Remove(name); BecomeOwn(); Redraw(); };
                 Grid.SetColumn(rm, 3); g.Children.Add(rm);
                 Hover(outer, display(name), helpKey, helpOf == null ? null : helpOf(name, Num(kv.Value)));
                 _body.Children.Add(outer);
@@ -1805,7 +1672,7 @@ namespace AlternativeDamageModel
                 if (bad != null) { err.Text = Loc.T(bad); return; }
                 if (!Factor.TryParse(val.Text, out fv) || fv.V <= 0f) { err.Text = Loc.T("a positive number"); return; }
                 mapOf(_work)[n] = new Factor(Math.Max(min, Math.Min(max, fv.V))).ToString();
-                BecomeOwn(); ShowTab(_tab);
+                BecomeOwn(); Redraw();
             };
             asp.Children.Add(val); asp.Children.Add(addB); asp.Children.Add(err);
             Grid.SetColumn(asp, 1); ag.Children.Add(asp);
@@ -1829,7 +1696,7 @@ namespace AlternativeDamageModel
             _from = P.LoadProfile(_selected) ?? _work.Copy(_selected);
             _work = _from.Copy(_selected);
             RebuildProfiles();
-            ShowTab(_tab);
+            Redraw();
             return null;
         }
 
@@ -1850,7 +1717,7 @@ namespace AlternativeDamageModel
             _selected = name.Trim(); _work.Name = _selected;
             if (wasFrom) _from.Name = _selected;
             RebuildProfiles();
-            ShowTab(_tab);
+            Redraw();
             return null;
         }
 
@@ -1860,7 +1727,7 @@ namespace AlternativeDamageModel
             if (err != null) return err;
             LoadFrom(P.ActiveProfileName);
             RebuildProfiles();
-            ShowTab(_tab);
+            Redraw();
             return null;
         }
 
@@ -1871,12 +1738,13 @@ namespace AlternativeDamageModel
             _work = _from.Copy(_from.Name);
             foreach (var kv in _globalsFrom) _globals[kv.Key] = kv.Value;
             RebuildProfiles();
-            ShowTab(_tab);
+            Redraw();
         }
 
         static void Commit(bool close)
         {
             Typing(false);
+            Rgreat.Hub.SettingsHub.CommitOthers(SelfId);   // the edits kept in the other mods' windows are applied too
             var globals = new Dictionary<ConfigEntryBase, string>();
             foreach (var kv in _globals)
             {
@@ -1889,7 +1757,7 @@ namespace AlternativeDamageModel
             if (close) { Close(); return; }
             LoadFrom(name);
             RebuildProfiles();
-            ShowTab(_tab);
+            Redraw();
         }
 
         // ------------------------------------------------------------ small dialogs over the window

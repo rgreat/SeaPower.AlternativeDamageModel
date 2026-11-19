@@ -225,19 +225,19 @@ translucent.e6768c	Translucent	SettingsWindow.cs (option)
 dc_teams.c094ae	DC Teams	SettingsWindow.cs (tab)
 damage_model.c5a24d	Damage Model	AdmPlugin.cs
 debug.610338	Debug	SettingsWindow.cs (tab)
-effects.2fdd05	Effects	SettingsWindow.cs (tab)
+effects.2fdd05	Effects	old
 hull.d0c4d6	Hull	DamageControlUi.Causes.cs
 trend_arrows.06952e	Trend arrows	SettingsWindow.cs (tab)
 user_interface.5de2dd	User Interface	SettingsWindow.cs (tab)
 add_type.1bc21f	+ Add type	SettingsWindow.cs (ui)
 add_ship.833cc6	Add ship	SettingsWindow.cs (ui)
-alternative_damage_model_settings.539370	Alternative Damage Model - Settings	SettingsWindow.cs (ui)
-apply.77bbdb	Apply	SettingsWindow.cs (ui)
+alternative_damage_model_settings.539370	Alternative Damage Model - Settings	old
+apply.77bbdb	Apply	old
 cancel.afca3b	Cancel	SettingsWindow.cs (ui)
 count.e7b894	Count	SettingsWindow.cs (ui)
 delete.97ea6a	Delete	SettingsWindow.cs (ui)
 fatigue.c421fe	Fatigue	SettingsWindow.cs (ui)
-ok.e4b82f	OK	SettingsWindow.cs (ui)
+ok.e4b82f	OK	old
 profile.17328e	Profile	SettingsWindow.cs (ui)
 remove_the_ship_takes_the_class_value_ag.a79de6	Remove: the ship takes the class value again	SettingsWindow.cs (ui)
 remove_the_type_takes_the_multiplier_abo.714949	Remove: the type takes the multiplier above again	SettingsWindow.cs (ui)
@@ -538,9 +538,9 @@ fire.ab16d9	fire	old
 fighting.531a17	fighting	old
 putting_out.d5c3ca	putting out	old
 leak.48d20e	leak	old
-language.73db9b	Language	SettingsWindow.cs (group)
-mod_language.a3cb6f	Mod language	SettingsWindow.cs (label)
-applies_after_reopening_this_window.e0110e	applies after reopening this window	SettingsWindow.cs (unit)
+language.73db9b	Language	SettingsWindow.cs
+mod_language.a3cb6f	Mod language	obsolete
+applies_after_reopening_this_window.e0110e	applies after reopening this window	obsolete
 game_language.02a4bb	Game language	old
 multiplier_of_the_chance_that_a_hit_on_t.30430b	Multiplier of the chance that a hit on the central compartment wounds a team resting in the reserve; it comes on top of Wound chance (0.5 = half as likely, 0 = resting teams are never wounded). Works only with Wounds in reserve.	AdmPlugin.cs (cfg)
 wounds_in_reserve_chance.8e2414	Wounds in reserve chance	SettingsWindow.cs (label)
@@ -723,7 +723,10 @@ damage_if_it_gets_through.20cf9c	Damage if it gets through	obsolete
 shell_penetration.68185c	Shell penetration	DamageControlUi.Panels.cs
 stops.a90ec2	Stops	DamageControlUi.Panels.cs
 damage_if_penetrated.495085	Damage if penetrated	DamageControlUi.Panels.cs
-screenshot_all_tabs_now.ede332	Screenshot all tabs now	SettingsWindow.cs
-run.57e66a	Run	SettingsWindow.cs
-tools.0196fc	Tools	SettingsWindow.cs
-takes_a_screenshot_of_every_tab_of_this.920d99	Takes a screenshot of every tab of this window (the window is fitted to each tab, the smallest size in which all its options are seen) into BepInEx/AlternativeDamageModel_screens, then puts the window back as it was. Nothing is applied or changed.	SettingsWindow.cs
+screenshot_all_tabs_now.ede332	Screenshot all tabs now	old
+run.57e66a	Run	SettingsWindow.cs (ui)
+tools.0196fc	Tools	old
+takes_a_screenshot_of_every_tab_of_this.920d99	Takes a screenshot of every tab of this window (the window is fitted to each tab, the smallest size in which all its options are seen) into BepInEx/AlternativeDamageModel_screens, then puts the window back as it was. Nothing is applied or changed.	old
+default.dc307e	Default	SettingsWindow.cs
+back_to_the_profile_s_value.2b8e07	↺ = back to the profile's value	SettingsWindow.cs
+nothing_found.f82a3c	Nothing found.	SettingsWindow.cs (ui)

@@ -585,8 +585,8 @@
 585|Critique
 586|Au milieu d'un feu qu'elle ne combat pas : {0}%
 587|Équipes réparant des systèmes ici : {0}, efficacité {1} %
-589|L'équipe ici répare d'abord un autre système de la section
 588|L'équipe ici est occupée : {0}
+589|L'équipe ici répare d'abord un autre système de la section
 590|Quatre petites icônes sous l'icône d'un navire sur la carte (le vôtre aussi) : feu (force totale des feux), eau, coque (classée comme dans le panneau Damage Control) (sur votre propre navire, les dégâts de coque qui ne peuvent plus être soudés et l'eau qui ne peut pas être pompée ne sont pas affichés ; les plans de réparation d'un contact ne sont pas connus) et moteur ; jaune / orange / rouge selon la gravité, et une icône de carte plus grise quand le navire va couler (sous 20 minutes selon la tendance d'envahissement / coque). Un contact : feu, eau, coque et moteur seulement en vue directe ; au sonar - le moteur seul (jaune : une partie perdue, rouge : rien ne marche) ; au radar - une estimation pour un navire touché ces 10 dernières minutes, marquée « ? » (jaune : 10 nœuds ou moins, rouge : moins de 3) ; rien par ESM ou sans contact, et rien pour un navire coulé. La ligne Fires de l'onglet Damage Control utilise la même force totale. L'Unit Status d'un contact montre un onglet Damage State avec la même information en mots.
 591|Incendie sans équipe
 592|Incendies non maîtrisés
@@ -596,17 +596,14 @@
 596|Temps des hooks
 597|toutes les 10 s dans la trace de débogage
 598|Auto DC contre-inonde : tant que des brèches laissent encore entrer l'eau et que la gîte ou l'assiette atteint la zone rouge de son indicateur (jusqu'à redescendre à sa moitié), une équipe va dans la section où laisser entrer l'eau d'un bord retire le plus de bande, et travaille comme une équipe à qui l'on a ordonné la contre-inondation (voir Contre-inondation). Désactivé = Auto DC ne contre-inonde pas.
-599|Les collisions plus lentes que cela, en nœuds perpendiculairement au contact, ne causent aucun dégât (navires qui se frôlent en formation, amarrage).
-600|Dégâts à la coque lors d'une collision avec un autre navire (le jeu n'en a pas : les navires ne font que se repousser). Chaque navire perd de la coque selon l'énergie du choc perpendiculaire au contact, comme dans une collision inélastique : le carré de la vitesse et la part que prend le navire le plus léger (m_other / (m_self + m_other))^2. 1.0 = deux navires identiques qui se heurtent à 19 nœuds détruisent chacun environ 1,25 compartiment ; une petite embarcation qui éperonne un grand navire est détruite, le navire seulement éraflé. Les dégâts touchent les compartiments aux points de contact (l'endroit et le bord des points de contact) et ouvrent des voies d'eau comme un coup au but (un contact au-dessus de la ligne de flottaison ne fuit que d'un compartiment à moitié détruit). 0 = désactivé.
+599|Les contacts entre navires à une vitesse relative inférieure à celle-ci, en nœuds, ne causent aucun dégât (navires qui se touchent en formation, amarrage).
+600|Dégâts à la coque lors d'une collision avec un autre navire (le jeu n'en a pas : les navires ne font que se repousser). Une collision n'est pas un seul choc : une étrave qui éperonne peut grimper sur l'autre navire et glisser par-dessus. Les dégâts sont l'énergie que la physique dissipe, pas à pas, tant que les navires restent en contact (le choc, la poussée, le raclage ; un navire qui repose simplement sur un autre ne perd rien). Chaque navire prend la part qui dépend des masses : le carré de la vitesse multiplié par (m_other / (m_self + m_other))^2 par tonne de son propre déplacement. 1.0 = deux navires identiques qui se heurtent à 19 nœuds détruisent chacun environ 1,25 compartiment ; une petite embarcation qui éperonne un grand navire est détruite, le navire seulement éraflé. Les dégâts touchent les compartiments où les navires se touchent à ce moment (l'endroit et le bord des points de contact) et ouvrent des voies d'eau comme un coup au but, qui grandissent avec les dégâts subis (un contact au-dessus de la ligne de flottaison ne fuit que d'un compartiment à moitié détruit). 0 = désactivé.
 601|Collision
 602|Collisions entre navires
 603|Dégâts de collision
 604|Choc dommageable le plus faible
-605|nœuds perpendiculairement au contact
-606|× · perte de coque et voies d'eau dues au choc · 0 = désactivé
-599|Les contacts entre navires à une vitesse relative inférieure à celle-ci, en nœuds, ne causent aucun dégât (navires qui se touchent en formation, amarrage).
-600|Dégâts à la coque lors d'une collision avec un autre navire (le jeu n'en a pas : les navires ne font que se repousser). Une collision n'est pas un seul choc : une étrave qui éperonne peut grimper sur l'autre navire et glisser par-dessus. Les dégâts sont l'énergie que la physique dissipe, pas à pas, tant que les navires restent en contact (le choc, la poussée, le raclage ; un navire qui repose simplement sur un autre ne perd rien). Chaque navire prend la part qui dépend des masses : le carré de la vitesse multiplié par (m_other / (m_self + m_other))^2 par tonne de son propre déplacement. 1.0 = deux navires identiques qui se heurtent à 19 nœuds détruisent chacun environ 1,25 compartiment ; une petite embarcation qui éperonne un grand navire est détruite, le navire seulement éraflé. Les dégâts touchent les compartiments où les navires se touchent à ce moment (l'endroit et le bord des points de contact) et ouvrent des voies d'eau comme un coup au but, qui grandissent avec les dégâts subis (un contact au-dessus de la ligne de flottaison ne fuit que d'un compartiment à moitié détruit). 0 = désactivé.
 605|nœuds, vitesse relative
+606|× · perte de coque et voies d'eau dues au choc · 0 = désactivé
 608|Combien de fois moins de dégâts par tonne subit l'étrave (avec sa cloison de collision) que le flanc d'un navire, lors d'un choc dans l'axe du navire. 1.0 = partout pareil.
 609|Les navires en contact sont lentement écartés (environ un demi-mètre par seconde), pour qu'un navire qui a éperonné ne reste pas à l'intérieur de l'autre. Le jeu ne sépare pas les navires qui se chevauchent.
 612|La part de la vitesse de glissement (le long du contact) qu'un choc retire par frottement et écrasement des coques ; des navires côte à côte égalisent leurs vitesses d'autant plus qu'elle est élevée.
@@ -724,3 +721,12 @@
 727|Exécuter
 728|Outils
 729|Fait une capture de chaque onglet de cette fenêtre (la fenêtre est ajustée à l'onglet, à la plus petite taille où toutes ses options sont visibles) dans BepInEx/AlternativeDamageModel_screens, puis remet la fenêtre comme avant. Rien n'est appliqué ni modifié.
+730|Par défaut
+731|↺ = revenir à la valeur du profil
+732|Aucun résultat.
+607|Ajouté à GripScrape en proportion de la pression des navires l'un contre l'autre (un éperonnage par le flanc enlève l'essentiel de la vitesse de glissement, un contact rasant presque rien).
+610|Les navires de l'IA sont eux aussi ralentis par une collision (le navire que vous contrôlez l'est toujours, quand Braking est supérieur à 0).
+611|Les navires qui se heurtent perdent de la vitesse : la vitesse relative perpendiculaire au contact est presque entièrement perdue (le navire le plus léger en perd le plus, le plus lourd à peine), le long du contact seulement une partie (voir GripScrape et GripPress). La physique du jeu ne ralentit pas les navires, ceci si. Le navire reprend ensuite de la vitesse avec ses propres machines. 0 = les navires gardent leur vitesse.
+673|Diagnostic : écrit chaque incendie déclenché par un impact et chaque changement de stade d'un incendie dans le journal BepInEx et dans le fichier de trace (navire, compartiment, temps de mission, gravité et croissance en % du maximum du compartiment, équipes de contrôle des avaries sur place). Fonctionne aussi quand le mod est désactivé dans le menu Mods, pour comparer avec le jeu.
+677|Probabilité qu'une équipe blessée soit sonnée (voir HealTime) : la blessure (sa part de la santé de l'équipe) multipliée par ce nombre, au plus 100 %. 2.0 = une blessure de 20 % sonne dans 40 % des cas, de 50 % ou plus toujours ; 1.0 = une blessure de 20 % dans 20 %. 100 = toujours sonnée (comme dans le jeu). Une équipe que le jeu met hors de combat sans le modèle de santé est toujours sonnée.
+705|5 classes
