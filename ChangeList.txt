@@ -1,3 +1,7 @@
+Version 2.3.0
+- Collisions: a ship no longer "avoids" the helicopters of its own deck (option "Ignore own helicopters", [Collisions] OwnHelicopters, on in Advanced, off in Base Game). The game's collision-avoidance job compares a helicopter's home base with the helicopter itself, so a carrier swerved (rudder +-50 degrees, Avoiding collision) and listed to and fro at every take-off and landing; the helicopter's colliders also threw the hull about. Settings: the row of pages (General, Hull, ...) no longer scrolls away with the rows.
+- Code cleanup: unused code removed, two small per-frame allocations removed (Update, enemy status).
+
 Version 2.2.0
 - Settings window (the same window and rules in all four Alternative mods):
   - One-line tab strip with arrows; the mouse wheel scrolls it.

@@ -28,6 +28,8 @@ namespace AlternativeDamageModel
             return viewModel != null && IconByContext.TryGetValue(viewModel, out cv) ? cv : null;
         }
 
+        public static bool Started { get { return _started; } }
+
         /// <summary>Once, when the game's main view exists: registers the handlers and takes what is already loaded.</summary>
         public static void Start(FrameworkElement root)
         {

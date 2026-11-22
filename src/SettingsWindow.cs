@@ -35,7 +35,6 @@ namespace AlternativeDamageModel
             public bool Global;
             public Action Act;         // Kind.Action: what the button does
             public string[] Options;   // Kind.Choice
-            public string[] Labels;    // Kind.Choice: shown names when they differ from the values (Labels[0] is translated, the rest are native names)
         }
 
         const string TUi = "User Interface", TGen = "Damage Model", TDbg = "Debug";
@@ -125,7 +124,8 @@ namespace AlternativeDamageModel
             Add(H, "Hull integrity", "HullIntegrity/Submarines", "Submarines", "× game", Kind.Number, 0.5f, 0.1f, 20f);
             Add(C, "Collisions", "Collisions/Enabled", "Enable collision damage", "", Kind.Bool, 0, 0, 0);
             Add(C, "Collisions", "Collisions/AIShips", "Enable collisions for AI ships", "", Kind.Bool, 0, 0, 0);
-            Add(C, "On Contact", "Collisions/PushApart", "Push ships apart", "", Kind.Bool, 0, 0, 0);
+            Add(C, "Collisions", "Collisions/PushApart", "Push ships apart", "", Kind.Bool, 0, 0, 0);
+            Add(C, "Collisions", "Collisions/OwnHelicopters", "Ignore own helicopters", "no dodging, no contact with the hull", Kind.Bool, 0, 0, 0);
             Add(C, "Hull damage", "HullIntegrity/CollisionDamage", "Collision damage", "× · 0 = none", Kind.Number, 0.1f, 0f, 10f);
             Add(C, "Hull damage", "Collisions/Flooding", "Flooding from collisions", "× · 0 = none", Kind.Number, 0.1f, 0f, 10f);
             Add(C, "Hull damage", "HullIntegrity/CollisionMinSpeed", "Minimum collision speed", "knots, relative speed", Kind.Number, 0.5f, 0f, 30f);
@@ -467,7 +467,14 @@ namespace AlternativeDamageModel
             _body = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0f, 6f, 0f, 6f) };
             var scroll = _scroll = new ScrollViewer { Content = _body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
             scroll.SizeChanged += (o, e) => FitPage();
-            var settingsArea = _f.Card(scroll);
+            // the row of pages (General, Hull, ...) stays above the scrolled rows (in the screenshots it is part of the page, so the window fits it)
+            _pageHost = new Border();
+            var areaGrid = new Grid();
+            areaGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            areaGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1f, GridUnitType.Star) });
+            Grid.SetRow(_pageHost, 0); Grid.SetRow(scroll, 1);
+            areaGrid.Children.Add(_pageHost); areaGrid.Children.Add(scroll);
+            var settingsArea = new Border { Child = areaGrid, Background = B(CCard), BorderBrush = B(CLine), BorderThickness = new Thickness(1f), Margin = new Thickness(12f, 0f, 12f, 0f) };
             main.Children.Add(settingsArea);
 
             main.Children.Add(_f.HelpPane(Loc.T("Point at a setting to see what it does.")));   // fixed: 6 lines - the window does not jump as the text changes
@@ -499,6 +506,7 @@ namespace AlternativeDamageModel
 
         // ------------------------------------------------------------ size (kept while the game runs)
         static ScrollViewer _scroll;
+        static Border _pageHost;       // above the scrolled rows: the row of pages of a group
         static TabScroll _tabScroll;   // the one-line strip of tabs (Rgreat.Kit)
 
 
@@ -741,7 +749,7 @@ namespace AlternativeDamageModel
             "DamageControlTeams/SpeedRested", "DamageControlTeams/SpeedTired", "DamageControlTeams/SpeedExhausted",
             "FireAndFlooding/UnattendedFireGrowth", "FireAndFlooding/UnattendedFireTime", "FireAndFlooding/UnattendedFireGrowthRate", "FireAndFlooding/UnattendedFireMaxGrowth",
             "FireAndFlooding/TeamBlocksFireSpread", "FireAndFlooding/FireReopenLeaks", "FireAndFlooding/FireReopenLimit", "FireAndFlooding/SubmergedFireDecay", "FireAndFlooding/BlockedHitFireChance", "FireAndFlooding/GunFireSeverity", "FireAndFlooding/ShellFireByPower", "HullIntegrity/ArmorClasses",
-            "FireAndFlooding/FullFloodSystems", "FireAndFlooding/FullFloodFireDecay", "HullIntegrity/DamageSpill", "HullIntegrity/CollisionDamage", "HullIntegrity/CollisionMinSpeed", "Collisions/BowStrength", "Collisions/Braking", "Collisions/Enabled", "Collisions/AIShips", "Collisions/WaterResistance", "Collisions/Flooding", "Collisions/GripPress", "Collisions/PushApart", "Systems/NoEngineTeamEffectiveness", "Systems/SeveralPriorities", "FireAndFlooding/AutoCounterflood",
+            "FireAndFlooding/FullFloodSystems", "FireAndFlooding/FullFloodFireDecay", "HullIntegrity/DamageSpill", "HullIntegrity/CollisionDamage", "HullIntegrity/CollisionMinSpeed", "Collisions/BowStrength", "Collisions/Braking", "Collisions/Enabled", "Collisions/AIShips", "Collisions/WaterResistance", "Collisions/Flooding", "Collisions/GripPress", "Collisions/PushApart", "Collisions/OwnHelicopters", "Systems/NoEngineTeamEffectiveness", "Systems/SeveralPriorities", "FireAndFlooding/AutoCounterflood",
             "UI/DetailedView", "UI/ColorWeaponStatus", "UI/ShowEnemyDamage",
         };
 
@@ -866,9 +874,10 @@ namespace AlternativeDamageModel
             if (_tabScroll != null && grp < _tabButtons.Count) _tabScroll.Reveal(_tabButtons[grp]);   // the chosen tab is kept in view in the scrolled strip
             if (_body == null) return;
             _body.Children.Clear();
+            if (_pageHost != null) _pageHost.Child = null;
             _pageDots.Clear();
             if (!string.IsNullOrEmpty(_f.Query)) { ShowFound(adm); UpdateHeader(); return; }
-            { var pb = PageBar(grp, adm); if (pb != null) _body.Children.Add(pb); }
+            { var pb = PageBar(grp, adm); if (pb != null) { if (_shotting || _pageHost == null) _body.Children.Add(pb); else _pageHost.Child = pb; } }
             string group = null;
             bool ui = UiOn();
             bool dcTab = Tabs[_tab] == "DC Teams";
@@ -1205,7 +1214,7 @@ namespace AlternativeDamageModel
         static FrameworkElement ChoiceEditor(Field f, Action mark, out Action refresh)
         {
             var labels = new List<string>();
-            for (int oi = 0; oi < f.Options.Length; oi++) labels.Add(f.Labels != null ? (oi == 0 ? Loc.T(f.Labels[oi]) : f.Labels[oi]) : Loc.T(f.Options[oi]));
+            for (int oi = 0; oi < f.Options.Length; oi++) labels.Add(Loc.T(f.Options[oi]));
             return _f.Combo(labels, () =>
             {
                 string cur = Get(f).Trim();

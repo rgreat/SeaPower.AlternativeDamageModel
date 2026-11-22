@@ -215,7 +215,7 @@ namespace AlternativeDamageModel
         // hits its own ship with it and logs "Secondary explosion!" only in its own message log. While ExplodeSystem runs, the hits it causes are named after the
         // system ("Explosion of Mk 45 gun mount"); if none of them came to the exploding ship's own log, one record for the section of the system is added.
         static string _exploding; static object _explodingComps; static bool _explodingLogged;
-        static PropertyInfo _pSysName; static FieldInfo _fSysBase, _fSysColliders, _fSysMeshColliders, _fSysMount, _fSysLists, _fSysCompList;
+        static PropertyInfo _pSysName; static FieldInfo _fSysBase, _fSysLists;
 
         static object ShipCompsOf(object system)
         {

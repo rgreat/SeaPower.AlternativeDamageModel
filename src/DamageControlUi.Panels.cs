@@ -127,13 +127,6 @@ namespace AlternativeDamageModel
         public static float TrimRed(object comp) { return Math.Max(0.5f, TrimScale(comp) * Limits.FloodFrom); }
         /// <summary>The water in the ship (% of the hull) where the LEVEL gauge's red band starts.</summary>
         public static float LevelDangerAt(object comp) { return 0.8f * SinkAt(comp); }
-        /// <summary>The LEVEL gauge's value as it is drawn (0..100 %, 100 = the top where the ship starts to sink); the red band starts at <see cref="LevelDangerPct"/>.</summary>
-        public static float LevelPct(object comp)
-        {
-            float fp = 0f;
-            try { if (_compFloodPct == null) { var t = comp.GetType(); _compFloodPct = t.GetProperty("FloodingPercentage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); } fp = Convert.ToSingle(_compFloodPct.GetValue(comp, null), CultureInfo.InvariantCulture); } catch { }
-            return Math.Min(100f, 100f * fp / SinkAt(comp));
-        }
         public const float LevelDangerPct = 80f;
         /// <summary>Water in the ship (% of the hull) at which it sinks.</summary>
         public static float SinkAt(object comp) { return IsSub(comp) ? 50f : ModelOn() ? Limits.LevelFull : 40f; }

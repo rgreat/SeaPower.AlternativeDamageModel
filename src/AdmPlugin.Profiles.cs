@@ -433,13 +433,6 @@ namespace AlternativeDamageModel
             RescaleLiveHulls();
         }
 
-        /// <summary>The file of a profile: next to the dll for a built-in one, else in the player's folder.</summary>
-        static string ProfilePath(string name)
-        {
-            if (IsBuiltIn(name)) { string dir = ModProfilesDir; return dir == null ? null : Path.Combine(dir, SystemName(name) + ".cfg"); }
-            return UserFile(name);
-        }
-
         /// <summary>
         /// The values in use against their profile, after they were changed outside the settings window (start, .cfg edited, a
         /// configuration manager): a built-in profile that no longer matches becomes Custom (saved); a profile of the player's own

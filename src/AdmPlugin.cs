@@ -37,7 +37,7 @@ namespace AlternativeDamageModel
     {
         public const string PluginGuid = "com.rgreat.seapower.alternativedamagemodel";
         public const string PluginName = "Alternative Damage Model";
-        public const string PluginVersion = "2.2.0";
+        public const string PluginVersion = "2.3.0";
 
         /// <summary>Build number (UTC build time, yyyyMMdd.HHmm) stamped into the dll by the csproj; shows which dll is running.</summary>
         public static readonly string BuildId = ReadBuildId();
@@ -62,7 +62,7 @@ namespace AlternativeDamageModel
         static bool _teamBlocksSpread = true;
         static float _fireGrowLimit = 0.5f, _flameUp = 1f, _extinguish = 1f, _floodSpeed = 1f, _pumpOut = 1f, _fireHull = 1f, _sysRepair = 2f, _hullRepair = 1f;
         ConfigEntry<Factor> _collisionEntry, _collisionMinEntry, _brakingEntry, _bowEntry, _gripPressEntry, _floodEntry, _waterEntry;
-        ConfigEntry<bool> _collAiEntry, _collOnEntry, _pushEntry;
+        ConfigEntry<bool> _collAiEntry, _collOnEntry, _pushEntry, _ownHeliEntry;
         ConfigEntry<Factor> _fireGrowLimitEntry, _flameUpEntry, _extinguishEntry, _floodSpeedEntry, _pumpOutEntry, _sysRepairEntry, _hullRepairEntry, _subFireEntry, _counterRateEntry, _counterLimitEntry, _leakPumpEntry, _fireHullEntry;
         ConfigEntry<Factor> _smallBoostEntry, _blockedFireEntry, _gunFireEntry, _reserveChanceEntry, _teamEffEntry, _transferSpeedEntry, _musterEntry, _healthEntry, _regenEntry, _fireWoundEntry, _hitWoundEntry, _stunEntry, _stunSpreadEntry, _stunChanceEntry, _woundChanceEntry, _fatigueEntry, _exhaustEntry, _speedRestedEntry, _speedTiredEntry, _speedExhaustEntry, _fatigueRecoverEntry, _listLimitEntry, _trimLimitEntry, _trimLengthEntry, _levelLimitEntry, _deckFloodSpeedEntry, _deckFloodDelayEntry, _wreckDragEntry, _imbalanceEntry;
         ConfigEntry<string> _profileEntry;
@@ -359,6 +359,8 @@ namespace AlternativeDamageModel
                 "The share of the sliding (along the contact) relative speed that a blow takes, in proportion to how much the ships press together (a ram into the side takes most of the sliding speed, a touch of parallel hulls nothing).");
             _pushEntry = Pcfg.Bind("Collisions", "PushApart", true,
                 "Ships in contact are slowly moved apart (about half a metre a second), so that a ship that rammed another does not stay inside it. The game does not separate overlapping ships.");
+            _ownHeliEntry = Pcfg.Bind("Collisions", "OwnHelicopters", true,
+                "A ship takes no notice of the helicopters of its own deck. The game's collision avoidance meant to skip them, but a bug in it (a helicopter's home base is compared with the helicopter itself) makes the ship \"avoid\" its own helicopters at take-off and landing: the rudder goes to +-50 degrees, the sign follows the helicopter, and the ship lists to and fro. On: the ship does not avoid its own helicopters, and the colliders of a helicopter and of its ship do not touch (a helicopter that brushes the hull throws the ship about).");
             _fullSystemsEntry = Pcfg.Bind("FireAndFlooding", "FullFloodSystems", true,
                 "A flooded section (75% of water or more in one of its compartments, or 50% or more in the section as a whole): its systems are brought down to severe damage, made inoperable and cannot be repaired while it stays flooded.");
             _fullFireEntry = Pcfg.Bind("FireAndFlooding", "FullFloodFireDecay", new Factor(10f),
@@ -660,9 +662,8 @@ namespace AlternativeDamageModel
             }
             if (_patchTried)
             {
-                float uNow = UnityEngine.Time.unscaledTime;
                 bool wantTexts = Enabled && _weaponColor, wantIcons = Enabled && _enemyDmg;
-                try { UiScan.Start(WeaponStatusColors.Root()); }
+                try { if (!UiScan.Started) UiScan.Start(WeaponStatusColors.Root()); }
                 catch (Exception e) { Trace("UiScan.Start: " + e.Message); }
                 try { WeaponStatusColors.SetOn(WeaponStatusColors.Ready && wantTexts); }
                 catch (Exception e) { Trace("WeaponStatusColors.SetOn: " + e.Message); }
@@ -894,7 +895,7 @@ namespace AlternativeDamageModel
             Collisions.MinSpeed = Math.Max(0f, _collisionMinEntry.Value.V);
             Collisions.Braking = Math.Max(0f, _brakingEntry.Value.V); Collisions.BowStrength = Math.Max(1f, _bowEntry.Value.V);
             Collisions.FloodFactor = Math.Max(0f, _floodEntry.Value.V); Collisions.GripPress = Math.Min(0.9f, Math.Max(0f, _gripPressEntry.Value.V));
-            Collisions.WaterResistance = Math.Max(0f, _waterEntry.Value.V); Collisions.AIShips = _collAiEntry.Value; Collisions.DamageOn = _collOnEntry.Value; Collisions.PushApart = _pushEntry.Value;
+            Collisions.WaterResistance = Math.Max(0f, _waterEntry.Value.V); Collisions.AIShips = _collAiEntry.Value; Collisions.DamageOn = _collOnEntry.Value; Collisions.PushApart = _pushEntry.Value; OwnHelicopters.On = _ownHeliEntry.Value;
             Collisions.FloodVuln = _floodVuln;
             SectionEffects.FireDecay = Math.Max(0f, _fullFireEntry.Value.V);
             DcTeams.FireWorkEff = Math.Max(0f, Math.Min(100f, _fireEffEntry.Value.V)) / 100f;
@@ -976,7 +977,7 @@ namespace AlternativeDamageModel
 
             Trace("teams: health " + (DcTeams.HealthOn ? "on x" + F(DcTeams.HealthMul) : "off") + ", any integrity " + DcTeams.AnyIntegrity + ", reserve hits " + DcTeams.ReserveHits + ", wound chance " + F(DcTeams.WoundChance) + ", fire wound " + F(DcTeams.FireWound));
             Trace("settings: detailed view " + (_uiOn ? "on" : "off") + ", damage model " + (_admOn ? "on" : "off") + ", warships " + F(_mWar) + ", civilian " + F(_mCiv) + ", submarines " + F(_mSub) + ", perShip " + map.Count +
-                  ", shellVuln " + F(_shellVuln) + ", fireVuln " + F(_fireVuln) + ", floodVuln " + F(_floodVuln) + ", collisions " + (Collisions.DamageOn ? "on " : "off ") + F(Collisions.Strength) + " (slowest " + F(Collisions.MinSpeed) + " kn), braking " + F(Collisions.Braking) + (Collisions.AIShips ? "" : " (not AI ships)") + ", bow " + F(Collisions.BowStrength) + (Collisions.PushApart ? ", push apart" : ""));
+                  ", shellVuln " + F(_shellVuln) + ", fireVuln " + F(_fireVuln) + ", floodVuln " + F(_floodVuln) + ", collisions " + (Collisions.DamageOn ? "on " : "off ") + F(Collisions.Strength) + " (slowest " + F(Collisions.MinSpeed) + " kn), braking " + F(Collisions.Braking) + (Collisions.AIShips ? "" : " (not AI ships)") + ", bow " + F(Collisions.BowStrength) + (Collisions.PushApart ? ", push apart" : "") + (OwnHelicopters.On ? ", own helicopters ignored" : ""));
         }
 
         static float Pos(float v) { return v > 0.01f ? v : 0.01f; }
@@ -1210,6 +1211,7 @@ namespace AlternativeDamageModel
             return SysRepairFix.Prefix(__instance, index, ref __result, out __state);   // the game's loop "repairs" intact systems for ever
         }
         static void SysRepairPost(object __state) { SysRepairFix.Postfix(__state); }
+        static void OwnHeliPostfix() { if (Model) OwnHelicopters.Postfix(); }
         static void CollisionPostfix(object __instance, object[] __args) { if (Model) Collisions.Postfix(__instance, __args); }
         static float HullGameMaxOf(object comps)
         {
@@ -1330,6 +1332,14 @@ namespace AlternativeDamageModel
             {
                 var ts = asm.GetType(shipType);
                 Patch(harmony, ts == null ? null : ts.GetMethod("OnCollisionEnter", all | BindingFlags.DeclaredOnly), null, "CollisionPostfix", null, shipType + ".OnCollisionEnter (ship collisions)", ref ok, ref failed);
+            }
+
+            // a ship does not avoid its own helicopters ([Collisions] OwnHelicopters)
+            OwnHelicopters.Trace = Trace; OwnHelicopters.Asm = asm;
+            {
+                var tCaj = asm.GetType("SeaPower.CollisionAvoidanceJobScheduler");
+                var mDone = tCaj == null ? null : tCaj.GetMethod("Complete", all | BindingFlags.DeclaredOnly);
+                Patch(harmony, mDone, null, "OwnHeliPostfix", null, "CollisionAvoidanceJobScheduler.Complete (own helicopters)", ref ok, ref failed);
             }
 
             // several repair priorities in one section ([Systems] SeveralPriorities)

@@ -251,27 +251,6 @@ namespace AlternativeDamageModel
             catch { }
         }
 
-        /// <summary>
-        /// Debug: how the two ships really move at the first contact - the speed the game reports (getVelocityInKnots), the Rigidbody's own velocity
-        /// (Unity's relativeVelocity is made of those), is it kinematic, and what Unity made of the contact (relative speed, impulse).
-        /// </summary>
-        static string Motion(object self, object col)
-        {
-            try
-            {
-                var inv = CultureInfo.InvariantCulture;
-                var otherBody = _pRb.GetValue(col, null) as Component;
-                object rbSelf = _pRbSelf == null ? null : _pRbSelf.GetValue(self, null);
-                Component other = otherBody == null ? null : (otherBody.GetComponent(_tObjBase) ?? otherBody.transform.root.GetComponentInChildren(_tObjBase));
-                object compsSelf = _pComps.GetValue(self, null), compsOther = other == null ? null : _pComps.GetValue(other, null);
-                Vector3 rel = (Vector3)_pRel.GetValue(col, null), imp = (Vector3)_pImpulse.GetValue(col, null);
-                return "game speed " + (compsSelf == null ? "?" : SpeedEffect.KnotsOf(compsSelf).ToString("0.0", inv)) + " kn (this) / " +
-                       (compsOther == null ? "?" : SpeedEffect.KnotsOf(compsOther).ToString("0.0", inv)) + " kn (other); rigidbody " + RbMotion(rbSelf) + " (this) / " + RbMotion(otherBody) +
-                       " (other); Unity relative speed " + (rel.magnitude * UnityToMetre * MetreSecToKnot).ToString("0.00", inv) + " kn, impulse " + (imp.magnitude * MassUnitToTon * UnityToMetre).ToString("0.#", inv) + " t*m/s";
-            }
-            catch (Exception e) { return "? " + e.Message; }
-        }
-
         static string RbMotion(object rb)
         {
             if (rb == null) return "none";

@@ -1,8 +1,2 @@
-Version 2.2.0
-- One settings window for all four Alternative mods:
-  - Find any option by typing its name in the search box.
-  - Switch between the mods' settings with one click; your edits are kept.
-  - Choose the language once for all mods.
-  - Undo changes you have not applied yet.
-- Changing the language no longer resets the settings window: it keeps its place, size and your unapplied edits.
-- Six option descriptions that were in English are now translated.
+Version 2.3.0
+- Fixed: a carrier no longer swerves and lists at every helicopter take-off and landing (Collisions: "Ignore own helicopters").

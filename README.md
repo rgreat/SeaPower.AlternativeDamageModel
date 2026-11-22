@@ -1,10 +1,10 @@
 # Alternative Damage Model
 
-**Version 2.2.0**
+**Version 2.3.0**
 
 Alternative Damage Model: a deeper, more realistic damage model for Sea Power. Fires, flooding, wounded damage control teams and a Damage Control interface that lets you fight for your ship.
 
-## Requires **Anchor Chain** or **R.A.T.S. Keel**
+## Requires **RATS Keel** or **Anchor Chain**
 
 ## Features
 
@@ -33,7 +33,7 @@ Alternative Damage Model: a deeper, more realistic damage model for Sea Power. F
 Preconfigured:
 
 1. **Stronger hulls.** Hull integrity of warships, civilian ships and submarines times your factor (per ship too); a hit takes the same share as in the game. The armour classes of the WW2 mod (LightCruiser ... SuperHeavy), which the game takes for no armour, can be switched on. Side effects of hits (shell damage tiers, fires, flooding) are tunable; systems can be made stronger too, all or by module type.
-2. **Collisions between ships (own tab).** The game only lets ships pass through each other. With the mod a blow slows the ships (across the contact almost all the closing speed is lost, the lighter ship the most; along it a part, so ships side by side mix their speeds; AI ships optionally; the engines then speed the ship up again; the water holds the struck ship back, and a strong blow shoves it aside) and each ship loses hull where the hulls touch, for as long as they stay in contact; any strong blow opens leaks. The damage is the energy the blow wears down, the bow taking several times less than the side. Damage, flooding from collisions, slowest damaging impact, bow strength, slowing, water resistance, speed loss when pressed together and an option to push the ships apart are set; 0 = off.
+2. **Collisions between ships (own tab).** The game only lets ships pass through each other. With the mod a blow slows the ships (across the contact almost all the closing speed is lost, the lighter ship the most; along it a part, so ships side by side mix their speeds; AI ships optionally; the engines then speed the ship up again; the water holds the struck ship back, and a strong blow shoves it aside) and each ship loses hull where the hulls touch, for as long as they stay in contact; any strong blow opens leaks. The damage is the energy the blow wears down, the bow taking several times less than the side. Damage, flooding from collisions, slowest damaging impact, bow strength, slowing, water resistance, speed loss when pressed together and an option to push the ships apart are set; 0 = off. A ship ignores its own helicopters (the game makes a carrier swerve and list when its helicopters take off or land).
 3. **No instant sinking from list or trim.** From the red zone of LIST / TRIM the low side or end floods fast. With a complete hull collider the red zones start where the first deck-edge point touches the sea; a ship with 5 sections sinks when both central deck points of its middle section, or 6 deck points, stay under the sea for 10 seconds. A compartment whose deck edge is under the sea for 3 seconds takes on water that cannot be stopped. Fire reopens plugged leaks; a section flooded above 75% loses its systems and its fire; teams amid a fire they do not fight work at 75%. Wreck drag; no jump of the centre of mass when sinking starts; small AI ships keep their speed; an unarmed surface ship counts as civilian.
 4. **Fire and flooding speeds:** growth, hull burning, spread and extinguishing of fires; inflow and pumping of water (also while plugging holes, from the side with more water); the ship's speed effect (a table); small ships (1000 t down to 50 t) burn and flood up to 3 times faster; no plugging above a set speed; system and hull repair speed; a fire growth limit; a gun shell's fire may start with a size, as for bombs and missiles; gun shells stopped by the armour may still start a fire next to the hit compartment (a share of the chance of a shell that gets through, 0 = off).
 5. **One switch** (Settings → Damage Model → Alternative Damage Control) turns the damage model off and on during a mission; the tab view, DC Priority and orders by hand stay.
@@ -41,7 +41,7 @@ Preconfigured:
 ## Compatibility
 
 - Supports Sea Power version 0.9.0 and newer.
-- Loaders: Anchor Chain or R.A.T.S. Keel.
+- Loaders: RATS Keel or Anchor Chain.
 - Can be switched on/off in the game's Mods menu.
 - Special effects moved to Alternative Special Effects; install it to keep them. Settings are taken over on its first start.
 - Settings also open from the main menu and the pause menu (with other Alternative mods they share one "Alternative Mods" entry).
@@ -49,7 +49,7 @@ Preconfigured:
 
 ## Install
 
-1. Subscribe to [Anchor Chain](https://steamcommunity.com/workshop/filedetails/?id=3380210757) or [RATS Keel](https://steamcommunity.com/workshop/filedetails/?id=3835527459) (temporarily unavailable) and follow instructions on mods page.
+1. Subscribe to [RATS Keel](https://steamcommunity.com/workshop/filedetails/?id=3835527459) or [Anchor Chain](https://steamcommunity.com/workshop/filedetails/?id=3380210757) and follow instructions on mods page.
 2. Subscribe to this mod.
 3. Start **Sea Power**.
 4. Enable mod in game's **Mod Manager** and press **Apply** button.

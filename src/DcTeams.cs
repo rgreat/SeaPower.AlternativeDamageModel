@@ -1191,12 +1191,6 @@ namespace AlternativeDamageModel
             return -1;
         }
 
-        /// <summary>The teams waiting in the reserve.</summary>
-        public static List<View> InPool(object comp)
-        {
-            return Snapshot(comp).FindAll(v => v.State == (int)St.Pool);
-        }
-
         public static bool Active(object comp)
         {
             Ship s;

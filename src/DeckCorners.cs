@@ -617,12 +617,6 @@ namespace AlternativeDamageModel
             return list;
         }
 
-        static readonly List<Transform> _reactivatedTransforms = new List<Transform>();
-        static readonly List<Component> _reenabledColliders = new List<Component>();
-
-        static readonly List<float> _hcX = new List<float>();
-        static readonly List<float> _hcY = new List<float>();
-
         // ------------------------------------------------------------ exact (mesh-based) point placement
 
         struct Tri { public Vector3 A, B, C; }

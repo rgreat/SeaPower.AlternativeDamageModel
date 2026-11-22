@@ -484,19 +484,11 @@ namespace AlternativeDamageModel
             catch { return "?"; }
         }
 
-        const float CritOn = 0.8f, CritOff = 0.6f;      // critical heel (also: a deck point is about to touch the sea; the red zones start there): counterflooding goes first
-
         /// <summary>The ship's heel is dangerous (list or trim in its red zone; wasOn: until it is down to half of it) and water still comes in through holes.</summary>
         public static bool HeelDanger(object comp, bool wasOn, bool leaking)
         {
             if (!leaking || Repairs[TaskCounter] == null) return false;
             return HeelRatio(comp) >= (wasOn ? HeelOff : HeelOn);
-        }
-
-        /// <summary>The heel is critical: 80% of the red zone of the list or trim (wasOn: until it is down to 60%). Counterflooding is the first job then.</summary>
-        public static bool HeelCritical(object comp, bool wasOn)
-        {
-            return HeelRatio(comp) >= (wasOn ? CritOff : CritOn);
         }
 
         /// <summary>The section where counterflooding (or pumping against the heel) helps most; -1 = none. A section whose teams are at it already counts 25% more.</summary>

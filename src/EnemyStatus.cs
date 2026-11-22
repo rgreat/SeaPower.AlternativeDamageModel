@@ -226,11 +226,13 @@ namespace AlternativeDamageModel
         }
         static readonly ConditionalWeakTable<object, Card> Panels = new ConditionalWeakTable<object, Card>();
 
+        static readonly List<FrameworkElement> _tickViews = new List<FrameworkElement>();   // Tick's own list (Show may run inside it)
+
         /// <summary>Called every frame; works twice a second.</summary>
         public static void Tick(float now)
         {
             if (!_ok) return;
-            foreach (var view in DamageControlUi.StatusViewElements())
+            foreach (var view in DamageControlUi.StatusViewElements(_tickViews))
             {
                 Card p;
                 if (!Panels.TryGetValue(view, out p))

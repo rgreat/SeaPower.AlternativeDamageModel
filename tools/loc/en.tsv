@@ -631,7 +631,7 @@ added_to_scraping_speed_loss_in_proporti.85d194	Added to "Scraping speed loss" i
 collisions_affect_the_ships_of_the_ai_to.f0324c	Collisions affect the ships of the AI too (their hulls and their speed). Off: only the ship you control is affected.	AdmPlugin.cs (cfg)
 ships_that_collide_are_damaged_and_slowe.8a2df6	Ships that collide are damaged and slowed. Off: a collision between ships does nothing, as in the game.	obsolete
 ships_that_collide_lose_speed_the_relati.034c35	Ships that collide lose speed: the relative speed across the contact is almost all lost (the lighter ship loses the most, the heavier hardly any), along it only a part (see "Scraping speed loss" and "Pressing speed loss"). The game's physics does not slow ships, this does. 1.0 = the full loss of speed that such a blow gives, 0.5 = half of it, 0 = the ships keep their speed. The ship then speeds up again by its own engines.	obsolete
-on_contact.20bdcc	On Contact	SettingsWindow.cs (group)
+on_contact.20bdcc	On Contact	obsolete
 enable_collision_damage.3496db	Enable collision damage	SettingsWindow.cs (label)
 enable_collisions_for_ai_ships.fe9625	Enable collisions for AI ships	SettingsWindow.cs (label)
 minimum_collision_speed.c83798	Minimum collision speed	SettingsWindow.cs (label)
@@ -730,3 +730,6 @@ takes_a_screenshot_of_every_tab_of_this.920d99	Takes a screenshot of every tab o
 default.dc307e	Default	SettingsWindow.cs
 back_to_the_profile_s_value.2b8e07	↺ = back to the profile's value	SettingsWindow.cs
 nothing_found.f82a3c	Nothing found.	SettingsWindow.cs (ui)
+a_ship_takes_no_notice_of_the_helicopter.31aa8e	A ship takes no notice of the helicopters of its own deck. The game's collision avoidance meant to skip them, but a bug in it (a helicopter's home base is compared with the helicopter itself) makes the ship "avoid" its own helicopters at take-off and landing: the rudder goes to +-50 degrees, the sign follows the helicopter, and the ship lists to and fro. On: the ship does not avoid its own helicopters, and the colliders of a helicopter and of its ship do not touch (a helicopter that brushes the hull throws the ship about).	AdmPlugin.cs (cfg)
+ignore_own_helicopters.a8d26d	Ignore own helicopters	SettingsWindow.cs (label)
+no_dodging_no_contact_with_the_hull.84327f	no dodging, no contact with the hull	SettingsWindow.cs (unit)

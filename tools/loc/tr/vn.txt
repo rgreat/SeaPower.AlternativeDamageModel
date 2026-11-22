@@ -730,3 +730,6 @@
 673|Chẩn đoán: ghi mọi đám cháy do trúng đạn và mọi thay đổi giai đoạn của đám cháy vào nhật ký BepInEx và tệp theo dõi (tàu, khoang, thời gian nhiệm vụ, mức độ nghiêm trọng và tốc độ lan theo % mức tối đa của khoang, các đội kiểm soát thiệt hại ở đó). Hoạt động cả khi mod bị tắt trong menu Mods, để so sánh với game.
 677|Xác suất một đội bị thương bị choáng (xem HealTime): vết thương (tỉ lệ so với sức khỏe của đội) nhân với số này, tối đa 100%. 2.0 = vết thương 20% gây choáng trong 40% trường hợp, từ 50% trở lên luôn choáng; 1.0 = vết thương 20% là 20%. 100 = luôn bị choáng (như trong game). Đội mà game hạ gục khi không có mô hình sức khỏe luôn bị choáng.
 705|5 lớp
+733|Tàu không để ý đến trực thăng của chính boong tàu mình. Hệ thống tránh va chạm của game lẽ ra phải bỏ qua chúng, nhưng một lỗi trong đó (căn cứ gốc của trực thăng bị so sánh với chính trực thăng) khiến tàu "né" trực thăng của mình khi cất và hạ cánh: bánh lái bẻ ±50°, dấu theo trực thăng, và tàu nghiêng qua lại. Bật: tàu không né trực thăng của mình, và collider của trực thăng và của tàu không chạm nhau (trực thăng sượt qua thân tàu sẽ làm tàu rung lắc).
+734|Bỏ qua trực thăng của mình
+735|không né, không chạm thân tàu

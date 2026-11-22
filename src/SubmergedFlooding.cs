@@ -302,34 +302,6 @@ namespace AlternativeDamageModel
         }
         public const float SinkDelay = 10f;   // game seconds a deck point stays under the sea before it counts for sinking (the inflow over the deck starts after Delay)
 
-        /// <summary>
-        /// (Old rule, no longer used for sinking: SinkByDeck.) The extra condition of sinking from flooding for ships with exact deck points (the water level threshold itself is checked by the
-        /// game): both central compartments (the middle section, port and starboard) are under the sea, or at least <see cref="SinkPoints"/>
-        /// of the 10 compartments are - "under the sea" as in the rule above (the deck point under water for <see cref="Delay"/> seconds
-        /// in a row). Ships without exact points: always true.
-        /// </summary>
-        public static bool SinkAllowed(object comp)
-        {
-            try
-            {
-                if (comp == null || !IsEnabled()) return true;
-                Init(comp);
-                if (!_ok) return true;
-                if (IsDestroyed(comp)) return true;   // already destroyed: nothing more to wait for
-                var s = Get(comp);
-                if (s == null) return true;
-                int n = s.Count, total = 2 * n, count = 0;
-                for (int k = 0; k < total; k++) if (s.Depth[k] > 0f && s.Under[k] >= Delay) count++;
-                if (count >= SinkPoints) return true;
-                if (n % 2 == 1)
-                {
-                    int mid = n / 2;
-                    if (s.Depth[mid] > 0f && s.Under[mid] >= Delay && s.Depth[n + mid] > 0f && s.Under[n + mid] >= Delay) return true;
-                }
-                return false;
-            }
-            catch { return true; }
-        }
         public const int SinkPoints = 6;   // of the 2N deck points (with both central ones under the sea that is enough by itself)
 
         /// <summary>True when this ship floods over the deck edge by this file's rule (exact deck points, rule on): the old list / trim

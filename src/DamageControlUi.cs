@@ -1164,9 +1164,12 @@ namespace AlternativeDamageModel
         }
 
         /// <summary>The Unit Status windows made so far (the visible ones).</summary>
-        public static List<FrameworkElement> StatusViewElements()
+        public static List<FrameworkElement> StatusViewElements() { return StatusViewElements(new List<FrameworkElement>()); }
+
+        /// <summary>The same into a list the caller keeps (no garbage per call: for what runs every frame).</summary>
+        public static List<FrameworkElement> StatusViewElements(List<FrameworkElement> list)
         {
-            var list = new List<FrameworkElement>();
+            list.Clear();
             lock (StatusViews) { foreach (var w in StatusViews) { var fe = w.Target as FrameworkElement; if (fe != null) list.Add(fe); } }
             return list;
         }
